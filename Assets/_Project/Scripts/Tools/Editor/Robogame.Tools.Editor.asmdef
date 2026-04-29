@@ -1,0 +1,23 @@
+{
+    "name": "Robogame.Tools.Editor",
+    "rootNamespace": "Robogame.Tools.Editor",
+    "references": [
+        "Robogame.Core",
+        "Robogame.Block",
+        "Robogame.Movement",
+        "Robogame.Input",
+        "Robogame.Player",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
