@@ -1,0 +1,19 @@
+{
+    "name": "Robogame.Player",
+    "rootNamespace": "Robogame.Player",
+    "references": [
+        "Robogame.Core",
+        "Robogame.Input",
+        "Robogame.Movement",
+        "Robogame.Robot"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

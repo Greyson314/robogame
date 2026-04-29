@@ -17,6 +17,7 @@
 - [Getting Started](#getting-started)
 - [Contributing](#contributing)
 - [Changelog](#changelog)
+- [Reference Docs](#reference-docs)
 
 ---
 
@@ -251,6 +252,12 @@ All notable changes are documented here.
 ### [Unreleased]
 - Initial project setup
 - README and documentation scaffold
+
+---
+
+## Reference Docs
+
+- [docs/ROBOCRAFT_REFERENCE.md](docs/ROBOCRAFT_REFERENCE.md) — design research on the original Robocraft (systems, weapons, damage model, monetization lessons, what to borrow vs. avoid)
 
 ---
 

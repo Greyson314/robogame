@@ -1,0 +1,19 @@
+{
+    "name": "Robogame.Robot",
+    "rootNamespace": "Robogame.Robot",
+    "references": [
+        "Robogame.Core",
+        "Robogame.Block",
+        "Robogame.Movement",
+        "Robogame.Combat"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
