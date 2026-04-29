@@ -5,7 +5,7 @@
         "Robogame.Core",
         "Robogame.Input",
         "Robogame.Movement",
-        "Robogame.Robot"
+        "Robogame.Robots"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

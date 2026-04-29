@@ -3,7 +3,9 @@
     "rootNamespace": "Robogame.Combat",
     "references": [
         "Robogame.Core",
-        "Robogame.Block"
+        "Robogame.Block",
+        "Robogame.Input",
+        "Robogame.Robots"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -1,0 +1,135 @@
+using System.Collections.Generic;
+using Robogame.Block;
+using Robogame.Core;
+using Robogame.Input;
+using Robogame.Robots;
+using UnityEngine;
+
+namespace Robogame.Combat
+{
+    /// <summary>
+    /// Simple hitscan weapon. Reads from an <see cref="IInputSource"/> on (or above)
+    /// this GameObject, raycasts forward when fire is held, and damages whatever
+    /// <see cref="IDamageable"/> it hits — using ring-falloff splash if the hit
+    /// belongs to a <see cref="BlockBehaviour"/> on a <see cref="Robot"/>.
+    /// </summary>
+    /// <remarks>
+    /// Lives at the Robot level for now; per-block weapons come later when we
+    /// have block prefabs. Uses <see cref="Physics.Raycast"/> on a configurable
+    /// layer mask — set <see cref="_hitMask"/> to exclude the firing robot.
+    /// </remarks>
+    [DisallowMultipleComponent]
+    public sealed class HitscanGun : MonoBehaviour
+    {
+        [Header("Damage")]
+        [Tooltip("Per-ring damage applied via BlockGrid splash. Index 0 = direct hit.")]
+        [SerializeField] private float[] _splashRings = { 80f, 30f, 10f };
+
+        [Header("Firing")]
+        [Tooltip("Seconds between shots while fire is held.")]
+        [SerializeField, Min(0.01f)] private float _cooldown = 0.15f;
+
+        [Tooltip("Maximum hit distance.")]
+        [SerializeField, Min(1f)] private float _range = 100f;
+
+        [Tooltip("Layers the raycast can hit.")]
+        [SerializeField] private LayerMask _hitMask = ~0;
+
+        [Header("Origin (auto if blank)")]
+        [Tooltip("Transform that defines the muzzle position + forward direction. Defaults to this transform.")]
+        [SerializeField] private Transform _muzzle;
+
+        [Header("Tracer")]
+        [SerializeField] private bool _drawTracer = true;
+        [SerializeField, Min(0f)] private float _tracerLifetime = 0.25f;
+        [SerializeField, Min(0.001f)] private float _tracerWidth = 0.1f;
+        [SerializeField] private Color _tracerHitColor = new Color(1f, 0.25f, 0.1f, 1f);
+        [SerializeField] private Color _tracerMissColor = new Color(1f, 0.9f, 0.2f, 1f);
+
+        private IInputSource _input;
+        private Robot _ownerRobot;
+        private float _nextFireTime;
+
+        private void Awake()
+        {
+            if (_muzzle == null) _muzzle = transform;
+            _input = GetComponentInParent<IInputSource>();
+            _ownerRobot = GetComponentInParent<Robot>();
+        }
+
+        private void Update()
+        {
+            if (_input == null || !_input.FireHeld) return;
+            if (Time.time < _nextFireTime) return;
+            _nextFireTime = Time.time + _cooldown;
+            Fire();
+        }
+
+        private void Fire()
+        {
+            Vector3 origin = _muzzle.position;
+            Vector3 direction = _muzzle.forward;
+
+            Vector3 endPoint;
+            bool didHit = Physics.Raycast(origin, direction, out RaycastHit hit, _range, _hitMask, QueryTriggerInteraction.Ignore);
+            if (didHit)
+            {
+                endPoint = hit.point;
+                ApplyHit(hit);
+            }
+            else
+            {
+                endPoint = origin + direction * _range;
+            }
+
+            if (_drawTracer)
+            {
+                SpawnTracer(origin, endPoint, didHit ? _tracerHitColor : _tracerMissColor);
+            }
+        }
+
+        private void SpawnTracer(Vector3 from, Vector3 to, Color color)
+        {
+            var go = new GameObject("Tracer");
+            go.transform.position = from;
+            var lr = go.AddComponent<LineRenderer>();
+            lr.positionCount = 2;
+            lr.SetPosition(0, from);
+            lr.SetPosition(1, to);
+            lr.startWidth = _tracerWidth;
+            lr.endWidth = _tracerWidth * 0.5f;
+            lr.useWorldSpace = true;
+            lr.numCapVertices = 2;
+            lr.material = new Material(Shader.Find("Sprites/Default"));
+            lr.startColor = color;
+            lr.endColor = new Color(color.r, color.g, color.b, 0f);
+            Destroy(go, _tracerLifetime);
+        }
+
+        private void ApplyHit(RaycastHit hit)
+        {
+            // Prefer Robot-aware splash so connectivity / mass-loss bookkeeping fires.
+            BlockBehaviour block = hit.collider.GetComponentInParent<BlockBehaviour>();
+            if (block != null)
+            {
+                Robot targetRobot = block.GetComponentInParent<Robot>();
+                if (targetRobot != null && targetRobot != _ownerRobot && targetRobot.Grid != null)
+                {
+                    // Use the hit block's actual grid cell as the splash centre.
+                    // hit.point sits on a face boundary, so WorldToGrid would
+                    // sometimes round to an empty neighbour cell and the splash
+                    // would no-op. Going via the block we hit is bulletproof.
+                    targetRobot.Grid.ApplySplashDamage(block.GridPosition, _splashRings);
+                    return;
+                }
+            }
+
+            // Fallback: any IDamageable in the hit hierarchy.
+            IDamageable dmg = hit.collider.GetComponentInParent<IDamageable>();
+            if (dmg != null && _splashRings.Length > 0)
+            {
+                dmg.TakeDamage(_splashRings[0]);
+            }
+        }
+    }
+}

@@ -2,7 +2,10 @@
     "name": "Robogame.UI",
     "rootNamespace": "Robogame.UI",
     "references": [
-        "Robogame.Core"
+        "Robogame.Core",
+        "Robogame.Block",
+        "Robogame.Robots",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

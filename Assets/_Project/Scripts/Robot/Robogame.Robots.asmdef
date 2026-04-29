@@ -1,11 +1,10 @@
 {
-    "name": "Robogame.Robot",
-    "rootNamespace": "Robogame.Robot",
+    "name": "Robogame.Robots",
+    "rootNamespace": "Robogame.Robots",
     "references": [
         "Robogame.Core",
         "Robogame.Block",
-        "Robogame.Movement",
-        "Robogame.Combat"
+        "Robogame.Movement"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

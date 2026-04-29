@@ -4,9 +4,12 @@
     "references": [
         "Robogame.Core",
         "Robogame.Block",
+        "Robogame.Combat",
         "Robogame.Movement",
         "Robogame.Input",
         "Robogame.Player",
+        "Robogame.Robots",
+        "Robogame.UI",
         "Unity.InputSystem"
     ],
     "includePlatforms": [
