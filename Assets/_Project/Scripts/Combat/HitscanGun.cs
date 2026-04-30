@@ -57,6 +57,12 @@ namespace Robogame.Combat
             _ownerRobot = GetComponentInParent<Robot>();
         }
 
+        /// <summary>Override the muzzle transform (used by <see cref="WeaponBlock"/> at spawn).</summary>
+        public void SetMuzzle(Transform muzzle)
+        {
+            if (muzzle != null) _muzzle = muzzle;
+        }
+
         private void Update()
         {
             if (_input == null || !_input.FireHeld) return;
@@ -70,17 +76,9 @@ namespace Robogame.Combat
             Vector3 origin = _muzzle.position;
             Vector3 direction = _muzzle.forward;
 
-            Vector3 endPoint;
-            bool didHit = Physics.Raycast(origin, direction, out RaycastHit hit, _range, _hitMask, QueryTriggerInteraction.Ignore);
-            if (didHit)
-            {
-                endPoint = hit.point;
-                ApplyHit(hit);
-            }
-            else
-            {
-                endPoint = origin + direction * _range;
-            }
+            bool didHit = RaycastIgnoringSelf(origin, direction, _range, out RaycastHit hit);
+            Vector3 endPoint = didHit ? hit.point : origin + direction * _range;
+            if (didHit) ApplyHit(hit);
 
             if (_drawTracer)
             {
@@ -106,6 +104,29 @@ namespace Robogame.Combat
             Destroy(go, _tracerLifetime);
         }
 
+        private bool RaycastIgnoringSelf(Vector3 origin, Vector3 dir, float maxDist, out RaycastHit best)
+        {
+            // RaycastAll + filter so a weapon mounted INSIDE its own chassis
+            // (the turret block sits on top of body cubes) doesn't hit its
+            // own blocks. Anything belonging to the owning Robot is skipped.
+            RaycastHit[] hits = Physics.RaycastAll(origin, dir, maxDist, _hitMask, QueryTriggerInteraction.Ignore);
+            best = default;
+            float bestDist = float.MaxValue;
+            bool found = false;
+            for (int i = 0; i < hits.Length; i++)
+            {
+                RaycastHit h = hits[i];
+                if (_ownerRobot != null && h.collider.GetComponentInParent<Robot>() == _ownerRobot) continue;
+                if (h.distance < bestDist)
+                {
+                    bestDist = h.distance;
+                    best = h;
+                    found = true;
+                }
+            }
+            return found;
+        }
+
         private void ApplyHit(RaycastHit hit)
         {
             // Prefer Robot-aware splash so connectivity / mass-loss bookkeeping fires.
@@ -124,12 +145,12 @@ namespace Robogame.Combat
                 }
             }
 
-            // Fallback: any IDamageable in the hit hierarchy.
+            // Fallback: any IDamageable in the hit hierarchy — but never our own.
             IDamageable dmg = hit.collider.GetComponentInParent<IDamageable>();
-            if (dmg != null && _splashRings.Length > 0)
-            {
-                dmg.TakeDamage(_splashRings[0]);
-            }
+            if (dmg == null || _splashRings.Length == 0) return;
+            Robot owner = (dmg as Component)?.GetComponentInParent<Robot>();
+            if (owner != null && owner == _ownerRobot) return;
+            dmg.TakeDamage(_splashRings[0]);
         }
     }
 }

@@ -24,20 +24,24 @@ namespace Robogame.Movement
     {
         [Header("Tuning — Drive")]
         [Tooltip("Forward acceleration in m/s^2 per unit of forward input.")]
-        [SerializeField, Min(0f)] private float _acceleration = 18f;
+        [SerializeField, Min(0f)] private float _acceleration = 26.25f;
 
         [Tooltip("Maximum forward speed in m/s.")]
-        [SerializeField, Min(0f)] private float _maxSpeed = 8f;
+        [SerializeField, Min(0f)] private float _maxSpeed = 13.5f;
 
-        [Tooltip("Yaw rate in degrees per second per unit of turn input.")]
-        [SerializeField, Min(0f)] private float _turnRate = 120f;
+        [Tooltip("Yaw acceleration (rad/s^2) per unit of turn input.")]
+        [SerializeField, Min(0f)] private float _turnRate = 7.5f;
 
         [Header("Tuning — Damping (only on the ground)")]
-        [Tooltip("Linear damping applied to the rigidbody when grounded. Higher = stops faster.")]
-        [SerializeField, Min(0f)] private float _groundedLinearDamping = 4f;
+        [Tooltip("Linear damping applied to the rigidbody when grounded.")]
+        [SerializeField, Min(0f)] private float _groundedLinearDamping = 0.2f;
 
         [Tooltip("Angular damping applied to the rigidbody when grounded.")]
-        [SerializeField, Min(0f)] private float _groundedAngularDamping = 8f;
+        [SerializeField, Min(0f)] private float _groundedAngularDamping = 2f;
+
+        [Header("Stability")]
+        [Tooltip("Centre-of-mass offset (in chassis-local space). Pulling it down resists tipping.")]
+        [SerializeField] private Vector3 _centerOfMassOffset = new Vector3(0f, -0.5f, 0f);
 
         [Header("Tuning — Jump")]
         [Tooltip("Vertical impulse on jump.")]
@@ -54,29 +58,36 @@ namespace Robogame.Movement
         private void Awake()
         {
             _rb = GetComponent<Rigidbody>();
-            // Stable handling defaults — no auto-rolling, brisk damping.
-            _rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+            // No constraints — the chassis is free to pitch / roll / tip.
+            // Wheel suspension keeps it upright when it's sitting flat,
+            // and physics decides what happens otherwise.
+            _rb.constraints = RigidbodyConstraints.None;
             _rb.linearDamping = _groundedLinearDamping;
             _rb.angularDamping = _groundedAngularDamping;
             _rb.interpolation = RigidbodyInterpolation.Interpolate;
+            _rb.centerOfMass = _centerOfMassOffset;
         }
 
         public void ApplyMovement(Vector2 moveInput, float verticalInput, float deltaTime)
         {
             if (!IsOperational) return;
 
-            // --- Steering: rotate the body directly. Cleaner than torque for arcade feel.
+            // --- Steering: angular acceleration around the chassis' own
+            //     up axis. Acceleration mode bypasses the inertia tensor so
+            //     the feel doesn't degrade as the robot grows.
             if (!Mathf.Approximately(moveInput.x, 0f))
             {
-                float yawDelta = moveInput.x * _turnRate * deltaTime;
-                Quaternion yaw = Quaternion.Euler(0f, yawDelta, 0f);
-                _rb.MoveRotation(_rb.rotation * yaw);
+                Vector3 torque = transform.up * (moveInput.x * _turnRate);
+                _rb.AddTorque(torque, ForceMode.Acceleration);
             }
 
-            // --- Drive: accelerate along local forward, capped to max speed.
+            // --- Drive: accelerate along the chassis' planar forward.
             if (!Mathf.Approximately(moveInput.y, 0f))
             {
-                Vector3 desiredAccel = transform.forward * (moveInput.y * _acceleration);
+                Vector3 fwd = transform.forward;
+                fwd.y = 0f;
+                if (fwd.sqrMagnitude > 0.0001f) fwd.Normalize();
+                Vector3 desiredAccel = fwd * (moveInput.y * _acceleration);
                 _rb.AddForce(desiredAccel, ForceMode.Acceleration);
 
                 // Clamp planar speed.

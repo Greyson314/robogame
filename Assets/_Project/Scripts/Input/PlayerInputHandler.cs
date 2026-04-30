@@ -27,14 +27,17 @@ namespace Robogame.Input
         [Header("Action Map / Names")]
         [SerializeField] private string _actionMap = "Player";
         [SerializeField] private string _moveAction = "Move";
+        [SerializeField] private string _lookAction = "Look";
         [SerializeField] private string _jumpAction = "Jump";
         [SerializeField] private string _fireAction = "Attack";
 
         private InputAction _move;
+        private InputAction _look;
         private InputAction _jump;
         private InputAction _fire;
 
         public Vector2 Move => _move != null ? _move.ReadValue<Vector2>() : Vector2.zero;
+        public Vector2 Look => _look != null ? _look.ReadValue<Vector2>() : Vector2.zero;
         public float Vertical => _jump != null && _jump.IsPressed() ? 1f : 0f;
         public bool FireHeld => _fire != null && _fire.IsPressed();
 
@@ -54,6 +57,7 @@ namespace Robogame.Input
             }
 
             _move = map.FindAction(_moveAction, throwIfNotFound: false);
+            _look = map.FindAction(_lookAction, throwIfNotFound: false);
             _jump = map.FindAction(_jumpAction, throwIfNotFound: false);
             _fire = map.FindAction(_fireAction, throwIfNotFound: false);
 

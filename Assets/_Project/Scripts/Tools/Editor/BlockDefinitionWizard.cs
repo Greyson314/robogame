@@ -17,6 +17,8 @@ namespace Robogame.Tools.Editor
         public const string IdCube = "block.structure.cube";
         public const string IdCpu = "block.cpu.standard";
         public const string IdWheel = "block.movement.wheel";
+        public const string IdWheelSteer = "block.movement.wheel.steer";
+        public const string IdWeapon = "block.weapon.hitscan";
 
         [MenuItem("Robogame/Scaffold/Create Test Block Definitions")]
         public static void CreateTestDefinitions()
@@ -40,9 +42,23 @@ namespace Robogame.Tools.Editor
             CreateOrSkip(
                 "BlockDef_Wheel",
                 IdWheel,
-                "Wheel",
+                "Drive Wheel",
                 BlockCategory.Movement,
                 maxHealth: 80f, mass: 1.5f, cpuCost: 25);
+
+            CreateOrSkip(
+                "BlockDef_WheelSteer",
+                IdWheelSteer,
+                "Steer Wheel",
+                BlockCategory.Movement,
+                maxHealth: 80f, mass: 1.5f, cpuCost: 25);
+
+            CreateOrSkip(
+                "BlockDef_Weapon",
+                IdWeapon,
+                "Hitscan Gun",
+                BlockCategory.Weapon,
+                maxHealth: 60f, mass: 1.5f, cpuCost: 20);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();

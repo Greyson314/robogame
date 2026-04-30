@@ -16,6 +16,9 @@ namespace Robogame.Input
         /// <summary>Normalised planar movement. <c>x</c> = strafe/turn, <c>y</c> = forward/back.</summary>
         Vector2 Move { get; }
 
+        /// <summary>Mouse delta or right-stick look. <c>x</c> = yaw, <c>y</c> = pitch.</summary>
+        Vector2 Look { get; }
+
         /// <summary>Vertical intent in [-1, 1] (jump / jet thrust / dive).</summary>
         float Vertical { get; }
 

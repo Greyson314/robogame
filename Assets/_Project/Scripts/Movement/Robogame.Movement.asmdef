@@ -2,7 +2,9 @@
     "name": "Robogame.Movement",
     "rootNamespace": "Robogame.Movement",
     "references": [
-        "Robogame.Core"
+        "Robogame.Core",
+        "Robogame.Block",
+        "Robogame.Input"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
