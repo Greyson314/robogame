@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 570076fb6ecc8584e9f24fc18be0bbd8, type: 3}
   m_Name: Blueprint_DefaultGround
   m_EditorClassIdentifier: Robogame.Block::Robogame.Block.ChassisBlueprint
-  _displayName: Default Ground
+  _displayName: Tank
   _kind: 0
   _entries:
   - BlockId: block.structure.cube

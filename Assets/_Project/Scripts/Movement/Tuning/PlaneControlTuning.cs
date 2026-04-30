@@ -10,14 +10,14 @@ namespace Robogame.Movement
     public sealed class PlaneControlTuning : ScriptableObject
     {
         [Header("Authority (rad/s²)")]
-        public float PitchPower = 3.2f;
-        public float RollPower = 4.5f;
+        public float PitchPower = 7.5f;
+        public float RollPower = 9.0f;
         [Tooltip("Yaw acceleration per unit of bank tilt.")]
-        public float YawFromBank = 1.4f;
+        public float YawFromBank = 2.0f;
 
         [Header("Damping (rad/s² per rad/s)")]
-        public float PitchDamping = 2.6f;
-        public float RollDamping = 2.6f;
-        public float YawDamping = 1.4f;
+        public float PitchDamping = 3.5f;
+        public float RollDamping = 2.8f;
+        public float YawDamping = 1.6f;
     }
 }

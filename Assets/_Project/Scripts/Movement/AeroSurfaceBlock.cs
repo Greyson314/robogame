@@ -32,8 +32,17 @@ namespace Robogame.Movement
     public sealed class AeroSurfaceBlock : MonoBehaviour
     {
         [Header("Aero")]
-        [Tooltip("Lift per (m/s)^2 of forward airspeed (N·s²/m²). Sum across all wings should ~= chassis weight at cruise.")]
-        [SerializeField, Min(0f)] private float _liftCoef = 0.18f;
+        [Tooltip("Lift slope per radian of AoA × speed² (N·s²/m²/rad). Tune so a level cruise produces ~chassis weight from main wing summed.")]
+        [SerializeField, Min(0f)] private float _liftCoef = 0.95f;
+
+        [Tooltip("Lift produced at zero angle of attack as a fraction of the AoA term at 1 rad. Small (~0.05–0.15) keeps level cruise from drifting up; 0 = symmetric wing.")]
+        [SerializeField, Range(0f, 0.5f)] private float _zeroLiftBias = 0.12f;
+
+        [Tooltip("Hard cap on AoA-based lift factor (radians-equivalent). Past this the wing 'stalls' — lift falls off.")]
+        [SerializeField, Min(0.05f)] private float _stallAoA = 0.35f; // ~20°
+
+        [Tooltip("Lift retained past the stall AoA (multiplied into the cap). 1 = no stall.")]
+        [SerializeField, Range(0f, 1f)] private float _postStallLift = 0.55f;
 
         [Tooltip("Drag per (m/s)^2 of forward airspeed (N·s²/m²). Acts opposite to chassis velocity.")]
         [SerializeField, Min(0f)] private float _dragCoef = 0.012f;
@@ -73,10 +82,23 @@ namespace Robogame.Movement
             float side = localVel.x;
             float speedSqr = forward * forward;
 
-            // Lift acts along the wing's local up. Sign(forward) so flying
-            // backwards produces downforce (wings can't push you up if
-            // they're going the wrong way).
-            float liftMag = speedSqr * _liftCoef * Mathf.Sign(forward);
+            // Angle of attack: positive when the airflow strikes the wing's
+            // underside (i.e. local -Y velocity at the wing position with
+            // positive forward speed). Real symmetric airfoils produce zero
+            // lift at zero AoA — modelling that here is what fixes the
+            // "constant buoyancy" feel: at level flight every wing produces
+            // only enough lift to balance gravity given the small AoA from
+            // sinking, so a wing far behind the COM no longer pushes the
+            // tail up unconditionally.
+            float aoa = forward > 0.5f ? Mathf.Atan2(-localVel.y, forward) : 0f;
+            float aoaClamped = Mathf.Clamp(aoa, -_stallAoA, _stallAoA);
+            // Soft stall: past the stall angle, retain only postStallLift × cap.
+            float stallFalloff = Mathf.Abs(aoa) > _stallAoA
+                ? Mathf.Lerp(1f, _postStallLift, Mathf.Clamp01((Mathf.Abs(aoa) - _stallAoA) / _stallAoA))
+                : 1f;
+            float liftFactor = (aoaClamped + _zeroLiftBias * Mathf.Sign(forward)) * stallFalloff;
+
+            float liftMag = speedSqr * _liftCoef * liftFactor * Mathf.Sign(forward);
             if (_maxLift > 0f) liftMag = Mathf.Clamp(liftMag, -_maxLift, _maxLift);
             _rb.AddForceAtPosition(transform.up * liftMag, worldPos);
 

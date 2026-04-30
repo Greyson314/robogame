@@ -37,23 +37,23 @@ namespace Robogame.Movement
 
         [Header("Authority (rad/s²)")]
         [Tooltip("Pitch torque (acceleration) at full input.")]
-        [SerializeField, Min(0f)] private float _pitchPower = 3.2f;
+        [SerializeField, Min(0f)] private float _pitchPower = 7.5f;
 
         [Tooltip("Roll torque (acceleration) at full input.")]
-        [SerializeField, Min(0f)] private float _rollPower = 4.5f;
+        [SerializeField, Min(0f)] private float _rollPower = 9.0f;
 
         [Tooltip("Yaw acceleration per unit of bank tilt (rad/s² per [-1..1] of right.y).")]
-        [SerializeField, Min(0f)] private float _yawFromBank = 1.4f;
+        [SerializeField, Min(0f)] private float _yawFromBank = 2.0f;
 
         [Header("Damping (rad/s² per rad/s)")]
         [Tooltip("Local pitch-rate damping. Higher = stiffer feel.")]
-        [SerializeField, Min(0f)] private float _pitchDamping = 2.6f;
+        [SerializeField, Min(0f)] private float _pitchDamping = 3.5f;
 
         [Tooltip("Local roll-rate damping.")]
-        [SerializeField, Min(0f)] private float _rollDamping = 2.6f;
+        [SerializeField, Min(0f)] private float _rollDamping = 2.8f;
 
         [Tooltip("Local yaw-rate damping.")]
-        [SerializeField, Min(0f)] private float _yawDamping = 1.4f;
+        [SerializeField, Min(0f)] private float _yawDamping = 1.6f;
 
         private float PitchPower   => _tuning != null ? _tuning.PitchPower   : _pitchPower;
         private float RollPower    => _tuning != null ? _tuning.RollPower    : _rollPower;
@@ -73,6 +73,12 @@ namespace Robogame.Movement
             _rb = GetComponentInParent<Rigidbody>();
             _drive = GetComponentInParent<RobotDrive>();
             _drive?.Register(this);
+            string src = _tuning != null ? _tuning.name : "INLINE";
+            Debug.Log(
+                $"[Robogame] PlaneControl live values (source={src}): " +
+                $"pitch={PitchPower:F2} roll={RollPower:F2} yawFromBank={YawFromBank:F2} " +
+                $"pitchDamp={PitchDamping:F2} rollDamp={RollDamping:F2} yawDamp={YawDamping:F2}",
+                this);
         }
 
         private void OnDisable()

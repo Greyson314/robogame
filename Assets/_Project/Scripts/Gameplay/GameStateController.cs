@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Robogame.Block;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -47,6 +48,9 @@ namespace Robogame.Gameplay
                  "CurrentBlueprint so edits never mutate the asset.")]
         [SerializeField] private ChassisBlueprint _defaultBlueprint;
 
+        [Tooltip("Pre-built chassis blueprints the player can swap between in the garage HUD.")]
+        [SerializeField] private ChassisBlueprint[] _presetBlueprints;
+
         [Tooltip("Input actions asset wired onto each spawned player chassis.")]
         [SerializeField] private InputActionAsset _inputActions;
 
@@ -56,9 +60,14 @@ namespace Robogame.Gameplay
         public InputActionAsset InputActions => _inputActions;
         public ChassisBlueprint CurrentBlueprint { get; private set; }
         public GameState State { get; private set; } = GameState.Bootstrap;
+        public IReadOnlyList<ChassisBlueprint> PresetBlueprints => _presetBlueprints;
+        public int CurrentPresetIndex { get; private set; } = -1;
 
         /// <summary>Raised after a scene transition completes and <see cref="State"/> has been updated.</summary>
         public event Action<GameState> StateChanged;
+
+        /// <summary>Raised after <see cref="SelectPreset"/> swaps the current blueprint.</summary>
+        public event Action<int> PresetChanged;
 
         private void Awake()
         {
@@ -71,6 +80,19 @@ namespace Robogame.Gameplay
             DontDestroyOnLoad(gameObject);
 
             CurrentBlueprint = CloneBlueprint(_defaultBlueprint);
+            // Try to align CurrentPresetIndex with the default blueprint so
+            // the HUD dropdown shows the right starting selection.
+            if (_presetBlueprints != null && _defaultBlueprint != null)
+            {
+                for (int i = 0; i < _presetBlueprints.Length; i++)
+                {
+                    if (_presetBlueprints[i] == _defaultBlueprint)
+                    {
+                        CurrentPresetIndex = i;
+                        break;
+                    }
+                }
+            }
             SceneManager.sceneLoaded += HandleSceneLoaded;
         }
 
@@ -110,6 +132,17 @@ namespace Robogame.Gameplay
         public void SetCurrentBlueprint(ChassisBlueprint source)
         {
             CurrentBlueprint = CloneBlueprint(source);
+        }
+
+        /// <summary>Swap the current blueprint to one of the configured presets and notify listeners.</summary>
+        public void SelectPreset(int index)
+        {
+            if (_presetBlueprints == null || index < 0 || index >= _presetBlueprints.Length) return;
+            ChassisBlueprint src = _presetBlueprints[index];
+            if (src == null) return;
+            CurrentBlueprint = CloneBlueprint(src);
+            CurrentPresetIndex = index;
+            PresetChanged?.Invoke(index);
         }
 
         /// <summary>

@@ -58,6 +58,18 @@ namespace Robogame.Combat
         private struct PendingTracer { public LineRenderer Lr; public float ReleaseTime; }
         private static readonly List<PendingTracer> s_activeTracers = new List<PendingTracer>(16);
 
+        // Statics survive domain reload (Enter Play Mode without reload, or
+        // simply between successive Play sessions). The Unity objects they
+        // hold do NOT survive, so we wipe them at the start of every play
+        // session to avoid MissingReferenceException on the first shot.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            s_tracerPool.Clear();
+            s_activeTracers.Clear();
+            s_tracerMaterial = null;
+        }
+
         private void Awake()
         {
             if (_muzzle == null) _muzzle = transform;
@@ -111,10 +123,17 @@ namespace Robogame.Combat
 
         private void SpawnTracer(Vector3 from, Vector3 to, Color color)
         {
-            LineRenderer lr;
-            if (s_tracerPool.Count > 0)
+            LineRenderer lr = null;
+            // Drain any destroyed entries left in the static pool from a
+            // previous play session (statics survive domain reload, the
+            // GameObjects they referenced do not).
+            while (lr == null && s_tracerPool.Count > 0)
             {
-                lr = s_tracerPool.Pop();
+                LineRenderer candidate = s_tracerPool.Pop();
+                if (candidate != null) lr = candidate;
+            }
+            if (lr != null)
+            {
                 lr.gameObject.SetActive(true);
             }
             else

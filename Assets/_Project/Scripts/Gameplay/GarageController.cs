@@ -28,6 +28,35 @@ namespace Robogame.Gameplay
 
         public GameObject Chassis { get; private set; }
 
+        private void OnEnable()
+        {
+            GameStateController state = GameStateController.Instance;
+            if (state != null) state.PresetChanged += HandlePresetChanged;
+        }
+
+        private void OnDisable()
+        {
+            GameStateController state = GameStateController.Instance;
+            if (state != null) state.PresetChanged -= HandlePresetChanged;
+        }
+
+        private void HandlePresetChanged(int index)
+        {
+            // The state controller has already swapped CurrentBlueprint; just
+            // tear down the old chassis and rebuild from the new one.
+            Respawn();
+        }
+
+        /// <summary>Destroy the current chassis (if any) and rebuild from <see cref="GameStateController.CurrentBlueprint"/>.</summary>
+        public void Respawn()
+        {
+            GameStateController state = GameStateController.Instance;
+            if (state == null || state.CurrentBlueprint == null || state.Library == null) return;
+            if (Chassis != null) Destroy(Chassis);
+            Chassis = SpawnChassis(state);
+            BindFollowCamera(Chassis);
+        }
+
         private void Start()
         {
             GameStateController state = GameStateController.Instance;

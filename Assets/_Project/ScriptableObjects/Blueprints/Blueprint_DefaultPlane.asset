@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 570076fb6ecc8584e9f24fc18be0bbd8, type: 3}
   m_Name: Blueprint_DefaultPlane
   m_EditorClassIdentifier: Robogame.Block::Robogame.Block.ChassisBlueprint
-  _displayName: Default Plane
+  _displayName: Plane
   _kind: 1
   _entries:
   - BlockId: block.movement.thruster

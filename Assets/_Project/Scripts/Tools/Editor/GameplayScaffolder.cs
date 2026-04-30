@@ -30,6 +30,7 @@ namespace Robogame.Tools.Editor
         private const string LibraryAssetPath = SoFolder + "/BlockDefinitionLibrary.asset";
         private const string DefaultGroundPath = BlueprintFolder + "/Blueprint_DefaultGround.asset";
         private const string DefaultPlanePath = BlueprintFolder + "/Blueprint_DefaultPlane.asset";
+        private const string DefaultBuggyPath = BlueprintFolder + "/Blueprint_DefaultBuggy.asset";
         private const string CombatDummyPath = BlueprintFolder + "/Blueprint_CombatDummy.asset";
 
         // -----------------------------------------------------------------
@@ -73,8 +74,9 @@ namespace Robogame.Tools.Editor
             BlockDefinitionWizard.CreateTestDefinitions();
             EnsureFolder(BlueprintFolder);
 
-            ChassisBlueprint ground = CreateOrUpdateBlueprint(DefaultGroundPath, "Default Ground", ChassisKind.Ground, BuildGroundEntries());
-            CreateOrUpdateBlueprint(DefaultPlanePath, "Default Plane", ChassisKind.Plane, BuildPlaneEntries());
+            ChassisBlueprint ground = CreateOrUpdateBlueprint(DefaultGroundPath, "Tank", ChassisKind.Ground, BuildGroundEntries());
+            CreateOrUpdateBlueprint(DefaultPlanePath, "Plane", ChassisKind.Plane, BuildPlaneEntries());
+            CreateOrUpdateBlueprint(DefaultBuggyPath, "Buggy", ChassisKind.Ground, BuildBuggyEntries());
             CreateOrUpdateBlueprint(CombatDummyPath, "Combat Dummy", ChassisKind.Ground, BuildDummyEntries());
             AssetDatabase.SaveAssets();
             Debug.Log($"[Robogame] Default blueprints created (ground asset persisted: {AssetDatabase.Contains(ground)}).");
@@ -128,12 +130,38 @@ namespace Robogame.Tools.Editor
             list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-1, 0, 1)));
             list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( 2, 0, 1)));
             list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-2, 0, 1)));
+            // Tailplane: all four are lifting surfaces. Wings far from COM
+            // no longer cause a constant pitching moment because
+            // AeroSurfaceBlock now scales lift with angle of attack, so the
+            // tail self-trims with the rest of the wing.
             list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( 1, 0, -3)));
             list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-1, 0, -3)));
             list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( 2, 0, -3)));
             list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-2, 0, -3)));
             list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int( 0, 1, -3)));
             list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int( 0, 2, -3)));
+            return list.ToArray();
+        }
+
+        private static ChassisBlueprint.Entry[] BuildBuggyEntries()
+        {
+            // Compact 2-wide × 3-long × 2-tall buggy: smaller and lighter
+            // than the tank, no top armour. CPU at centre, weapon mounted
+            // up top, steering wheels at the front, drive wheels at the rear.
+            var list = new List<ChassisBlueprint.Entry>();
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(-1, 0, 0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(1, 0, 0)));
+            // Front: steering wheels and a nose block.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(0, 0, 1)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int(-1, 0, 1)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int(1, 0, 1)));
+            // Rear: drive wheels and a tail block.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(0, 0, -1)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel, new Vector3Int(-1, 0, -1)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel, new Vector3Int(1, 0, -1)));
+            // Roll cage / weapon mount.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Weapon, new Vector3Int(0, 1, 0)));
             return list.ToArray();
         }
 
@@ -207,6 +235,8 @@ namespace Robogame.Tools.Editor
             // guarantees we hand SerializedProperty a live, persistent ref.
             BlockDefinitionLibrary libLive = AssetDatabase.LoadAssetAtPath<BlockDefinitionLibrary>(LibraryAssetPath);
             ChassisBlueprint defaultBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultGroundPath);
+            ChassisBlueprint planeBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultPlanePath);
+            ChassisBlueprint buggyBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultBuggyPath);
             InputActionAsset actionsLive = AssetDatabase.LoadAssetAtPath<InputActionAsset>(ScaffoldUtils.InputActionsAsset);
 
             if (libLive == null)
@@ -218,6 +248,16 @@ namespace Robogame.Tools.Editor
             stateSO.FindProperty("_library").objectReferenceValue = libLive;
             stateSO.FindProperty("_defaultBlueprint").objectReferenceValue = defaultBpLive;
             stateSO.FindProperty("_inputActions").objectReferenceValue = actionsLive;
+
+            // Populate the HUD-facing preset list (Tank / Plane / Buggy).
+            SerializedProperty presets = stateSO.FindProperty("_presetBlueprints");
+            if (presets != null)
+            {
+                presets.arraySize = 3;
+                presets.GetArrayElementAtIndex(0).objectReferenceValue = defaultBpLive;
+                presets.GetArrayElementAtIndex(1).objectReferenceValue = planeBpLive;
+                presets.GetArrayElementAtIndex(2).objectReferenceValue = buggyBpLive;
+            }
             stateSO.ApplyModifiedPropertiesWithoutUndo();
 
             // Confirm the values stuck before saving — catches the case where

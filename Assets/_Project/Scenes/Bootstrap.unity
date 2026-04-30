@@ -272,6 +272,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Robogame.Gameplay::Robogame.Gameplay.GameStateController
   _library: {fileID: 11400000, guid: 2abd7644d78ea5647a9102639de22b90, type: 2}
   _defaultBlueprint: {fileID: 11400000, guid: 4c3309b81788004488f4fc78d5077814, type: 2}
+  _presetBlueprints:
+  - {fileID: 11400000, guid: 4c3309b81788004488f4fc78d5077814, type: 2}
+  - {fileID: 11400000, guid: 45b5033dde854814dac6f4f2bf692670, type: 2}
+  - {fileID: 11400000, guid: ce8dbb9436a083248bbea70e69162064, type: 2}
   _inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
 --- !u!1 &1983535497
 GameObject:

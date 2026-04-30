@@ -32,13 +32,13 @@ namespace Robogame.Movement
 
         [Header("Thrust")]
         [Tooltip("Maximum forward force (N) at full throttle.")]
-        [SerializeField, Min(0f)] private float _maxThrust = 220f;
+        [SerializeField, Min(0f)] private float _maxThrust = 155f;
 
         [Tooltip("Idle throttle when no input is being applied. 0 = off, 1 = full.")]
-        [SerializeField, Range(0f, 1f)] private float _idleThrottle = 0.5f;
+        [SerializeField, Range(0f, 1f)] private float _idleThrottle = 0.4f;
 
         [Tooltip("How quickly throttle slews to its target value (per second). 0 = instant.")]
-        [SerializeField, Min(0f)] private float _throttleResponse = 2.2f;
+        [SerializeField, Min(0f)] private float _throttleResponse = 2.6f;
 
         [Header("Visual nozzle (auto-built if blank)")]
         [SerializeField] private Transform _nozzle;
@@ -65,6 +65,11 @@ namespace Robogame.Movement
             _rb = GetComponentInParent<Rigidbody>();
             _drive = GetComponentInParent<RobotDrive>();
             _drive?.Register(this);
+            string src = _tuning != null ? _tuning.name : "INLINE";
+            Debug.Log(
+                $"[Robogame] Thruster live values (source={src}): " +
+                $"maxThrust={MaxThrust:F1} idle={IdleThrottle:F2} response={ThrottleResponse:F2}",
+                this);
         }
 
         private void OnDisable()
