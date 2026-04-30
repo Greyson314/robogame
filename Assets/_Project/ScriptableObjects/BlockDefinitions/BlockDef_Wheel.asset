@@ -13,9 +13,10 @@ MonoBehaviour:
   m_Name: BlockDef_Wheel
   m_EditorClassIdentifier: Robogame.Block::Robogame.Block.BlockDefinition
   _id: block.movement.wheel
-  _displayName: Wheel
+  _displayName: Drive Wheel
   _category: 2
   _maxHealth: 80
   _mass: 1.5
   _cpuCost: 25
   _prefab: {fileID: 0}
+  _tintColor: {r: 0.18, g: 0.18, b: 0.2, a: 1}

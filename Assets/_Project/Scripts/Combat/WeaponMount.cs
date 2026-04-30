@@ -1,46 +1,40 @@
+using Robogame.Movement;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 namespace Robogame.Combat
 {
     /// <summary>
-    /// Robot-level aim controller. Reads the mouse position, raycasts onto a
-    /// horizontal aim plane through the mount, and exposes an
+    /// Robot-level aim controller. Prefers <see cref="RobotDrive.AimPoint"/>
+    /// (single source of truth across drive + weapons), and falls back to a
+    /// camera-ray reticle if no drive is present. Exposes an
     /// <see cref="AimPoint"/> that all weapon blocks on the robot converge on.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Twin-stick / Robocraft-style: cursor on ground = "shoot here". Falls
-    /// back to "straight ahead" if no mouse is present (gamepad / headless).
-    /// </para>
-    /// <para>
-    /// The mount itself is a single transform — the visible barrel/yaw
-    /// gimbal is rotated each frame to face <see cref="AimPoint"/>.
-    /// </para>
+    /// Camera-ray aim works in any chassis orientation (driving / flying /
+    /// inverted), unlike the previous ground-plane projection.
     /// </remarks>
     [DisallowMultipleComponent]
     public sealed class WeaponMount : MonoBehaviour
     {
-        [Header("Aim plane")]
-        [Tooltip("Vertical offset of the fallback aim plane above the mount (world units).")]
-        [SerializeField] private float _aimPlaneHeight = 0f;
-
-        [Tooltip("If the mouse ray hits nothing, aim this many metres ahead of the camera.")]
-        [SerializeField, Min(1f)] private float _fallbackRange = 60f;
-
-        [Header("World pick")]
-        [Tooltip("Layers the cursor can latch onto for true 3D aim (enemy blocks, terrain, etc.).")]
+        [Header("Fallback aim (used only if no RobotDrive is present)")]
+        [Tooltip("Layers the camera reticle can latch onto.")]
         [SerializeField] private LayerMask _aimMask = ~0;
 
-        [Tooltip("Max distance the cursor can pick world geometry from.")]
+        [Tooltip("Max aim distance for the camera ray.")]
         [SerializeField, Min(1f)] private float _aimRange = 200f;
+
+        [Tooltip("If the camera ray hits nothing, aim this many metres ahead of it.")]
+        [SerializeField, Min(1f)] private float _fallbackRange = 60f;
 
         [Header("Smoothing")]
         [Tooltip("How quickly the visible mount rotates toward the aim point. 0 = snap.")]
         [SerializeField, Range(0f, 30f)] private float _rotationSpeed = 18f;
 
-        [Tooltip("Camera used to project the mouse cursor. Defaults to Camera.main.")]
+        [Tooltip("Camera used for the fallback aim ray. Defaults to Camera.main.")]
         [SerializeField] private Camera _aimCamera;
+
+        private RobotDrive _drive;
 
         /// <summary>Latest world-space aim target.</summary>
         public Vector3 AimPoint { get; private set; }
@@ -58,54 +52,52 @@ namespace Robogame.Combat
         private void Awake()
         {
             if (_aimCamera == null) _aimCamera = Camera.main;
+            _drive = GetComponentInParent<RobotDrive>();
             AimPoint = transform.position + transform.forward * 10f;
         }
 
         private void LateUpdate()
         {
-            if (_aimCamera == null) _aimCamera = Camera.main;
-            UpdateAimPoint();
-            UpdateRotation();
-        }
-
-        private void UpdateAimPoint()
-        {
-            if (_aimCamera == null) return;
-
-            Mouse mouse = Mouse.current;
-            if (mouse == null)
+            if (_drive == null) _drive = GetComponentInParent<RobotDrive>();
+            if (_drive != null)
             {
-                AimPoint = transform.position + transform.forward * _fallbackRange;
-                return;
-            }
-
-            Vector2 screen = mouse.position.ReadValue();
-            Ray ray = _aimCamera.ScreenPointToRay(screen);
-
-            // 1) Try a real world raycast first so the cursor latches onto
-            //    enemy blocks / props at the correct elevation.
-            if (Physics.Raycast(ray, out RaycastHit hit, _aimRange, _aimMask, QueryTriggerInteraction.Ignore))
-            {
-                // Skip our own colliders so the cursor doesn't snap to our chassis.
-                Robots.Robot self = GetComponentInParent<Robots.Robot>();
-                Robots.Robot hitRobot = hit.collider.GetComponentInParent<Robots.Robot>();
-                if (hitRobot == null || hitRobot != self)
-                {
-                    AimPoint = hit.point;
-                    return;
-                }
-            }
-
-            // 2) Fall back to a horizontal aim plane at mount height.
-            Plane plane = new Plane(Vector3.up, new Vector3(0f, transform.position.y + _aimPlaneHeight, 0f));
-            if (plane.Raycast(ray, out float enter))
-            {
-                AimPoint = ray.GetPoint(enter);
+                AimPoint = _drive.AimPoint;
             }
             else
             {
-                AimPoint = ray.origin + ray.direction * _fallbackRange;
+                if (_aimCamera == null) _aimCamera = Camera.main;
+                AimPoint = ComputeFallbackAim();
             }
+            UpdateRotation();
+        }
+
+        private static readonly RaycastHit[] s_aimHits = new RaycastHit[16];
+
+        private Vector3 ComputeFallbackAim()
+        {
+            if (_aimCamera == null) return transform.position + transform.forward * _fallbackRange;
+
+            Mouse mouse = Mouse.current;
+            Vector2 screen = mouse != null
+                ? mouse.position.ReadValue()
+                : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            Ray ray = _aimCamera.ScreenPointToRay(screen);
+
+            int count = Physics.RaycastNonAlloc(ray, s_aimHits, _aimRange, _aimMask, QueryTriggerInteraction.Ignore);
+            float bestDist = float.MaxValue;
+            Vector3 best = ray.origin + ray.direction * _fallbackRange;
+            Robots.Robot self = GetComponentInParent<Robots.Robot>();
+            for (int i = 0; i < count; i++)
+            {
+                Robots.Robot hitRobot = s_aimHits[i].collider.GetComponentInParent<Robots.Robot>();
+                if (hitRobot != null && hitRobot == self) continue;
+                if (s_aimHits[i].distance < bestDist)
+                {
+                    bestDist = s_aimHits[i].distance;
+                    best = s_aimHits[i].point;
+                }
+            }
+            return best;
         }
 
         private void UpdateRotation()

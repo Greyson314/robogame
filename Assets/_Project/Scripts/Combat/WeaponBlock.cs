@@ -1,5 +1,4 @@
 using Robogame.Block;
-using Robogame.Robots;
 using UnityEngine;
 
 namespace Robogame.Combat
@@ -105,48 +104,25 @@ namespace Robogame.Combat
 
         private void EnsureRig()
         {
-            // Yoke: pitch pivot, plus a visible barrel cylinder.
-            Transform existingYoke = transform.Find("Yoke");
-            if (existingYoke != null)
+            // Yoke pivot. New yokes need a barrel + initial offset.
+            bool yokeIsNew = transform.Find("Yoke") == null;
+            _yoke = BlockVisuals.GetOrCreateChild(transform, "Yoke");
+            if (yokeIsNew)
             {
-                _yoke = existingYoke;
-            }
-            else
-            {
-                GameObject yokeGO = new GameObject("Yoke");
-                yokeGO.transform.SetParent(transform, worldPositionStays: false);
-                yokeGO.transform.localPosition = _yokeLocalOffset;
-                yokeGO.transform.localRotation = Quaternion.identity;
-                _yoke = yokeGO.transform;
+                _yoke.localPosition = _yokeLocalOffset;
 
-                // Visible barrel — Unity cylinder default points +Y, so we
-                // rotate 90° on X to lay it down the +Z barrel axis.
-                GameObject barrel = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                barrel.name = "Barrel";
-                // Strip the primitive collider so it doesn't trip our own raycasts.
-                Collider col = barrel.GetComponent<Collider>();
-                if (col != null) Destroy(col);
-
-                barrel.transform.SetParent(_yoke, worldPositionStays: false);
-                barrel.transform.localPosition = new Vector3(0f, 0f, 0.4f);
-                barrel.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-                barrel.transform.localScale = new Vector3(0.15f, 0.4f, 0.15f);
+                // Visible barrel — cylinder default points +Y, rotate 90° on
+                // X to lay it down the +Z barrel axis.
+                Transform barrel = BlockVisuals.GetOrCreatePrimitiveChild(_yoke, "Barrel", PrimitiveType.Cylinder);
+                barrel.localPosition = new Vector3(0f, 0f, 0.4f);
+                barrel.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                barrel.localScale = new Vector3(0.15f, 0.4f, 0.15f);
             }
 
             // Muzzle: child of yoke so it inherits both yaw + pitch.
-            Transform existingMuzzle = _yoke.Find("Muzzle");
-            if (existingMuzzle != null)
-            {
-                _muzzle = existingMuzzle;
-            }
-            else
-            {
-                GameObject m = new GameObject("Muzzle");
-                m.transform.SetParent(_yoke, worldPositionStays: false);
-                m.transform.localPosition = _muzzleLocalOffset;
-                m.transform.localRotation = Quaternion.identity;
-                _muzzle = m.transform;
-            }
+            bool muzzleIsNew = _yoke.Find("Muzzle") == null;
+            _muzzle = BlockVisuals.GetOrCreateChild(_yoke, "Muzzle");
+            if (muzzleIsNew) _muzzle.localPosition = _muzzleLocalOffset;
         }
 
         /// <summary>Editor / scaffolder helper.</summary>

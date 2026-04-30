@@ -4,7 +4,8 @@
     "references": [
         "Robogame.Core",
         "Robogame.Block",
-        "Robogame.Input"
+        "Robogame.Input",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

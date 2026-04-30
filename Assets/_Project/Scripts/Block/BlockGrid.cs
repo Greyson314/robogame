@@ -132,6 +132,8 @@ namespace Robogame.Block
             go.transform.localRotation = Quaternion.identity;
             go.transform.localScale = Vector3.one * _cellSize;
 
+            ApplyTint(go, definition.TintColor);
+
             BlockBehaviour block = go.GetComponent<BlockBehaviour>();
             if (block == null) block = go.AddComponent<BlockBehaviour>();
             block.Initialize(definition, gridPos);
@@ -155,6 +157,33 @@ namespace Robogame.Block
                 else DestroyImmediate(block.gameObject);
             }
             return true;
+        }
+
+        /// <summary>
+        /// Apply a tint colour to every <see cref="MeshRenderer"/> below
+        /// <paramref name="root"/>. Uses a per-instance material so the
+        /// project-wide URP/Lit shared material isn't recoloured. No-op if
+        /// the tint is white (the default) so prefabs with custom materials
+        /// aren't disturbed.
+        /// </summary>
+        private static void ApplyTint(GameObject root, Color tint)
+        {
+            if (root == null) return;
+            if (Mathf.Approximately(tint.r, 1f) &&
+                Mathf.Approximately(tint.g, 1f) &&
+                Mathf.Approximately(tint.b, 1f) &&
+                Mathf.Approximately(tint.a, 1f)) return;
+
+            MeshRenderer[] renderers = root.GetComponentsInChildren<MeshRenderer>(includeInactive: true);
+            foreach (MeshRenderer mr in renderers)
+            {
+                // .material instantiates a per-renderer copy so the shared
+                // primitive material isn't recoloured project-wide.
+                Material mat = mr.material;
+                if (mat == null) continue;
+                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", tint);
+                else if (mat.HasProperty("_Color")) mat.SetColor("_Color", tint);
+            }
         }
 
         /// <summary>Drop every block. Used during scaffolding/rebuild.</summary>

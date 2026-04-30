@@ -10,6 +10,7 @@
         "Robogame.Player",
         "Robogame.Robots",
         "Robogame.UI",
+        "Robogame.Gameplay",
         "Unity.InputSystem"
     ],
     "includePlatforms": [

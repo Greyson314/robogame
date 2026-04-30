@@ -1,0 +1,23 @@
+{
+    "name": "Robogame.Gameplay",
+    "rootNamespace": "Robogame.Gameplay",
+    "references": [
+        "Robogame.Core",
+        "Robogame.Block",
+        "Robogame.Combat",
+        "Robogame.Input",
+        "Robogame.Movement",
+        "Robogame.Player",
+        "Robogame.Robots",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

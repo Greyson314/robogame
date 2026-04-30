@@ -21,9 +21,9 @@ namespace Robogame.Movement
     /// <see cref="IInputSource"/> at or above this block.
     /// </summary>
     /// <remarks>
-    /// Pure visuals + steering for now — actual physics still come from
-    /// <see cref="GroundDrive"/> on the robot root. Per-wheel torque /
-    /// <see cref="WheelCollider"/> is a later milestone.
+    /// Pure visuals + suspension for now — chassis-level forces come from
+    /// <see cref="GroundDriveSubsystem"/> via <see cref="RobotDrive"/>.
+    /// Per-wheel torque / <see cref="WheelCollider"/> is a later milestone.
     /// </remarks>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(BlockBehaviour))]
@@ -44,20 +44,37 @@ namespace Robogame.Movement
         [SerializeField, Min(0.05f)] private float _radius = 0.35f;
 
         [Header("Suspension")]
-        [Tooltip("Distance from block centre to wheel centre at full extension (no contact).")]
+        [Tooltip("Distance from block centre to wheel centre at full extension (no contact). " +
+                 "Sized so the wheel can reach the ground for a chassis sitting at standard " +
+                 "block height — too short and the chassis rides on its cube colliders, which " +
+                 "produces the very bounce the suspension is supposed to absorb.")]
         [SerializeField, Min(0.1f)] private float _restLength = 1.15f;
 
-        [Tooltip("Spring stiffness (N/m). Higher = stiffer ride.")]
-        [SerializeField, Min(0f)] private float _springStrength = 3500f;
+        [Tooltip("Spring stiffness in NEWTONS per metre of compression. Mass-dependent on purpose " +
+                 "(default ForceMode.Force) — heavier chassis sag more on the same springs, which " +
+                 "matches real-world intuition. Rule of thumb: total k across grounded wheels × " +
+                 "desired-sag = chassis weight. e.g. 6 wheels × 600 N/m × 0.08 m = 288 N ≈ 30 kg.")]
+        [SerializeField, Min(0f)] private float _springStrength = 600f;
 
-        [Tooltip("Velocity damping along the suspension axis.")]
-        [SerializeField, Min(0f)] private float _damper = 350f;
+        [Tooltip("Velocity damping along the suspension axis (N per m/s). " +
+                 "Tune for a slightly OVER-damped feel: 2·√(k·m_per_wheel) is critical, this " +
+                 "default sits a bit above for the typical 4–6 wheel test chassis so there's no " +
+                 "sustained bounce after a hit.")]
+        [SerializeField, Min(0f)] private float _damper = 220f;
+
+        [Tooltip("Hard cap on suspension force (N). Absorbs spike loads from hard landings so " +
+                 "an impact can't catapult the chassis. Set high enough that normal driving " +
+                 "never hits the cap.")]
+        [SerializeField, Min(0f)] private float _maxForce = 6000f;
 
         [Tooltip("Layers the wheel can rest on.")]
         [SerializeField] private LayerMask _groundMask = ~0;
 
         [Header("Grip")]
-        [Tooltip("Tyre static / dynamic friction. Real rubber on dry tarmac is ~1.0; arcade-grippy is 1.5–2.")]
+        [Tooltip("Tyre static / dynamic friction for the host-cube PhysicsMaterial. " +
+                 "Note: chassis-level lateral grip lives on GroundDriveSubsystem (applied at COM " +
+                 "to avoid roll moments). Per-wheel grip was removed because forces above the " +
+                 "contact point produced spurious roll torque.")]
         [SerializeField, Min(0f)] private float _friction = 1.6f;
 
         [Header("Visual rig (auto-built if blank)")]
@@ -70,6 +87,9 @@ namespace Robogame.Movement
             get => _kind;
             set => _kind = value;
         }
+
+        /// <summary>True while this wheel's suspension raycast is touching ground.</summary>
+        public bool IsGrounded { get; private set; }
 
         private Rigidbody _rb;
         private IInputSource _input;
@@ -107,19 +127,10 @@ namespace Robogame.Movement
         }
 
         /// <summary>
-        /// Block prefabs default to a 1×1 cube primitive (in <see cref="BlockBehaviour"/>'s
-        /// host GameObject). For wheels we want to see only the rig, so hide
-        /// the host renderer + collider.
+        /// Hide host primitive renderer (keep its collider so damage rays
+        /// still register on the wheel).
         /// </summary>
-        private void HideHostCubeVisual()
-        {
-            MeshRenderer mr = GetComponent<MeshRenderer>();
-            if (mr != null) mr.enabled = false;
-            MeshFilter mf = GetComponent<MeshFilter>();
-            if (mf != null) mf.sharedMesh = null;
-            // Keep a collider so damage raycasts still register; primitive
-            // BoxCollider on a 1m cube is fine for a wheel hit volume.
-        }
+        private void HideHostCubeVisual() => BlockVisuals.HideHostMesh(gameObject);
 
         private void LateUpdate()
         {
@@ -147,19 +158,34 @@ namespace Robogame.Movement
             if (!RaycastIgnoringSelf(origin, Vector3.down, castLength, out RaycastHit hit))
             {
                 _suspensionExtension = _restLength;
+                IsGrounded = false;
                 return;
             }
+            IsGrounded = true;
 
-            // wheel centre rests one radius above the contact point
+            // Wheel centre rests one radius above the contact point.
             float wheelCenterY = hit.point.y + _radius;
             float extension = Mathf.Clamp(origin.y - wheelCenterY, 0f, _restLength);
             float compression = _restLength - extension;
 
-            // spring + damper acting along world-up
-            float velUp = _rb.GetPointVelocity(origin).y;
-            float force = compression * _springStrength - velUp * _damper;
+            // Compression rate: positive when the chassis is moving DOWN at
+            // this point (suspension is being compressed). Using the full
+            // point velocity (not just _rb.linearVelocity.y) means roll
+            // and pitch correctly contribute to damping — without this, a
+            // chassis pitching forward would flap because only the COM's
+            // vertical velocity was being damped.
+            Vector3 pointVel = _rb.GetPointVelocity(origin);
+            float compressionRate = -pointVel.y;
+
+            // Hooke + damper in NEWTONS (default ForceMode.Force is
+            // mass-dependent on purpose, so heavier chassis sag more on
+            // the same springs — matches real-world intuition). Clamped
+            // to absorb spike loads on hard landings, and never pulls
+            // down — suspension can only push up off the ground.
+            float force = compression * _springStrength + compressionRate * _damper;
             if (force > 0f)
             {
+                if (force > _maxForce) force = _maxForce;
                 _rb.AddForceAtPosition(Vector3.up * force, origin);
             }
 
@@ -176,17 +202,19 @@ namespace Robogame.Movement
             _hub.localPosition = lp;
         }
 
+        private static readonly RaycastHit[] s_hitBuffer = new RaycastHit[8];
+
         private bool RaycastIgnoringSelf(Vector3 origin, Vector3 dir, float maxDist, out RaycastHit best)
         {
-            // RaycastAll so we can skip hits on our own chassis (the block
+            // RaycastNonAlloc so we can skip hits on our own chassis (the block
             // host cube collider sits exactly at the ray origin).
-            RaycastHit[] hits = Physics.RaycastAll(origin, dir, maxDist, _groundMask, QueryTriggerInteraction.Ignore);
+            int count = Physics.RaycastNonAlloc(origin, dir, s_hitBuffer, maxDist, _groundMask, QueryTriggerInteraction.Ignore);
             best = default;
             float bestDist = float.MaxValue;
             bool found = false;
-            for (int i = 0; i < hits.Length; i++)
+            for (int i = 0; i < count; i++)
             {
-                RaycastHit h = hits[i];
+                RaycastHit h = s_hitBuffer[i];
                 if (h.collider.attachedRigidbody == _rb) continue; // self
                 if (h.distance < bestDist)
                 {
@@ -238,51 +266,17 @@ namespace Robogame.Movement
 
         private void EnsureRig()
         {
-            if (_hub == null)
-            {
-                Transform existing = transform.Find("Hub");
-                if (existing != null) _hub = existing;
-                else
-                {
-                    GameObject go = new GameObject("Hub");
-                    go.transform.SetParent(transform, worldPositionStays: false);
-                    _hub = go.transform;
-                }
-            }
-
-            if (_spin == null)
-            {
-                Transform existing = _hub.Find("Spin");
-                if (existing != null) _spin = existing;
-                else
-                {
-                    GameObject go = new GameObject("Spin");
-                    go.transform.SetParent(_hub, worldPositionStays: false);
-                    _spin = go.transform;
-                }
-            }
+            if (_hub == null) _hub = BlockVisuals.GetOrCreateChild(transform, "Hub");
+            if (_spin == null) _spin = BlockVisuals.GetOrCreateChild(_hub, "Spin");
 
             if (_tyre == null)
             {
-                Transform existing = _spin.Find("Tyre");
-                if (existing != null) _tyre = existing;
-                else
-                {
-                    // Cylinder default points +Y; rotate 90° on Z so its long
-                    // axis lies along world X (wheel-axle direction).
-                    GameObject tyre = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                    tyre.name = "Tyre";
-                    Collider col = tyre.GetComponent<Collider>();
-                    if (col != null) Destroy(col);
-
-                    tyre.transform.SetParent(_spin, worldPositionStays: false);
-                    tyre.transform.localPosition = Vector3.zero;
-                    tyre.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-                    // Diameter ~2*_radius, thickness ~0.3.
-                    float d = _radius * 2f;
-                    tyre.transform.localScale = new Vector3(d, 0.3f, d);
-                    _tyre = tyre.transform;
-                }
+                _tyre = BlockVisuals.GetOrCreatePrimitiveChild(_spin, "Tyre", PrimitiveType.Cylinder);
+                // Cylinder default points +Y; rotate 90° on Z so its long
+                // axis lies along world X (wheel-axle direction).
+                _tyre.localRotation = Quaternion.Euler(0f, 0f, 90f);
+                float d = _radius * 2f;
+                _tyre.localScale = new Vector3(d, 0.3f, d);
             }
         }
     }

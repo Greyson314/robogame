@@ -5,7 +5,8 @@
         "Robogame.Core",
         "Robogame.Input",
         "Robogame.Movement",
-        "Robogame.Robots"
+        "Robogame.Robots",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

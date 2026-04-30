@@ -83,7 +83,7 @@ namespace Robogame.Tools.Editor
 
             DestroyByName("Robot");
             GameObject go = new GameObject("Robot");
-            SceneScaffolder.PopulateTestRobot(go);
+            RobotLayouts.PopulateTestRobot(go);
             Debug.Log("[Robogame] Rebuilt Test Robot in play mode.");
         }
 
@@ -98,7 +98,7 @@ namespace Robogame.Tools.Editor
 
             DestroyByName("CombatDummy");
             GameObject go = new GameObject("CombatDummy");
-            SceneScaffolder.PopulateCombatDummy(go);
+            RobotLayouts.PopulateCombatDummy(go);
             Debug.Log("[Robogame] Rebuilt Combat Dummy in play mode.");
         }
 

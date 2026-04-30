@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 namespace Robogame.Input
@@ -29,17 +30,39 @@ namespace Robogame.Input
         [SerializeField] private string _moveAction = "Move";
         [SerializeField] private string _lookAction = "Look";
         [SerializeField] private string _jumpAction = "Jump";
+        [SerializeField] private string _descendAction = "Sprint";
         [SerializeField] private string _fireAction = "Attack";
 
         private InputAction _move;
         private InputAction _look;
         private InputAction _jump;
+        private InputAction _descend;
         private InputAction _fire;
 
         public Vector2 Move => _move != null ? _move.ReadValue<Vector2>() : Vector2.zero;
         public Vector2 Look => _look != null ? _look.ReadValue<Vector2>() : Vector2.zero;
-        public float Vertical => _jump != null && _jump.IsPressed() ? 1f : 0f;
-        public bool FireHeld => _fire != null && _fire.IsPressed();
+        public float Vertical
+        {
+            get
+            {
+                float up = (_jump != null && _jump.IsPressed()) ? 1f : 0f;
+                float down = (_descend != null && _descend.IsPressed()) ? 1f : 0f;
+                return up - down;
+            }
+        }
+        public bool FireHeld
+        {
+            get
+            {
+                if (_fire == null || !_fire.IsPressed()) return false;
+                // IMGUI/UGUI buttons don't auto-block Input System actions.
+                // Suppress fire while the cursor is over a UI element so HUD
+                // clicks (e.g. "Launch") don't also trigger a weapon shot.
+                if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+                    return false;
+                return true;
+            }
+        }
 
         private void OnEnable()
         {
@@ -59,6 +82,7 @@ namespace Robogame.Input
             _move = map.FindAction(_moveAction, throwIfNotFound: false);
             _look = map.FindAction(_lookAction, throwIfNotFound: false);
             _jump = map.FindAction(_jumpAction, throwIfNotFound: false);
+            _descend = map.FindAction(_descendAction, throwIfNotFound: false);
             _fire = map.FindAction(_fireAction, throwIfNotFound: false);
 
             map.Enable();

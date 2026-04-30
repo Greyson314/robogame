@@ -50,6 +50,14 @@ namespace Robogame.Combat
         private Robot _ownerRobot;
         private float _nextFireTime;
 
+        // Shared across all hitscan guns: avoid one alloc per shot.
+        private static readonly RaycastHit[] s_hitBuffer = new RaycastHit[16];
+        private static readonly Stack<LineRenderer> s_tracerPool = new Stack<LineRenderer>(16);
+        private static Material s_tracerMaterial;
+
+        private struct PendingTracer { public LineRenderer Lr; public float ReleaseTime; }
+        private static readonly List<PendingTracer> s_activeTracers = new List<PendingTracer>(16);
+
         private void Awake()
         {
             if (_muzzle == null) _muzzle = transform;
@@ -65,10 +73,25 @@ namespace Robogame.Combat
 
         private void Update()
         {
+            ReleaseExpiredTracers();
             if (_input == null || !_input.FireHeld) return;
             if (Time.time < _nextFireTime) return;
             _nextFireTime = Time.time + _cooldown;
             Fire();
+        }
+
+        private static void ReleaseExpiredTracers()
+        {
+            float now = Time.time;
+            for (int i = s_activeTracers.Count - 1; i >= 0; i--)
+            {
+                if (s_activeTracers[i].ReleaseTime > now) continue;
+                LineRenderer lr = s_activeTracers[i].Lr;
+                s_activeTracers.RemoveAt(i);
+                if (lr == null) continue;
+                lr.gameObject.SetActive(false);
+                s_tracerPool.Push(lr);
+            }
         }
 
         private void Fire()
@@ -88,20 +111,34 @@ namespace Robogame.Combat
 
         private void SpawnTracer(Vector3 from, Vector3 to, Color color)
         {
-            var go = new GameObject("Tracer");
-            go.transform.position = from;
-            var lr = go.AddComponent<LineRenderer>();
-            lr.positionCount = 2;
+            LineRenderer lr;
+            if (s_tracerPool.Count > 0)
+            {
+                lr = s_tracerPool.Pop();
+                lr.gameObject.SetActive(true);
+            }
+            else
+            {
+                var go = new GameObject("Tracer");
+                lr = go.AddComponent<LineRenderer>();
+                lr.positionCount = 2;
+                lr.useWorldSpace = true;
+                lr.numCapVertices = 2;
+                if (s_tracerMaterial == null)
+                {
+                    s_tracerMaterial = new Material(Shader.Find("Sprites/Default"));
+                }
+                lr.sharedMaterial = s_tracerMaterial;
+            }
+
             lr.SetPosition(0, from);
             lr.SetPosition(1, to);
             lr.startWidth = _tracerWidth;
             lr.endWidth = _tracerWidth * 0.5f;
-            lr.useWorldSpace = true;
-            lr.numCapVertices = 2;
-            lr.material = new Material(Shader.Find("Sprites/Default"));
             lr.startColor = color;
             lr.endColor = new Color(color.r, color.g, color.b, 0f);
-            Destroy(go, _tracerLifetime);
+
+            s_activeTracers.Add(new PendingTracer { Lr = lr, ReleaseTime = Time.time + _tracerLifetime });
         }
 
         private bool RaycastIgnoringSelf(Vector3 origin, Vector3 dir, float maxDist, out RaycastHit best)
@@ -109,13 +146,13 @@ namespace Robogame.Combat
             // RaycastAll + filter so a weapon mounted INSIDE its own chassis
             // (the turret block sits on top of body cubes) doesn't hit its
             // own blocks. Anything belonging to the owning Robot is skipped.
-            RaycastHit[] hits = Physics.RaycastAll(origin, dir, maxDist, _hitMask, QueryTriggerInteraction.Ignore);
+            int count = Physics.RaycastNonAlloc(origin, dir, s_hitBuffer, maxDist, _hitMask, QueryTriggerInteraction.Ignore);
             best = default;
             float bestDist = float.MaxValue;
             bool found = false;
-            for (int i = 0; i < hits.Length; i++)
+            for (int i = 0; i < count; i++)
             {
-                RaycastHit h = hits[i];
+                RaycastHit h = s_hitBuffer[i];
                 if (_ownerRobot != null && h.collider.GetComponentInParent<Robot>() == _ownerRobot) continue;
                 if (h.distance < bestDist)
                 {

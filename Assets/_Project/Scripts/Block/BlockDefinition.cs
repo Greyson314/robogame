@@ -60,6 +60,10 @@ namespace Robogame.Block
         [Tooltip("Prefab spawned when this block is placed. Must contain a BlockBehaviour at the root.")]
         [SerializeField] private GameObject _prefab;
 
+        [Tooltip("Tint applied to the spawned block's MeshRenderer when no custom prefab/material is set. " +
+                 "Lets placeholder primitives read at a glance.")]
+        [SerializeField] private Color _tintColor = Color.white;
+
         public string Id => _id;
         public string DisplayName => _displayName;
         public BlockCategory Category => _category;
@@ -67,6 +71,7 @@ namespace Robogame.Block
         public float Mass => _mass;
         public int CpuCost => _cpuCost;
         public GameObject Prefab => _prefab;
+        public Color TintColor => _tintColor;
 
 #if UNITY_EDITOR
         private void OnValidate()
