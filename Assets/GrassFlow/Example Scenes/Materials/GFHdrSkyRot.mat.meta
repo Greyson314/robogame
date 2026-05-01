@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 4303a8f6713749848b1dba9015d11f09
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 219758
+  packageName: GrassFlow 2
+  packageVersion: 2.84
+  assetPath: Assets/GrassFlow/Example Scenes/Materials/GFHdrSkyRot.mat
+  uploadId: 908096

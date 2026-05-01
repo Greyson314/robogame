@@ -36,7 +36,12 @@ namespace Robogame.Gameplay
                  "blueprint at the position below.")]
         [SerializeField] private ChassisBlueprint _dummyBlueprint;
 
-        [SerializeField] private Vector3 _dummyPosition = new Vector3(0f, 1.5f, 30f);
+        // Centred at x=0 so the symmetric blueprint sits dead ahead of the
+        // player spawn (0, 1.5, 0). y=0.5 puts the bottom row of cubes
+        // resting on the ground (block centres are at half-cell offsets).
+        // z=18 keeps it close enough to fire on immediately, far enough
+        // that the player can drive around it.
+        [SerializeField] private Vector3 _dummyPosition = new Vector3(0f, 0.5f, 18f);
         [SerializeField] private string _dummyName = "CombatDummy";
 
         public GameObject Chassis { get; private set; }
@@ -94,14 +99,48 @@ namespace Robogame.Gameplay
 
         private void SpawnDummy(GameStateController state)
         {
-            if (_dummyBlueprint == null || state.Library == null) return;
+            if (_dummyBlueprint == null)
+            {
+                Debug.LogWarning(
+                    "[Robogame] ArenaController: no _dummyBlueprint assigned on this scene's " +
+                    "ArenaController. Re-run Robogame > Scaffold > Gameplay > Build All Pass A " +
+                    "(it auto-wires Blueprint_CombatDummy.asset).",
+                    this);
+                return;
+            }
+            if (state.Library == null) return;
 
             GameObject existing = GameObject.Find(_dummyName);
             if (existing != null) Destroy(existing);
 
             var go = new GameObject(_dummyName);
             go.transform.position = _dummyPosition;
-            ChassisFactory.BuildTarget(go, _dummyBlueprint, state.Library);
+            Robogame.Robots.Robot dummy = ChassisFactory.BuildTarget(go, _dummyBlueprint, state.Library);
+            int blockCount = dummy != null ? dummy.BlockCount : 0;
+            Debug.Log($"[Robogame] Combat dummy spawned at {_dummyPosition} with {blockCount} blocks.", go);
+        }
+
+        /// <summary>
+        /// Tear down the current combat dummy (if any) and rebuild it from the
+        /// configured blueprint at <see cref="_dummyPosition"/>. Safe to call
+        /// any time after <see cref="Start"/>; no-op if the GameStateController
+        /// is missing.
+        /// </summary>
+        /// <remarks>
+        /// Public so the settings HUD can offer a one-click respawn button
+        /// without needing direct access to the spawn pipeline. Also wired
+        /// to the menu shortcut <c>Robogame/Test/Respawn Dummy</c> in
+        /// editor utilities.
+        /// </remarks>
+        public void RespawnDummy()
+        {
+            GameStateController state = GameStateController.Instance;
+            if (state == null)
+            {
+                Debug.LogWarning("[Robogame] ArenaController.RespawnDummy: no GameStateController.", this);
+                return;
+            }
+            SpawnDummy(state);
         }
 
         private static void BindFollowCamera(GameObject chassis)

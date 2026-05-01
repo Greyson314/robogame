@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: a706eefec5080774e8d805721739513b
+ShaderIncludeImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 219758
+  packageName: GrassFlow 2
+  packageVersion: 2.84
+  assetPath: Assets/GrassFlow/Shaders/GrassGeometry.cginc
+  uploadId: 908096

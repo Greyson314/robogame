@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 3b23e9174523fa24dbf6fe82df2fbb63
+timeCreated: 1551481326
+licenseType: Store
+DefaultImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 219758
+  packageName: GrassFlow 2
+  packageVersion: 2.84
+  assetPath: Assets/GrassFlow/Example Scenes/GrassField.unity
+  uploadId: 908096

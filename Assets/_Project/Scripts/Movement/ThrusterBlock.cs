@@ -1,4 +1,5 @@
 using Robogame.Block;
+using Robogame.Core;
 using UnityEngine;
 
 namespace Robogame.Movement
@@ -47,9 +48,9 @@ namespace Robogame.Movement
         public int Order => 0; // actuator stage
         public bool IsOperational => isActiveAndEnabled;
         public float CurrentThrottle => _throttle;
-        public float MaxThrust => _tuning != null ? _tuning.MaxThrust : _maxThrust;
-        private float IdleThrottle     => _tuning != null ? _tuning.IdleThrottle     : _idleThrottle;
-        private float ThrottleResponse => _tuning != null ? _tuning.ThrottleResponse : _throttleResponse;
+        public float MaxThrust         => Tweakables.Get(Tweakables.ThrusterMaxThrust);
+        private float IdleThrottle     => Tweakables.Get(Tweakables.ThrusterIdle);
+        private float ThrottleResponse => Tweakables.Get(Tweakables.ThrusterResponse);
 
         private Rigidbody _rb;
         private RobotDrive _drive;
@@ -65,9 +66,8 @@ namespace Robogame.Movement
             _rb = GetComponentInParent<Rigidbody>();
             _drive = GetComponentInParent<RobotDrive>();
             _drive?.Register(this);
-            string src = _tuning != null ? _tuning.name : "INLINE";
             Debug.Log(
-                $"[Robogame] Thruster live values (source={src}): " +
+                $"[Robogame] Thruster live values (source=Tweakables): " +
                 $"maxThrust={MaxThrust:F1} idle={IdleThrottle:F2} response={ThrottleResponse:F2}",
                 this);
         }

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 36e94e5077eeb4144813d1e9198a0085
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 242152
+  packageName: 'Fluff: Grass for URP'
+  packageVersion: 2.1.0
+  assetPath: Packages/com.occasoftware.fluff/Runtime/Scripts/RenderInteractiveGrass.cs
+  uploadId: 673876

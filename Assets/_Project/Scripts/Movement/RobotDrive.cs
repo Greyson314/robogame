@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Robogame.Core;
 using Robogame.Input;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -41,8 +42,8 @@ namespace Robogame.Movement
         [SerializeField, Min(0f)] private float _angularDamping = 2f;
 
         private Vector3 CenterOfMassOffset => _tuning != null ? _tuning.CenterOfMassOffset : _centerOfMassOffset;
-        private float LinearDamping        => _tuning != null ? _tuning.LinearDamping      : _linearDamping;
-        private float AngularDamping       => _tuning != null ? _tuning.AngularDamping     : _angularDamping;
+        private float LinearDamping        => Tweakables.Get(Tweakables.ChassisLinDamp);
+        private float AngularDamping       => Tweakables.Get(Tweakables.ChassisAngDamp);
 
         [Header("Aim (camera-ray reticle)")]
         [Tooltip("Layers the cursor / reticle can latch onto.")]
@@ -82,6 +83,26 @@ namespace Robogame.Movement
             _input = GetComponentInParent<IInputSource>();
             if (_aimCamera == null) _aimCamera = Camera.main;
             _aimPoint = transform.position + transform.forward * 30f;
+        }
+
+        private void OnEnable()
+        {
+            Tweakables.Changed += ApplyTweakables;
+        }
+
+        private void OnDisable()
+        {
+            Tweakables.Changed -= ApplyTweakables;
+        }
+
+        private void ApplyTweakables()
+        {
+            // Rigidbody damping is cached on the body, so we have to push
+            // it after every settings change. COM is recomputed by Robot's
+            // mass aggregation pipeline on its own cadence.
+            if (_rb == null) return;
+            _rb.linearDamping = LinearDamping;
+            _rb.angularDamping = AngularDamping;
         }
 
         // -----------------------------------------------------------------

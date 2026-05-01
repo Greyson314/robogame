@@ -1,4 +1,5 @@
 using UnityEngine;
+using Robogame.Core;
 
 namespace Robogame.Movement
 {
@@ -55,12 +56,12 @@ namespace Robogame.Movement
         [Tooltip("Local yaw-rate damping.")]
         [SerializeField, Min(0f)] private float _yawDamping = 1.6f;
 
-        private float PitchPower   => _tuning != null ? _tuning.PitchPower   : _pitchPower;
-        private float RollPower    => _tuning != null ? _tuning.RollPower    : _rollPower;
-        private float YawFromBank  => _tuning != null ? _tuning.YawFromBank  : _yawFromBank;
-        private float PitchDamping => _tuning != null ? _tuning.PitchDamping : _pitchDamping;
-        private float RollDamping  => _tuning != null ? _tuning.RollDamping  : _rollDamping;
-        private float YawDamping   => _tuning != null ? _tuning.YawDamping   : _yawDamping;
+        private float PitchPower   => Tweakables.Get(Tweakables.PlanePitchPower);
+        private float RollPower    => Tweakables.Get(Tweakables.PlaneRollPower);
+        private float YawFromBank  => Tweakables.Get(Tweakables.PlaneYawFromBank);
+        private float PitchDamping => Tweakables.Get(Tweakables.PlanePitchDamping);
+        private float RollDamping  => Tweakables.Get(Tweakables.PlaneRollDamping);
+        private float YawDamping   => Tweakables.Get(Tweakables.PlaneYawDamping);
 
         public int Order => 50; // between actuators (0) and assists (200)
         public bool IsOperational => isActiveAndEnabled;
@@ -73,9 +74,8 @@ namespace Robogame.Movement
             _rb = GetComponentInParent<Rigidbody>();
             _drive = GetComponentInParent<RobotDrive>();
             _drive?.Register(this);
-            string src = _tuning != null ? _tuning.name : "INLINE";
             Debug.Log(
-                $"[Robogame] PlaneControl live values (source={src}): " +
+                $"[Robogame] PlaneControl live values (source=Tweakables): " +
                 $"pitch={PitchPower:F2} roll={RollPower:F2} yawFromBank={YawFromBank:F2} " +
                 $"pitchDamp={PitchDamping:F2} rollDamp={RollDamping:F2} yawDamp={YawDamping:F2}",
                 this);

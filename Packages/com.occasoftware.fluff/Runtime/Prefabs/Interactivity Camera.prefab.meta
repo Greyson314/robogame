@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: e5a56b3bb3efd464f9728660504627c7
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 242152
+  packageName: 'Fluff: Grass for URP'
+  packageVersion: 2.1.0
+  assetPath: Packages/com.occasoftware.fluff/Runtime/Prefabs/Interactivity Camera.prefab
+  uploadId: 673876

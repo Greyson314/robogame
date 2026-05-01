@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 65b8aedd463d6104a9dbceaf386f2744
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  preprocessorOverride: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 219758
+  packageName: GrassFlow 2
+  packageVersion: 2.84
+  assetPath: Assets/GrassFlow/Shaders/PaintHighlighter.shader
+  uploadId: 908096

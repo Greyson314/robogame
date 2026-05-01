@@ -11,7 +11,9 @@
         "Robogame.Robots",
         "Robogame.UI",
         "Robogame.Gameplay",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [
         "Editor"

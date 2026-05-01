@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: bb6ac60b40475bc408c2b3ec8360fe85
+timeCreated: 1553446669
+licenseType: Store
+DefaultImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 219758
+  packageName: GrassFlow 2
+  packageVersion: 2.84
+  assetPath: Assets/GrassFlow/Example Scenes/TerrainExampleOptimized.unity
+  uploadId: 908096

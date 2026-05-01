@@ -1,0 +1,20 @@
+fileFormatVersion: 2
+guid: 10537d8e24a12e241ac104e5bc47e57c
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - brushTex: {fileID: 2800000, guid: e0f915bf8e8826b44bd0bc4c1ec5bee7, type: 3}
+  - grassFlow: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 219758
+  packageName: GrassFlow 2
+  packageVersion: 2.84
+  assetPath: Assets/GrassFlow/Scripts/ObstructionEraser.cs
+  uploadId: 908096

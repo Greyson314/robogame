@@ -167,16 +167,24 @@ namespace Robogame.Tools.Editor
 
         private static ChassisBlueprint.Entry[] BuildDummyEntries()
         {
-            // 2×2×2 cube minus one corner that becomes the CPU.
+            // Big fortress dummy: 5w × 5d × 6h solid cube body with a CPU
+            // "head" sticking up from the top-centre. Solid (not hollow) so
+            // splash damage has long chains of connected blocks to chew
+            // through — makes propagation visually obvious. Centred on the
+            // x/z origin so positioning the dummy GameObject feels natural.
             var list = new List<ChassisBlueprint.Entry>();
-            for (int x = 0; x <= 1; x++)
-            for (int y = 0; y <= 1; y++)
-            for (int z = 0; z <= 1; z++)
+            const int half = 2;       // → 5 wide / deep (-2..2)
+            const int height = 6;     // body cubes y=0..5
+            for (int x = -half; x <= half; x++)
+            for (int z = -half; z <= half; z++)
+            for (int y = 0; y < height; y++)
             {
-                if (x == 0 && y == 1 && z == 0) continue;
                 list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(x, y, z)));
             }
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 1, 0)));
+            // CPU pokes up one cell above the centre of the roof so a sniper
+            // can decapitate from far away, but splash testing still has a
+            // chunky body to walk damage through.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, height, 0)));
             return list.ToArray();
         }
 
@@ -226,6 +234,11 @@ namespace Robogame.Tools.Editor
 
             var state = bootstrap.GetComponent<GameStateController>();
             if (state == null) state = bootstrap.AddComponent<GameStateController>();
+
+            // Settings HUD lives on the persistent Bootstrap object so a
+            // single instance survives scene transitions (Esc to toggle).
+            if (bootstrap.GetComponent<SettingsHud>() == null)
+                bootstrap.AddComponent<SettingsHud>();
 
             // Re-load the assets by path RIGHT BEFORE assignment. Anything
             // that triggered AssetDatabase.Refresh between asset creation
@@ -297,8 +310,6 @@ namespace Robogame.Tools.Editor
         [MenuItem(MenuRoot + "5 — Build Arena Scene (Pass A)")]
         public static void BuildArenaPassA()
         {
-            ChassisBlueprint dummyBp = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(CombatDummyPath);
-
             // Create the Arena scene file if missing.
             if (!File.Exists(ScaffoldUtils.ArenaScene))
             {
@@ -316,12 +327,36 @@ namespace Robogame.Tools.Editor
             if (controller.GetComponent<SceneTransitionHud>() == null)
                 controller.AddComponent<SceneTransitionHud>();
 
-            if (dummyBp != null)
+            // Load the blueprint asset RIGHT BEFORE the SerializedObject write.
+            // OpenScene above can trigger AssetDatabase.Refresh which invalidates
+            // any C# refs captured earlier (Unity's "fake null"). Loading by path
+            // here guarantees a live persistent ref that SerializedProperty will
+            // actually keep. (Same pattern used in BuildBootstrapPassA.)
+            ChassisBlueprint dummyBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(CombatDummyPath);
+            if (dummyBpLive == null)
+            {
+                Debug.LogError(
+                    $"[Robogame] BuildArenaPassA: combat dummy blueprint load FAILED at " +
+                    $"assignment time (path: {CombatDummyPath}). The scene's ArenaController " +
+                    "will have no dummy. Run step 2 (Create Default Blueprints) first.");
+            }
+            else
             {
                 SerializedObject so = new SerializedObject(arena);
                 SerializedProperty prop = so.FindProperty("_dummyBlueprint");
-                if (prop != null) prop.objectReferenceValue = dummyBp;
+                if (prop != null) prop.objectReferenceValue = dummyBpLive;
+
+                // Push the position too so bumping the default in code
+                // actually reaches the saved scene asset on re-scaffold.
+                SerializedProperty posProp = so.FindProperty("_dummyPosition");
+                if (posProp != null) posProp.vector3Value = new Vector3(0f, 0.5f, 18f);
+
                 so.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(arena);
+                EditorSceneManager.MarkSceneDirty(arena.gameObject.scene);
+
+                bool wired = so.FindProperty("_dummyBlueprint").objectReferenceValue != null;
+                Debug.Log($"[Robogame] BuildArenaPassA: ArenaController dummy wired = {wired}.");
             }
 
             ScaffoldUtils.SaveActiveScene();
@@ -331,6 +366,38 @@ namespace Robogame.Tools.Editor
         [MenuItem(MenuRoot + "Build All Pass A")]
         public static void BuildAllPassA()
         {
+            // Treat this as a true catch-all: run every numbered menu step
+            // explicitly, in order, instead of relying on transitive calls
+            // from BuildBootstrapPassA. That way the user can invoke this
+            // entry alone after touching any data-asset or material code
+            // and trust the entire Pass A surface is rebuilt.
+            //
+            // Order matters: data assets first (definitions → blueprints),
+            // then rendering data (post profiles, skybox, outline feature,
+            // block materials), then scenes that consume both.
+
+            // Step 1 + Step 2: data assets. EnvironmentBuilder /
+            // BootstrapBuilder load these by path so they must exist
+            // before any scene is opened.
+            PopulateBlockDefinitionLibrary();
+            CreateDefaultBlueprints();
+
+            // Rendering data. EnvironmentBuilder loads post-profile and
+            // skybox assets by path at scene-build time, so they have to
+            // be authored on disk before any BuildXxxPassA runs.
+            PostProcessingBuilder.BuildAll();
+            SkyboxBuilder.BuildArenaSkybox();
+            // Phase 2: register MK Toon's per-object outline renderer feature
+            // on the URP renderer asset. The outline pass uses a custom
+            // LightMode tag and is dead without the feature dispatching it.
+            OutlineRendererFeatureWiring.EnsureOutlineFeatureOnRenderers();
+            // Phase 2: refresh the per-category block materials in place.
+            // Idempotent — flips shaders / properties on the existing .mat
+            // assets so iterating on BlockMaterials.cs doesn't require the
+            // user to also re-run the BlockDefinition wizard.
+            BlockMaterials.BuildAll();
+            AssetDatabase.SaveAssets();
+
             BuildBootstrapPassA();
             BuildArenaPassA();
             BuildGaragePassA();

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 51fb4346d03635f4bb9fefb5f53ddaf0
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 219758
+  packageName: GrassFlow 2
+  packageVersion: 2.84
+  assetPath: Assets/GrassFlow/Editor/CompilerTest.cs
+  uploadId: 908096

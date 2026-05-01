@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: c9396a438b4d15a4fb09873258e716f6
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  preprocessorOverride: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 242152
+  packageName: 'Fluff: Grass for URP'
+  packageVersion: 2.1.0
+  assetPath: Packages/com.occasoftware.fluff/Runtime/Shaders/Grass.shader
+  uploadId: 673876

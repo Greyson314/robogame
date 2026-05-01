@@ -64,6 +64,11 @@ namespace Robogame.Block
                  "Lets placeholder primitives read at a glance.")]
         [SerializeField] private Color _tintColor = Color.white;
 
+        [Tooltip("Optional shared material used as the block's base when no custom Prefab is set. " +
+                 "Authored by BlockMaterials so we can centralise shader + outline choice per category. " +
+                 "Falls back to the primitive's default material if null.")]
+        [SerializeField] private Material _material;
+
         public string Id => _id;
         public string DisplayName => _displayName;
         public BlockCategory Category => _category;
@@ -72,6 +77,7 @@ namespace Robogame.Block
         public int CpuCost => _cpuCost;
         public GameObject Prefab => _prefab;
         public Color TintColor => _tintColor;
+        public Material Material => _material;
 
 #if UNITY_EDITOR
         private void OnValidate()

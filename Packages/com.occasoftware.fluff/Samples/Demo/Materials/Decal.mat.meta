@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 68cb53e113c04db41a6b37c7d86c380e
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 242152
+  packageName: 'Fluff: Grass for URP'
+  packageVersion: 2.1.0
+  assetPath: Packages/com.occasoftware.fluff/Samples/Demo/Materials/Decal.mat
+  uploadId: 673876

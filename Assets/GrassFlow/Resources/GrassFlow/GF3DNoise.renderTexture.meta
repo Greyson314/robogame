@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: dea7f088858bd2a449abec833e9032d0
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 8400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 219758
+  packageName: GrassFlow 2
+  packageVersion: 2.84
+  assetPath: Assets/GrassFlow/Resources/GrassFlow/GF3DNoise.renderTexture
+  uploadId: 908096

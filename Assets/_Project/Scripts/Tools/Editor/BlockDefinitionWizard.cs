@@ -18,13 +18,23 @@ namespace Robogame.Tools.Editor
         {
             EnsureFolder(DefinitionsFolder);
 
-            CreateOrUpdate("BlockDef_Cube",       BlockIds.Cube,       "Structure Cube", BlockCategory.Structure, maxHealth: 100f, mass: 1f,   cpuCost: 1,  tint: new Color(0.78f, 0.80f, 0.82f));
-            CreateOrUpdate("BlockDef_Cpu",        BlockIds.Cpu,        "CPU",            BlockCategory.Cpu,       maxHealth: 200f, mass: 2f,   cpuCost: 0,  tint: new Color(0.20f, 0.85f, 0.95f));
-            CreateOrUpdate("BlockDef_Wheel",      BlockIds.Wheel,      "Drive Wheel",    BlockCategory.Movement,  maxHealth:  80f, mass: 1.5f, cpuCost: 25, tint: new Color(0.18f, 0.18f, 0.20f));
-            CreateOrUpdate("BlockDef_WheelSteer", BlockIds.WheelSteer, "Steer Wheel",    BlockCategory.Movement,  maxHealth:  80f, mass: 1.5f, cpuCost: 25, tint: new Color(0.30f, 0.30f, 0.35f));
-            CreateOrUpdate("BlockDef_Thruster",   BlockIds.Thruster,   "Thruster",       BlockCategory.Movement,  maxHealth:  70f, mass: 2f,   cpuCost: 30, tint: new Color(0.95f, 0.55f, 0.10f));
-            CreateOrUpdate("BlockDef_Aero",       BlockIds.Aero,       "Wing Section",   BlockCategory.Movement,  maxHealth:  50f, mass: 0.6f, cpuCost: 10, tint: new Color(0.85f, 0.85f, 0.90f));
-            CreateOrUpdate("BlockDef_Weapon",     BlockIds.Weapon,     "Hitscan Gun",    BlockCategory.Weapon,    maxHealth:  60f, mass: 1.5f, cpuCost: 20, tint: new Color(0.85f, 0.20f, 0.25f));
+            // Phase 1+2: every block reads through a shared, palette-backed
+            // MK Toon material. Build them BEFORE the definitions so the
+            // wizard can wire the references in a single SerializedObject pass.
+            BlockMaterials.BuildAll();
+
+            // Tints are all white now: the per-category MK Toon material
+            // (BlockMaterials.ForBlockId) carries the authored colour. Tint
+            // remains a multiplicative MPB override on top of that — keep
+            // it white so we don't double-darken the material's hue.
+            Color w = Color.white;
+            CreateOrUpdate("BlockDef_Cube",       BlockIds.Cube,       "Structure Cube", BlockCategory.Structure, maxHealth: 100f, mass: 1f,   cpuCost: 1,  tint: w);
+            CreateOrUpdate("BlockDef_Cpu",        BlockIds.Cpu,        "CPU",            BlockCategory.Cpu,       maxHealth: 200f, mass: 2f,   cpuCost: 0,  tint: w);
+            CreateOrUpdate("BlockDef_Wheel",      BlockIds.Wheel,      "Drive Wheel",    BlockCategory.Movement,  maxHealth:  80f, mass: 1.5f, cpuCost: 25, tint: w);
+            CreateOrUpdate("BlockDef_WheelSteer", BlockIds.WheelSteer, "Steer Wheel",    BlockCategory.Movement,  maxHealth:  80f, mass: 1.5f, cpuCost: 25, tint: w);
+            CreateOrUpdate("BlockDef_Thruster",   BlockIds.Thruster,   "Thruster",       BlockCategory.Movement,  maxHealth:  70f, mass: 2f,   cpuCost: 30, tint: w);
+            CreateOrUpdate("BlockDef_Aero",       BlockIds.Aero,       "Wing Section",   BlockCategory.Movement,  maxHealth:  50f, mass: 0.6f, cpuCost: 10, tint: w);
+            CreateOrUpdate("BlockDef_Weapon",     BlockIds.Weapon,     "Hitscan Gun",    BlockCategory.Weapon,    maxHealth:  60f, mass: 1.5f, cpuCost: 20, tint: w);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -72,6 +82,17 @@ namespace Robogame.Tools.Editor
             so.FindProperty("_cpuCost").intValue = cpuCost;
             SerializedProperty tintProp = so.FindProperty("_tintColor");
             if (tintProp != null) tintProp.colorValue = tint;
+
+            // Per-category material reference. Loaded by path right before
+            // assignment to dodge the AssetDatabase fake-null pattern
+            // documented in CHANGES.md.
+            SerializedProperty matProp = so.FindProperty("_material");
+            if (matProp != null)
+            {
+                Material categoryMat = BlockMaterials.ForBlockId(stableId, category);
+                if (categoryMat != null) matProp.objectReferenceValue = categoryMat;
+            }
+
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(def);
 

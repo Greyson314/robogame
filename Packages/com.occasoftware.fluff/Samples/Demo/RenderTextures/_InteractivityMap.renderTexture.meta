@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 6c25903b84c63d14383c24a993884407
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 8400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 242152
+  packageName: 'Fluff: Grass for URP'
+  packageVersion: 2.1.0
+  assetPath: Packages/com.occasoftware.fluff/Samples/Demo/RenderTextures/_InteractivityMap.renderTexture
+  uploadId: 673876

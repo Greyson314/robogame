@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: aa7a6d67f12527a43afece5bd6d92b09
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 242152
+  packageName: 'Fluff: Grass for URP'
+  packageVersion: 2.1.0
+  assetPath: Packages/com.occasoftware.fluff/Samples/Demo/Levels/FootballPitch_P.unity
+  uploadId: 673876

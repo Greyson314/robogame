@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: e9ef32abcb8d518489445b2e4c83156a
+ShaderIncludeImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 219758
+  packageName: GrassFlow 2
+  packageVersion: 2.84
+  assetPath: Assets/GrassFlow/Shaders/GrassRenderPipelineHelpers.cginc
+  uploadId: 908096

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: c886785117e44ab46b9d4c4b2653ed6b
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 219758
+  packageName: GrassFlow 2
+  packageVersion: 2.84
+  assetPath: Assets/GrassFlow/GrassFlow.asmdef
+  uploadId: 908096

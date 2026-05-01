@@ -38,6 +38,7 @@ namespace Robogame.Block
 
         // Visual-damage cache.
         private static readonly int s_baseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int s_albedoColorId = Shader.PropertyToID("_AlbedoColor"); // MK Toon
         private static readonly int s_legacyColorId = Shader.PropertyToID("_Color");
         private Renderer[] _renderers;
         private Color[] _baseColors;
@@ -91,7 +92,11 @@ namespace Robogame.Block
                 Color c = Color.white;
                 if (mat != null)
                 {
-                    if (mat.HasProperty(s_baseColorId)) c = mat.GetColor(s_baseColorId);
+                    // MK Toon writes to _AlbedoColor; URP/Lit to _BaseColor;
+                    // Standard to _Color. Probe in priority order so the
+                    // damage darkening always reads the actual authored hue.
+                    if (mat.HasProperty(s_albedoColorId)) c = mat.GetColor(s_albedoColorId);
+                    else if (mat.HasProperty(s_baseColorId)) c = mat.GetColor(s_baseColorId);
                     else if (mat.HasProperty(s_legacyColorId)) c = mat.GetColor(s_legacyColorId);
                 }
                 _baseColors[i] = c;
@@ -110,6 +115,7 @@ namespace Robogame.Block
                 r.GetPropertyBlock(_mpb);
                 Color baseCol = _baseColors[i];
                 Color tinted = new Color(baseCol.r * darken, baseCol.g * darken, baseCol.b * darken, baseCol.a);
+                _mpb.SetColor(s_albedoColorId, tinted);
                 _mpb.SetColor(s_baseColorId, tinted);
                 _mpb.SetColor(s_legacyColorId, tinted);
                 r.SetPropertyBlock(_mpb);

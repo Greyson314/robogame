@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Robogame.Block;
+using Robogame.Core;
 using UnityEngine;
 
 namespace Robogame.Movement
@@ -46,9 +47,9 @@ namespace Robogame.Movement
         [SerializeField, Range(0f, 1f)] private float _lateralGrip = 0.85f;
 
         // Resolved values (tuning profile overrides inline fields).
-        private float Acceleration     => _tuning != null ? _tuning.Acceleration     : _acceleration;
-        private float MaxSpeed         => _tuning != null ? _tuning.MaxSpeed         : _maxSpeed;
-        private float TurnRate         => _tuning != null ? _tuning.TurnRate         : _turnRate;
+        private float Acceleration     => Tweakables.Get(Tweakables.GroundAccel);
+        private float MaxSpeed         => Tweakables.Get(Tweakables.GroundMaxSpeed);
+        private float TurnRate         => Tweakables.Get(Tweakables.GroundTurnRate);
         private float JumpImpulse      => _tuning != null ? _tuning.JumpImpulse      : _jumpImpulse;
         private float JumpCooldown     => _tuning != null ? _tuning.JumpCooldown     : _jumpCooldown;
         private float UprightStrength  => _tuning != null ? _tuning.UprightStrength  : _uprightStrength;

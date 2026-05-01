@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 2dbd2f20c69811448937924eb6c59fc9
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 242152
+  packageName: 'Fluff: Grass for URP'
+  packageVersion: 2.1.0
+  assetPath: Packages/com.occasoftware.fluff/Runtime/Prefabs/particles-tint.prefab
+  uploadId: 673876

@@ -132,11 +132,28 @@ namespace Robogame.Block
             go.transform.localRotation = Quaternion.identity;
             go.transform.localScale = Vector3.one * _cellSize;
 
+            // Phase 2 cel-shading swap: blocks without a custom prefab read
+            // from a shared category material so MK Toon (and its outline
+            // variant for hero blocks) actually shows up. Falls through to
+            // the existing primitive material if no asset was authored.
+            if (definition.Prefab == null && definition.Material != null)
+            {
+                ApplySharedMaterial(go, definition.Material);
+            }
+
             ApplyTint(go, definition.TintColor);
 
             BlockBehaviour block = go.GetComponent<BlockBehaviour>();
             if (block == null) block = go.AddComponent<BlockBehaviour>();
             block.Initialize(definition, gridPos);
+
+            // CPU is the instakill cell — give it an unmistakable beacon so
+            // the player (and future AI targeters) can spot it at a glance.
+            if (definition.Category == BlockCategory.Cpu &&
+                go.GetComponent<CpuBlockMarker>() == null)
+            {
+                go.AddComponent<CpuBlockMarker>();
+            }
 
             _blocks[gridPos] = block;
             block.Destroyed += HandleBlockDestroyed;
@@ -160,11 +177,29 @@ namespace Robogame.Block
         }
 
         /// <summary>
+        /// Replace every <see cref="MeshRenderer"/>'s <c>sharedMaterial</c>
+        /// below <paramref name="root"/>. Uses the SHARED slot on purpose:
+        /// per-block <c>Renderer.material</c> instances would multiply
+        /// material asset count linearly with block count, which kills
+        /// batching at our scale (10k+ blocks/scene long-term).
+        /// </summary>
+        private static void ApplySharedMaterial(GameObject root, Material mat)
+        {
+            if (root == null || mat == null) return;
+            MeshRenderer[] renderers = root.GetComponentsInChildren<MeshRenderer>(includeInactive: true);
+            foreach (MeshRenderer mr in renderers)
+            {
+                if (mr == null) continue;
+                mr.sharedMaterial = mat;
+            }
+        }
+
+        /// <summary>
         /// Apply a tint colour to every <see cref="MeshRenderer"/> below
-        /// <paramref name="root"/>. Uses a per-instance material so the
-        /// project-wide URP/Lit shared material isn't recoloured. No-op if
-        /// the tint is white (the default) so prefabs with custom materials
-        /// aren't disturbed.
+        /// <paramref name="root"/>. Uses a <see cref="MaterialPropertyBlock"/>
+        /// so the shared category material isn't recoloured project-wide,
+        /// and we don't churn per-block material instances. No-op if the
+        /// tint is white (the default).
         /// </summary>
         private static void ApplyTint(GameObject root, Color tint)
         {
@@ -175,14 +210,18 @@ namespace Robogame.Block
                 Mathf.Approximately(tint.a, 1f)) return;
 
             MeshRenderer[] renderers = root.GetComponentsInChildren<MeshRenderer>(includeInactive: true);
+            MaterialPropertyBlock mpb = new MaterialPropertyBlock();
+            int albedoId = Shader.PropertyToID("_AlbedoColor");
+            int baseId   = Shader.PropertyToID("_BaseColor");
+            int legacyId = Shader.PropertyToID("_Color");
             foreach (MeshRenderer mr in renderers)
             {
-                // .material instantiates a per-renderer copy so the shared
-                // primitive material isn't recoloured project-wide.
-                Material mat = mr.material;
-                if (mat == null) continue;
-                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", tint);
-                else if (mat.HasProperty("_Color")) mat.SetColor("_Color", tint);
+                if (mr == null) continue;
+                mr.GetPropertyBlock(mpb);
+                mpb.SetColor(albedoId, tint);
+                mpb.SetColor(baseId,   tint);
+                mpb.SetColor(legacyId, tint);
+                mr.SetPropertyBlock(mpb);
             }
         }
 

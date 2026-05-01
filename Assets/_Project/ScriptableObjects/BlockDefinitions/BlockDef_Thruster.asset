@@ -19,4 +19,5 @@ MonoBehaviour:
   _mass: 2
   _cpuCost: 30
   _prefab: {fileID: 0}
-  _tintColor: {r: 0.95, g: 0.55, b: 0.1, a: 1}
+  _tintColor: {r: 1, g: 1, b: 1, a: 1}
+  _material: {fileID: 2100000, guid: 7d9ea8e2146e83040a1a5d76f01505d5, type: 2}

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: fa8ed7b589990bd479c2931184cf693a
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 242152
+  packageName: 'Fluff: Grass for URP'
+  packageVersion: 2.1.0
+  assetPath: Packages/com.occasoftware.fluff/Runtime/Prefabs/particles-cut.prefab
+  uploadId: 673876

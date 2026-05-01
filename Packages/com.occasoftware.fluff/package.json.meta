@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d16600d8ae954ba4ba2105e6f47c5469
+PackageManifestImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 242152
+  packageName: 'Fluff: Grass for URP'
+  packageVersion: 2.1.0
+  assetPath: Packages/com.occasoftware.fluff/package.json
+  uploadId: 673876

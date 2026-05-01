@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: ff30ab48ca4f729479fecbb34854c167
+timeCreated: 1551481326
+licenseType: Store
+DefaultImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 219758
+  packageName: GrassFlow 2
+  packageVersion: 2.84
+  assetPath: Assets/GrassFlow/Example Scenes/GrassFieldCurvedLODs.unity
+  uploadId: 908096

@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f376b2e6b82b96e419745bd20996c27c, type: 3}
+  m_Name: HillsSettings
+  m_EditorClassIdentifier: Robogame.Tools.Editor::Robogame.Tools.Editor.HillsSettings
+  size: 220
+  resolution: 48
+  hillAmpLow: 4
+  hillFreqLow: 0.025
+  hillAmpHigh: 1
+  hillFreqHigh: 0.08
+  flatRadius: 25
+  rampOuter: 55
+  edgeFlatStart: 80
+  edgeFlatEnd: 100
+  noiseOffset: {x: 137.31, y: 91.47}

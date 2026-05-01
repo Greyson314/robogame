@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: c50ddd4c083cc344d92d8d5004cc793b
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 242152
+  packageName: 'Fluff: Grass for URP'
+  packageVersion: 2.1.0
+  assetPath: Packages/com.occasoftware.fluff/Editor/GrassMaterialEditorGUI.cs
+  uploadId: 673876

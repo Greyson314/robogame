@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 77c24a7161dbc1f49a1b0e8d6b97a412
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 242152
+  packageName: 'Fluff: Grass for URP'
+  packageVersion: 2.1.0
+  assetPath: Packages/com.occasoftware.fluff/Samples/Demo/Materials/Landscape 2.mat
+  uploadId: 673876
