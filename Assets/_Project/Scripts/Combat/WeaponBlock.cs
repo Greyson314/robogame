@@ -7,7 +7,7 @@ namespace Robogame.Combat
     /// Lives on a <see cref="BlockBehaviour"/> of category <c>Weapon</c>.
     /// Builds a small turret rig: the block itself yaws (Y-axis only) so the
     /// chassis-mounted base turns, and a child "Yoke" pitches (X-axis only)
-    /// so the barrel can elevate. Pairs with a <see cref="HitscanGun"/> on
+    /// so the barrel can elevate. Pairs with a <see cref="ProjectileGun"/> on
     /// the same GameObject for firing.
     /// </summary>
     [DisallowMultipleComponent]
@@ -37,7 +37,7 @@ namespace Robogame.Combat
         [SerializeField] private Transform _yoke;
         [SerializeField] private Transform _muzzle;
         [SerializeField] private WeaponMount _mount;
-        [SerializeField] private HitscanGun _gun;
+        [SerializeField] private ProjectileGun _gun;
 
         public Transform Muzzle => _muzzle;
 
@@ -45,8 +45,8 @@ namespace Robogame.Combat
         {
             EnsureRig();
             if (_mount == null) _mount = GetComponentInParent<WeaponMount>();
-            if (_gun == null) _gun = GetComponent<HitscanGun>();
-            if (_gun == null) _gun = gameObject.AddComponent<HitscanGun>();
+            if (_gun == null) _gun = GetComponent<ProjectileGun>();
+            if (_gun == null) _gun = gameObject.AddComponent<ProjectileGun>();
             _gun.SetMuzzle(_muzzle);
         }
 

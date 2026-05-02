@@ -65,5 +65,5 @@ MonoBehaviour:
     Position: {x: -2, y: 0, z: -3}
   - BlockId: block.structure.cube
     Position: {x: 0, y: 1, z: -3}
-  - BlockId: block.structure.cube
+  - BlockId: block.movement.aero.fin
     Position: {x: 0, y: 2, z: -3}

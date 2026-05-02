@@ -18,6 +18,8 @@ namespace Robogame.Block
         public const string WheelSteer = "block.movement.wheel.steer";
         public const string Thruster   = "block.movement.thruster";
         public const string Aero       = "block.movement.aero";
+        public const string AeroFin    = "block.movement.aero.fin";
+        public const string Rudder     = "block.movement.rudder";
         public const string Weapon     = "block.weapon.hitscan";
     }
 }

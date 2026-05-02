@@ -105,6 +105,8 @@ namespace Robogame.Tools.Editor
                 case BlockCategory.Movement:
                     if (blockId == BlockIds.Thruster) return Load("BlockMat_Thruster");
                     if (blockId == BlockIds.Aero)     return Load("BlockMat_Aero");
+                    if (blockId == BlockIds.AeroFin)  return Load("BlockMat_Aero");
+                    if (blockId == BlockIds.Rudder)   return Load("BlockMat_Aero");
                     return Load("BlockMat_WheelTire");
                 case BlockCategory.Structure:
                 case BlockCategory.Module:

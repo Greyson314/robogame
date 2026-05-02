@@ -13,7 +13,9 @@ namespace Robogame.Movement
         protected override bool ShouldBind(BlockBehaviour block) =>
             block.Definition.Category == BlockCategory.Movement &&
             (block.Definition.Id == BlockIds.Thruster ||
-             block.Definition.Id == BlockIds.Aero);
+             block.Definition.Id == BlockIds.Aero ||
+             block.Definition.Id == BlockIds.AeroFin ||
+             block.Definition.Id == BlockIds.Rudder);
 
         protected override void Bind(BlockBehaviour block)
         {
@@ -24,8 +26,22 @@ namespace Robogame.Movement
                         block.gameObject.AddComponent<ThrusterBlock>();
                     break;
                 case BlockIds.Aero:
-                    if (block.GetComponent<AeroSurfaceBlock>() == null)
-                        block.gameObject.AddComponent<AeroSurfaceBlock>();
+                {
+                    AeroSurfaceBlock aero = block.GetComponent<AeroSurfaceBlock>();
+                    if (aero == null) aero = block.gameObject.AddComponent<AeroSurfaceBlock>();
+                    aero.Vertical = false;
+                    break;
+                }
+                case BlockIds.AeroFin:
+                {
+                    AeroSurfaceBlock fin = block.GetComponent<AeroSurfaceBlock>();
+                    if (fin == null) fin = block.gameObject.AddComponent<AeroSurfaceBlock>();
+                    fin.Vertical = true;
+                    break;
+                }
+                case BlockIds.Rudder:
+                    if (block.GetComponent<RudderBlock>() == null)
+                        block.gameObject.AddComponent<RudderBlock>();
                     break;
             }
         }

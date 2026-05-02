@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Robogame.Tools.Editor::Robogame.Tools.Editor.HillsSettings
   size: 220
   resolution: 48
-  hillAmpLow: 4
+  hillAmpLow: 2
   hillFreqLow: 0.025
-  hillAmpHigh: 1
+  hillAmpHigh: 0.5
   hillFreqHigh: 0.08
   flatRadius: 25
   rampOuter: 55

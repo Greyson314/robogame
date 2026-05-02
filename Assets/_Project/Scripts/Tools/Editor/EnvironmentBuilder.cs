@@ -40,8 +40,9 @@ namespace Robogame.Tools.Editor
 
             GameObject env = ResetEnvRoot();
 
-            // Floor — small, dark.
-            const float halfBay = 9f;
+            // Floor — large workshop bay (Pass B Phase 3a: doubled from 9 → 18
+            // half-extent so build mode + orbit camera have room to breathe).
+            const float halfBay = 18f;
             GameObject floor = MakePlane(env.transform, "Floor", Vector3.zero, scale: halfBay / 5f);
             WorldPalette.Apply(floor, WorldPalette.GarageFloor);
 
@@ -83,9 +84,10 @@ namespace Robogame.Tools.Editor
             GameObject env = ResetEnvRoot();
 
             // Arena: bright, raked sun, cool ambient. Numbers from ART_DIRECTION.md.
+            Vector3 arenaSunEuler = new Vector3(50f, -30f, 0f);
             EnsureCameraAndLight(
                 WorldPalette.ArenaClear,
-                lightEuler: new Vector3(50f, -30f, 0f),
+                lightEuler: arenaSunEuler,
                 lightColor: new Color(1f, 0.973f, 0.878f, 1f), // #FFF8E0
                 lightIntensity: 1.3f,
                 useSkybox: true);
@@ -93,8 +95,12 @@ namespace Robogame.Tools.Editor
             EnsureSceneVolume(PostProcessingBuilder.ArenaProfilePath);
 
             // Polyverse Skies arena skybox — builder falls back to a
-            // procedural sky if the package shader isn't found.
-            Material sky = SkyboxBuilder.BuildArenaSkybox();
+            // procedural sky if the package shader isn't found. Sun
+            // direction in the sky is the negation of the directional
+            // light's forward vector, so the halo on the skybox sits
+            // exactly where the shadows on the ground say it should.
+            Vector3 arenaSunDir = -(Quaternion.Euler(arenaSunEuler) * Vector3.forward);
+            Material sky = SkyboxBuilder.BuildArenaSkybox(arenaSunDir);
             RenderSettings.skybox = sky;
             DynamicGI.UpdateEnvironment();
 
@@ -140,6 +146,105 @@ namespace Robogame.Tools.Editor
                 else if (n.StartsWith("Wall_")) mat = WorldPalette.ArenaWall;
                 WorldPalette.Apply(child.gameObject, mat);
             }
+        }
+
+        // -----------------------------------------------------------------
+        // Water arena: open ocean sandbox. No obstacles or props — just a
+        // submerged floor, a translucent water plane at y=0, and a wall
+        // ring so chassis can't drive past the swim window.
+        // -----------------------------------------------------------------
+
+        public static void BuildWaterArenaEnvironment()
+        {
+            GameObject env = ResetEnvRoot();
+
+            // Same lighting/skybox rig as the combat arena — the player
+            // should feel like they've stepped sideways into a different
+            // map, not a different world. Slightly cooler ambient sells
+            // the "open ocean" mood.
+            Vector3 waterSunEuler = new Vector3(50f, -30f, 0f);
+            EnsureCameraAndLight(
+                WorldPalette.WaterArenaClear,
+                lightEuler: waterSunEuler,
+                lightColor: new Color(1f, 0.973f, 0.878f, 1f),
+                lightIntensity: 1.3f,
+                useSkybox: true);
+            ConfigureAmbient(
+                skyTop: WorldPalette.SkyDay,
+                equator: new Color(0.28f, 0.40f, 0.50f),
+                ground: WorldPalette.WaterDeep * 0.7f);
+            EnsureSceneVolume(PostProcessingBuilder.ArenaProfilePath);
+
+            Vector3 waterSunDir = -(Quaternion.Euler(waterSunEuler) * Vector3.forward);
+            Material sky = SkyboxBuilder.BuildArenaSkybox(waterSunDir);
+            RenderSettings.skybox = sky;
+            DynamicGI.UpdateEnvironment();
+
+            // Authoring constants. Match the 100m half-extent the combat
+            // arena uses for the wall ring so HUD margins / camera feel
+            // identical when switching maps.
+            const float halfExtent = 100f;
+            // Walls span from the floor (y = floorY) to wallTop, so a
+            // sunken chassis can't slip under them and escape into the
+            // void below the arena.
+            const float wallTop = 6f;
+            const float wallT = 1f;
+            // Floor sits exactly 6 BlockGrid cells (1m each) below the
+            // water surface. Deep enough that a sunken chassis fully
+            // submerges, shallow enough that the floor is still visible
+            // through the translucent surface.
+            const float floorY = -6f;
+            const float surfaceY = 0f;
+            // Derived: total wall height + centre Y for primitives.
+            const float wallH = wallTop - floorY;          // 12 m
+            const float wallCentreY = (wallTop + floorY) * 0.5f; // 0 m
+
+            // Submerged floor: large flat plane sitting well below the
+            // water surface so any sunken chassis lands on something
+            // visible. (Plane primitive scale*10m = world size.)
+            GameObject floor = MakePlane(env.transform, "WaterFloor",
+                new Vector3(0f, floorY, 0f),
+                scale: halfExtent / 5f);
+            WorldPalette.Apply(floor, WorldPalette.WaterFloor);
+
+            // Wall ring — extends from the submerged floor up to wallTop
+            // so blocks can't slip under or fly out the top easily.
+            // (Plane chassis can still climb out at high enough altitude;
+            // 6m of freeboard is enough for stunt clearance, not enough
+            // to escape passively.)
+            MakeWall(env.transform, "Wall_N",
+                new Vector3(0f, wallCentreY,  halfExtent),
+                new Vector3(halfExtent * 2f, wallH, wallT));
+            MakeWall(env.transform, "Wall_S",
+                new Vector3(0f, wallCentreY, -halfExtent),
+                new Vector3(halfExtent * 2f, wallH, wallT));
+            MakeWall(env.transform, "Wall_E",
+                new Vector3( halfExtent, wallCentreY, 0f),
+                new Vector3(wallT, wallH, halfExtent * 2f));
+            MakeWall(env.transform, "Wall_W",
+                new Vector3(-halfExtent, wallCentreY, 0f),
+                new Vector3(wallT, wallH, halfExtent * 2f));
+
+            // Water surface: tessellated procedural mesh that animates each
+            // frame to match WaterSurface.SampleHeight. The mesh is built
+            // by WaterMeshAnimator at runtime so this builder just spawns
+            // the host GameObject and stamps the right components on it.
+            // No Plane primitive (we'd just delete its mesh anyway).
+            GameObject water = new GameObject("Water");
+            water.transform.SetParent(env.transform, worldPositionStays: false);
+            water.transform.position = new Vector3(0f, surfaceY, 0f);
+            water.AddComponent<MeshFilter>();
+            water.AddComponent<MeshRenderer>();
+            WorldPalette.Apply(water, WorldPalette.WaterMat);
+            // WaterVolume is the data marker BuoyancyController resolves;
+            // WaterMeshAnimator builds the visible mesh and shares the same
+            // SurfaceY by RequireComponent-binding to WaterVolume.
+            water.AddComponent<Robogame.Gameplay.WaterVolume>();
+            var anim = water.AddComponent<Robogame.Gameplay.WaterMeshAnimator>();
+            // Match the wall ring so the mesh fills the bay exactly.
+            var animSO = new UnityEditor.SerializedObject(anim);
+            animSO.FindProperty("_size").floatValue = halfExtent * 2f;
+            animSO.ApplyModifiedPropertiesWithoutUndo();
         }
 
         // -----------------------------------------------------------------

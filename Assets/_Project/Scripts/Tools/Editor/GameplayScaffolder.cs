@@ -31,6 +31,7 @@ namespace Robogame.Tools.Editor
         private const string DefaultGroundPath = BlueprintFolder + "/Blueprint_DefaultGround.asset";
         private const string DefaultPlanePath = BlueprintFolder + "/Blueprint_DefaultPlane.asset";
         private const string DefaultBuggyPath = BlueprintFolder + "/Blueprint_DefaultBuggy.asset";
+        private const string DefaultBoatPath = BlueprintFolder + "/Blueprint_DefaultBoat.asset";
         private const string CombatDummyPath = BlueprintFolder + "/Blueprint_CombatDummy.asset";
 
         // -----------------------------------------------------------------
@@ -77,6 +78,7 @@ namespace Robogame.Tools.Editor
             ChassisBlueprint ground = CreateOrUpdateBlueprint(DefaultGroundPath, "Tank", ChassisKind.Ground, BuildGroundEntries());
             CreateOrUpdateBlueprint(DefaultPlanePath, "Plane", ChassisKind.Plane, BuildPlaneEntries());
             CreateOrUpdateBlueprint(DefaultBuggyPath, "Buggy", ChassisKind.Ground, BuildBuggyEntries());
+            CreateOrUpdateBlueprint(DefaultBoatPath,  "Boat",  ChassisKind.Ground, BuildBoatEntries());
             CreateOrUpdateBlueprint(CombatDummyPath, "Combat Dummy", ChassisKind.Ground, BuildDummyEntries());
             AssetDatabase.SaveAssets();
             Debug.Log($"[Robogame] Default blueprints created (ground asset persisted: {AssetDatabase.Contains(ground)}).");
@@ -138,8 +140,8 @@ namespace Robogame.Tools.Editor
             list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-1, 0, -3)));
             list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( 2, 0, -3)));
             list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-2, 0, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int( 0, 1, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int( 0, 2, -3)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,    new Vector3Int( 0, 1, -3)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.AeroFin, new Vector3Int( 0, 2, -3)));
             return list.ToArray();
         }
 
@@ -162,6 +164,49 @@ namespace Robogame.Tools.Editor
             list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel, new Vector3Int(1, 0, -1)));
             // Roll cage / weapon mount.
             list.Add(new ChassisBlueprint.Entry(BlockIds.Weapon, new Vector3Int(0, 1, 0)));
+            return list.ToArray();
+        }
+
+        private static ChassisBlueprint.Entry[] BuildBoatEntries()
+        {
+            // Sandbox boat for the water arena: a wide 5×7 flat hull
+            // (35 cells of displacement) with a CPU at the centre, a single
+            // rear thruster on the deck, and a weapon up front. Designed
+            // around the default water tweakables (density=4, displacement=0.30):
+            // total mass ≈ 39 kg vs buoyancy ≈ 412 N at full submersion, so
+            // it settles ≈94% submerged — visible freeboard, room to bob.
+            // Bump Water.Density above ~6 in Settings if you want it to ride higher.
+            //
+            // Steering note: this is a Ground-kind chassis with no wheels,
+            // so movement is thruster-only (W = forward, no native turn).
+            // That's intentional for a v1 sandbox; rudder/keel block lands
+            // in a follow-up if we want true boat control.
+            var list = new List<ChassisBlueprint.Entry>();
+            const int xMin = -2, xMax = 2;
+            const int zMin = -3, zMax = 3;
+
+            // Flat hull: 5 wide × 7 long × 1 tall. CPU replaces the centre
+            // cube so the brain has the same buoyancy contribution as the
+            // structure block it displaces.
+            for (int x = xMin; x <= xMax; x++)
+            for (int z = zMin; z <= zMax; z++)
+            {
+                if (x == 0 && z == 0) continue; // CPU goes here
+                list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(x, 0, z)));
+            }
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)));
+
+            // Single rear thruster on top of the deck — keeps the prop
+            // above water so it doesn't constantly drag.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Thruster, new Vector3Int(0, 1, zMin)));
+            // Rudder hangs below the stern (y=-1) where a real boat's
+            // blade would sit. Speed-scaled yaw torque — W to push,
+            // A/D to turn. Adds buoyancy + mass below COM, which also
+            // helps the boat self-right.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Rudder, new Vector3Int(0, -1, zMin)));
+            // Bow gun for sandbox target practice.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Weapon, new Vector3Int(0, 1, zMax)));
+
             return list.ToArray();
         }
 
@@ -250,6 +295,7 @@ namespace Robogame.Tools.Editor
             ChassisBlueprint defaultBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultGroundPath);
             ChassisBlueprint planeBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultPlanePath);
             ChassisBlueprint buggyBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultBuggyPath);
+            ChassisBlueprint boatBpLive  = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultBoatPath);
             InputActionAsset actionsLive = AssetDatabase.LoadAssetAtPath<InputActionAsset>(ScaffoldUtils.InputActionsAsset);
 
             if (libLive == null)
@@ -262,14 +308,15 @@ namespace Robogame.Tools.Editor
             stateSO.FindProperty("_defaultBlueprint").objectReferenceValue = defaultBpLive;
             stateSO.FindProperty("_inputActions").objectReferenceValue = actionsLive;
 
-            // Populate the HUD-facing preset list (Tank / Plane / Buggy).
+            // Populate the HUD-facing preset list (Tank / Plane / Buggy / Boat).
             SerializedProperty presets = stateSO.FindProperty("_presetBlueprints");
             if (presets != null)
             {
-                presets.arraySize = 3;
+                presets.arraySize = 4;
                 presets.GetArrayElementAtIndex(0).objectReferenceValue = defaultBpLive;
                 presets.GetArrayElementAtIndex(1).objectReferenceValue = planeBpLive;
                 presets.GetArrayElementAtIndex(2).objectReferenceValue = buggyBpLive;
+                presets.GetArrayElementAtIndex(3).objectReferenceValue = boatBpLive;
             }
             stateSO.ApplyModifiedPropertiesWithoutUndo();
 
@@ -363,6 +410,30 @@ namespace Robogame.Tools.Editor
             Debug.Log("[Robogame] Built Arena.unity (Pass A).");
         }
 
+        [MenuItem(MenuRoot + "5b — Build Water Arena Scene (Pass A)")]
+        public static void BuildWaterArenaPassA()
+        {
+            // Create the WaterArena scene file if missing.
+            if (!File.Exists(ScaffoldUtils.WaterArenaScene))
+            {
+                Scene newScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                EditorSceneManager.SaveScene(newScene, ScaffoldUtils.WaterArenaScene);
+            }
+            ScaffoldUtils.OpenScene(ScaffoldUtils.WaterArenaScene);
+
+            EnvironmentBuilder.BuildWaterArenaEnvironment();
+            ScaffoldHelpers.ClearPlayerChassis(keepName: "Robot");
+
+            GameObject controller = ScaffoldUtils.GetOrCreate("WaterArenaController");
+            if (controller.GetComponent<WaterArenaController>() == null)
+                controller.AddComponent<WaterArenaController>();
+            if (controller.GetComponent<SceneTransitionHud>() == null)
+                controller.AddComponent<SceneTransitionHud>();
+
+            ScaffoldUtils.SaveActiveScene();
+            Debug.Log("[Robogame] Built WaterArena.unity (Pass A).");
+        }
+
         [MenuItem(MenuRoot + "Build All Pass A")]
         public static void BuildAllPassA()
         {
@@ -400,6 +471,7 @@ namespace Robogame.Tools.Editor
 
             BuildBootstrapPassA();
             BuildArenaPassA();
+            BuildWaterArenaPassA();
             BuildGaragePassA();
             BuildSettingsConfigurator.SyncSceneList();
 

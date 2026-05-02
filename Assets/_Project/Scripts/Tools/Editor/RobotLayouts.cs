@@ -126,6 +126,7 @@ namespace Robogame.Tools.Editor
             BlockDefinition weapon   = BlockDefinitionWizard.LoadByAssetName("BlockDef_Weapon");
             BlockDefinition thruster = BlockDefinitionWizard.LoadByAssetName("BlockDef_Thruster");
             BlockDefinition aero     = BlockDefinitionWizard.LoadByAssetName("BlockDef_Aero");
+            BlockDefinition aeroFin  = BlockDefinitionWizard.LoadByAssetName("BlockDef_AeroFin");
 
             ScaffoldHelpers.EnsureWeaponMountAndBinder(planeGO);
             ScaffoldHelpers.EnsureAeroBinder(planeGO);
@@ -156,8 +157,8 @@ namespace Robogame.Tools.Editor
             grid.PlaceBlock(aero, new Vector3Int(-1, 0, -3));
             grid.PlaceBlock(aero, new Vector3Int( 2, 0, -3));
             grid.PlaceBlock(aero, new Vector3Int(-2, 0, -3));
-            grid.PlaceBlock(cube, new Vector3Int( 0, 1, -3));
-            grid.PlaceBlock(cube, new Vector3Int( 0, 2, -3));
+            grid.PlaceBlock(cube,    new Vector3Int( 0, 1, -3));
+            grid.PlaceBlock(aeroFin, new Vector3Int( 0, 2, -3));
 
             // Apply thruster tuning to every thruster instance.
             ThrusterTuning thrusterTuning = TuningAssets.LoadOrCreate<ThrusterTuning>("ThrusterTuning_Default");

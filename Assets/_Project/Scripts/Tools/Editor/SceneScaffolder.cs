@@ -145,17 +145,15 @@ namespace Robogame.Tools.Editor
 
         // -----------------------------------------------------------------
         // Build all
+        //
+        // Removed: the legacy `Build All && Configure` entry. It overlapped
+        // with `Scaffold/Gameplay/Build All Pass A` (which is now also
+        // surfaced as the top-level `Robogame/Build Everything` shortcut)
+        // but only built a single-robot subset, which competed for the
+        // Garage.unity scene with the Pass A flow. The individual
+        // `Build Test Robot` / `Build Combat Dummy` items remain for
+        // isolated tests.
         // -----------------------------------------------------------------
-
-        [MenuItem(MenuRoot + "Build All && Configure")]
-        public static void BuildAll()
-        {
-            BuildBootstrap();
-            BuildTestRobot();
-            BuildCombatDummy();
-            BuildSettingsConfigurator.SyncSceneList();
-            Debug.Log("[Robogame] Scaffold complete. Open Bootstrap.unity and press Play.");
-        }
 
         // -----------------------------------------------------------------
         // Test terrain

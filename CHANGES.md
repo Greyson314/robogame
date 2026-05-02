@@ -13,6 +13,344 @@ what shipped, what we learned. File links use repo-relative paths.
 
 ## Session log (newest first)
 
+### Session — Polish: foam wake on chassis + connectivity flood-fill at placement
+
+**Intent.** Two follow-ups from the water-visuals session, picked off the
+roadmap: *"yep, let's do 1 and 3"* — connectivity flood-fill at placement
+time, and foam-on-collision wake where chassis cut through the surface.
+
+**Shipped.**
+
+- **Foam wake.** [BuoyancyController.cs](Assets/_Project/Scripts/Gameplay/BuoyancyController.cs)
+  now keeps a static `Active` registry (HashSet, OnEnable add / OnDisable
+  remove) and a per-instance `SurfaceContacts : IReadOnlyList<Vector2>`.
+  Each `FixedUpdate` clears the list and re-appends the world XZ of every
+  block whose submerged fraction lies in (0.05, 0.95) — i.e. blocks
+  straddling the waterline, the natural hull-meets-surface points.
+  [WaterMeshAnimator.cs](Assets/_Project/Scripts/Gameplay/WaterMeshAnimator.cs)
+  reads the registry once per Update and, in the per-vert loop, computes a
+  smooth-falloff foam halo around each contact (`_wakeFoamRadius=2.5 m`,
+  `_wakeFoamStrength=0.85`). Max-blended with perimeter and crest foam so
+  the result stays in [0,1] and the shader never saturates back to white
+  the way it did pre-explicit-vertex-colour.
+- **Connectivity flood-fill at placement.** [BlockEditor.cs](Assets/_Project/Scripts/Gameplay/BlockEditor.cs)
+  gained `BuildCpuReachableSet()` — same BFS pattern as
+  `WouldOrphanIfRemoved`, but rooted at the CPU and returning the full
+  reachable set. `IsValidPlacement` now requires the new cell to be
+  adjacent to a CPU-reachable block, not merely *any* block. In normal
+  play this is identical to the old "any neighbour" rule (every existing
+  block is CPU-reachable by induction); the change defends against
+  loading a hand-edited or corrupted blueprint that came in with a
+  disconnected island — you can no longer extend the orphaned cluster,
+  only the CPU's component. Empty-grid case still allows the very first
+  block.
+
+**Cost notes.** Wake is 4 225 verts × ~1 chassis × 5–40 contact points =
+~30–170 k distance tests/frame, well under budget. Connectivity BFS runs
+once per `UpdateTarget` (≈ once per frame while build mode is active) over
+≤ 100 blocks — sub-microsecond.
+
+### Session — Water visuals: Bitgem shader + Gerstner mesh + DevHud waves slider
+
+**Intent.** Two threads merged into one push. Earlier in the session we
+locked in the Fluff grass tuning that had been drifting for several
+iterations; then user pivoted: *"let's get water texture/shading into
+the water arena before i go too far in other directions."* Goal:
+replace the flat translucent-teal placeholder with a stylised water
+shader, keep our CPU-driven Gerstner waves authoritative for buoyancy,
+and add live tuning so sea state can be dialled without editing code.
+
+**Shipped.**
+
+- New [BitgemWaterMaterial.cs](Assets/_Project/Scripts/Tools/Editor/BitgemWaterMaterial.cs).
+  Editor-only factory that clones `Assets/Bitgem/StylisedWater/URP/Materials/example-water-01.mat`
+  → `Assets/_Project/Materials/Mat_Water.mat`, preserving every tuned
+  Vector1_* float the demo ships (foam width/noise, depth scale/power,
+  refraction strength, glossiness, etc.) and overriding only the bits
+  we own:
+  - `Color_F01C36BF` (`_ShallowColor`) ← `WorldPalette.WaterSurface` α=0.30
+  - `Color_7D9A58EC` (`_DeepColor`)    ← `WorldPalette.WaterDeep`
+  - `_WaveScale` / `_WaveSpeed` / `_WaveFrequency` → **0** (kills the
+    shader's GPU vertex displacement so it doesn't fight our CPU mesh)
+  - `_ScrollSpeed = 0.15`, `_DetailStrength = 0.12`, `_BumpStrength = 0.20`
+    (demo ships at 1.2 / 0.25 / 0.35 — too zippy against a 15 s swell;
+    these calm the normal-map current to a lazy drift).
+  Returns `null` if the Bitgem package is missing, so
+  [WorldPalette.WaterMat](Assets/_Project/Scripts/Tools/Editor/WorldPalette.cs)
+  falls back to its old translucent-URP/Lit factory and headless
+  builds keep working.
+
+- Patched [WaterMeshAnimator.cs](Assets/_Project/Scripts/Gameplay/WaterMeshAnimator.cs).
+  Now writes an all-black `Color[]` to the procedural mesh's vertex
+  colours. Bitgem's shader graph reads vertex colour as a foam mask
+  (red = foam edge, black = open water) — Unity's default `Color.white`
+  was the smoking gun behind the *"water is straight up 100% white"*
+  bug. URP/Lit fallback ignores the channel, so it's harmless either
+  way.
+
+- Re-tuned wave defaults in [Tweakables.cs](Assets/_Project/Scripts/Core/Tweakables.cs).
+  Old defaults (amp 0.30, λ 12, speed 1.5, steepness 0.30) read as
+  fizzy ripples on a 220 m arena. New defaults: **amp 1.20 m, λ 30 m,
+  speed 2.0 m/s, steepness 0.45** — gives a slow ~15 s dominant period
+  with crests that actually peak. Amplitude max bumped 2 → 4, length
+  max 40 → 80 to allow stormier sea state if we ever want it.
+
+- Added a **▼ Waves** collapsible section to [DevHud.cs](Assets/_Project/Scripts/UI/DevHud.cs)
+  with live `HorizontalSlider` controls for Wave Amplitude / Length /
+  Speed / Steepness, plus a **Reset Waves** button. Generic
+  `DrawTweakSlider(key)` helper reads min/max/label straight from the
+  Tweakables spec, so adding more sections later (Buoyancy, Plane,
+  Ground) is one line per slider. HUD is now wider (260 px) and
+  scrollable when the section expands.
+
+**Grass lock-in (same session).** Final values baked into
+[FluffGround.cs](Assets/_Project/Scripts/Tools/Editor/FluffGround.cs)
+after several rounds of camera-frame and tile-repeat fights:
+shell count 16, max height 1.2 m, world scale 65, world-space sampling
+(`_TextureSamplingMethod = 1`), shape noise scale 2.7 / strength 0.15,
+detail noise scale 1.0 / strength 0.65. New `AssignNoiseTexture()`
+helper pins `grass-noise-23` (shape) and `grass-noise-14` (detail) by
+name from the package's `Runtime/Textures/Noise/` folder so re-running
+Build Arena always re-stamps the user-locked picks. Camera also
+lowered for grass framing in [FollowCamera.cs](Assets/_Project/Scripts/Player/FollowCamera.cs)
+(`_distance` 12 → 9, `_height` 2 → 1).
+
+**Architecture notes.**
+
+- *Two animations, one surface.* The Bitgem shader and our
+  `WaterMeshAnimator` are now strictly separated by responsibility:
+  geometry comes from the CPU mesh (so buoyancy and visuals can never
+  drift), shading + normal-map scroll come from Bitgem (so we get
+  depth fade, foam edges, fresnel, refraction without authoring a
+  graph). The vertex-wave properties are zeroed in
+  `BitgemWaterMaterial` — that's the seam.
+- *Why clone-and-override instead of authoring our own material.*
+  The demo ships ~15 unnamed `Vector1_*` floats tuning foam, depth,
+  detail noise, etc. Cloning preserves all of them for free; we only
+  override the four properties we have an opinion about. Same pattern
+  as `FluffGround` — the script is the source of truth, inspector
+  edits get clobbered on next Build Arena.
+- *Bitgem's WaterVolume\* MonoBehaviours are intentionally unused.*
+  We keep `Robogame.Gameplay.WaterVolume` as the data marker because
+  `BuoyancyController` already binds to it and the in-engine arena
+  is a flat plane, not a tile-volume.
+- *Why vertex-colour foam mask matters.* Bitgem's shader graph treats
+  `vertexColor.r` as foam intensity. A flat plane authored without
+  vertex colours inherits Unity's `Color.white` default → "100% foam
+  everywhere" → pure white surface. The fix is one `_mesh.colors`
+  assignment in `WaterMeshAnimator.BuildMesh`. Future: write
+  `Color.red` near the arena walls if we ever want lapping foam.
+
+**Known follow-ups (deferred).**
+
+- Saved values in `tweakables.json` win over new defaults. After
+  bumping defaults you have to **Reset Waves** in the HUD (or delete
+  `%LocalLow%/<co>/<prod>/tweakables.json`) before they take effect.
+  Acceptable; we deliberately want player tuning to persist.
+- Bitgem `_ScrollSpeed` is hard-coded in `BitgemWaterMaterial`. If
+  we want it tied to wind heading later, promote it to a Tweakable
+  and read it via `MaterialPropertyBlock` in a runtime updater.
+- No foam edges anywhere — vertex colours are uniformly black.
+  Authoring red bands at the arena perimeter (or where blocks
+  intersect the surface) is a Phase 3 polish task.
+- Analytic normals via `WaterSurface.SampleNormal` are still TODO;
+  current mesh runs `RecalculateNormals` every frame, which is fine
+  at 64×64 tessellation but the cheaper path is one-cross-product
+  per vertex from the same Gerstner derivatives the height sampler
+  uses.
+
+**Files touched.**
+
+- Added: [BitgemWaterMaterial.cs](Assets/_Project/Scripts/Tools/Editor/BitgemWaterMaterial.cs).
+- Modified: [WorldPalette.cs](Assets/_Project/Scripts/Tools/Editor/WorldPalette.cs)
+  (`WaterMat` getter now prefers Bitgem),
+  [WaterMeshAnimator.cs](Assets/_Project/Scripts/Gameplay/WaterMeshAnimator.cs)
+  (vertex-colour foam mask),
+  [Tweakables.cs](Assets/_Project/Scripts/Core/Tweakables.cs) (wave defaults + maxes),
+  [DevHud.cs](Assets/_Project/Scripts/UI/DevHud.cs) (Waves section + slider helper),
+  [FluffGround.cs](Assets/_Project/Scripts/Tools/Editor/FluffGround.cs) (locked grass values + noise pinning),
+  [FollowCamera.cs](Assets/_Project/Scripts/Player/FollowCamera.cs) (lowered framing).
+- Asset: `Assets/_Project/Materials/Mat_Water.mat` regenerated by the
+  factory on next Build Arena Pass A.
+
+---
+
+### Session — Build mode: in-garage block editor (Pass B Phase 3a)
+
+**Intent.** *"Let's focus on how to add a block to a new bot."* After a
+short design memo, user picked: **(A) modal toggle** (not always-on),
+hotbar OK, and — overriding the default proposal — **block CPU removal
+entirely** rather than warn-and-allow. Also delivered as a side quest:
+[docs/BEST_PRACTICES.md](docs/BEST_PRACTICES.md), a 16-section
+Robocraft-clone playbook (architecture, block-grid pitfalls, vehicle
+physics, URP, GC, pooling, save/load, MP-readiness, profiling, named
+pitfalls, perf budgets).
+
+**Shipped — four new components:**
+- [OrbitCamera](Assets/_Project/Scripts/Player/OrbitCamera.cs) —
+  RMB-drag rotate, MMB-drag pan (clamped 4 m radius), scroll-zoom
+  (3–20 m). Sibling to FollowCamera; only one enabled at a time. UI
+  blocking via `EventSystem.IsPointerOverGameObject`. No cursor lock so
+  the HUD stays clickable.
+- [BuildModeController](Assets/_Project/Scripts/Gameplay/BuildModeController.cs) —
+  modal owner. `Enter()` zeros velocity, sets the chassis Rigidbody
+  kinematic + FreezeAll, disables `PlayerInputHandler` and
+  `FollowCamera`, enables/creates `OrbitCamera`. `Exit()` reverses and
+  calls `GarageController.Respawn()` so subsystems reattach to the
+  edited blueprint. Public `IsActive`, `Entered`/`Exited` events,
+  `Toggle()`.
+- [BlockEditor](Assets/_Project/Scripts/Gameplay/BlockEditor.cs) —
+  Camera.main raycast → BlockBehaviour ancestor → face-normal in
+  chassis-local space → integer cell. Ghost preview (lazy unit cube
+  with translucent URP/Unlit, green/red MaterialPropertyBlock).
+  Validation: cell empty + ≥1 occupied 6-axis neighbour + only one
+  CPU. LMB place, RMB remove. **CPU cannot be removed** (per user).
+  After every mutation: `RecalculateAggregates` + `SyncBlueprintFromGrid`
+  regenerates `state.CurrentBlueprint` entries from the live
+  `BlockGrid.Blocks` dict — Save Robot is now trivially correct.
+- [BuildHotbar](Assets/_Project/Scripts/Gameplay/BuildHotbar.cs) —
+  procedural Canvas, 7 slots, keys **1–7** map to BlockIds: Cube, CPU,
+  Wheel, Steer, Thrust, Aero, Gun. Selected slot tinted hazard orange.
+  Visible only while build mode active.
+
+**Wiring.**
+- [GarageController](Assets/_Project/Scripts/Gameplay/GarageController.cs)
+  now lazily attaches the build-mode trio in `EnsureBuildModeWired()`
+  and rebinds `SetChassis` after every Respawn. New
+  `ToggleBuildMode()` entry point + `BuildMode` accessor.
+- [SceneTransitionHud](Assets/_Project/Scripts/Gameplay/SceneTransitionHud.cs)
+  gains a third stacked garage-only button. Label flips between
+  "Build Mode" ↔ "Drive Mode" by subscribing to
+  `BuildModeController.Entered/Exited`.
+
+**Why modal.** Always-on edit competes with driving for the same mouse
+buttons and same camera. Modal also gives a clean place to freeze the
+Rigidbody and swap to an orbit camera that's actually good for
+inspection — both of which would be jarring if they happened
+implicitly mid-drive.
+
+**Why blueprint sync via "rebuild Entries from grid".** The grid is
+already the source of truth at runtime (subsystem auto-binders react
+to `BlockPlaced`/`BlockRemoving`). Mirroring back to the blueprint on
+each mutation is O(blocks) and keeps Save Robot correct without a
+separate diff pipeline. Cheap, idempotent, no edge cases.
+
+**Why CPU-cannot-be-removed (override).** User's call. Removes one
+class of surprise — an empty grid, or a CPU-less chassis that fails to
+respawn cleanly — without needing a confirm dialog yet. Trivial to
+relax later: delete the early-return in `BlockEditor.TryRemove`.
+
+**Known follow-ups (deferred).**
+- Hotbar palette is fixed 7 slots; a categorised picker (per
+  [BlockCategory](Assets/_Project/Scripts/Block/BlockDefinition.cs))
+  is the next step once we have more block defs.
+- No CPU-budget enforcement yet — `CpuCost` is summed but not gated
+  (Robocraft-style CPU cap is a Pass B Phase 3b task).
+- Connectivity flood-fill from the CPU is not enforced; current rule
+  is "must touch ≥1 existing block", which can produce floating
+  islands if the player removes a bridge block. Acceptable for now;
+  proper connectivity check goes alongside the CPU cap.
+- Garage geometry expansion (bigger walls, grid floor decal,
+  back-wall headroom for the orbit camera) is still on deck.
+
+---
+
+### Session — Save/load foundations + "+ New Robot" button (Pass B kickoff)
+
+**Intent.** User pivoted from art polish back to gameplay: *"Let's begin
+work on 1) expanding the garage, 2) adding a 'New Custom Robot' button,
+and roadmapping out how we're going to load and save new robots that
+we create."* This session lands the **save/load foundation** and the
+**"+ New Robot" / "Save Robot"** HUD buttons. Garage geometry expansion
+and the in-garage block-placement editor are deferred to follow-on
+sessions (see roadmap below).
+
+**What shipped.**
+
+- New [BlueprintSerializer.cs](Assets/_Project/Scripts/Block/BlueprintSerializer.cs).
+  Pure (no I/O) JSON round-trip for `ChassisBlueprint`. Explicit DTO
+  with a `schemaVersion` field so we can migrate the on-disk format
+  without breaking older saves. v1 schema:
+  `{ schemaVersion, displayName, kind, createdUtc, entries:[{id,x,y,z}] }`.
+  Serializes block IDs (stable strings) rather than asset references —
+  saves stay valid across asset moves and are netcode-friendly.
+
+- New [UserBlueprintLibrary.cs](Assets/_Project/Scripts/Block/UserBlueprintLibrary.cs).
+  Disk-backed registry under `Application.persistentDataPath/blueprints/`
+  (survives game updates, untouched by reinstalls). `LoadAll()`,
+  `Save()`, `Delete()`, `Changed` event. Generates collision-safe
+  slugified filenames (`my-robot.robot.json`, `my-robot-2.robot.json`,
+  ...). Pure runtime — does not touch `AssetDatabase`, so player
+  builds Just Work.
+
+- New [StarterBlueprints.cs](Assets/_Project/Scripts/Block/StarterBlueprints.cs).
+  `CreateGroundStarter()` mints a fresh runtime blueprint mirroring
+  the proven default rover layout (3×3 cube floor, CPU at origin,
+  hitscan weapon on top, 4 corner wheels + 2 mid-side wheels with
+  steering at the front). The "blank canvas" the **+ New Robot**
+  button drops onto the podium.
+
+- Extended [GameStateController.cs](Assets/_Project/Scripts/Gameplay/GameStateController.cs).
+  Now owns a merged catalog of **presets first, user blueprints
+  second**. New API: `UserBlueprints` list, `CreateNewBlueprint()`,
+  `SaveCurrentBlueprint()` (overwrite-or-create, repoints
+  `CurrentUserFileName` after save), `DeleteCurrentUserBlueprint()`,
+  `RefreshUserBlueprints()`, and a `BlueprintCatalogChanged` event.
+  `SelectPreset(int)` is now merged-index-aware — `[0..presetCount)`
+  are presets, `[presetCount..total)` are user records. Hydrates the
+  user catalog on `Awake()`.
+
+- Extended [SceneTransitionHud.cs](Assets/_Project/Scripts/Gameplay/SceneTransitionHud.cs).
+  Two new bottom-left buttons stacked above the existing chassis
+  dropdown (garage-only): **+ New Robot** (calls `CreateNewBlueprint`
+  → `GarageController.Respawn` via the existing `PresetChanged`
+  pipeline) and **Save Robot** (calls `SaveCurrentBlueprint` and logs
+  the resulting filename). Dropdown now shows presets followed by
+  user blueprints (suffixed with a ◆ glyph). Subscribes to
+  `BlueprintCatalogChanged` so the picker refreshes the moment a save
+  or delete completes.
+
+**Architecture.** The `GarageController.PresetChanged → Respawn`
+contract did all the heavy lifting — every blueprint mutation
+(preset swap, user load, "+ New", save-then-overwrite) flows through
+`GameStateController.SetCurrentBlueprint` / `SelectPreset` /
+`CreateNewBlueprint`, all of which fire `PresetChanged`. The HUD
+never has to talk to `GarageController` directly to refresh the
+chassis on the podium.
+
+**Save location.** `%USERPROFILE%/AppData/LocalLow/<company>/<product>/blueprints/`
+on Windows. Each robot is one human-readable JSON file; users can
+hand-edit, share over Discord, or paste into the future cloud-sync
+flow.
+
+**Roadmap (remaining Pass B work).**
+
+- *Phase 2 — UX polish on save flow.* Rename inline (currently uses
+  `DisplayName` from the SO; no rename UI yet). Confirm-overwrite
+  dialog. Delete button next to dropdown for user blueprints. Save
+  toast / status line.
+- *Phase 3 — In-garage editor.* Raycast block placement tool that
+  edits `CurrentBlueprint.Entries` live, validation overlay (CPU
+  count, structural connectivity), part palette UI.
+- *Phase 4 — Cross-cutting.* Optional cloud sync, Base64-zip
+  share-via-clipboard, schema v2 if we add per-block paint colors or
+  rotation.
+- *Garage geometry expansion.* Awaiting user choice between
+  (1) bigger physical bay + turntable, (2) multiple build pads,
+  (3) editor-grid overlay, or (4) all of the above.
+
+**Files touched.**
+
+- Added: [BlueprintSerializer.cs](Assets/_Project/Scripts/Block/BlueprintSerializer.cs),
+  [UserBlueprintLibrary.cs](Assets/_Project/Scripts/Block/UserBlueprintLibrary.cs),
+  [StarterBlueprints.cs](Assets/_Project/Scripts/Block/StarterBlueprints.cs).
+- Modified: [GameStateController.cs](Assets/_Project/Scripts/Gameplay/GameStateController.cs),
+  [SceneTransitionHud.cs](Assets/_Project/Scripts/Gameplay/SceneTransitionHud.cs).
+- Untouched (deferred): [EnvironmentBuilder.cs](Assets/_Project/Scripts/Tools/Editor/EnvironmentBuilder.cs)
+  garage geometry — pending user's expansion-scope answer.
+
+---
+
 ### Session — Phase 1 art pass: cel-shading, post-FX, ambient, skybox
 
 **Intent.** Stand up the visual identity sketched in

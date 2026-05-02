@@ -34,6 +34,8 @@ namespace Robogame.Tools.Editor
             CreateOrUpdate("BlockDef_WheelSteer", BlockIds.WheelSteer, "Steer Wheel",    BlockCategory.Movement,  maxHealth:  80f, mass: 1.5f, cpuCost: 25, tint: w);
             CreateOrUpdate("BlockDef_Thruster",   BlockIds.Thruster,   "Thruster",       BlockCategory.Movement,  maxHealth:  70f, mass: 2f,   cpuCost: 30, tint: w);
             CreateOrUpdate("BlockDef_Aero",       BlockIds.Aero,       "Wing Section",   BlockCategory.Movement,  maxHealth:  50f, mass: 0.6f, cpuCost: 10, tint: w);
+            CreateOrUpdate("BlockDef_AeroFin",    BlockIds.AeroFin,    "Tail Fin",       BlockCategory.Movement,  maxHealth:  50f, mass: 0.5f, cpuCost: 8,  tint: w);
+            CreateOrUpdate("BlockDef_Rudder",     BlockIds.Rudder,     "Rudder",         BlockCategory.Movement,  maxHealth:  60f, mass: 0.8f, cpuCost: 15, tint: w);
             CreateOrUpdate("BlockDef_Weapon",     BlockIds.Weapon,     "Hitscan Gun",    BlockCategory.Weapon,    maxHealth:  60f, mass: 1.5f, cpuCost: 20, tint: w);
 
             AssetDatabase.SaveAssets();

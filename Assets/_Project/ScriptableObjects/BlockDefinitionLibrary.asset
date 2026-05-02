@@ -14,8 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Robogame.Block::Robogame.Block.BlockDefinitionLibrary
   _definitions:
   - {fileID: 11400000, guid: afb15111fdff5494d81d9301720ee569, type: 2}
+  - {fileID: 11400000, guid: fdc907f6a6bdc154b9bbed23d557c2a1, type: 2}
   - {fileID: 11400000, guid: 68fc6608de184df47998a2d6c360a2c3, type: 2}
   - {fileID: 11400000, guid: 93dfb2d06e0181a489ee8e11383fd773, type: 2}
+  - {fileID: 11400000, guid: 34adf5c5ae668f2459e6074725d17f40, type: 2}
   - {fileID: 11400000, guid: d2f4fbbe78bcb404cbbde458053b393d, type: 2}
   - {fileID: 11400000, guid: ef38149e6f633b640b3bbcf543d3dbf7, type: 2}
   - {fileID: 11400000, guid: c441b594a502d0044b215fcb44dd99e3, type: 2}

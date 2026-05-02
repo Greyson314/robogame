@@ -37,10 +37,16 @@ namespace Robogame.Player
 
         [Header("Orbit")]
         [Tooltip("Distance from the target (camera radius).")]
-        [SerializeField, Min(1f)] private float _distance = 12f;
+        // Restored to the original 18m pull-back. A previous tuning pass
+        // dropped this to 9m to frame the new shell-grass ground better,
+        // but the closer rig made dogfights and incoming projectiles
+        // hard to read. 18m gives the chassis breathing room and lets
+        // the player spot pellets in flight (which now matters — see
+        // ProjectileGun's projectile travel time).
+        [SerializeField, Min(1f)] private float _distance = 18f;
 
         [Tooltip("Vertical offset from the target's pivot to the look-at point.")]
-        [SerializeField] private float _height = 2f;
+        [SerializeField] private float _height = 1f;
 
         [Tooltip("Initial pitch in degrees (positive = looking down at the target).")]
         [SerializeField, Range(-89f, 89f)] private float _initialPitch = 18f;

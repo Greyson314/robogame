@@ -81,7 +81,11 @@ namespace Robogame.Tools.Editor
 
         public static void RemoveLegacyRootGun(GameObject robotGO)
         {
-            HitscanGun rootGun = robotGO.GetComponent<HitscanGun>();
+            // Guns belong on the WeaponBlock turret, never on the chassis
+            // root. Strip whatever's at the root (current ProjectileGun
+            // OR any leftover from earlier versions) so re-running
+            // scaffolds on an old asset doesn't double-fire.
+            ProjectileGun rootGun = robotGO.GetComponent<ProjectileGun>();
             if (rootGun != null) Object.DestroyImmediate(rootGun);
 
             Transform muzzle = robotGO.transform.Find("Muzzle");

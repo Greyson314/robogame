@@ -1,3 +1,4 @@
+using Robogame.Block;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -28,7 +29,16 @@ namespace Robogame.Gameplay
         private Button _button;
         private Text _label;
         private Dropdown _presetDropdown;
-        private int _lastPresetCount = -1;
+        private Button _newButton;
+        private Button _saveButton;
+        private Button _buildButton;
+        private Button _deleteButton;
+        private Button _waterButton;
+        private InputField _nameField;
+        private Text _buildLabel;
+        private BuildModeController _subscribedBuildMode;
+        private GameStateController _subscribedState;
+        private bool _catalogDirty = true;
         private GameState _lastState = GameState.Bootstrap;
 
         private void Awake()
@@ -44,17 +54,48 @@ namespace Robogame.Gameplay
             GameStateController state = GameStateController.Instance;
             if (state == null) return;
 
-            int presetCount = state.PresetBlueprints != null ? state.PresetBlueprints.Count : 0;
-            if (presetCount != _lastPresetCount)
+            // Late-binding to the singleton: it's created in Bootstrap.
+            if (_subscribedState != state)
             {
-                _lastPresetCount = presetCount;
+                if (_subscribedState != null)
+                {
+                    _subscribedState.BlueprintCatalogChanged -= HandleCatalogChanged;
+                    _subscribedState.PresetChanged -= HandlePresetChangedEvent;
+                }
+                _subscribedState = state;
+                _subscribedState.BlueprintCatalogChanged += HandleCatalogChanged;
+                _subscribedState.PresetChanged += HandlePresetChangedEvent;
+                _catalogDirty = true;
+            }
+
+            if (_catalogDirty)
+            {
+                _catalogDirty = false;
                 PopulateDropdown(state);
+                RefreshLabel(); // keeps Delete button + name field current
             }
 
             if (state.State == _lastState) return;
             _lastState = state.State;
             RefreshLabel();
         }
+
+        private void OnDestroy()
+        {
+            if (_subscribedState != null)
+            {
+                _subscribedState.BlueprintCatalogChanged -= HandleCatalogChanged;
+                _subscribedState.PresetChanged -= HandlePresetChangedEvent;
+            }
+            if (_subscribedBuildMode != null)
+            {
+                _subscribedBuildMode.Entered -= HandleBuildEntered;
+                _subscribedBuildMode.Exited  -= HandleBuildExited;
+            }
+        }
+
+        private void HandleCatalogChanged() => _catalogDirty = true;
+        private void HandlePresetChangedEvent(int _) => _catalogDirty = true;
 
         // -----------------------------------------------------------------
 
@@ -125,6 +166,62 @@ namespace Robogame.Gameplay
             _button.onClick.AddListener(HandleClick);
 
             BuildPresetDropdown(canvasGO.transform);
+            _newButton    = BuildSmallButton(canvasGO.transform, "NewRobotButton",    "+ New Robot",  row: 1, HandleNewClicked);
+            _saveButton   = BuildSmallButton(canvasGO.transform, "SaveRobotButton",   "Save Robot",   row: 2, HandleSaveClicked);
+            _buildButton  = BuildSmallButton(canvasGO.transform, "BuildModeButton",   "Build Mode",   row: 3, HandleBuildClicked);
+            _deleteButton = BuildSmallButton(canvasGO.transform, "DeleteRobotButton", "Delete",       row: 4, HandleDeleteClicked);
+            TintDestructive(_deleteButton);
+            _waterButton  = BuildSmallButton(canvasGO.transform, "WaterArenaButton",  "Water Arena ▶", row: 6, HandleWaterClicked);
+            _nameField    = BuildNameField(canvasGO.transform, row: 5);
+            _buildLabel   = _buildButton != null ? _buildButton.GetComponentInChildren<Text>() : null;
+        }
+
+        /// <summary>
+        /// Build a compact bottom-left button stacked above the dropdown.
+        /// <paramref name="row"/> 1 sits just above the dropdown, 2 above
+        /// that, etc.
+        /// </summary>
+        private Button BuildSmallButton(Transform canvas, string objName, string label, int row, UnityEngine.Events.UnityAction onClick)
+        {
+            var go = new GameObject(objName);
+            go.transform.SetParent(canvas, worldPositionStays: false);
+            var img = go.AddComponent<Image>();
+            img.color = new Color(0.10f, 0.12f, 0.16f, 0.92f);
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+
+            ColorBlock cols = btn.colors;
+            cols.normalColor = new Color(1f, 1f, 1f, 1f);
+            cols.highlightedColor = new Color(0.95f, 0.55f, 0.10f, 1f);
+            cols.pressedColor = new Color(0.7f, 0.4f, 0.05f, 1f);
+            cols.selectedColor = cols.highlightedColor;
+            btn.colors = cols;
+
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(0f, 0f);
+            rt.pivot = new Vector2(0f, 0f);
+            rt.sizeDelta = _dropdownSize;
+            // Stack above the dropdown with a small gap.
+            float yOffset = _margin.y + (_dropdownSize.y + 6f) * row;
+            rt.anchoredPosition = new Vector2(_margin.x, yOffset);
+
+            var labelGO = new GameObject("Label");
+            labelGO.transform.SetParent(go.transform, worldPositionStays: false);
+            var text = labelGO.AddComponent<Text>();
+            text.alignment = TextAnchor.MiddleCenter;
+            text.fontSize = _fontSize - 2;
+            text.color = Color.white;
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.text = label;
+            var lrt = labelGO.GetComponent<RectTransform>();
+            lrt.anchorMin = Vector2.zero;
+            lrt.anchorMax = Vector2.one;
+            lrt.offsetMin = Vector2.zero;
+            lrt.offsetMax = Vector2.zero;
+
+            btn.onClick.AddListener(onClick);
+            return btn;
         }
 
         private void BuildPresetDropdown(Transform canvas)
@@ -268,6 +365,8 @@ namespace Robogame.Gameplay
             _presetDropdown.onValueChanged.RemoveListener(HandlePresetChanged);
             _presetDropdown.ClearOptions();
             var options = new System.Collections.Generic.List<Dropdown.OptionData>();
+
+            // Designer-authored presets first.
             if (state.PresetBlueprints != null)
             {
                 for (int i = 0; i < state.PresetBlueprints.Count; i++)
@@ -279,6 +378,20 @@ namespace Robogame.Gameplay
                     options.Add(new Dropdown.OptionData(label));
                 }
             }
+
+            // User-saved blueprints (suffix marks them visually).
+            for (int i = 0; i < state.UserBlueprints.Count; i++)
+            {
+                UserBlueprintLibrary.Record rec = state.UserBlueprints[i];
+                string display = (rec.Blueprint != null && !string.IsNullOrEmpty(rec.Blueprint.DisplayName))
+                    ? rec.Blueprint.DisplayName
+                    : System.IO.Path.GetFileNameWithoutExtension(rec.FileName);
+                options.Add(new Dropdown.OptionData(display + "  ◆"));
+            }
+
+            // Fallback so the user can always tell when their picker is empty.
+            if (options.Count == 0) options.Add(new Dropdown.OptionData("(no blueprints)"));
+
             _presetDropdown.AddOptions(options);
             int sel = Mathf.Clamp(state.CurrentPresetIndex, 0, Mathf.Max(0, options.Count - 1));
             _presetDropdown.SetValueWithoutNotify(sel);
@@ -304,23 +417,80 @@ namespace Robogame.Gameplay
                 return;
             }
 
+            bool inGarage = state.State == GameState.Garage;
+            bool inArena  = state.State == GameState.Arena;
+            bool inWater  = state.State == GameState.WaterArena;
+
             switch (state.State)
             {
                 case GameState.Garage:
                     _label.text = "Launch ▶";
                     _button.gameObject.SetActive(true);
-                    if (_presetDropdown != null) _presetDropdown.gameObject.SetActive(true);
                     break;
                 case GameState.Arena:
                     _label.text = "◀ Garage";
                     _button.gameObject.SetActive(true);
-                    if (_presetDropdown != null) _presetDropdown.gameObject.SetActive(false);
+                    break;
+                case GameState.WaterArena:
+                    _label.text = "◀ Garage";
+                    _button.gameObject.SetActive(true);
                     break;
                 default:
                     _button.gameObject.SetActive(false);
-                    if (_presetDropdown != null) _presetDropdown.gameObject.SetActive(false);
                     break;
             }
+
+            if (_presetDropdown != null) _presetDropdown.gameObject.SetActive(inGarage);
+            if (_newButton   != null)    _newButton.gameObject.SetActive(inGarage);
+            if (_saveButton  != null)    _saveButton.gameObject.SetActive(inGarage);
+            if (_buildButton != null)    _buildButton.gameObject.SetActive(inGarage);
+            if (_waterButton != null)    _waterButton.gameObject.SetActive(inGarage);
+            // Delete is only meaningful for user-saved blueprints.
+            bool canDelete = inGarage && !string.IsNullOrEmpty(state.CurrentUserFileName);
+            if (_deleteButton != null)   _deleteButton.gameObject.SetActive(canDelete);
+            if (_nameField    != null)
+            {
+                _nameField.gameObject.SetActive(inGarage);
+                if (inGarage) SyncNameFieldFromState(state);
+            }
+            EnsureBuildModeSubscription();
+            _ = inArena; // reserved for arena-side HUD growth.
+            _ = inWater; // reserved for water-arena HUD growth.
+        }
+
+        private void EnsureBuildModeSubscription()
+        {
+            var garage = FindAnyObjectByType<GarageController>();
+            BuildModeController bm = garage != null ? garage.BuildMode : null;
+            if (bm == _subscribedBuildMode) return;
+            if (_subscribedBuildMode != null)
+            {
+                _subscribedBuildMode.Entered -= HandleBuildEntered;
+                _subscribedBuildMode.Exited  -= HandleBuildExited;
+            }
+            _subscribedBuildMode = bm;
+            if (_subscribedBuildMode != null)
+            {
+                _subscribedBuildMode.Entered += HandleBuildEntered;
+                _subscribedBuildMode.Exited  += HandleBuildExited;
+                RefreshBuildLabel();
+            }
+        }
+
+        private void HandleBuildEntered() => RefreshBuildLabel();
+        private void HandleBuildExited()  => RefreshBuildLabel();
+
+        private void RefreshBuildLabel()
+        {
+            if (_buildLabel == null) return;
+            bool active = _subscribedBuildMode != null && _subscribedBuildMode.IsActive;
+            _buildLabel.text = active ? "Drive Mode" : "Build Mode";
+        }
+
+        private void HandleBuildClicked()
+        {
+            var garage = FindAnyObjectByType<GarageController>();
+            if (garage != null) garage.ToggleBuildMode();
         }
 
         private void HandleClick()
@@ -340,7 +510,165 @@ namespace Robogame.Gameplay
                     if (arena != null) arena.Return();
                     else state.EnterGarage();
                     break;
+                case GameState.WaterArena:
+                    var water = FindAnyObjectByType<WaterArenaController>();
+                    if (water != null) water.Return();
+                    else state.EnterGarage();
+                    break;
             }
+        }
+
+        private void HandleWaterClicked()
+        {
+            GameStateController state = GameStateController.Instance;
+            if (state == null) return;
+            state.EnterWaterArena();
+        }
+
+        private void HandleNewClicked()
+        {
+            GameStateController state = GameStateController.Instance;
+            if (state == null) return;
+            state.CreateNewBlueprint();
+            // GarageController already listens to PresetChanged and respawns,
+            // so the new chassis appears on the podium without further work.
+            // Dropdown selection: -1 means "off-list"; clamp to 0 so the
+            // visible caption isn't garbage.
+            if (_presetDropdown != null && _presetDropdown.options.Count > 0)
+            {
+                _presetDropdown.SetValueWithoutNotify(0);
+                _presetDropdown.RefreshShownValue();
+            }
+            // Keep dropdown caption honest after the picker is repopulated.
+            _catalogDirty = true;
+        }
+
+        private void HandleSaveClicked()
+        {
+            GameStateController state = GameStateController.Instance;
+            if (state == null || state.CurrentBlueprint == null) return;
+            // Commit any pending name edit before persisting.
+            CommitNameField(state);
+            string fileName = state.SaveCurrentBlueprint();
+            Debug.Log($"[Robogame] Saved blueprint to '{fileName}'.");
+            _catalogDirty = true;
+        }
+
+        // -----------------------------------------------------------------
+        // Name field + delete
+        // -----------------------------------------------------------------
+
+        private InputField BuildNameField(Transform canvas, int row)
+        {
+            var go = new GameObject("NameField");
+            go.transform.SetParent(canvas, worldPositionStays: false);
+            var img = go.AddComponent<Image>();
+            img.color = new Color(0.06f, 0.07f, 0.10f, 0.92f);
+
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(0f, 0f);
+            rt.pivot     = new Vector2(0f, 0f);
+            // Wider than the buttons so long names fit.
+            rt.sizeDelta = new Vector2(_dropdownSize.x + 60f, _dropdownSize.y);
+            float yOffset = _margin.y + (_dropdownSize.y + 6f) * row;
+            rt.anchoredPosition = new Vector2(_margin.x, yOffset);
+
+            var input = go.AddComponent<InputField>();
+            input.targetGraphic = img;
+
+            // Text child (active editable).
+            var textGO = new GameObject("Text");
+            textGO.transform.SetParent(go.transform, worldPositionStays: false);
+            var text = textGO.AddComponent<Text>();
+            text.alignment = TextAnchor.MiddleLeft;
+            text.fontSize = _fontSize - 2;
+            text.color = Color.white;
+            text.supportRichText = false;
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            var trt = textGO.GetComponent<RectTransform>();
+            trt.anchorMin = Vector2.zero;
+            trt.anchorMax = Vector2.one;
+            trt.offsetMin = new Vector2(10f, 4f);
+            trt.offsetMax = new Vector2(-10f, -4f);
+            input.textComponent = text;
+
+            // Placeholder.
+            var phGO = new GameObject("Placeholder");
+            phGO.transform.SetParent(go.transform, worldPositionStays: false);
+            var ph = phGO.AddComponent<Text>();
+            ph.alignment = TextAnchor.MiddleLeft;
+            ph.fontSize = _fontSize - 2;
+            ph.color = new Color(1f, 1f, 1f, 0.4f);
+            ph.fontStyle = FontStyle.Italic;
+            ph.text = "Robot name…";
+            ph.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            var prt = phGO.GetComponent<RectTransform>();
+            prt.anchorMin = Vector2.zero;
+            prt.anchorMax = Vector2.one;
+            prt.offsetMin = new Vector2(10f, 4f);
+            prt.offsetMax = new Vector2(-10f, -4f);
+            input.placeholder = ph;
+
+            input.characterLimit = 48;
+            input.lineType = InputField.LineType.SingleLine;
+            input.onEndEdit.AddListener(HandleNameEndEdit);
+            return input;
+        }
+
+        private void SyncNameFieldFromState(GameStateController state)
+        {
+            if (_nameField == null || state == null || state.CurrentBlueprint == null) return;
+            string current = state.CurrentBlueprint.DisplayName ?? string.Empty;
+            if (_nameField.text != current) _nameField.SetTextWithoutNotify(current);
+        }
+
+        private void HandleNameEndEdit(string value)
+        {
+            GameStateController state = GameStateController.Instance;
+            if (state == null || state.CurrentBlueprint == null) return;
+            string trimmed = (value ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(trimmed)) trimmed = "Untitled Chassis";
+            state.CurrentBlueprint.DisplayName = trimmed;
+            // Repaint the dropdown caption so the rename is visible without a save.
+            _catalogDirty = true;
+        }
+
+        private void CommitNameField(GameStateController state)
+        {
+            if (_nameField == null) return;
+            HandleNameEndEdit(_nameField.text);
+        }
+
+        private void HandleDeleteClicked()
+        {
+            GameStateController state = GameStateController.Instance;
+            if (state == null) return;
+            if (string.IsNullOrEmpty(state.CurrentUserFileName))
+            {
+                Debug.Log("[Robogame] Delete: nothing to delete (current blueprint isn't a user file).");
+                return;
+            }
+            string fileName = state.CurrentUserFileName;
+            if (state.DeleteCurrentUserBlueprint())
+            {
+                Debug.Log($"[Robogame] Deleted user blueprint '{fileName}'.");
+                // Drop the freshly-orphaned in-memory blueprint and load whatever
+                // is at preset 0 so the garage is in a sane state.
+                if (state.PresetCount > 0) state.SelectPreset(0);
+                else state.CreateNewBlueprint();
+                _catalogDirty = true;
+            }
+        }
+
+        private static void TintDestructive(Button btn)
+        {
+            if (btn == null) return;
+            ColorBlock cols = btn.colors;
+            cols.highlightedColor = new Color(0.95f, 0.25f, 0.20f, 1f); // hazard red on hover
+            cols.pressedColor     = new Color(0.65f, 0.15f, 0.12f, 1f);
+            cols.selectedColor    = cols.highlightedColor;
+            btn.colors = cols;
         }
     }
 }

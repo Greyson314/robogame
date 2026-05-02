@@ -31,6 +31,10 @@ namespace Robogame.Movement
     [RequireComponent(typeof(BlockBehaviour))]
     public sealed class AeroSurfaceBlock : MonoBehaviour
     {
+        [Header("Orientation")]
+        [Tooltip("If true, this surface acts as a vertical fin (rudder/stabiliser): lift axis is the chassis-right vector instead of chassis-up, and the sideslip damping axis is vertical. Set by RobotAeroBinder for fin block ids.")]
+        [SerializeField] private bool _vertical = false;
+
         [Header("Aero")]
         [Tooltip("Lift slope per radian of AoA × speed² (N·s²/m²/rad). Tune so a level cruise produces ~chassis weight from main wing summed.")]
         [SerializeField, Min(0f)] private float _liftCoef = 0.95f;
@@ -60,6 +64,18 @@ namespace Robogame.Movement
 
         private Rigidbody _rb;
 
+        /// <summary>True for tail fins / rudders. Set this BEFORE the first FixedUpdate (e.g. from a binder right after AddComponent).</summary>
+        public bool Vertical
+        {
+            get => _vertical;
+            set
+            {
+                if (_vertical == value) return;
+                _vertical = value;
+                if (_wingMesh != null) ApplyOrientationToVisual();
+            }
+        }
+
         private void Awake()
         {
             EnsureRig();
@@ -79,18 +95,23 @@ namespace Robogame.Movement
             Vector3 localVel = transform.InverseTransformDirection(worldVel);
 
             float forward = localVel.z;
-            float side = localVel.x;
+            // "Cross" airspeed component drives AoA; "side" drives the
+            // damping that keeps the surface tracking through turns.
+            // Horizontal wing: cross = local Y (vertical airflow), side = local X.
+            // Vertical fin:    cross = local X (lateral airflow),  side = local Y.
+            float crossVel = _vertical ? localVel.x : localVel.y;
+            float sideVel  = _vertical ? localVel.y : localVel.x;
+            Vector3 liftAxis = _vertical ? transform.right : transform.up;
+            Vector3 sideAxis = _vertical ? transform.up    : transform.right;
             float speedSqr = forward * forward;
 
-            // Angle of attack: positive when the airflow strikes the wing's
-            // underside (i.e. local -Y velocity at the wing position with
-            // positive forward speed). Real symmetric airfoils produce zero
-            // lift at zero AoA — modelling that here is what fixes the
-            // "constant buoyancy" feel: at level flight every wing produces
-            // only enough lift to balance gravity given the small AoA from
-            // sinking, so a wing far behind the COM no longer pushes the
-            // tail up unconditionally.
-            float aoa = forward > 0.5f ? Mathf.Atan2(-localVel.y, forward) : 0f;
+            // Angle of attack: positive when the airflow strikes the
+            // lift-producing side of the surface (i.e. the cross-airflow
+            // component flowing toward -liftAxis at positive forward speed).
+            // Real symmetric airfoils produce zero lift at zero AoA —
+            // modelling that here is what fixes the "constant buoyancy"
+            // feel. Identical math for fins, just rotated 90°.
+            float aoa = forward > 0.5f ? Mathf.Atan2(-crossVel, forward) : 0f;
             float aoaClamped = Mathf.Clamp(aoa, -_stallAoA, _stallAoA);
             // Soft stall: past the stall angle, retain only postStallLift × cap.
             float stallFalloff = Mathf.Abs(aoa) > _stallAoA
@@ -100,7 +121,7 @@ namespace Robogame.Movement
 
             float liftMag = speedSqr * _liftCoef * liftFactor * Mathf.Sign(forward);
             if (_maxLift > 0f) liftMag = Mathf.Clamp(liftMag, -_maxLift, _maxLift);
-            _rb.AddForceAtPosition(transform.up * liftMag, worldPos);
+            _rb.AddForceAtPosition(liftAxis * liftMag, worldPos);
 
             // Drag along the chassis velocity (not local-Z), so going
             // sideways still costs energy.
@@ -110,9 +131,9 @@ namespace Robogame.Movement
                 _rb.AddForceAtPosition(-worldVel.normalized * dragMag, worldPos);
             }
 
-            // Sideslip damping: linear in lateral velocity.
-            float sideForce = -side * _sideDamping;
-            _rb.AddForceAtPosition(transform.right * sideForce, worldPos);
+            // Sideslip / yaw-slip damping: linear in cross-axis velocity.
+            float sideForce = -sideVel * _sideDamping;
+            _rb.AddForceAtPosition(sideAxis * sideForce, worldPos);
         }
 
         // -----------------------------------------------------------------
@@ -125,7 +146,26 @@ namespace Robogame.Movement
             if (_wingMesh != null) return;
 
             _wingMesh = BlockVisuals.GetOrCreatePrimitiveChild(transform, "Wing", PrimitiveType.Cube);
-            _wingMesh.localScale = _wingSize;
+            ApplyOrientationToVisual();
+        }
+
+        /// <summary>
+        /// Apply the orientation flag to the visual mesh: horizontal uses
+        /// the configured wing size, vertical rotates 90° around forward
+        /// (so the cube becomes a tall fin) and swaps span/thickness.
+        /// </summary>
+        private void ApplyOrientationToVisual()
+        {
+            if (_wingMesh == null) return;
+            if (_vertical)
+            {
+                // Tall thin fin: swap X and Y so the long axis points up.
+                _wingMesh.localScale = new Vector3(_wingSize.y, _wingSize.x, _wingSize.z);
+            }
+            else
+            {
+                _wingMesh.localScale = _wingSize;
+            }
         }
     }
 }

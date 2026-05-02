@@ -90,11 +90,13 @@ namespace Robogame.Gameplay
                 EnsureComponent<PlayerController>(root);
 
                 // --- Subsystems implied by the blueprint contents ---
-                bool hasWheels = false, hasAero = false, hasWeapon = false;
+                bool hasWheels = false, hasAero = false, hasThruster = false, hasRudder = false, hasWeapon = false;
                 foreach (ChassisBlueprint.Entry e in blueprint.Entries)
                 {
                     if (e.BlockId == BlockIds.Wheel || e.BlockId == BlockIds.WheelSteer) hasWheels = true;
-                    if (e.BlockId == BlockIds.Aero) hasAero = true;
+                    if (e.BlockId == BlockIds.Aero || e.BlockId == BlockIds.AeroFin) hasAero = true;
+                    if (e.BlockId == BlockIds.Thruster) hasThruster = true;
+                    if (e.BlockId == BlockIds.Rudder) hasRudder = true;
                     if (e.BlockId == BlockIds.Weapon) hasWeapon = true;
                 }
 
@@ -104,10 +106,24 @@ namespace Robogame.Gameplay
                     EnsureComponent<RobotWheelBinder>(root);
                 }
 
+                // The aero binder turns Thruster / Aero / AeroFin / Rudder block
+                // primitives into their behaviour components (jet rig +
+                // force-applying ThrusterBlock, lifting AeroSurfaceBlock,
+                // yaw-applying RudderBlock). It's needed any time those
+                // blocks exist, regardless of chassis kind — e.g. a
+                // Ground-kind boat with a thruster + rudder.
+                if (hasAero || hasThruster || hasRudder || blueprint.Kind == ChassisKind.Plane)
+                {
+                    EnsureComponent<RobotAeroBinder>(root);
+                }
+
+                // PlaneControlSubsystem owns pitch/roll/yaw authority and
+                // only makes sense on aircraft. Skip it on a thruster-only
+                // ground/boat chassis so we don't fight gravity with control
+                // surfaces that aren't there.
                 if (hasAero || blueprint.Kind == ChassisKind.Plane)
                 {
                     EnsureComponent<PlaneControlSubsystem>(root);
-                    EnsureComponent<RobotAeroBinder>(root);
                 }
 
                 if (hasWeapon)

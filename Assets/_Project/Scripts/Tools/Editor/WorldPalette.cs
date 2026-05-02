@@ -78,9 +78,26 @@ namespace Robogame.Tools.Editor
         public static Material ArenaStair    => Get("Mat_ArenaStair",    Mint,        metallic: 0.1f, smoothness: 0.30f);
         public static Material ArenaPillar   => Get("Mat_ArenaPillar",   Alert,       metallic: 0.2f, smoothness: 0.40f);
 
+        // Water arena: deep teal surface that reads as water at a glance,
+        // and a darker submerged ground tone so blocks contrast against
+        // the floor when they sink.
+        public static readonly Color WaterSurface = HexRGB(0x1F, 0x6E, 0x88);
+        public static readonly Color WaterDeep    = HexRGB(0x10, 0x33, 0x42);
+        // Surface plane: prefer the Bitgem Stylised Water shader (depth
+        // fade, foam, fresnel, refraction — all tuned by the demo material
+        // we clone). Falls back to a translucent URP/Lit teal if the Bitgem
+        // package is absent so headless / fresh-clone builds still work.
+        // Bitgem's GPU vertex waves are zeroed in BitgemWaterMaterial so the
+        // CPU-side WaterMeshAnimator stays authoritative for buoyancy.
+        public static Material WaterMat
+            => BitgemWaterMaterial.GetOrBuild()
+               ?? GetTransparent("Mat_Water", WaterSurface, alpha: 0.55f, smoothness: 0.85f);
+        public static Material WaterFloor      => Get("Mat_WaterFloor",   WaterDeep,    metallic: 0.0f, smoothness: 0.10f);
+
         // Camera clear colours (used when no skybox is wired up).
         public static readonly Color GarageClear = HexRGB(0x0F, 0x12, 0x19);
         public static Color ArenaClear           => SkyDay;
+        public static Color WaterArenaClear      => SkyDay;
 
         // -----------------------------------------------------------------
         // Material factory
@@ -109,6 +126,69 @@ namespace Robogame.Tools.Editor
             ApplyToon(mat, color, metallic, smoothness, emission);
             EditorUtility.SetDirty(mat);
             return mat;
+        }
+
+        /// <summary>
+        /// Variant of <see cref="Get"/> that produces a translucent
+        /// material. Configures URP/Lit (and MK Toon / Standard fallbacks)
+        /// into alpha-blended surface mode, then writes the colour with
+        /// the requested alpha. Used for the water-arena surface.
+        /// </summary>
+        private static Material GetTransparent(string assetName, Color color, float alpha, float smoothness)
+        {
+            EnsureFolder(Folder);
+            string path = $"{Folder}/{assetName}.mat";
+
+            Shader shader = Shader.Find(ToonShaderName)
+                            ?? Shader.Find(LitShaderName)
+                            ?? Shader.Find("Standard");
+
+            Material mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                mat = new Material(shader) { name = assetName };
+                AssetDatabase.CreateAsset(mat, path);
+            }
+            else if (mat.shader != shader)
+            {
+                mat.shader = shader;
+            }
+
+            Color rgba = color;
+            rgba.a = Mathf.Clamp01(alpha);
+            ApplyToon(mat, rgba, metallic: 0.0f, smoothness: smoothness, emission: null);
+            ApplyTransparentSurface(mat);
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        /// <summary>
+        /// Force the material into alpha-blended transparent rendering.
+        /// Touches every property name URP/Lit, MK Toon, and the legacy
+        /// Standard pipeline care about so the output looks the same on
+        /// any of them.
+        /// </summary>
+        private static void ApplyTransparentSurface(Material mat)
+        {
+            // URP/Lit transparency (also accepted by MK Toon URP variants).
+            if (mat.HasProperty("_Surface")) mat.SetFloat("_Surface", 1f);          // 0=Opaque, 1=Transparent
+            if (mat.HasProperty("_Blend"))   mat.SetFloat("_Blend",   0f);          // 0=Alpha
+            if (mat.HasProperty("_AlphaClip")) mat.SetFloat("_AlphaClip", 0f);
+            if (mat.HasProperty("_SrcBlend")) mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            if (mat.HasProperty("_DstBlend")) mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            if (mat.HasProperty("_ZWrite"))   mat.SetFloat("_ZWrite", 0f);
+
+            mat.DisableKeyword("_ALPHATEST_ON");
+            mat.EnableKeyword("_ALPHABLEND_ON");
+            mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+
+            mat.SetOverrideTag("RenderType", "Transparent");
+            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+
+            // Legacy Standard "_Mode" setup so re-imports through that
+            // shader still come out translucent.
+            if (mat.HasProperty("_Mode")) mat.SetFloat("_Mode", 3f); // 3 = Transparent
         }
 
         /// <summary>
