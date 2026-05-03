@@ -23,6 +23,18 @@ namespace Robogame.Combat
 
         protected override void Bind(BlockBehaviour block)
         {
+            // Dispatch by stable id so future weapon variants (rocket pod,
+            // mortar, …) can each land on their own behaviour while
+            // sharing the same WeaponMount aim system.
+            string id = block.Definition.Id;
+            if (id == BlockIds.BombBay)
+            {
+                BombBayBlock bay = block.GetComponent<BombBayBlock>();
+                if (bay == null) bay = block.gameObject.AddComponent<BombBayBlock>();
+                bay.Bind(_mount);
+                return;
+            }
+
             WeaponBlock weapon = block.GetComponent<WeaponBlock>();
             if (weapon == null) weapon = block.gameObject.AddComponent<WeaponBlock>();
             weapon.Bind(_mount);

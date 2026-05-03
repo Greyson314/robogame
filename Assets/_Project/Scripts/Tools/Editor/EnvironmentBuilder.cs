@@ -248,6 +248,311 @@ namespace Robogame.Tools.Editor
         }
 
         // -----------------------------------------------------------------
+        // Planet arena: a sphere planet at world origin with custom
+        // spherical gravity. v1 sketch \u2014 see
+        // [docs/SPHERICAL_ARENAS.md](../../../../../docs/SPHERICAL_ARENAS.md)
+        // for the full plan and the reasons this is intentionally rough.
+        // -----------------------------------------------------------------
+
+        public static void BuildPlanetArenaEnvironment()
+        {
+            // 2400 m sits comfortably inside the comfort window from
+            // SPHERICAL_ARENAS.md §9: ~0.3 °/s camera-up rotation at
+            // ground speed, ~2.3° horizon dip, ~19 minute lap. 20% smaller
+            // diameter than 3000 m makes the world feel a bit more like a
+            // playground without crossing into marble territory.
+            const float planetRadius = 1680f;
+
+            GameObject env = ResetEnvRoot();
+
+            // Lighting: same raked-sun rig as the combat arena so the
+            // planet's day/night terminator is visible from the spawn pole.
+            // CLEAR colour stays solid (no skybox) per the brief.
+            Vector3 sunEuler = new Vector3(50f, -30f, 0f);
+
+            // Uniform-color skybox: just a flat clear color on the camera,
+            // no Polyverse skybox material. SkyDay (#8CB7E0) is the same
+            // tint the arena skybox tops out at, so the planet reads as
+            // sitting in "sky" rather than a grey void.
+            EnsureCameraAndLight(
+                WorldPalette.SkyDay,
+                lightEuler: sunEuler,
+                lightColor: new Color(1f, 0.973f, 0.878f, 1f),
+                lightIntensity: 1.3f,
+                useSkybox: false);
+            ConfigureAmbient(
+                skyTop: WorldPalette.SkyDay,
+                equator: new Color(0.353f, 0.431f, 0.502f),
+                ground: WorldPalette.Grass * 0.6f);
+            EnsureSceneVolume(PostProcessingBuilder.ArenaProfilePath);
+
+            // Strip any skybox the previous scene wired in \u2014 the camera
+            // clears to a flat colour by itself.
+            RenderSettings.skybox = null;
+            DynamicGI.UpdateEnvironment();
+
+            // Camera: position above the north pole looking down-ish so the
+            // chassis spawn site is centred when the scene first opens.
+            // FollowCamera takes over at runtime.
+            GameObject camGO = GameObject.Find("Main Camera");
+            if (camGO != null)
+            {
+                camGO.transform.position = new Vector3(0f, planetRadius + 18f, -10f);
+                camGO.transform.rotation = Quaternion.Euler(30f, 0f, 0f);
+            }
+
+            // Visible + collidable planet mesh. We deliberately do NOT use
+            // Unity's primitive Sphere here:
+            //   * its mesh is ~80 tris, which reads as "20-sided die" at
+            //     1.5 km radius;
+            //   * worse, the primitive ships with a SphereCollider on the
+            //     mathematically perfect sphere, while the visual faces
+            //     dip inward between vertices \u2014 so a chassis lands on
+            //     the collider and visibly floats above the visual dips.
+            // Instead we generate a subdivision-5 icosphere (20 480 tris,
+            // ~22 cm max chord deviation at this radius) and use the SAME
+            // mesh for the MeshCollider. Visual triangles == collision
+            // triangles, so the float-above-the-dips bug is gone.
+            // Smooth normals (vertex normal = unit position) hide the
+            // tessellation under shading.
+            GameObject planetGO = new GameObject("Planet");
+            planetGO.transform.SetParent(env.transform, worldPositionStays: false);
+            planetGO.transform.position = Vector3.zero;
+            planetGO.transform.localScale = Vector3.one * planetRadius; // unit mesh \u2192 world radius
+            // Wire the gravity component FIRST, before any mesh / collider /
+            // material work. If a later step throws (PhysX cook on a large
+            // MeshCollider, Fluff material rebuild, etc.), the partially
+            // built planet still has its PlanetBody so PlanetArenaController
+            // can find it on Play, instead of stranding the user with a
+            // visible sphere they can't spawn onto.
+            var planet = planetGO.AddComponent<Robogame.Gameplay.PlanetBody>();
+            var planetSO = new SerializedObject(planet);
+            SerializedProperty radiusProp = planetSO.FindProperty("_radius");
+            if (radiusProp != null) radiusProp.floatValue = planetRadius;
+            planetSO.ApplyModifiedPropertiesWithoutUndo();
+            // Subdivision-5 icosphere (20 480 tris, ~36 cm chord deviation
+            // at 2400 m radius). Sub-6 looks marginally nicer at the
+            // silhouette but the larger static MeshCollider's PhysX cook
+            // throws on some Unity versions; the resulting hidden
+            // exception was leaving scaffolded scenes without a
+            // PlanetBody (PlanetArenaController then fails to find one
+            // and the chassis won't spawn). Distance fog (below) does
+            // most of the silhouette-smoothing work the extra triangles
+            // would have, for free.
+            //
+            // Terrain: per-vertex radial displacement via PlanetTerrain's
+            // noise field. Same sampler is used by the landmark pylons
+            // below so they sit on the displaced surface, not the
+            // baseline sphere. The displacement is in mesh-local units
+            // (radius == 1) so we hand it the radius up front and
+            // normalise the result there.
+            // Terrain disabled: smooth icosphere only. PlanetTerrain code is
+            // kept around (and Settings still passed to BuildPlanetLandmarks)
+            // but with zero amplitudes the sampler returns 0 everywhere, so
+            // pylons sit on the bare sphere.
+            PlanetTerrain.Settings terrain = PlanetTerrain.Settings.Flat(planetRadius);
+            Mesh planetMesh = IcosphereBuilder.Build(
+                subdivisions: 5,
+                name: "PlanetMesh");
+            var mf = planetGO.AddComponent<MeshFilter>();
+            mf.sharedMesh = planetMesh;
+            var mr = planetGO.AddComponent<MeshRenderer>();
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            mr.receiveShadows = true;
+
+            // MeshCollider on the same icosphere. Static (no Rigidbody),
+            // non-convex, sub-5 tri count is well within PhysX's comfort
+            // zone for a single static collider.
+            var planetCol = planetGO.AddComponent<MeshCollider>();
+            planetCol.sharedMesh = planetMesh;
+            planetCol.convex = false;
+
+            // Try the Fluff shell-grass shader first (the same path the
+            // flat arena's ground uses). Fluff projects shells along
+            // vertex normals, so it works correctly on a sphere \u2014 every
+            // surface point gets its grass blades pointing outward. If
+            // the package is missing, FluffGround.ApplyToGround falls
+            // back to a procedural tile texture, which we then overwrite
+            // with the palette-locked Mat_ArenaGround so the planet at
+            // least stays the right shade of green.
+            bool fluff = FluffGround.ApplyToGround(planetGO);
+            if (!fluff)
+            {
+                // Procedural tile texture won't tile cleanly on a sphere
+                // (UV seam at the poles); replace with the flat lit grass.
+                if (mr != null) mr.sharedMaterial = WorldPalette.ArenaGround;
+            }
+
+            // Horizon haze. Smooth normals fix the interior shading on a
+            // faceted sphere, but the *silhouette* is still polygon-by-
+            // polygon — every triangle edge along the limb shows up as
+            // a hard line against the flat sky colour. The standard trick
+            // (Outer Wilds, BotW, Mario Galaxy, Astroneer) is linear fog
+            // tuned so the silhouette fades into the sky a bit before the
+            // visible horizon: where geometry meets sky in the framebuffer,
+            // fog blends mesh → fog colour, and if fog colour == sky
+            // colour the edges dissolve instead of stair-stepping.
+            //
+            // Tuning: horizon distance from a ground chassis (eye ≈2 m
+            // above surface) is √(2·r·h) ≈ 100 m at 2400 m radius. From
+            // a plane at 18 m altitude it's ~290 m. We want fog to be
+            // negligible up to the *near* horizon and fully opaque well
+            // before the chassis can see anything past it, so fog 0–1 km
+            // covers both ground and air play without making nearby decor
+            // feel hazy.
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Linear;
+            RenderSettings.fogColor = WorldPalette.SkyDay;
+            RenderSettings.fogStartDistance = 250f;
+            RenderSettings.fogEndDistance = 1000f;
+
+            // Landmark pylons. Static decor only \u2014 these aren't combat
+            // dummies (a real Robot needs spherical-locomotion AI we
+            // haven't built yet, and a kinematic Robot would slide off
+            // the cap on frame 1). They exist purely to give the player
+            // something to fly toward + figure out what direction they're
+            // heading. Replace with actual dummies once Phase A locomotion
+            // lands.
+            BuildPlanetLandmarks(env.transform, planet, terrain, count: 14);
+        }
+
+        /// <summary>
+        /// Scatter <paramref name="count"/> brightly-coloured pylons across
+        /// the planet's surface using a Fibonacci-sphere distribution.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Why Fibonacci sphere:</b> spreading N points by golden-angle
+        /// increments around the unit sphere gives near-uniform spacing
+        /// without any of the pole-clustering that uniform lat/lon
+        /// produces, and is fully deterministic so re-scaffolding lands
+        /// pylons in the same spots every time. The placement formula is
+        /// the standard one (e.g. <i>Saff &amp; Kuijlaars</i>, 1997):
+        /// </para>
+        /// <code>
+        ///   y = 1 - 2*(i + 0.5)/N
+        ///   r = sqrt(1 - y\u00b2)
+        ///   \u03c6 = i * \u03c0 * (3 - sqrt(5))   // golden angle
+        ///   p = (cos(\u03c6)*r, y, sin(\u03c6)*r)
+        /// </code>
+        /// <para>
+        /// We then skip any sample whose latitude is within ~25\u00b0 of the
+        /// north pole (where the chassis spawns) so the player isn't
+        /// staring at a pylon at frame 1. Each pylon is built unit-scale
+        /// then oriented so its local up matches the surface normal at
+        /// that point \u2014 same trick the chassis spawn uses.
+        /// </para>
+        /// </remarks>
+        private static void BuildPlanetLandmarks(
+            Transform envRoot,
+            Robogame.Gameplay.PlanetBody planet,
+            PlanetTerrain.Settings terrain,
+            int count)
+        {
+            if (planet == null || envRoot == null) return;
+
+            GameObject root = new GameObject("Landmarks");
+            root.transform.SetParent(envRoot, worldPositionStays: false);
+
+            // Build the four landmark materials once (palette tokens, so
+            // they read as authored set dressing rather than test colour).
+            // We rotate through them as we walk the Fibonacci sequence so
+            // the player can use colour as a coarse "which pylon is that"
+            // cue without a minimap.
+            Material[] palette = new[]
+            {
+                WorldPalette.ArenaPillar,  // alert red
+                WorldPalette.ArenaRamp,    // hazard orange
+                WorldPalette.ArenaBump,    // caution yellow
+                WorldPalette.ArenaStair,   // mint green
+            };
+
+            // Tunables. Pylon body height scales with planet radius so it
+            // stays a few-second drive away on any radius.
+            float radius = planet.Radius;
+            float bodyHeight = Mathf.Clamp(radius * 0.012f, 12f, 40f); // ~29 m at 2400
+            float bodyWidth  = bodyHeight * 0.30f;
+            float capRadius  = bodyWidth * 0.95f;
+            const float spawnExclusionDeg = 25f;
+
+            float goldenAngle = Mathf.PI * (3f - Mathf.Sqrt(5f));
+            int placed = 0;
+            for (int i = 0; i < count; i++)
+            {
+                // Sample the unit sphere.
+                float yUnit = 1f - 2f * ((i + 0.5f) / count);
+                float rUnit = Mathf.Sqrt(Mathf.Max(0f, 1f - yUnit * yUnit));
+                float phi   = i * goldenAngle;
+                Vector3 normal = new Vector3(
+                    Mathf.Cos(phi) * rUnit,
+                    yUnit,
+                    Mathf.Sin(phi) * rUnit);
+
+                // Skip the spawn cap. yUnit == cos(latitude from north pole),
+                // so cos(25\u00b0) \u2248 0.906 means anything above that latitude
+                // band lands too close to the chassis spawn.
+                if (yUnit > Mathf.Cos(spawnExclusionDeg * Mathf.Deg2Rad)) continue;
+
+                // Sit on the displaced surface, not the baseline sphere.
+                float h = PlanetTerrain.SampleHeight(normal, terrain);
+                Vector3 surface = planet.Center + normal * (radius + h);
+                BuildPylon(
+                    parent: root.transform,
+                    surfacePos: surface,
+                    surfaceNormal: normal,
+                    bodyMat: palette[placed % palette.Length],
+                    capMat: WorldPalette.GarageAccent, // bright orange tip on every pylon
+                    bodyHeight: bodyHeight,
+                    bodyWidth: bodyWidth,
+                    capRadius: capRadius,
+                    index: placed);
+                placed++;
+            }
+        }
+
+        private static void BuildPylon(
+            Transform parent, Vector3 surfacePos, Vector3 surfaceNormal,
+            Material bodyMat, Material capMat,
+            float bodyHeight, float bodyWidth, float capRadius, int index)
+        {
+            // Container so the cube + sphere transform together. Identity
+            // scale on the parent keeps the children's MeshColliders from
+            // inheriting non-uniform scale (which would force a convex
+            // baking step and cost cook time).
+            GameObject pylon = new GameObject($"Pylon_{index:D2}");
+            pylon.transform.SetParent(parent, worldPositionStays: false);
+
+            // Orient: local up == surface normal. Quaternion.LookRotation
+            // wants a forward vector; we pick any tangent vector by
+            // crossing normal with world-up. If they're parallel (north
+            // pole \u2014 already excluded but defensive), fall back to world-X.
+            Vector3 tangent = Vector3.Cross(surfaceNormal, Vector3.up);
+            if (tangent.sqrMagnitude < 0.0001f) tangent = Vector3.Cross(surfaceNormal, Vector3.right);
+            tangent.Normalize();
+            pylon.transform.SetPositionAndRotation(
+                surfacePos,
+                Quaternion.LookRotation(tangent, surfaceNormal));
+
+            // Body cube. Pivot at base, so we offset up by half-height.
+            GameObject body = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            body.name = "Body";
+            body.transform.SetParent(pylon.transform, worldPositionStays: false);
+            body.transform.localPosition = new Vector3(0f, bodyHeight * 0.5f, 0f);
+            body.transform.localScale = new Vector3(bodyWidth, bodyHeight, bodyWidth);
+            var bodyMr = body.GetComponent<MeshRenderer>();
+            if (bodyMr != null) bodyMr.sharedMaterial = bodyMat;
+
+            // Cap sphere on top \u2014 universal "this is a marker" reading.
+            GameObject cap = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            cap.name = "Cap";
+            cap.transform.SetParent(pylon.transform, worldPositionStays: false);
+            cap.transform.localPosition = new Vector3(0f, bodyHeight + capRadius * 0.4f, 0f);
+            cap.transform.localScale = Vector3.one * (capRadius * 2f);
+            var capMr = cap.GetComponent<MeshRenderer>();
+            if (capMr != null) capMr.sharedMaterial = capMat;
+        }
+
+        // -----------------------------------------------------------------
         // Shared helpers
         // -----------------------------------------------------------------
 

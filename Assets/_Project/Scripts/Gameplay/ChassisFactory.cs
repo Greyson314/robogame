@@ -97,7 +97,11 @@ namespace Robogame.Gameplay
                     if (e.BlockId == BlockIds.Aero || e.BlockId == BlockIds.AeroFin) hasAero = true;
                     if (e.BlockId == BlockIds.Thruster) hasThruster = true;
                     if (e.BlockId == BlockIds.Rudder) hasRudder = true;
-                    if (e.BlockId == BlockIds.Weapon) hasWeapon = true;
+                    // Match any weapon-category block by id, so new weapon
+                    // variants (BombBay, future rocket pods, …) trigger the
+                    // weapon-mount + binder path without needing to be
+                    // listed individually here.
+                    if (e.BlockId == BlockIds.Weapon || e.BlockId == BlockIds.BombBay) hasWeapon = true;
                 }
 
                 if (hasWheels)

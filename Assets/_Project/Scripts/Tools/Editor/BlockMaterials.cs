@@ -84,6 +84,12 @@ namespace Robogame.Tools.Editor
             Build("BlockMat_Weapon",    WorldPalette.Alert,      metallic: 0.4f, smoothness: 0.55f, outline: true,
                   outlineSize: 85f, textureIndex: BlockTextures.Picks.Weapon);
 
+            // Bomb bay: dark slate body with the same hazard pattern as
+            // the thruster so the silhouette reads as "this thing carries
+            // ordnance". Outlined like the rest of the hero blocks.
+            Build("BlockMat_BombBay",   new Color(0.18f, 0.18f, 0.20f), metallic: 0.35f, smoothness: 0.45f, outline: true,
+                  emission: WorldPalette.Hazard * 0.25f, outlineSize: 85f, textureIndex: BlockTextures.Picks.Thruster);
+
             AssetDatabase.SaveAssets();
         }
 
@@ -101,7 +107,9 @@ namespace Robogame.Tools.Editor
             switch (category)
             {
                 case BlockCategory.Cpu:        return Load("BlockMat_Cpu");
-                case BlockCategory.Weapon:     return Load("BlockMat_Weapon");
+                case BlockCategory.Weapon:
+                    if (blockId == BlockIds.BombBay) return Load("BlockMat_BombBay");
+                    return Load("BlockMat_Weapon");
                 case BlockCategory.Movement:
                     if (blockId == BlockIds.Thruster) return Load("BlockMat_Thruster");
                     if (blockId == BlockIds.Aero)     return Load("BlockMat_Aero");

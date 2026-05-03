@@ -32,6 +32,7 @@ namespace Robogame.Tools.Editor
         private const string DefaultPlanePath = BlueprintFolder + "/Blueprint_DefaultPlane.asset";
         private const string DefaultBuggyPath = BlueprintFolder + "/Blueprint_DefaultBuggy.asset";
         private const string DefaultBoatPath = BlueprintFolder + "/Blueprint_DefaultBoat.asset";
+        private const string DefaultBomberPath = BlueprintFolder + "/Blueprint_DefaultBomber.asset";
         private const string CombatDummyPath = BlueprintFolder + "/Blueprint_CombatDummy.asset";
 
         // -----------------------------------------------------------------
@@ -79,6 +80,7 @@ namespace Robogame.Tools.Editor
             CreateOrUpdateBlueprint(DefaultPlanePath, "Plane", ChassisKind.Plane, BuildPlaneEntries());
             CreateOrUpdateBlueprint(DefaultBuggyPath, "Buggy", ChassisKind.Ground, BuildBuggyEntries());
             CreateOrUpdateBlueprint(DefaultBoatPath,  "Boat",  ChassisKind.Ground, BuildBoatEntries());
+            CreateOrUpdateBlueprint(DefaultBomberPath, "Bomber", ChassisKind.Plane, BuildBomberEntries());
             CreateOrUpdateBlueprint(CombatDummyPath, "Combat Dummy", ChassisKind.Ground, BuildDummyEntries());
             AssetDatabase.SaveAssets();
             Debug.Log($"[Robogame] Default blueprints created (ground asset persisted: {AssetDatabase.Contains(ground)}).");
@@ -210,6 +212,57 @@ namespace Robogame.Tools.Editor
             return list.ToArray();
         }
 
+        private static ChassisBlueprint.Entry[] BuildBomberEntries()
+        {
+            // Plane variant with a bomb bay slung underneath the fuselage
+            // instead of a top-mounted hitscan gun. Slightly beefier
+            // structure and a wider wing for the extra bomb-bay mass; no
+            // forward weapon, so this thing is a true ground-attack
+            // platform — fly over targets and hold Fire to pickle bombs.
+            //
+            // Layout summary (forward = +Z):
+            //   - Thruster at z=-3.
+            //   - Fuselage cubes z=-2..+3 (one cube longer at the nose
+            //     than the standard plane to balance the bomb-bay weight).
+            //   - CPU at origin.
+            //   - Bomb bay at (0, -1, 0) — directly under the CPU.
+            //   - Main wings: 4 segments per side at z=0 + 2 inboard at
+            //     z=1 (matches the default plane).
+            //   - Tailplane + vertical fin identical to the plane.
+            var list = new List<ChassisBlueprint.Entry>();
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Thruster, new Vector3Int(0, 0, -3)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,     new Vector3Int(0, 0, -2)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,     new Vector3Int(0, 0, -1)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu,      new Vector3Int(0, 0,  0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,     new Vector3Int(0, 0,  1)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,     new Vector3Int(0, 0,  2)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,     new Vector3Int(0, 0,  3)));
+
+            // Bomb bay underneath the CPU. Drops bombs straight down so a
+            // CPU-overhead release stays on top of the chassis silhouette.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.BombBay,  new Vector3Int(0, -1, 0)));
+
+            // Main wings.
+            for (int x = 1; x <= 4; x++)
+            {
+                list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( x, 0, 0)));
+                list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-x, 0, 0)));
+            }
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( 1, 0, 1)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-1, 0, 1)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( 2, 0, 1)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-2, 0, 1)));
+
+            // Tailplane + vertical fin.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( 1, 0, -3)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-1, 0, -3)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( 2, 0, -3)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-2, 0, -3)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,    new Vector3Int( 0, 1, -3)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.AeroFin, new Vector3Int( 0, 2, -3)));
+            return list.ToArray();
+        }
+
         private static ChassisBlueprint.Entry[] BuildDummyEntries()
         {
             // Big fortress dummy: 5w × 5d × 6h solid cube body with a CPU
@@ -258,6 +311,11 @@ namespace Robogame.Tools.Editor
         {
             BlockDefinitionLibrary lib = PopulateBlockDefinitionLibrary();
             ChassisBlueprint defaultBp = CreateDefaultBlueprints();
+            // Combat VFX library: lives in Resources/, references the
+            // Cartoon FX Remaster prefabs. Building it as part of Pass A
+            // means a fresh clone has working bomb explosions out of the
+            // box — no separate menu trip required.
+            CombatVfxWizard.CreateOrUpdate();
             InputActionAsset actions = AssetDatabase.LoadAssetAtPath<InputActionAsset>(ScaffoldUtils.InputActionsAsset);
 
             if (lib == null || !AssetDatabase.Contains(lib))
@@ -296,6 +354,7 @@ namespace Robogame.Tools.Editor
             ChassisBlueprint planeBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultPlanePath);
             ChassisBlueprint buggyBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultBuggyPath);
             ChassisBlueprint boatBpLive  = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultBoatPath);
+            ChassisBlueprint bomberBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultBomberPath);
             InputActionAsset actionsLive = AssetDatabase.LoadAssetAtPath<InputActionAsset>(ScaffoldUtils.InputActionsAsset);
 
             if (libLive == null)
@@ -308,15 +367,16 @@ namespace Robogame.Tools.Editor
             stateSO.FindProperty("_defaultBlueprint").objectReferenceValue = defaultBpLive;
             stateSO.FindProperty("_inputActions").objectReferenceValue = actionsLive;
 
-            // Populate the HUD-facing preset list (Tank / Plane / Buggy / Boat).
+            // Populate the HUD-facing preset list (Tank / Plane / Buggy / Boat / Bomber).
             SerializedProperty presets = stateSO.FindProperty("_presetBlueprints");
             if (presets != null)
             {
-                presets.arraySize = 4;
+                presets.arraySize = 5;
                 presets.GetArrayElementAtIndex(0).objectReferenceValue = defaultBpLive;
                 presets.GetArrayElementAtIndex(1).objectReferenceValue = planeBpLive;
                 presets.GetArrayElementAtIndex(2).objectReferenceValue = buggyBpLive;
                 presets.GetArrayElementAtIndex(3).objectReferenceValue = boatBpLive;
+                presets.GetArrayElementAtIndex(4).objectReferenceValue = bomberBpLive;
             }
             stateSO.ApplyModifiedPropertiesWithoutUndo();
 
@@ -434,6 +494,57 @@ namespace Robogame.Tools.Editor
             Debug.Log("[Robogame] Built WaterArena.unity (Pass A).");
         }
 
+        [MenuItem(MenuRoot + "5c — Build Planet Arena Scene (Pass A)")]
+        public static void BuildPlanetArenaPassA()
+        {
+            // Create the PlanetArena scene file if missing.
+            if (!File.Exists(ScaffoldUtils.PlanetArenaScene))
+            {
+                Scene newScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                EditorSceneManager.SaveScene(newScene, ScaffoldUtils.PlanetArenaScene);
+            }
+            ScaffoldUtils.OpenScene(ScaffoldUtils.PlanetArenaScene);
+
+            // Wrap in try/finally so the scene gets saved (and marked dirty)
+            // even if BuildPlanetArenaEnvironment throws partway through.
+            // Without this, a transient build failure leaves disk state
+            // wedged: the saved scene reflects whatever the prior pass
+            // wrote, the user re-runs Build, the still-open scene appears
+            // unchanged, and the runtime error sticks around. Marking the
+            // scene dirty + saving forces every successful step to land
+            // on disk before the next attempt.
+            System.Exception caught = null;
+            try
+            {
+                EnvironmentBuilder.BuildPlanetArenaEnvironment();
+                ScaffoldHelpers.ClearPlayerChassis(keepName: "Robot");
+
+                GameObject controller = ScaffoldUtils.GetOrCreate("PlanetArenaController");
+                if (controller.GetComponent<PlanetArenaController>() == null)
+                    controller.AddComponent<PlanetArenaController>();
+                if (controller.GetComponent<SceneTransitionHud>() == null)
+                    controller.AddComponent<SceneTransitionHud>();
+            }
+            catch (System.Exception ex)
+            {
+                caught = ex;
+            }
+
+            EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+            ScaffoldUtils.SaveActiveScene();
+
+            if (caught != null)
+            {
+                Debug.LogError(
+                    "[Robogame] BuildPlanetArenaPassA: scaffold threw " +
+                    "partway through. Saved whatever was built so far. " +
+                    "Re-run after fixing the underlying error: " + caught,
+                    null);
+                throw caught; // surface to the menu invoker so red bar shows
+            }
+            Debug.Log("[Robogame] Built PlanetArena.unity (Pass A).");
+        }
+
         [MenuItem(MenuRoot + "Build All Pass A")]
         public static void BuildAllPassA()
         {
@@ -472,6 +583,7 @@ namespace Robogame.Tools.Editor
             BuildBootstrapPassA();
             BuildArenaPassA();
             BuildWaterArenaPassA();
+            BuildPlanetArenaPassA();
             BuildGaragePassA();
             BuildSettingsConfigurator.SyncSceneList();
 

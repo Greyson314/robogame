@@ -70,6 +70,12 @@ namespace Robogame.Core
         public const string SmgSpread         = "Combat.SmgSpread";         // half-cone deg
         public const string SmgDamage         = "Combat.SmgDamage";         // direct-hit dmg
 
+        // Bomb bay (gravity bomb dropped from chassis -Y).
+        public const string BombDropInterval  = "Combat.BombDropInterval";  // seconds between drops while held
+        public const string BombDamage        = "Combat.BombDamage";        // direct-hit dmg at impact cell
+        public const string BombRadius        = "Combat.BombRadius";        // explosion radius (m)
+        public const string BombInitialSpeed  = "Combat.BombInitialSpeed";  // initial downward speed (m/s)
+
         // -----------------------------------------------------------------
         // Spec
         // -----------------------------------------------------------------
@@ -163,7 +169,7 @@ namespace Robogame.Core
             Register(PlaneYawDamping,   "Plane",    "Yaw Damping",        1.6f, 0f,  6f);
 
             // Thruster.
-            Register(ThrusterMaxThrust, "Thruster", "Max Thrust",       155.0f, 50f, 400f);
+            Register(ThrusterMaxThrust, "Thruster", "Max Thrust",       310.0f, 50f, 800f);
             Register(ThrusterIdle,      "Thruster", "Idle Throttle",      0.4f,  0f,   1f);
             Register(ThrusterResponse,  "Thruster", "Throttle Response",  2.6f,  0.5f, 10f);
 
@@ -220,6 +226,17 @@ namespace Robogame.Core
             Register(SmgMuzzleSpeed,    "Combat",   "Muzzle Speed (m/s)",80.0f, 30f, 200f);
             Register(SmgSpread,         "Combat",   "Spread (deg)",       1.2f,  0f,   6f);
             Register(SmgDamage,         "Combat",   "Direct Damage",     25.0f,  1f, 100f);
+
+            // Bomb bay. One bomb every 1.2 s reads as a heavy ordnance
+            // cadence (vs the SMG's 12 rps). 18 m radius covers ~1.5
+            // chassis lengths so it kills lightly-armoured ground targets
+            // in one hit while still letting tanks survive a near-miss.
+            // 80 dmg at the centre cell drops a 100 HP cube, falloff in
+            // splash rings handles edge damage.
+            Register(BombDropInterval,  "Combat",   "Bomb Drop Interval", 1.2f,  0.3f, 5f);
+            Register(BombDamage,        "Combat",   "Bomb Damage",       80.0f,  10f, 300f);
+            Register(BombRadius,        "Combat",   "Bomb Radius (m)",   18.0f,   3f,  60f);
+            Register(BombInitialSpeed,  "Combat",   "Bomb Initial Speed", 2.0f,   0f,  20f);
 
             Load();
         }

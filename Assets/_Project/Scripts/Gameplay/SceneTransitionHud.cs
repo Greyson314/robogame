@@ -34,6 +34,7 @@ namespace Robogame.Gameplay
         private Button _buildButton;
         private Button _deleteButton;
         private Button _waterButton;
+        private Button _planetButton;
         private InputField _nameField;
         private Text _buildLabel;
         private BuildModeController _subscribedBuildMode;
@@ -172,6 +173,7 @@ namespace Robogame.Gameplay
             _deleteButton = BuildSmallButton(canvasGO.transform, "DeleteRobotButton", "Delete",       row: 4, HandleDeleteClicked);
             TintDestructive(_deleteButton);
             _waterButton  = BuildSmallButton(canvasGO.transform, "WaterArenaButton",  "Water Arena ▶", row: 6, HandleWaterClicked);
+            _planetButton = BuildSmallButton(canvasGO.transform, "PlanetArenaButton", "Planet Arena ▶", row: 7, HandlePlanetClicked);
             _nameField    = BuildNameField(canvasGO.transform, row: 5);
             _buildLabel   = _buildButton != null ? _buildButton.GetComponentInChildren<Text>() : null;
         }
@@ -420,6 +422,7 @@ namespace Robogame.Gameplay
             bool inGarage = state.State == GameState.Garage;
             bool inArena  = state.State == GameState.Arena;
             bool inWater  = state.State == GameState.WaterArena;
+            bool inPlanet = state.State == GameState.PlanetArena;
 
             switch (state.State)
             {
@@ -435,6 +438,10 @@ namespace Robogame.Gameplay
                     _label.text = "◀ Garage";
                     _button.gameObject.SetActive(true);
                     break;
+                case GameState.PlanetArena:
+                    _label.text = "◀ Garage";
+                    _button.gameObject.SetActive(true);
+                    break;
                 default:
                     _button.gameObject.SetActive(false);
                     break;
@@ -445,6 +452,7 @@ namespace Robogame.Gameplay
             if (_saveButton  != null)    _saveButton.gameObject.SetActive(inGarage);
             if (_buildButton != null)    _buildButton.gameObject.SetActive(inGarage);
             if (_waterButton != null)    _waterButton.gameObject.SetActive(inGarage);
+            if (_planetButton != null)   _planetButton.gameObject.SetActive(inGarage);
             // Delete is only meaningful for user-saved blueprints.
             bool canDelete = inGarage && !string.IsNullOrEmpty(state.CurrentUserFileName);
             if (_deleteButton != null)   _deleteButton.gameObject.SetActive(canDelete);
@@ -456,6 +464,7 @@ namespace Robogame.Gameplay
             EnsureBuildModeSubscription();
             _ = inArena; // reserved for arena-side HUD growth.
             _ = inWater; // reserved for water-arena HUD growth.
+            _ = inPlanet; // reserved for planet-arena HUD growth.
         }
 
         private void EnsureBuildModeSubscription()
@@ -515,6 +524,11 @@ namespace Robogame.Gameplay
                     if (water != null) water.Return();
                     else state.EnterGarage();
                     break;
+                case GameState.PlanetArena:
+                    var planet = FindAnyObjectByType<PlanetArenaController>();
+                    if (planet != null) planet.Return();
+                    else state.EnterGarage();
+                    break;
             }
         }
 
@@ -523,6 +537,13 @@ namespace Robogame.Gameplay
             GameStateController state = GameStateController.Instance;
             if (state == null) return;
             state.EnterWaterArena();
+        }
+
+        private void HandlePlanetClicked()
+        {
+            GameStateController state = GameStateController.Instance;
+            if (state == null) return;
+            state.EnterPlanetArena();
         }
 
         private void HandleNewClicked()

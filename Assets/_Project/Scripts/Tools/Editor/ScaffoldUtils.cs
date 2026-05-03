@@ -16,6 +16,7 @@ namespace Robogame.Tools.Editor
         public const string GarageScene = ScenesFolder + "/Garage.unity";
         public const string ArenaScene = ScenesFolder + "/Arena.unity";
         public const string WaterArenaScene = ScenesFolder + "/WaterArena.unity";
+        public const string PlanetArenaScene = ScenesFolder + "/PlanetArena.unity";
 
         public const string InputActionsAsset = "Assets/InputSystem_Actions.inputactions";
 

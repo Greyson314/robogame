@@ -16,6 +16,7 @@ namespace Robogame.Tools.Editor
             ScaffoldUtils.GarageScene,
             ScaffoldUtils.ArenaScene,
             ScaffoldUtils.WaterArenaScene,
+            ScaffoldUtils.PlanetArenaScene,
         };
 
         [MenuItem("Robogame/Scaffold/Sync Build Scene List")]

@@ -29,6 +29,19 @@ namespace Robogame.Player
     /// mouse, matching <see cref="Movement.RobotDrive.AimPoint"/>'s
     /// screen-centre ray.
     /// </para>
+    /// <para>
+    /// <b>Up axis:</b> by default the orbit basis uses world
+    /// <see cref="Vector3.up"/>. On spherical-gravity arenas the chassis's
+    /// local up rotates as it travels around the planet; if we keep using
+    /// world up the chassis appears tilted on screen everywhere except the
+    /// spawn pole, and yawing the camera traces a circle of latitude in
+    /// world space rather than around the chassis. Set
+    /// <see cref="UpProvider"/> to return local up at any world position
+    /// (e.g. <c>-GravityField.SampleAt(pos).normalized</c>) and the orbit
+    /// basis follows the chassis cleanly. The provider is called every
+    /// LateUpdate; <c>null</c> means "use world up" — the historical
+    /// behaviour for the flat arena scenes.
+    /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
     public sealed class FollowCamera : MonoBehaviour
@@ -107,6 +120,17 @@ namespace Robogame.Player
         [SerializeField] private bool _captureOnClick = true;
 
         public Transform Target { get => _target; set => _target = value; }
+
+        /// <summary>
+        /// Optional source of the camera's "up" axis. Receives the target's
+        /// world position and returns the world-space up vector the orbit
+        /// basis should align to. <c>null</c> (default) means world
+        /// <see cref="Vector3.up"/>, which is what every flat-arena scene
+        /// expects. Spherical-gravity scenes (PlanetArena) wire this to a
+        /// gravity-field sample so the camera never sees the chassis tilt
+        /// when it crosses latitude lines.
+        /// </summary>
+        public System.Func<Vector3, Vector3> UpProvider { get; set; }
 
         // Persistent orbit state. Yaw/pitch are the *committed* angles; the
         // smoothed versions are what the camera actually renders at when
@@ -255,8 +279,8 @@ namespace Robogame.Player
                 _yawVel = _pitchVel = 0f;
             }
 
-            Quaternion rot = Quaternion.Euler(_smoothPitch, _smoothYaw, 0f);
-            Vector3 lookAt = _target.position + Vector3.up * _height;
+            Quaternion rot = ComputeOrbitRotation(out Vector3 up);
+            Vector3 lookAt = _target.position + up * _height;
             Vector3 desired = ResolveCameraPosition(lookAt, rot);
 
             transform.position = Vector3.SmoothDamp(
@@ -304,10 +328,32 @@ namespace Robogame.Player
         private void SnapToDesired()
         {
             if (_target == null) return;
-            Quaternion rot = Quaternion.Euler(_smoothPitch, _smoothYaw, 0f);
-            Vector3 lookAt = _target.position + Vector3.up * _height;
+            Quaternion rot = ComputeOrbitRotation(out Vector3 up);
+            Vector3 lookAt = _target.position + up * _height;
             transform.position = ResolveCameraPosition(lookAt, rot);
             transform.rotation = rot;
+        }
+
+        /// <summary>
+        /// Build the orbit rotation in a basis whose up is
+        /// <see cref="UpProvider"/>'s sample (or world up by default).
+        /// Equivalent to <c>Quaternion.Euler(pitch, yaw, 0)</c> with the
+        /// vertical axis remapped — yaw rotates around <i>local</i> up,
+        /// pitch around the local right-vector. <see cref="Quaternion.FromToRotation"/>
+        /// gives the shortest-arc realignment from world up to local up,
+        /// which is stable for any non-antipodal pair (and the chassis is
+        /// never below the planet centre, so antipodal is unreachable).
+        /// </summary>
+        private Quaternion ComputeOrbitRotation(out Vector3 up)
+        {
+            up = Vector3.up;
+            if (UpProvider != null && _target != null)
+            {
+                Vector3 sampled = UpProvider(_target.position);
+                if (sampled.sqrMagnitude > 0.0001f) up = sampled.normalized;
+            }
+            Quaternion upAlign = Quaternion.FromToRotation(Vector3.up, up);
+            return upAlign * Quaternion.Euler(_smoothPitch, _smoothYaw, 0f);
         }
 
         private void ApplyCursorLock()

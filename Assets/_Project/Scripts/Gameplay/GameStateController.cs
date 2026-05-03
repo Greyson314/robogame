@@ -14,6 +14,7 @@ namespace Robogame.Gameplay
         Garage,
         Arena,
         WaterArena,
+        PlanetArena,
     }
 
     /// <summary>
@@ -43,6 +44,7 @@ namespace Robogame.Gameplay
         public const string GarageSceneName = "Garage";
         public const string ArenaSceneName = "Arena";
         public const string WaterArenaSceneName = "WaterArena";
+        public const string PlanetArenaSceneName = "PlanetArena";
 
         [Header("Data")]
         [Tooltip("Library used to resolve block IDs in the current blueprint.")]
@@ -152,6 +154,7 @@ namespace Robogame.Gameplay
         public void EnterGarage() => SceneManager.LoadScene(GarageSceneName, LoadSceneMode.Single);
         public void EnterArena() => SceneManager.LoadScene(ArenaSceneName, LoadSceneMode.Single);
         public void EnterWaterArena() => SceneManager.LoadScene(WaterArenaSceneName, LoadSceneMode.Single);
+        public void EnterPlanetArena() => SceneManager.LoadScene(PlanetArenaSceneName, LoadSceneMode.Single);
 
         private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
         {
@@ -160,6 +163,7 @@ namespace Robogame.Gameplay
                 GarageSceneName => GameState.Garage,
                 ArenaSceneName => GameState.Arena,
                 WaterArenaSceneName => GameState.WaterArena,
+                PlanetArenaSceneName => GameState.PlanetArena,
                 _ => State,
             };
             if (next != State)
