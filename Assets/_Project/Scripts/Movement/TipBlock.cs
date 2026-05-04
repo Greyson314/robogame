@@ -48,7 +48,7 @@ namespace Robogame.Movement
         // structure used by MomentumImpactHandler so a single bounce at
         // high speed doesn't fire OnCollisionEnter five times in a row
         // and instakill a target.
-        private readonly Dictionary<Object, float> _cooldownByOther = new Dictionary<Object, float>(8);
+        private readonly Dictionary<UnityEngine.Object, float> _cooldownByOther = new Dictionary<UnityEngine.Object, float>(8);
 
         /// <summary>Block mass in kg, read from the underlying BlockBehaviour's definition.</summary>
         public float Mass
@@ -109,7 +109,7 @@ namespace Robogame.Movement
             // Per-pair cooldown. Use the rb when present (so multiple
             // colliders on one chassis dedupe correctly), else fall back
             // to the contact collider (for static geometry).
-            Object key = (Object)otherRb ?? collision.collider;
+            UnityEngine.Object key = (UnityEngine.Object)otherRb ?? collision.collider;
             float now = Time.time;
             float cooldown = Mathf.Max(0.02f, Tweakables.Get(Tweakables.RopeHitCooldown));
             if (_cooldownByOther.TryGetValue(key, out float lastTime) && (now - lastTime) < cooldown)
