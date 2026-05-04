@@ -108,12 +108,24 @@ namespace Robogame.Movement
         private void OnEnable()
         {
             Tweakables.Changed += OnTweakablesChanged;
-            Rebuild();
+            // Build is idempotent (early-returns if segments already
+            // exist) so this is a no-op when re-enabled after the
+            // CaptureTemplate cascade. First-time enable builds fresh.
+            Build();
         }
         private void OnDisable()
         {
             Tweakables.Changed -= OnTweakablesChanged;
-            DestroySegments();
+            // Intentionally do NOT destroy segments here. Robot.CaptureTemplate
+            // briefly SetActive(false) → Instantiate → SetActive(true) on the
+            // chassis to clone it as a cold-storage template; that cascade
+            // fires OnDisable on every block. DestroySegments would call
+            // ReleaseAdoptedTip, which tries to SetParent the tip back to
+            // its original parent (a chassis-hierarchy transform that's
+            // currently mid-deactivation) and Unity throws. Skip the teardown
+            // here — the segments live at scene root and aren't affected by
+            // the chassis cascade. Real teardown happens in OnDestroy and
+            // explicit Rebuild() calls (Tweakables change, parent swap).
         }
         private void OnDestroy() => DestroySegments();
 
@@ -160,6 +172,12 @@ namespace Robogame.Movement
 
         private void Build()
         {
+            // Idempotent: if segments are already up, the OnEnable
+            // post-CaptureTemplate cascade is a no-op. Explicit Rebuild
+            // callers tear down first via DestroySegments before calling
+            // Build, so the early-out doesn't block them.
+            if (_segmentContainer != null) return;
+
             _anchorRb = GetComponentInParent<Rigidbody>();
             if (_anchorRb == null) return; // no chassis to hang from yet
 
@@ -292,6 +310,23 @@ namespace Robogame.Movement
             tip.transform.SetParent(lastSegmentRb.transform, worldPositionStays: false);
             tip.transform.localPosition = Vector3.zero;
             tip.transform.localRotation = Quaternion.identity;
+
+            // Relax the last segment's joint angular limits to Free so
+            // the segment + adopted tip can pivot freely about the joint
+            // anchor. Without this, the 30° default limit constrains the
+            // hook's orientation to the chain's local frame and the
+            // J-silhouette never points "down" via gravity — it stays
+            // locked into whatever rotation the chain dictates. The
+            // relaxation is rebuilt fresh on every rope Rebuild (since
+            // the joint is part of the segment GameObject which we
+            // destroy + recreate), so we don't need a "restore" path.
+            ConfigurableJoint lastJoint = lastSegmentRb.GetComponent<ConfigurableJoint>();
+            if (lastJoint != null)
+            {
+                lastJoint.angularXMotion = ConfigurableJointMotion.Free;
+                lastJoint.angularYMotion = ConfigurableJointMotion.Free;
+                lastJoint.angularZMotion = ConfigurableJointMotion.Free;
+            }
 
             // Mass: the tip block's BlockDefinition mass is summed into
             // the segment so the chain's pendulum dynamics reflect the

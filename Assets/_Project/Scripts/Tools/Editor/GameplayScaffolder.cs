@@ -312,8 +312,6 @@ namespace Robogame.Tools.Editor
             //          # # C # #     y=0 cabin floor (CPU at centre)
             //        G # # # # # G   y=0 outboard hardpoint guns at |x|=2
             //          # # # # #
-            //                  T     y=0 tail rotor on +X face of the boom
-            //          # # # # #
             //                #       y=0 tail boom (4 cells, x=0 only)
             //                #
             //                #
@@ -345,11 +343,17 @@ namespace Robogame.Tools.Editor
                 .Box(BlockIds.Cube, new Vector3Int(-1, 1, -1), new Vector3Int(1, 1, 2))
                 // Vertical tail fin on top of the boom tip.
                 .Block(BlockIds.AeroFin, 0, 1, -5)
-                // Tail rotor: bare cosmetic spinner on the +X face of the
-                // boom segment at (0,0,-4). Spin axis is +X (its mechanism
-                // cell would be (2,0,-4) but no foils are placed there, so
-                // adoption finds zero and the rotor stays a pure visual).
-                .RotorBare(new Vector3Int(1, 0, -4), spinAxis: Vector3Int.right)
+                // Tail rotor REMOVED in session 23. The bare cosmetic
+                // tail rotor at (1, 0, -4) was the only asymmetric block
+                // on this preset (every other cell has a -X mirror).
+                // PhysX auto-computes the chassis inertia tensor from
+                // collider mass distribution; an off-axis cell creates
+                // off-diagonal moments. Combined with RobotDrive's
+                // forced centerOfMass override, applied torques operate
+                // in a slightly mismatched frame and the chassis drifts
+                // toward a roll about the chassis-z axis. Removing the
+                // tail rotor restores symmetry; PlaneControlSubsystem
+                // damping does the rest.
                 // Main rotor: stem at (0,2,0) on top of the cabin roof.
                 // RotorWithFoils() also drops the invisible mechanism cube
                 // and the four foils ringed around it at y=3 — those are

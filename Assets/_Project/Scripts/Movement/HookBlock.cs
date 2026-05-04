@@ -40,7 +40,12 @@ namespace Robogame.Movement
         private const float ThicknessYZ = 0.40f; // bar / arm thickness
         private const float ShaftLength = 1.70f; // vertical shaft Z extent
         private const float ArmLength   = 1.70f; // horizontal barb arm Y extent
-        private const float TipLength   = 1.50f; // upturned barb tip Z extent
+        // Barb tip is intentionally ~half the shaft height so the J reads
+        // as a J (open mouth above the tip) instead of a U (tip reaches
+        // shaft top). The mouth is the gap targets enter through —
+        // without a clear gap, the hook's silhouette looks like a closed
+        // bracket rather than a hook.
+        private const float TipLength   = 0.85f;
 
         // -----------------------------------------------------------------
         // Grapple state
