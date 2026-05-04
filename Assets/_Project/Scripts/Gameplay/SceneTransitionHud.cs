@@ -21,10 +21,13 @@ namespace Robogame.Gameplay
     [DisallowMultipleComponent]
     public sealed class SceneTransitionHud : MonoBehaviour
     {
-        [SerializeField] private Vector2 _buttonSize = new Vector2(220f, 64f);
-        [SerializeField] private Vector2 _margin = new Vector2(28f, 28f);
-        [SerializeField] private int _fontSize = 22;
-        [SerializeField] private Vector2 _dropdownSize = new Vector2(220f, 44f);
+        // Session 23 compression pass: shrunk from 220×64 / 220×44 / fs22
+        // → 180×40 / 180×32 / fs16. Stack-spacing formula
+        // (_dropdownSize.y + 6f) tightens automatically with the size.
+        [SerializeField] private Vector2 _buttonSize = new Vector2(180f, 40f);
+        [SerializeField] private Vector2 _margin = new Vector2(20f, 20f);
+        [SerializeField] private int _fontSize = 16;
+        [SerializeField] private Vector2 _dropdownSize = new Vector2(180f, 32f);
 
         private Button _button;
         private Text _label;

@@ -121,7 +121,7 @@ namespace Robogame.Gameplay
             panelRT.anchorMin = new Vector2(0.5f, 0.5f);
             panelRT.anchorMax = new Vector2(0.5f, 0.5f);
             panelRT.pivot = new Vector2(0.5f, 0.5f);
-            panelRT.sizeDelta = new Vector2(900f, 720f);
+            panelRT.sizeDelta = new Vector2(620f, 520f);
             panel.AddComponent<Image>().color = s_panelColor;
 
             // Header strip.
@@ -130,12 +130,12 @@ namespace Robogame.Gameplay
             headerRT.anchorMin = new Vector2(0f, 1f);
             headerRT.anchorMax = new Vector2(1f, 1f);
             headerRT.pivot = new Vector2(0.5f, 1f);
-            headerRT.sizeDelta = new Vector2(0f, 64f);
+            headerRT.sizeDelta = new Vector2(0f, 44f);
             header.AddComponent<Image>().color = new Color(0.10f, 0.12f, 0.16f, 1f);
 
             // Title text.
-            AddText(header.transform, "SETTINGS", 32, FontStyle.Bold, TextAnchor.MiddleLeft,
-                offset: new Vector2(24f, 0f));
+            AddText(header.transform, "SETTINGS", 22, FontStyle.Bold, TextAnchor.MiddleLeft,
+                offset: new Vector2(16f, 0f));
 
             // Tab strip (only one tab for now).
             AddTabPill(header.transform, "Tweaks", new Vector2(-200f, 0f));
@@ -233,7 +233,7 @@ namespace Robogame.Gameplay
         {
             var rowGO = NewChild($"Action_{label}", _content.transform);
             var le = rowGO.AddComponent<LayoutElement>();
-            le.preferredHeight = 44f;
+            le.preferredHeight = 30f;
             rowGO.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.03f);
 
             // Label (left).
@@ -247,7 +247,7 @@ namespace Robogame.Gameplay
             var labelText = labelGO.AddComponent<Text>();
             labelText.text = label;
             labelText.font = UIFont;
-            labelText.fontSize = 18;
+            labelText.fontSize = 13;
             labelText.color = s_textColor;
             labelText.alignment = TextAnchor.MiddleLeft;
 
@@ -280,7 +280,7 @@ namespace Robogame.Gameplay
             le.preferredHeight = 36f;
             var img = go.AddComponent<Image>();
             img.color = new Color(0f, 0f, 0f, 0f);
-            var label = AddText(go.transform, group.ToUpperInvariant(), 18, FontStyle.Bold, TextAnchor.MiddleLeft,
+            var label = AddText(go.transform, group.ToUpperInvariant(), 13, FontStyle.Bold, TextAnchor.MiddleLeft,
                 offset: new Vector2(8f, 0f));
             label.color = s_groupColor;
         }
@@ -289,7 +289,7 @@ namespace Robogame.Gameplay
         {
             var rowGO = NewChild($"Row_{spec.Key}", _content.transform);
             var le = rowGO.AddComponent<LayoutElement>();
-            le.preferredHeight = 44f;
+            le.preferredHeight = 30f;
             rowGO.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.03f);
 
             // Label (left, fixed width).
@@ -303,7 +303,7 @@ namespace Robogame.Gameplay
             var labelText = labelGO.AddComponent<Text>();
             labelText.text = spec.Label;
             labelText.font = UIFont;
-            labelText.fontSize = 18;
+            labelText.fontSize = 13;
             labelText.color = s_textColor;
             labelText.alignment = TextAnchor.MiddleLeft;
 
@@ -327,7 +327,7 @@ namespace Robogame.Gameplay
             valueRT.anchoredPosition = new Vector2(-130f, 0f);
             var valueText = valueGO.AddComponent<Text>();
             valueText.font = UIFont;
-            valueText.fontSize = 18;
+            valueText.fontSize = 13;
             valueText.color = s_textColor;
             valueText.alignment = TextAnchor.MiddleRight;
             valueText.text = FormatValue(slider.value);

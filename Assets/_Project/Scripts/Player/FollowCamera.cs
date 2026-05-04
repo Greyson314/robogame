@@ -61,6 +61,16 @@ namespace Robogame.Player
         [Tooltip("Vertical offset from the target's pivot to the look-at point.")]
         [SerializeField] private float _height = 1f;
 
+        [Header("Zoom")]
+        [Tooltip("Mouse-scroll zoom multiplier floor. 0.6 = camera can zoom IN to 60% of base distance (40% closer).")]
+        [SerializeField, Range(0.4f, 1f)] private float _zoomMin = 0.6f;
+        [Tooltip("Mouse-scroll zoom multiplier ceiling. 1.4 = camera can zoom OUT to 140% of base distance (40% farther).")]
+        [SerializeField, Range(1f, 2.5f)] private float _zoomMax = 1.4f;
+        [Tooltip("How much each scroll-wheel notch shifts the zoom multiplier.")]
+        [SerializeField, Min(0.005f)] private float _zoomStep = 0.08f;
+        // Live multiplier on _distance. 1 = base, _zoomMin..max bounded.
+        private float _distanceMultiplier = 1f;
+
         [Tooltip("Initial pitch in degrees (positive = looking down at the target).")]
         [SerializeField, Range(-89f, 89f)] private float _initialPitch = 18f;
 
@@ -245,6 +255,19 @@ namespace Robogame.Player
             Mouse m = Mouse.current;
             if (m == null) return;
 
+            // Scroll-wheel zoom. Each notch nudges the multiplier by
+            // _zoomStep within [_zoomMin, _zoomMax]. Suppress while the
+            // cursor is over UI so scrolling a settings list doesn't
+            // also zoom the camera.
+            float scroll = m.scroll.ReadValue().y;
+            if (Mathf.Abs(scroll) > 0.01f
+                && !(EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()))
+            {
+                _distanceMultiplier = Mathf.Clamp(
+                    _distanceMultiplier - Mathf.Sign(scroll) * _zoomStep,
+                    _zoomMin, _zoomMax);
+            }
+
             Vector2 delta = m.delta.ReadValue();
 
             // Mouse delta is already a per-frame pixel count, so we do NOT
@@ -301,7 +324,8 @@ namespace Robogame.Player
         private Vector3 ResolveCameraPosition(Vector3 lookAt, Quaternion rot)
         {
             Vector3 dir = -(rot * Vector3.forward);
-            Vector3 desired = lookAt + dir * _distance;
+            float effectiveDistance = _distance * _distanceMultiplier;
+            Vector3 desired = lookAt + dir * effectiveDistance;
 
             if (!_avoidObstacles) return desired;
 
@@ -310,7 +334,7 @@ namespace Robogame.Player
                     _collisionProbeRadius,
                     dir,
                     out RaycastHit hit,
-                    _distance,
+                    effectiveDistance,
                     _obstacleMask,
                     QueryTriggerInteraction.Ignore))
             {
