@@ -99,7 +99,16 @@ namespace Robogame.Movement
         /// segment's <c>OnCollisionEnter</c> fires. Implements the
         /// PHYSICS_PLAN §3 damage path with cooldown + speed gate.
         /// </summary>
-        internal void HandleCollision(Collision collision)
+        /// <remarks>
+        /// <c>protected internal virtual</c> so a subclass (e.g.
+        /// <see cref="HookBlock"/>) can extend this with grapple-attach
+        /// behaviour while still calling <c>base.HandleCollision</c> to
+        /// preserve the damage path. The forwarder lives in the same
+        /// assembly and dispatches via the base type, so
+        /// <c>internal</c> is enough for cross-class access without
+        /// breaking external API surface.
+        /// </remarks>
+        protected internal virtual void HandleCollision(Collision collision)
         {
             if (_hostRb == null) return;
             // Suppress self-damage: don't hit our own chassis.
