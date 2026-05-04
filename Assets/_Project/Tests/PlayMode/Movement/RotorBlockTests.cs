@@ -495,20 +495,30 @@ namespace Robogame.Tests.PlayMode.Movement
 
         /// <summary>
         /// Session-21 invariant: under rotor load, the chassis must not
-        /// yaw about the rotor's spin axis. A symmetric four-blade ring
-        /// applying lift along the spin axis produces zero net torque on
-        /// the chassis (each <c>r × F</c> contribution along the spin
-        /// axis is zero). If the lift force tilts off-axis (e.g. via the
-        /// foil's collective-pitch tilt), each blade's tangential lift
-        /// component sums to a yaw torque at full rotor power — that's
-        /// the helicopter "spinning at rotor speed" bug. This test
-        /// catches it by spinning a rotor with four foils for a fraction
-        /// of a second and asserting the chassis hasn't accumulated
-        /// significant angular velocity along the spin axis.
+        /// yaw about the rotor's spin axis. Two coupled bug sources:
+        /// <list type="number">
+        /// <item><description>Lift force not coplanar with spin axis →
+        /// induced-drag tangential component sums to chassis yaw torque
+        /// (fixed by passing rotorTransform + spinAxisLocal to
+        /// ConfigureRotorMode so lift is purified along the spin axis).</description></item>
+        /// <item><description>Foil host-cube colliders orbiting through
+        /// the mechanism cube's volume → continuous PhysX contact
+        /// impulses transferred to the chassis (fixed by ignore-pairing
+        /// foil colliders against every chassis collider in
+        /// AdoptAdjacentAerofoils).</description></item>
+        /// </list>
+        /// This test exercises BOTH paths: it places a mechanism cube
+        /// at the foil ring level so collision-sweep is reproduced,
+        /// then asserts the chassis stays steady through 30 fixed steps.
         /// </summary>
         [UnityTest]
         public IEnumerator RotorBlock_ChassisStaysSteadyAboutSpinAxis_UnderLoad()
         {
+            // Mechanism cube at the foil ring level. WITHOUT this, the
+            // collision-sweep path goes untested. RotorWithFoils() in
+            // BlueprintBuilder always places this cube, so the test must
+            // mirror that to reflect the production scenario.
+            PlaceAero(new Vector3Int( 0, 2,  0)); // stand-in cube — Aero is fine, just need a collider
             // Foils ring the mechanism cell at y=2 (one cell above the
             // rotor at y=1, along the +Y spin axis).
             PlaceAero(new Vector3Int( 1, 2,  0));

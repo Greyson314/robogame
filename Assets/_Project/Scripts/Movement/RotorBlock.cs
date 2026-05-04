@@ -462,6 +462,18 @@ namespace Robogame.Movement
                     rotorTransform: transform,
                     spinAxisLocal: _spinAxisLocal);
 
+                // Suppress foil-vs-chassis contacts. The host cube
+                // collider on each foil sweeps around the disc as the
+                // hub rotates and would otherwise collide with the
+                // mechanism cube (same y-level) and any nearby chassis
+                // cells, dumping per-step contact impulses into the
+                // chassis at full rotor power. That manifested as the
+                // chassis spinning at near-rotor speed even with
+                // analytically zero torque from lift. Mirror the
+                // RopeTip ignore-pair pattern: walk every chassis
+                // collider once and pair it with the foil's collider.
+                IgnoreFoilChassisContacts(aero, chassis);
+
                 _adoptedFoils.Add(record);
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -470,6 +482,27 @@ namespace Robogame.Movement
                     $"world={aero.transform.position:F3}, hub={_hub.transform.position:F3}",
                     aero);
 #endif
+            }
+        }
+
+        // Pair the foil's host collider with every chassis-side collider
+        // in an ignore-collision relationship. PhysX caches the pairs
+        // internally; the cost is paid once per adoption and amortised
+        // across every contact query for the rotor's lifetime.
+        // Without this, the foil cubes orbit through the chassis's
+        // mechanism cube + nearby cells, generating a stream of contact
+        // impulses that yaw the chassis at full rotor power.
+        private static void IgnoreFoilChassisContacts(AeroSurfaceBlock aero, Rigidbody chassis)
+        {
+            if (aero == null || chassis == null) return;
+            Collider foilCol = aero.GetComponent<Collider>();
+            if (foilCol == null) return;
+            Collider[] cols = chassis.GetComponentsInChildren<Collider>(includeInactive: true);
+            for (int i = 0; i < cols.Length; i++)
+            {
+                Collider c = cols[i];
+                if (c == null || c == foilCol) continue;
+                Physics.IgnoreCollision(foilCol, c, ignore: true);
             }
         }
 

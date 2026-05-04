@@ -92,21 +92,61 @@ parameters default to null/zero. No test breakage.
   test would balloon into double-digit rad/s within a fraction of
   a second.
 
+## Follow-up — second torque source: foil-collider sweep
+
+After the lift-direction fix shipped, the user reported the chassis
+still spinning violently. Re-examining the geometry exposed a second
+torque source that's collider-driven, not lift-driven:
+
+- Each foil block has a 1 m × 1 m × 1 m cube collider from
+  `BlockGrid.PlaceBlock` (the default Cube primitive).
+- After `RotorBlock.AdoptAdjacentAerofoils` reparents foils under
+  the kinematic hub, those colliders' effective Rigidbody is the
+  hub (not the chassis). Foil colliders + chassis colliders are
+  on different Rigidbodies, so they collide.
+- The mechanism cube placed by `BlueprintBuilder.RotorWithFoils` at
+  the cell ABOVE the rotor sits at the **same y-level** as the foil
+  ring. The foils orbit at radius 1; their cube colliders trace an
+  annulus from radius 0.5 to 1.5 around the spin axis. The
+  mechanism cube's corners sit at radius ~0.7 — inside that
+  annulus. As the hub rotates, every foil cube sweeps through the
+  mechanism cube's volume continuously.
+- PhysX resolves the contacts by pushing the chassis (the only
+  dynamic body in the contact pair). On average the contact normal
+  is along the foil's tangential motion direction, so each contact
+  applies a tangential impulse to the chassis at the foil position
+  — i.e. yaw torque about the spin axis at full rotor power.
+
+### Fix
+
+`RotorBlock.AdoptAdjacentAerofoils` now calls
+`IgnoreFoilChassisContacts(aero, chassis)` after configuring rotor
+mode. The helper walks every collider on the chassis hierarchy once
+and `Physics.IgnoreCollision`-pairs each one with the foil's host
+collider. Mirrors the `RopeTip.IgnoreChassisCollisions` pattern.
+
+PhysX caches ignore-pairs internally, so the cost is paid once per
+adoption (4 foils × ~38 chassis colliders ≈ 152 pairs per chassis)
+and amortised across every contact query.
+
+The foil-vs-world-geometry contact pair is unaffected — foils still
+collide with the arena terrain and external chassis (future flail
+weapon design once the rotor doubles as a damage tool).
+
+### Test update
+
+`RotorBlock_ChassisStaysSteadyAboutSpinAxis_UnderLoad` now places a
+chassis-level cube at the foil ring level so the collision-sweep
+path is exercised. Without the ignore-pair fix the test would balloon
+the chassis yaw into double-digit rad/s within 30 fixed steps;
+with both fixes the chassis stays steady.
+
 ## Verification steps for the user
 
-1. Run `Robogame → Build Everything` (no scaffolder logic changed,
-   but the EditMode tests will pick up the new playmode test in the
-   PlayMode runner).
+1. Run `Robogame → Build Everything` (no scaffolder logic changed).
 2. **PlayMode test runner**: run
    `RotorBlock_ChassisStaysSteadyAboutSpinAxis_UnderLoad`. Should
    pass with chassis yaw remaining near zero.
 3. **In-game**: hit Play, switch to the Helicopter chassis, slide
    `Rotor.RPM` up. The frame should stay level while the foils
    spin; lift should pull the chassis straight up.
-
-If the chassis still spins after the fix, the next suspect is
-PhysX's per-step torque integration interacting with the foil
-parent chain. Diagnostic step would be a per-FixedUpdate log of
-the chassis angular velocity, which the existing diagnostic
-infrastructure (the `[RotorBlock] adopted` logs) can be extended
-with quickly.
