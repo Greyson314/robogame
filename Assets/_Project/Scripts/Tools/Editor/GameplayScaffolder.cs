@@ -293,64 +293,41 @@ namespace Robogame.Tools.Editor
 
         private static ChassisBlueprint.Entry[] BuildHelicopterEntries()
         {
-            // Simple T-shaped helicopter sandbox chassis. Side profile:
+            // Helicopter sandbox chassis built via the new BlueprintBuilder.
+            // Two-block-tall rotor: stem at (0,1,0), mechanism cell at
+            // (0,2,0), foils ringed around the mechanism cell. Foils are
+            // therefore the absolute topmost blocks (y=2), matching the
+            // user's intent that the blades read as the head of the
+            // helicopter rather than overlap the cabin.
             //
-            //         R                 (y=1, z= 0)  rotor on top of CPU
-            //   N C T T T F             (y=0,  z=1..-3) nose / cpu / tail boom
-            //                F          (y=1, z=-3)   tail-fin stabiliser
+            // Plan side profile (z increases forward):
             //
-            // No propulsion of any kind — no thruster, no wheels, no
-            // aero surfaces. The rotor visual spins (cosmetic only,
-            // RotorBlock + tweakables drive RPM) but currently produces
-            // zero lift; the chassis just sits on the spawn pad. This
-            // matches the user's intent: "don't attach anything to the
-            // rotor yet" — the rope ring is intentionally suppressed via
-            // the future-room work in PHYSICS_PLAN.md §2 (rotor-as-lift),
-            // and the rotor stays bare so a follow-up session can wire
-            // up vertical thrust without first peeling cosmetics off.
+            //          A      (y=2, foil ring at mechanism cell)
+            //          M      (y=2, hidden mechanism cap — rotor hides mesh)
+            //          R      (y=1, rotor stem on top of CPU)
+            //   N C  ─ ─ ─    (y=0, nose / cpu / tail boom)
+            //              F  (y=1, tail-fin stabiliser at the boom tip)
             //
-            // ChassisKind.Ground (not Plane) so the Arena spawn places
-            // it on the ground rather than 18 m up: a propulsion-less
-            // Plane-kind chassis would just freefall on launch and look
-            // broken. When the rotor drives lift, flip this to Plane.
-            var list = new List<ChassisBlueprint.Entry>();
-
-            // Fuselage + tail boom along Z. CPU at the cabin; nose cube
-            // forward; three-cell tail boom aft so the rotor disc and
-            // the tail fin are well-separated visually.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(0, 0,  1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu,  new Vector3Int(0, 0,  0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(0, 0, -1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(0, 0, -2)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(0, 0, -3)));
-
-            // Vertical tail fin sat on top of the rear of the boom. Reuses
-            // AeroFin so it shows the slanted-fin visual; with no aero
-            // movement the lift contribution is zero, it's purely a
-            // silhouette cue that this is a helicopter.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.AeroFin, new Vector3Int(0, 1, -3)));
-
-            // Main rotor on top of the CPU. RotorBlock is a spinner; it
-            // generates lift only by adopting separately-placed
-            // AeroSurfaceBlock cells in its 4 spin-plane neighbours
-            // (see RotorBlock.AdoptAdjacentAerofoils). The 4 Aero
-            // entries below are those blades — placed independently in
-            // the blueprint, picked up by the rotor at game-start.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Rotor, new Vector3Int(0, 1, 0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero,  new Vector3Int( 1, 1,  0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero,  new Vector3Int(-1, 1,  0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero,  new Vector3Int( 0, 1,  1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero,  new Vector3Int( 0, 1, -1)));
-
-            // Tail rotor: mounted on the +X face of the boom cell at
-            // (0,0,-3), so its local +Y (= spin axis) points along +X.
-            // Demonstrates the new face-aware placement — a rotor on a
-            // horizontal face spins horizontally rather than helicopter-
-            // style. Adjacent to (0,0,-3) via the x-neighbour, so it
-            // passes the CPU-connectivity check trivially.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Rotor, new Vector3Int(1, 0, -3), new Vector3Int(1, 0, 0)));
-
-            return list.ToArray();
+            // ChassisKind.Ground keeps the arena spawn on the pad rather
+            // than 18 m up — flip to Plane once helicopter input is
+            // dialled in well enough to launch from altitude.
+            return BlueprintBuilder.Create("Helicopter", ChassisKind.Ground)
+                // Fuselage + tail boom along Z.
+                .Block(BlockIds.Cube, 0, 0,  1)
+                .Block(BlockIds.Cpu,  0, 0,  0)
+                .Row(BlockIds.Cube, new Vector3Int(0, 0, -1), new Vector3Int(0, 0, -3))
+                // Vertical tail fin on top of the rear of the boom.
+                .Block(BlockIds.AeroFin, 0, 1, -3)
+                // Main rotor + four foils ringed around the mechanism cell
+                // at (0,2,0). The mechanism cube is invisible at runtime
+                // (RotorBlock.HideMechanismCellMesh).
+                .RotorWithFoils(new Vector3Int(0, 1, 0))
+                // Tail rotor on the +X face of the rear boom cell. Bare —
+                // no foils, no mechanism cap — so the rotor's adoption
+                // scan finds nothing and the spin is purely cosmetic.
+                .RotorBare(new Vector3Int(1, 0, -3), spinAxis: Vector3Int.right)
+                .Build()
+                .Entries;
         }
 
         private static ChassisBlueprint.Entry[] BuildDummyEntries()

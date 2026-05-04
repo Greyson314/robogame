@@ -85,14 +85,81 @@ blueprints (the bigger helicopter, the barbell dummy) use it; old ones
 keep their `entries.Add(...)` style. The validator catches malformed
 blueprints regardless of which authoring style was used.
 
+## Phase 3 — Rotor stem visual + adoption shift to mechanism cell
+
+The user reported the foils sat at the rotor's stem rather than its
+head, overlapping the cabin/CPU light. Two coupled changes:
+
+### Visual (RotorBlock.BuildBlockVisual)
+
+The rotor block visually owns two cells now: its own grid cell (the
+stem) plus the cell one step along the spin axis (the mechanism). In
+rotor-block local space:
+
+- `MastHeight=0.55` and `SpinHeight=0.78` constants are gone.
+- New `MechanismHeight=1.0` puts the spin pivot at the center of the
+  cell above. Mast cylinder spans local Y=-0.5..+1.0 (1.5 m tall,
+  filling the rotor cell and rising to the disc). Disc and bars
+  parent under the spin pivot at the mechanism cell center.
+
+### Adoption (RotorBlock.AdoptAdjacentAerofoils)
+
+The scan iterates lateral cells around the **mechanism cell** rather
+than around the rotor's own cell:
+
+```
+mechanismCell = rotorCell + Vector3Int.RoundToInt(spinAxisGrid);
+foilCell      = mechanismCell + lateralOffset;
+```
+
+For a default-orientation main rotor at `(0,1,0)`, foils now adopt at
+`(±1, 2, 0)` and `(0, 2, ±1)`. Tail rotors with a horizontal spin axis
+adopt their foils in the YZ plane around the mechanism cell at
+`(rotorCell.x + 1, *, *)`.
+
+### Mechanism cube + hidden mesh
+
+The blueprint convention: place an invisible structural Cube at the
+mechanism cell so the foils' face-adjacency through that cube carries
+connectivity back to the chassis. Without it, the foils would be
+orphans and the runtime connectivity check would detach them as
+debris.
+
+`RotorBlock.HideMechanismCellMesh()` finds that cube at the mechanism
+cell and disables its renderer (collider preserved so damage routing
+still works). Called from `Start` so every chassis block has already
+gone through its own `Awake`/`OnEnable` by the time the lookup runs.
+
+### Helicopter blueprint update
+
+[`GameplayScaffolder.BuildHelicopterEntries`](../../Assets/_Project/Scripts/Tools/Editor/GameplayScaffolder.cs)
+is rewritten to use the new `BlueprintBuilder`:
+
+```csharp
+return BlueprintBuilder.Create("Helicopter", ChassisKind.Ground)
+    .Block(BlockIds.Cube, 0, 0,  1)
+    .Block(BlockIds.Cpu,  0, 0,  0)
+    .Row(BlockIds.Cube, new Vector3Int(0, 0, -1), new Vector3Int(0, 0, -3))
+    .Block(BlockIds.AeroFin, 0, 1, -3)
+    .RotorWithFoils(new Vector3Int(0, 1, 0))
+    .RotorBare(new Vector3Int(1, 0, -3), spinAxis: Vector3Int.right)
+    .Build()
+    .Entries;
+```
+
+Foil ring now lives at `y=2` — above the rotor's stem, not next to it.
+
+### Tests updated
+
+`Assets/_Project/Tests/PlayMode/Movement/RotorBlockTests.cs` — three
+test cases moved their foil placements from `y=1` to `y=2` to reflect
+the new mechanism-cell scan. Axial-cull and zero-baseline-cost tests
+unchanged.
+
 ## Phases ahead
 
-- **Phase 2 — wiring**: glue the validator into the Robogame menu
-  warnings; not a separate phase, folded into Phase 1.
-- **Phase 3** — rotor stem visual + foil-cell-shift to y=2 +
-  helicopter blueprint update.
 - **Phase 4** — fully redesigned, larger helicopter using the new
-  builder.
+  builder, two guns.
 - **Phase 5** — Hook + Mace tip blocks (new block ids, binders,
   damage path per PHYSICS_PLAN §3).
 - **Phase 6** — barbell dummy + arena spawn wiring.

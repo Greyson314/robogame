@@ -198,21 +198,24 @@ namespace Robogame.Tests.PlayMode.Movement
         /// <summary>
         /// R1-regression test (world position).
         /// A rotor at (0,1,0) with four Aero blocks placed at the four lateral
-        /// spin-plane cells must adopt all four foils. Each adopted foil's world
-        /// position must remain within ε of its placed-cell world position — i.e.
-        /// the foil is reparented under the hub but NOT displaced by a full block.
+        /// cells around the mechanism cell (y=2) must adopt all four foils.
+        /// Each adopted foil's world position must remain within ε of its
+        /// placed-cell world position — i.e. the foil is reparented under
+        /// the hub but NOT displaced by a full block. Session-19 update:
+        /// foils now ring the mechanism cell (rotorCell + spin axis) so
+        /// they sit at the rotor's "head" rather than its stem.
         /// </summary>
         [UnityTest]
         public IEnumerator RotorBlock_BuildLiftRig_AdoptsFourLateralAerofoils_PlacedAtSpinPlaneCells()
         {
-            // Arrange — place aero foils around the rotor's spin plane first so
-            // the grid sees them before the rotor's OnEnable calls AdoptAdjacentAerofoils.
+            // Arrange — place aero foils around the mechanism cell at (0,2,0)
+            // (one cell above the rotor at (0,1,0) along the +Y spin axis).
             var lateralCells = new[]
             {
-                new Vector3Int( 1, 1, 0),
-                new Vector3Int(-1, 1, 0),
-                new Vector3Int( 0, 1, 1),
-                new Vector3Int( 0, 1,-1),
+                new Vector3Int( 1, 2, 0),
+                new Vector3Int(-1, 2, 0),
+                new Vector3Int( 0, 2, 1),
+                new Vector3Int( 0, 2,-1),
             };
             var foils = new List<AeroSurfaceBlock>();
             var foilWorldPositions = new List<Vector3>();
@@ -304,8 +307,8 @@ namespace Robogame.Tests.PlayMode.Movement
         [UnityTest]
         public IEnumerator AeroSurfaceBlock_ConfigureRotorMode_AfterAdoption_ResolvesForceTargetToChassis()
         {
-            // Place one lateral foil.
-            AeroSurfaceBlock foil = PlaceAero(new Vector3Int(1, 1, 0));
+            // Place one lateral foil at the mechanism cell's lateral neighbour.
+            AeroSurfaceBlock foil = PlaceAero(new Vector3Int(1, 2, 0));
 
             BlockDefinition rotorDef = MakeDef("block.rotor.test");
             BlockBehaviour rotorBb = _grid.PlaceBlock(rotorDef, new Vector3Int(0, 1, 0));
@@ -361,7 +364,7 @@ namespace Robogame.Tests.PlayMode.Movement
             Assert.IsNotNull(rotorBb);
             // Add lateral foil to make the test meaningful — there IS a foil
             // to adopt, but GeneratesLift=false should skip the whole rig.
-            PlaceAero(new Vector3Int(1, 1, 0));
+            PlaceAero(new Vector3Int(1, 2, 0));
             _grid.RebuildFromChildren();
 
             // Act — add rotor with GeneratesLift=false (default).
@@ -436,7 +439,7 @@ namespace Robogame.Tests.PlayMode.Movement
             Assert.IsNotNull(rotorBb);
             // Place a lateral foil so there IS something to adopt — we want to
             // confirm the skip happens even when foils are present.
-            PlaceAero(new Vector3Int(1, 1, 0));
+            PlaceAero(new Vector3Int(1, 2, 0));
             _grid.RebuildFromChildren();
 
             rotorBb.gameObject.SetActive(false);

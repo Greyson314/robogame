@@ -138,11 +138,24 @@ namespace Robogame.Movement
         private static readonly Color s_barColor   = new Color(0.25f, 0.27f, 0.30f);
         private static readonly Color s_bladeColor = new Color(0.22f, 0.24f, 0.28f);
 
-        // Spin pivot offset above the host cube top face. Matches the CPU
-        // beacon mast height so a rotor placed next to a CPU reads as the
-        // same vocabulary of "block + thing on top."
-        private const float MastHeight = 0.55f;
-        private const float SpinHeight = 0.78f;
+        // Vertical layout in rotor-block local space (1 unit = 1 grid cell).
+        //
+        //   y=+1.5 ┃                    ← top of mechanism cell
+        //          ┃   disc + bars      ← spin pivot
+        //   y=+1.0 ┃─── MechanismHeight ← center of mechanism cell
+        //          ┃   mast (upper)
+        //   y=+0.5 ┃                    ← top of rotor cell (cell-above boundary)
+        //          ┃   mast (lower)
+        //   y= 0.0 ┃─── rotor cell center (transform pivot)
+        //          ┃
+        //   y=-0.5 ┃                    ← bottom of rotor cell
+        //
+        // The rotor visually owns two cells: its own grid cell (the stem)
+        // plus the cell one step along the spin axis (the mechanism). The
+        // blueprint convention is to place an invisible structural Cube at
+        // the mechanism cell so connectivity carries through to the foil
+        // ring; the rotor hides that cube's host mesh at runtime.
+        private const float MechanismHeight = 1.0f;
 
         // -----------------------------------------------------------------
         // Lifecycle
@@ -157,6 +170,14 @@ namespace Robogame.Movement
         private void OnEnable()
         {
             BuildLiftRig();
+        }
+
+        private void Start()
+        {
+            // Defer mesh suppression to Start so every block in the
+            // chassis has already gone through its own Awake/OnEnable;
+            // the grid lookup will reliably resolve the mechanism cube.
+            HideMechanismCellMesh();
         }
 
         private void OnDisable()
@@ -201,35 +222,41 @@ namespace Robogame.Movement
 
         private void BuildBlockVisual()
         {
-            // Mast — small dark cylinder rising from the cube top. Same
-            // visual vocabulary as the CPU beacon mast (block + stem +
-            // tip), but matte and shorter so the cyan hub on top reads
-            // as the loud bit, not the mast.
+            // Mast — tall dark cylinder spanning the rotor cell + into the
+            // mechanism cell. Cylinder primitive native height = 2 m
+            // (Y -1..+1); scale Y = 0.75 → height 1.5 m; localPosition.y =
+            // 0.25 → centered at 0.25 → spans -0.5..+1.0 in rotor-local
+            // space. That's the rotor cell's bottom face up to the
+            // mechanism cell's center.
             Transform mast = BlockVisuals.GetOrCreatePrimitiveChild(transform, "RotorMast", PrimitiveType.Cylinder);
-            mast.localScale    = new Vector3(0.18f, 0.18f, 0.18f);
-            mast.localPosition = new Vector3(0f, MastHeight, 0f);
+            mast.localScale    = new Vector3(0.25f, 0.75f, 0.25f);
+            mast.localPosition = new Vector3(0f, 0.25f, 0f);
 
             // Spin pivot — empty transform we rotate per-frame. Holds
-            // the visible hub disc + bars; this is the only thing that
-            // moves visually on a cosmetic rotor.
+            // the visible hub disc + bars at the mechanism cell center.
             Transform spin = BlockVisuals.GetOrCreateChild(transform, "RotorSpin");
-            spin.localPosition = new Vector3(0f, SpinHeight, 0f);
+            spin.localPosition = new Vector3(0f, MechanismHeight, 0f);
             spin.localRotation = Quaternion.identity;
 
-            // Visual hub disc — flat cyan puck.
+            // Visual hub disc — wider cyan puck at the mechanism cell. The
+            // mechanism cube's host mesh is hidden at runtime (see
+            // HideMechanismCellMesh) so this disc reads as the rotor head
+            // floating on top of the stem.
             Transform disc = BlockVisuals.GetOrCreatePrimitiveChild(spin, "Disc", PrimitiveType.Cylinder);
-            disc.localScale    = new Vector3(0.35f, 0.05f, 0.35f);
+            disc.localScale    = new Vector3(0.70f, 0.06f, 0.70f);
             disc.localPosition = Vector3.zero;
 
             // Two intersecting bars give the spinning rig a clear
-            // direction-of-rotation read at a glance. Cube primitives,
-            // not cylinders, so the silhouette stays angular.
+            // direction-of-rotation read at a glance. Length 0.95 stays
+            // within the mechanism cell so the bars don't visually clip
+            // into adjacent foil cells; the foil mesh begins at x=0.5
+            // local and extends out to x=1.5 — bars end at x=0.475.
             Transform barA = BlockVisuals.GetOrCreatePrimitiveChild(spin, "BarA", PrimitiveType.Cube);
-            barA.localScale    = new Vector3(1.30f, 0.07f, 0.10f);
+            barA.localScale    = new Vector3(0.95f, 0.08f, 0.10f);
             barA.localPosition = Vector3.zero;
 
             Transform barB = BlockVisuals.GetOrCreatePrimitiveChild(spin, "BarB", PrimitiveType.Cube);
-            barB.localScale    = new Vector3(0.10f, 0.07f, 1.30f);
+            barB.localScale    = new Vector3(0.10f, 0.08f, 0.95f);
             barB.localPosition = Vector3.zero;
 
             Tint(mast.GetComponent<Renderer>(), s_mastColor, Color.black);
@@ -326,14 +353,14 @@ namespace Robogame.Movement
             _hubGo.SetActive(true);
         }
 
-        // Scan the 4 grid neighbours of this rotor's cell that lie in
-        // the spin plane (perpendicular to _spinAxisLocal). For each
-        // one that hosts an AeroSurfaceBlock, reparent it under the
-        // hub (preserving world position), override its rotation so
-        // its lift axis aligns with the hub up and its chord faces the
-        // spin tangent (with collective pitch baked in), and switch
-        // it into rotor mode so it samples its airspeed from the hub
-        // and dumps lift onto the chassis.
+        // Scan the 4 lateral cells around the *mechanism cell* (one cell
+        // along the spin axis from the rotor's own cell). For each one
+        // that hosts an AeroSurfaceBlock, reparent it under the hub
+        // (preserving world position), override its rotation so its
+        // lift axis aligns with the hub up and its chord faces the spin
+        // tangent (with collective pitch baked in), and switch it into
+        // rotor mode so it samples its airspeed from the hub and dumps
+        // lift onto the chassis.
         private void AdoptAdjacentAerofoils(Rigidbody chassis)
         {
             BlockBehaviour rotorBlock = GetComponent<BlockBehaviour>();
@@ -347,10 +374,16 @@ namespace Robogame.Movement
             // BlockGrid root is the rotor's parent, so block-local →
             // grid-space is just the block's localRotation.
             Vector3 spinAxisGrid = (transform.localRotation * _spinAxisLocal).normalized;
+            Vector3Int spinAxisGridInt = Vector3Int.RoundToInt(spinAxisGrid);
+            // The mechanism cell is one cell along the spin axis. Foils
+            // ring this cell (not the rotor's own cell) so that a player
+            // who places foils at the same level as the rotor's "head"
+            // sees them adopted, not at the stem level.
+            Vector3Int mechanismCell = rotorCell + spinAxisGridInt;
 
-            // Six axial offsets. We skip any neighbour direction that
-            // lies along the spin axis (a foil "above" or "below" the
-            // hub isn't a blade). The 0.9 dot threshold tolerates
+            // Six axial offsets. We skip any direction that lies along
+            // the spin axis (a foil "above" or "below" the mechanism
+            // cell isn't a blade). The 0.9 dot threshold tolerates
             // off-axis spin directions cleanly.
             Vector3Int[] all =
             {
@@ -364,7 +397,7 @@ namespace Robogame.Movement
                 Vector3 offN = ((Vector3)off).normalized;
                 if (Mathf.Abs(Vector3.Dot(offN, spinAxisGrid)) > 0.9f) continue;
 
-                Vector3Int neighborCell = rotorCell + off;
+                Vector3Int neighborCell = mechanismCell + off;
                 if (!grid.TryGetBlock(neighborCell, out BlockBehaviour neighbor)) continue;
                 if (neighbor == null) continue;
 
@@ -510,9 +543,43 @@ namespace Robogame.Movement
         }
 
         private Vector3 GetHubWorldPos()
-            => transform.TransformPoint(new Vector3(0f, SpinHeight, 0f));
+            => transform.TransformPoint(new Vector3(0f, MechanismHeight, 0f));
 
         private Quaternion GetHubWorldRot(float angleRad)
             => transform.rotation * Quaternion.AngleAxis(angleRad * Mathf.Rad2Deg, _spinAxisLocal);
+
+        // -----------------------------------------------------------------
+        // Mechanism cell mesh suppression
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Hide the mesh on the cube placed at the mechanism cell (the
+        /// cell one step along the spin axis from the rotor's own cell).
+        /// The cube is there to anchor the foil ring to the chassis grid
+        /// for connectivity; visually it would clip with the rotor's disc
+        /// and bars. Suppressing the host mesh leaves the collider in
+        /// place (so damage routing still works) but lets the rotor
+        /// visual read as one continuous "mast + head" silhouette.
+        /// </summary>
+        /// <remarks>
+        /// Called from <see cref="Start"/> rather than <see cref="Awake"/>:
+        /// at <c>Awake</c> time other blocks may not have been placed in
+        /// the grid yet. <c>Start</c> fires after every block in the
+        /// chassis has gone through its own <c>Awake</c>+<c>OnEnable</c>.
+        /// Safe to no-op if the mechanism cell is empty (bare rotor).
+        /// </remarks>
+        private void HideMechanismCellMesh()
+        {
+            BlockBehaviour rotorBlock = GetComponent<BlockBehaviour>();
+            if (rotorBlock == null) return;
+            BlockGrid grid = GetComponentInParent<BlockGrid>();
+            if (grid == null) return;
+            Vector3 spinAxisGrid = (transform.localRotation * _spinAxisLocal).normalized;
+            Vector3Int spinAxisGridInt = Vector3Int.RoundToInt(spinAxisGrid);
+            Vector3Int mechanismCell = rotorBlock.GridPosition + spinAxisGridInt;
+            if (!grid.TryGetBlock(mechanismCell, out BlockBehaviour neighbor)) return;
+            if (neighbor == null) return;
+            BlockVisuals.HideHostMesh(neighbor.gameObject);
+        }
     }
 }
