@@ -15,9 +15,9 @@ MonoBehaviour:
   _id: block.weapon.tip.mace
   _displayName: Rope Mace
   _category: 3
-  _maxHealth: 90
-  _mass: 2
-  _cpuCost: 18
+  _maxHealth: 180
+  _mass: 5
+  _cpuCost: 28
   _prefab: {fileID: 0}
   _tintColor: {r: 1, g: 1, b: 1, a: 1}
   _material: {fileID: 2100000, guid: 799a882d77be5374393b5a55927275df, type: 2}

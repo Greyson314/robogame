@@ -12,172 +12,64 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 570076fb6ecc8584e9f24fc18be0bbd8, type: 3}
   m_Name: Blueprint_BarbellDummy
   m_EditorClassIdentifier: Robogame.Block::Robogame.Block.ChassisBlueprint
-  _displayName: Dumbbell Dummy
+  _displayName: Arch Dummy
   _kind: 0
   _rotorsGenerateLift: 0
   _entries:
   - BlockId: block.cpu.standard
-    Position: {x: 0, y: 0, z: 0}
+    Position: {x: 0, y: 7, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: -1, y: -1, z: -3}
+    Position: {x: -2, y: 0, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: -1, y: -1, z: -2}
+    Position: {x: -2, y: 1, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: -1, y: -1, z: -1}
+    Position: {x: -2, y: 2, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: -1, y: 0, z: -3}
+    Position: {x: -2, y: 3, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: -1, y: 0, z: -2}
+    Position: {x: -2, y: 4, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: -1, y: 0, z: -1}
+    Position: {x: -2, y: 5, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: -1, y: 1, z: -3}
+    Position: {x: -2, y: 6, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: -1, y: 1, z: -2}
+    Position: {x: 2, y: 0, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: -1, y: 1, z: -1}
+    Position: {x: 2, y: 1, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: 0, y: -1, z: -3}
+    Position: {x: 2, y: 2, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: 0, y: -1, z: -2}
+    Position: {x: 2, y: 3, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: 0, y: -1, z: -1}
+    Position: {x: 2, y: 4, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: 0, y: 0, z: -3}
+    Position: {x: 2, y: 5, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: 0, y: 0, z: -2}
+    Position: {x: 2, y: 6, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: 0, y: 0, z: -1}
+    Position: {x: -2, y: 7, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: 0, y: 1, z: -3}
+    Position: {x: -1, y: 7, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: 0, y: 1, z: -2}
+    Position: {x: 1, y: 7, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: 0, y: 1, z: -1}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: -1, z: -3}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: -1, z: -2}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: -1, z: -1}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: 0, z: -3}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: 0, z: -2}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: 0, z: -1}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: 1, z: -3}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: 1, z: -2}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: 1, z: -1}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: -1, y: -1, z: 1}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: -1, y: -1, z: 2}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: -1, y: -1, z: 3}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: -1, y: 0, z: 1}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: -1, y: 0, z: 2}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: -1, y: 0, z: 3}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: -1, y: 1, z: 1}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: -1, y: 1, z: 2}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: -1, y: 1, z: 3}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 0, y: -1, z: 1}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 0, y: -1, z: 2}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 0, y: -1, z: 3}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 0, y: 0, z: 1}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 0, y: 0, z: 2}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 0, y: 0, z: 3}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 0, y: 1, z: 1}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 0, y: 1, z: 2}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 0, y: 1, z: 3}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: -1, z: 1}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: -1, z: 2}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: -1, z: 3}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: 0, z: 1}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: 0, z: 2}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: 0, z: 3}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: 1, z: 1}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: 1, z: 2}
-    Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.structure.cube
-    Position: {x: 1, y: 1, z: 3}
+    Position: {x: 2, y: 7, z: 0}
     Up: {x: 0, y: 1, z: 0}
