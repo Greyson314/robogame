@@ -582,6 +582,23 @@ namespace Robogame.Tools.Editor
             if (controller.GetComponent<SceneTransitionHud>() == null)
                 controller.AddComponent<SceneTransitionHud>();
 
+            // Force the hover height onto the GarageController in the
+            // saved scene. AddComponent only seeds the C# default at
+            // first creation; existing scenes carry their old serialised
+            // value, so a code-side default bump (7 → 12 in session 23)
+            // doesn't propagate without an explicit SerializedObject
+            // write here. Same pattern BuildArenaPassA uses for the
+            // dummy / barbell positions.
+            GarageController gc = controller.GetComponent<GarageController>();
+            if (gc != null)
+            {
+                SerializedObject gcSO = new SerializedObject(gc);
+                SerializedProperty hoverProp = gcSO.FindProperty("_hoverHeightCells");
+                if (hoverProp != null) hoverProp.floatValue = 12f;
+                gcSO.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(gc);
+            }
+
             ScaffoldUtils.SaveActiveScene();
             Debug.Log("[Robogame] Built Garage.unity (Pass A).");
         }

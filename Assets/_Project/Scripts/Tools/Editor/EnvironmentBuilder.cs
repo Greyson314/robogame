@@ -40,14 +40,19 @@ namespace Robogame.Tools.Editor
 
             GameObject env = ResetEnvRoot();
 
-            // Floor — large workshop bay (Pass B Phase 3a: doubled from 9 → 18
-            // half-extent so build mode + orbit camera have room to breathe).
-            const float halfBay = 18f;
+            // Floor — workshop bay. Session 23 expansion pass: 18 → 40
+            // half-extent (80 m × 80 m floor, ~5× area) so the build-mode
+            // free-cam has room to fly around even a large chassis. The
+            // bot also rises (GarageController._hoverHeightCells 7 → 12)
+            // to suit the bigger volume.
+            const float halfBay = 40f;
             GameObject floor = MakePlane(env.transform, "Floor", Vector3.zero, scale: halfBay / 5f);
             WorldPalette.Apply(floor, WorldPalette.GarageFloor);
 
-            // Walls — short box ring, no roof so the camera can swing around.
-            const float wallH = 4f, wallT = 0.5f;
+            // Walls — taller ring so the larger floor reads as a real
+            // bay, not a flat slab. Roofless so the free-cam can swing
+            // overhead.
+            const float wallH = 12f, wallT = 0.5f;
             MakeWall(env.transform, "Wall_N", new Vector3(0f, wallH * 0.5f,  halfBay), new Vector3(halfBay * 2f, wallH, wallT));
             MakeWall(env.transform, "Wall_S", new Vector3(0f, wallH * 0.5f, -halfBay), new Vector3(halfBay * 2f, wallH, wallT));
             MakeWall(env.transform, "Wall_E", new Vector3( halfBay, wallH * 0.5f, 0f), new Vector3(wallT, wallH, halfBay * 2f));

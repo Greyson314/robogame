@@ -32,7 +32,7 @@ namespace Robogame.Gameplay
                  "blocks dangling below the chassis) clear the floor and " +
                  "the player can see it from a low garage camera. Set to 0 " +
                  "to drop the chassis to ground-resting.")]
-        [SerializeField, Min(0f)] private float _hoverHeightCells = 7f;
+        [SerializeField, Min(0f)] private float _hoverHeightCells = 12f;
 
         [Tooltip("Name of the spawned chassis GameObject. Used by " +
                  "Robot.RebuildByName / DevHud.")]
