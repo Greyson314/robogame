@@ -108,10 +108,20 @@ namespace Robogame.Movement
         private void OnEnable()
         {
             Tweakables.Changed += OnTweakablesChanged;
-            // Build is idempotent (early-returns if segments already
-            // exist) so this is a no-op when re-enabled after the
-            // CaptureTemplate cascade. First-time enable builds fresh.
-            Build();
+            // Rebuild on every OnEnable so the rope-chassis joint is
+            // fresh against the *current* chassis Rigidbody. The
+            // session-23 "idempotency" experiment (skip build when
+            // segments existed) caused the rope to detach from the
+            // plane on some chassis re-activations: segments persisted
+            // at scene root with joints pointing at a stale anchor rb,
+            // so the rope+tip fell straight to the ground while still
+            // visually a chain with the hook on the end. The original
+            // OnDisable SetParent crash that idempotency was meant to
+            // dodge is already handled by the OnDisable no-op below —
+            // the destroy here happens against an *active* chassis, so
+            // ReleaseAdoptedTip's SetParent doesn't fight a transitioning
+            // parent.
+            Rebuild();
         }
         private void OnDisable()
         {
@@ -172,12 +182,6 @@ namespace Robogame.Movement
 
         private void Build()
         {
-            // Idempotent: if segments are already up, the OnEnable
-            // post-CaptureTemplate cascade is a no-op. Explicit Rebuild
-            // callers tear down first via DestroySegments before calling
-            // Build, so the early-out doesn't block them.
-            if (_segmentContainer != null) return;
-
             _anchorRb = GetComponentInParent<Rigidbody>();
             if (_anchorRb == null) return; // no chassis to hang from yet
 

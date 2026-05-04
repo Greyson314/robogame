@@ -67,6 +67,22 @@ namespace Robogame.Player
             Vector3 e = transform.eulerAngles;
             _yaw   = e.y;
             _pitch = NormalisePitch(e.x);
+
+            // Lock + hide the OS cursor so the screen-center reticle
+            // is the input target. Mouse delta drives the camera; the
+            // cursor itself doesn't show. Hotbar navigation is via
+            // keyboard (1..N for slots, Q/E for category cycling).
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+
+        private void OnDisable()
+        {
+            // Release the cursor so the player can interact with HUD /
+            // menus when leaving build mode. FollowCamera will re-lock
+            // it for arena gameplay via its own click-to-capture flow.
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
         }
 
         private static float NormalisePitch(float pitchDeg)
@@ -82,17 +98,35 @@ namespace Robogame.Player
             Mouse m     = Mouse.current;
             if (kb == null && m == null) return;
 
+            // -----------------------------------------------------------------
+            // Cursor capture / release. Esc releases for HUD interaction
+            // (Build button, chassis dropdown, settings panel). Left-click
+            // anywhere in the game view re-locks. Mirrors FollowCamera's
+            // click-to-capture pattern so the muscle memory carries over.
+            // -----------------------------------------------------------------
+            if (kb != null && kb.escapeKey.wasPressedThisFrame
+                && Cursor.lockState == CursorLockMode.Locked)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
+            if (m != null && m.leftButton.wasPressedThisFrame
+                && Cursor.lockState != CursorLockMode.Locked
+                && !(EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()))
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+            }
+
             float dt = Time.unscaledDeltaTime;
 
             // -----------------------------------------------------------------
-            // Rotate via mouse delta — no button hold required, so the
-            // reticle/screen-center "follows the mouse" by virtue of the
-            // camera tracking wherever the mouse is pointing. UI-aware:
-            // skip while cursor is over UI so hovering hotbar / panel
-            // doesn't spin the camera (and so clicks land on buttons).
+            // Rotate via mouse delta — no button hold required while the
+            // cursor is locked. The reticle/screen-center "follows the
+            // mouse" by virtue of the camera tracking the mouse delta.
+            // Suppress when cursor is unlocked (player is using the HUD).
             // -----------------------------------------------------------------
-            if (m != null
-                && !(EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()))
+            if (m != null && Cursor.lockState == CursorLockMode.Locked)
             {
                 Vector2 delta = m.delta.ReadValue();
                 _yaw   += delta.x * _yawSensitivity;
@@ -104,8 +138,11 @@ namespace Robogame.Player
             // -----------------------------------------------------------------
             // Translate. WASD = local +Z / -X / -Z / +X. Q/E or
             // Space/LCtrl = world +Y / -Y. LeftShift boosts speed.
+            // Skipped while cursor is unlocked so HUD interactions don't
+            // also fly the camera.
             // -----------------------------------------------------------------
             if (kb == null) return;
+            if (Cursor.lockState != CursorLockMode.Locked) return;
 
             Vector3 inLocal = Vector3.zero;
             if (kb.wKey.isPressed) inLocal += Vector3.forward;
