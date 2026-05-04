@@ -18,8 +18,19 @@ namespace Robogame.Combat
             base.OnEnable();
         }
 
-        protected override bool ShouldBind(BlockBehaviour block) =>
-            block.Definition.Category == BlockCategory.Weapon;
+        protected override bool ShouldBind(BlockBehaviour block)
+        {
+            if (block.Definition.Category != BlockCategory.Weapon) return false;
+            // Tip blocks (Hook / Mace) are weapon-category for the hotbar
+            // (they ARE weapons gameplay-wise) but they're handled by
+            // RobotTipBlockBinder, not RobotWeaponBinder. WeaponBlock's
+            // mounted-yoke aim model rotates the host to track the
+            // reticle — wrong behaviour for a rope-tip that should hang
+            // freely from the rope. Skip them here.
+            string id = block.Definition.Id;
+            if (id == BlockIds.Hook || id == BlockIds.Mace) return false;
+            return true;
+        }
 
         protected override void Bind(BlockBehaviour block)
         {

@@ -85,11 +85,13 @@ namespace Robogame.Player
             float dt = Time.unscaledDeltaTime;
 
             // -----------------------------------------------------------------
-            // Rotate (right-mouse held). UI-aware: skip if cursor is over UI
-            // so dragging on a hotbar / panel doesn't also spin the camera.
+            // Rotate via mouse delta — no button hold required, so the
+            // reticle/screen-center "follows the mouse" by virtue of the
+            // camera tracking wherever the mouse is pointing. UI-aware:
+            // skip while cursor is over UI so hovering hotbar / panel
+            // doesn't spin the camera (and so clicks land on buttons).
             // -----------------------------------------------------------------
             if (m != null
-                && m.rightButton.isPressed
                 && !(EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()))
             {
                 Vector2 delta = m.delta.ReadValue();

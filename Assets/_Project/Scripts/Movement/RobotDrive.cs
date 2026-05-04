@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Robogame.Block;
 using Robogame.Core;
 using Robogame.Input;
 using UnityEngine;
@@ -183,9 +184,30 @@ namespace Robogame.Movement
             int count = Physics.RaycastNonAlloc(ray, s_aimHits, _aimRange, _aimMask, QueryTriggerInteraction.Ignore);
             float bestDist = float.MaxValue;
             Vector3 best = ray.origin + ray.direction * _aimRange;
+            // Cache the chassis grid for the in-loop self-check.
+            BlockGrid ourGrid = GetComponent<BlockGrid>();
             for (int i = 0; i < count; i++)
             {
-                if (s_aimHits[i].collider.attachedRigidbody == _rb) continue;
+                Collider hitCol = s_aimHits[i].collider;
+                // Direct: collider attached to the chassis Rigidbody.
+                if (hitCol.attachedRigidbody == _rb) continue;
+                // Indirect: collider belongs to a block in our grid that
+                // got reparented away (e.g. RotorBlock adopts foils
+                // under a kinematic hub at scene root — the foil's
+                // collider's attachedRigidbody is the hub, NOT the
+                // chassis, so the direct check above misses it). Resolve
+                // via the BlockGrid: every chassis block keeps its grid
+                // entry regardless of GameObject parent.
+                if (ourGrid != null)
+                {
+                    BlockBehaviour bb = hitCol.GetComponentInParent<BlockBehaviour>();
+                    if (bb != null
+                        && ourGrid.TryGetBlock(bb.GridPosition, out BlockBehaviour ourBlock)
+                        && ourBlock == bb)
+                    {
+                        continue;
+                    }
+                }
                 if (s_aimHits[i].distance < bestDist)
                 {
                     bestDist = s_aimHits[i].distance;

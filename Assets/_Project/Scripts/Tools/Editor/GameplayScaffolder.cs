@@ -35,7 +35,7 @@ namespace Robogame.Tools.Editor
         private const string DefaultHelicopterPath = BlueprintFolder + "/Blueprint_DefaultHelicopter.asset";
         private const string CombatDummyPath = BlueprintFolder + "/Blueprint_CombatDummy.asset";
         private const string StressTowerPath = BlueprintFolder + "/Blueprint_StressRotorTower.asset";
-        private const string DumbbellDummyPath = BlueprintFolder + "/Blueprint_DumbbellDummy.asset";
+        private const string ArchDummyPath = BlueprintFolder + "/Blueprint_ArchDummy.asset";
 
         // -----------------------------------------------------------------
         // Data assets
@@ -98,13 +98,12 @@ namespace Robogame.Tools.Editor
             // drags the slider to 1, the tower appears, the Profiler
             // shows the truth about how the kinematic-hub trick scales.
             CreateOrUpdateBlueprint(StressTowerPath, "Stress Rotor Tower", ChassisKind.Ground, BuildStressTowerEntries());
-            // Dumbbell dummy: two 3×3×3 mass cubes flanking a single-cell
-            // handle (the CPU). Replaces the longer "barbell" the user
-            // originally requested — a true dumbbell is the right
-            // silhouette for testing the new Hook tip block, since the
-            // 1 m handle fits inside the hook's 1.5 m mouth and the
-            // chunky end weights stop the hook from sliding off.
-            CreateOrUpdateBlueprint(DumbbellDummyPath, "Dumbbell Dummy", ChassisKind.Ground, BuildDumbbellDummyEntries());
+            // Arch dummy: simple grounded archway. Two 1-cell-thick
+            // pillars + a 1-cell-thick top beam. Designed for the
+            // hook test loop: helicopter flies up to the arch, the
+            // rope swings, the J-hook latches onto the top beam. The
+            // 1 m beam fits the hook's 1.5 m mouth cleanly.
+            CreateOrUpdateBlueprint(ArchDummyPath, "Arch Dummy", ChassisKind.Ground, BuildArchDummyEntries());
             AssetDatabase.SaveAssets();
             Debug.Log($"[Robogame] Default blueprints created (ground asset persisted: {AssetDatabase.Contains(ground)}).");
             return ground;
@@ -386,24 +385,32 @@ namespace Robogame.Tools.Editor
             return list.ToArray();
         }
 
-        private static ChassisBlueprint.Entry[] BuildDumbbellDummyEntries()
+        private static ChassisBlueprint.Entry[] BuildArchDummyEntries()
         {
-            // Dumbbell-shaped target dummy:
-            //   - End weight A: 3×3×3 cube cluster at z = -3..-1
-            //   - Handle:       single CPU cell at (0,0,0)
-            //   - End weight B: 3×3×3 cube cluster at z = 1..3
+            // Arch-shaped target dummy:
+            //   - Left pillar:  x=-2, y=0..6, z=0      (7 cells)
+            //   - Right pillar: x= 2, y=0..6, z=0      (7 cells)
+            //   - Top beam:     y=7, x=-2..2, z=0      (5 cells, CPU at centre)
             //
-            // ~7 m long along Z, 3 m thick at the bells. The 1 m handle
-            // is what a Hook block is supposed to wrap around — fits
-            // inside the hook's 1.5 m mouth, and the chunky end weights
-            // catch on the hook's barb tip when the rope pulls back.
-            return BlueprintBuilder.Create("Dumbbell Dummy", ChassisKind.Ground)
-                .Block(BlockIds.Cpu, 0, 0, 0)
-                // End weight A: 3×3×3 box at z=-3..-1, immediately
-                // adjacent to the handle so connectivity walks through.
-                .Box(BlockIds.Cube, new Vector3Int(-1, -1, -3), new Vector3Int(1, 1, -1))
-                // End weight B: 3×3×3 box at z=1..3.
-                .Box(BlockIds.Cube, new Vector3Int(-1, -1,  1), new Vector3Int(1, 1,  3))
+            // ~5 m wide, 8 m tall. The opening between the pillars is
+            // 3 cells wide — enough to fly the helicopter through.
+            // The top beam is the natural grapple target: the hook
+            // approaches from below, scoops the beam, and the J's barb
+            // tip catches on the back side as the helicopter pulls
+            // away. CPU sits in the middle of the beam so connectivity
+            // walks pillar → beam → CPU.
+            return BlueprintBuilder.Create("Arch Dummy", ChassisKind.Ground)
+                .Block(BlockIds.Cpu, 0, 7, 0)
+                // Left pillar.
+                .Row(BlockIds.Cube, new Vector3Int(-2, 0, 0), new Vector3Int(-2, 6, 0))
+                // Right pillar.
+                .Row(BlockIds.Cube, new Vector3Int( 2, 0, 0), new Vector3Int( 2, 6, 0))
+                // Top beam — CPU is at (0,7,0), so place the four
+                // non-CPU beam cells around it.
+                .Block(BlockIds.Cube, -2, 7, 0)
+                .Block(BlockIds.Cube, -1, 7, 0)
+                .Block(BlockIds.Cube,  1, 7, 0)
+                .Block(BlockIds.Cube,  2, 7, 0)
                 .Build()
                 .Entries;
         }
@@ -629,7 +636,7 @@ namespace Robogame.Tools.Editor
             // actually keep. (Same pattern used in BuildBootstrapPassA.)
             ChassisBlueprint dummyBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(CombatDummyPath);
             ChassisBlueprint stressBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(StressTowerPath);
-            ChassisBlueprint dumbbellBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DumbbellDummyPath);
+            ChassisBlueprint archBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(ArchDummyPath);
             if (dummyBpLive == null)
             {
                 Debug.LogError(
@@ -656,13 +663,15 @@ namespace Robogame.Tools.Editor
                 SerializedProperty stressPosProp = so.FindProperty("_stressTowerPosition");
                 if (stressPosProp != null) stressPosProp.vector3Value = new Vector3(40f, 0.5f, 18f);
 
-                // Dumbbell dummy: hookable + smackable target for the
-                // new tip blocks. Spawn position is off to the player's
+                // Arch dummy: hookable target for the new tip blocks
+                // (replaces the dumbbell). Spawn off to the player's
                 // left so the existing combat dummy stays dead-ahead.
-                SerializedProperty dumbbellProp = so.FindProperty("_dumbbellBlueprint");
-                if (dumbbellProp != null) dumbbellProp.objectReferenceValue = dumbbellBpLive;
-                SerializedProperty dumbbellPosProp = so.FindProperty("_dumbbellPosition");
-                if (dumbbellPosProp != null) dumbbellPosProp.vector3Value = new Vector3(-25f, 1.5f, 18f);
+                // Y=0.5 puts the bottom of the pillars at world Y=0.5
+                // (resting on the ground rather than floating).
+                SerializedProperty archProp = so.FindProperty("_archBlueprint");
+                if (archProp != null) archProp.objectReferenceValue = archBpLive;
+                SerializedProperty archPosProp = so.FindProperty("_archPosition");
+                if (archPosProp != null) archPosProp.vector3Value = new Vector3(-25f, 0.5f, 18f);
 
                 so.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(arena);

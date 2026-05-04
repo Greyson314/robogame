@@ -135,6 +135,23 @@ namespace Robogame.Gameplay
                     EnsureWeaponMountAndBinder(root);
                 }
 
+                // ORDER MATTERS: tip-block binder MUST be added before the
+                // rope binder. Both binders' OnEnable runs when the
+                // chassis SetActive(true) cascade fires; component
+                // OnEnable order on a single GameObject follows AddComponent
+                // order. RopeBlock.OnEnable → Build → TryAdoptTipBlock looks
+                // for HookBlock / MaceBlock components on the rope's
+                // grid-neighbour. If RobotRopeBinder ran first, those
+                // components don't exist yet and adoption silently fails
+                // — the hook stays at its grid cell on the chassis and
+                // the rope spawns the default sphere-collider tip.
+
+                // Tip-block binder (Hook / Mace). Attaches the per-tip
+                // MonoBehaviour at placement; adoption onto an adjacent
+                // rope's chain happens in RopeBlock.Build at game-start.
+                // Zero cost when no tip blocks are placed.
+                EnsureComponent<RobotTipBlockBinder>(root);
+
                 // Rope binder is unconditional: ropes are commonly added
                 // mid-build (player drags one onto an existing plane), and
                 // the binder is just a BlockPlaced subscriber — zero cost
@@ -149,12 +166,6 @@ namespace Robogame.Gameplay
                 // spinning. Zero per-frame cost when no rotor blocks are
                 // present (the binder is just a BlockPlaced subscriber).
                 EnsureComponent<RobotRotorBinder>(root);
-
-                // Tip-block binder (Hook / Mace). Attaches the per-tip
-                // MonoBehaviour at placement; adoption onto an adjacent
-                // rope's chain happens in RopeBlock.Build at game-start.
-                // Zero cost when no tip blocks are placed.
-                EnsureComponent<RobotTipBlockBinder>(root);
 
                 // Hook release hotkey (R). Walks the grid each Update
                 // and releases any grappled HookBlocks. Player-only —
@@ -254,9 +265,12 @@ namespace Robogame.Gameplay
             // segments. Without them, blueprint-authored rope/rotor
             // cells appear as bare host cubes — exactly the StressRotor
             // tower symptom in v0.5.
+            // Same ORDER MATTERS rule as Build(): tip-binder must come
+            // before rope-binder so RopeBlock.OnEnable's adoption pass
+            // finds the HookBlock / MaceBlock components.
+            EnsureComponent<Robogame.Movement.RobotTipBlockBinder>(root);
             EnsureComponent<Robogame.Movement.RobotRopeBinder>(root);
             EnsureComponent<Robogame.Movement.RobotRotorBinder>(root);
-            EnsureComponent<Robogame.Movement.RobotTipBlockBinder>(root);
 
             grid.Clear();
             foreach (ChassisBlueprint.Entry entry in blueprint.Entries)

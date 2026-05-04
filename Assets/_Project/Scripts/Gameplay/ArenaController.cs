@@ -56,20 +56,24 @@ namespace Robogame.Gameplay
         [SerializeField] private Vector3 _stressTowerPosition = new Vector3(40f, 0.5f, 18f);
         [SerializeField] private string _stressTowerName = "StressRotorTower";
 
-        [Header("Dumbbell test dummy")]
-        [Tooltip("Hookable / smackable dumbbell-shaped target. Spawned " +
-                 "off to the player's left so the existing combat dummy " +
-                 "stays dead-ahead. Built from Blueprint_DumbbellDummy.")]
+        [Header("Arch test dummy")]
+        [Tooltip("Grappleable archway target — hook fits inside the top " +
+                 "beam's 1 m mouth. Spawned off to the player's left so " +
+                 "the existing combat dummy stays dead-ahead. Built from " +
+                 "Blueprint_ArchDummy.")]
         // FormerlySerializedAs preserves the scene wire-up across the
-        // session-22 rename (was _barbellBlueprint / _barbellPosition /
-        // _barbellName). Without it, opening Arena.unity would reset the
-        // value to null + default and require a Build Everything pass.
+        // session-22 (barbell→dumbbell) and session-24 (dumbbell→arch)
+        // renames so Arena.unity's serialised value carries forward
+        // without a Build Everything pass.
+        [FormerlySerializedAs("_dumbbellBlueprint")]
         [FormerlySerializedAs("_barbellBlueprint")]
-        [SerializeField] private ChassisBlueprint _dumbbellBlueprint;
+        [SerializeField] private ChassisBlueprint _archBlueprint;
+        [FormerlySerializedAs("_dumbbellPosition")]
         [FormerlySerializedAs("_barbellPosition")]
-        [SerializeField] private Vector3 _dumbbellPosition = new Vector3(-25f, 1.5f, 18f);
+        [SerializeField] private Vector3 _archPosition = new Vector3(-25f, 0.5f, 18f);
+        [FormerlySerializedAs("_dumbbellName")]
         [FormerlySerializedAs("_barbellName")]
-        [SerializeField] private string _dumbbellName = "DumbbellDummy";
+        [SerializeField] private string _archName = "ArchDummy";
 
         private GameObject _stressTowerGo;
 
@@ -100,7 +104,7 @@ namespace Robogame.Gameplay
 
             Chassis = SpawnPlayerChassis(state);
             SpawnDummy(state);
-            SpawnDumbbell(state);
+            SpawnArch(state);
             BindFollowCamera(Chassis);
 
             // Stress tower: optional. Read the tweakable on entry and
@@ -173,26 +177,26 @@ namespace Robogame.Gameplay
             Debug.Log($"[Robogame] Combat dummy spawned at {_dummyPosition} with {blockCount} blocks.", go);
         }
 
-        private void SpawnDumbbell(GameStateController state)
+        private void SpawnArch(GameStateController state)
         {
-            if (_dumbbellBlueprint == null) return; // optional — missing wire-up is fine
+            if (_archBlueprint == null) return; // optional — missing wire-up is fine
             if (state.Library == null) return;
 
-            GameObject existing = GameObject.Find(_dumbbellName);
+            GameObject existing = GameObject.Find(_archName);
             if (existing != null) Destroy(existing);
 
-            var go = new GameObject(_dumbbellName);
-            go.transform.position = _dumbbellPosition;
-            // freezeRotation: false — the dumbbell is a hookable / liftable
-            // physics test object. Frozen rotation would make it act like
-            // a stationary fortress (the combat dummy's behaviour); the
-            // player should be able to swing the dumbbell around with a
-            // grapple, watch it tumble, drop it from altitude, etc.
-            Robogame.Robots.Robot dumbbell = ChassisFactory.BuildTarget(
-                go, _dumbbellBlueprint, state.Library,
-                freezeRotation: false);
-            int blockCount = dumbbell != null ? dumbbell.BlockCount : 0;
-            Debug.Log($"[Robogame] Dumbbell dummy spawned at {_dumbbellPosition} with {blockCount} blocks.", go);
+            var go = new GameObject(_archName);
+            go.transform.position = _archPosition;
+            // freezeRotation: true — the arch is a grounded structural
+            // target, not a swing-around mass. The player flies through
+            // it and grapples the top beam; the joint pulls on the chassis
+            // (whose Rigidbody is freeze-rotation) so the arch stays
+            // upright while the helicopter feels the tension.
+            Robogame.Robots.Robot arch = ChassisFactory.BuildTarget(
+                go, _archBlueprint, state.Library,
+                freezeRotation: true);
+            int blockCount = arch != null ? arch.BlockCount : 0;
+            Debug.Log($"[Robogame] Arch dummy spawned at {_archPosition} with {blockCount} blocks.", go);
         }
 
         /// <summary>
