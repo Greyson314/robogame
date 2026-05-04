@@ -16,39 +16,120 @@ MonoBehaviour:
   _kind: 0
   _rotorsGenerateLift: 1
   _entries:
-  - BlockId: block.structure.cube
-    Position: {x: 0, y: 0, z: 1}
-    Up: {x: 0, y: 1, z: 0}
   - BlockId: block.cpu.standard
     Position: {x: 0, y: 0, z: 0}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: 0, y: 0, z: -1}
+    Position: {x: 0, y: 0, z: -5}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: 0, y: 0, z: -4}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: 0, y: 0, z: -3}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: -2}
     Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
-    Position: {x: 0, y: 0, z: -3}
+    Position: {x: 0, y: 0, z: -1}
     Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.movement.aero.fin
-    Position: {x: 0, y: 1, z: -3}
+  - BlockId: block.structure.cube
+    Position: {x: 0, y: 0, z: 1}
     Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.cosmetic.rotor
-    Position: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: 0, y: 0, z: 2}
     Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.movement.aero
-    Position: {x: 1, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: 0, y: 0, z: 3}
     Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.movement.aero
+  - BlockId: block.structure.cube
+    Position: {x: 1, y: 0, z: -1}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: 1, y: 0, z: 0}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: 1, y: 0, z: 1}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: 1, y: 0, z: 2}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: -1, y: 0, z: -1}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: -1, y: 0, z: 0}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: -1, y: 0, z: 1}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: -1, y: 0, z: 2}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.weapon.hitscan
+    Position: {x: 2, y: 0, z: 0}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.weapon.hitscan
+    Position: {x: -2, y: 0, z: 0}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: -1, y: 1, z: -1}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
     Position: {x: -1, y: 1, z: 0}
     Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.movement.aero
-    Position: {x: 0, y: 1, z: 1}
+  - BlockId: block.structure.cube
+    Position: {x: -1, y: 1, z: 1}
     Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.movement.aero
+  - BlockId: block.structure.cube
+    Position: {x: -1, y: 1, z: 2}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
     Position: {x: 0, y: 1, z: -1}
     Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: 0, y: 1, z: 0}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: 0, y: 1, z: 1}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: 0, y: 1, z: 2}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: 1, y: 1, z: -1}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: 1, y: 1, z: 0}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: 1, y: 1, z: 1}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: 1, y: 1, z: 2}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.movement.aero.fin
+    Position: {x: 0, y: 1, z: -5}
+    Up: {x: 0, y: 1, z: 0}
   - BlockId: block.cosmetic.rotor
-    Position: {x: 1, y: 0, z: -3}
+    Position: {x: 1, y: 0, z: -4}
     Up: {x: 1, y: 0, z: 0}
+  - BlockId: block.cosmetic.rotor
+    Position: {x: 0, y: 2, z: 0}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.structure.cube
+    Position: {x: 0, y: 3, z: 0}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.movement.aero
+    Position: {x: 1, y: 3, z: 0}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.movement.aero
+    Position: {x: -1, y: 3, z: 0}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.movement.aero
+    Position: {x: 0, y: 3, z: 1}
+    Up: {x: 0, y: 1, z: 0}
+  - BlockId: block.movement.aero
+    Position: {x: 0, y: 3, z: -1}
+    Up: {x: 0, y: 1, z: 0}

@@ -126,11 +126,14 @@ short weekend depending on how nice we want the API to be.
 
 ## 3. Damage model for kinetic / contact weapons
 
-> Status: **deferred**. Today no rope, rotor tip, or other kinetic
-> chassis component deals damage. `RopeTip.DealsDamage` exists as a
-> gating bool and is hard-wired to `false`. This section captures the
-> shape of the eventual damage formula so we don't reinvent it under
-> pressure.
+> Status: **shipped for tip blocks (Hook / Mace, session 19 phase 5),
+> still deferred for the bare `RopeTip` and rotor-as-flail use cases.**
+> [`TipBlock`](../Assets/_Project/Scripts/Movement/TipBlock.cs) (with
+> `HookBlock` and `MaceBlock` subclasses) implements the damage model
+> below. `RopeTip.DealsDamage` remains a gating bool, hard-wired to
+> `false` for the default (no-tip) chain. This section is the
+> authoritative spec — when more kinetic damage paths land, they
+> follow this shape.
 
 ### The four required elements
 
@@ -162,17 +165,25 @@ spark; the actual HP write is server-side only. See
 [NETCODE_PLAN.md](NETCODE_PLAN.md). Until netcode, single-machine
 authority is fine and damage runs locally in the contact callback.
 
-### Tuning knobs
+### Tuning knobs (shipped)
 
-When ropes start dealing damage:
+Live in [`Tweakables.cs`](../Assets/_Project/Scripts/Core/Tweakables.cs)
+under group "Combat":
 
-- `Combat.RopeDamagePerKj` — mirrors `Impact.DamagePerKj`. Likely
-  much lower (rope tip momentum is small).
-- `Combat.RopeMinSpeed` — below this, no damage. Default ~ 4 m/s.
-- `Combat.RopeHitCooldown` — per-pair debounce window in seconds.
+- `Combat.RopeDamagePerKj` — default 2.0, range 0..50. Mirrors
+  `Impact.DamagePerKj` but tuned conservatively (rope tip momentum
+  is small at default mass × default RPM).
+- `Combat.RopeMinSpeed` — default 4.0 m/s, range 0..20.
+- `Combat.RopeHitCooldown` — default 0.10 s, range 0.02..1.0.
 
 These are **performance / feel** knobs, not gameplay-shape knobs.
-The rope COUNT, RADIUS, SEGMENT COUNT stay graphics-only (see § 5).
+Hook vs Mace differentiation comes from `BlockDefinition.Mass`
+(0.5 kg vs 2.0 kg) — same dmg/kJ across tip types, mass differential
+drives the kinetic-energy contribution. The rope COUNT, RADIUS,
+SEGMENT COUNT stay graphics-only (see § 5).
+
+**MP debt:** these are still per-machine Tweakables today, which
+violates § 1.5. Server picks canonical values when netcode lands.
 
 ---
 
@@ -240,9 +251,10 @@ If any answer is "yes," the value goes on the blueprint, not in
 | `Plane.*`, `Thruster.*`, `Rudder.*`, `Ground.*`, `Chassis.*` | Single-player only today. **Will move to per-block / per-chassis config when netcode lands** — currently a known debt. |
 | `Water.*` | Arena property. Same arena → same value for all players, server pushes the seed. Stays. |
 | `Combat.Smg*`, `Combat.Bomb*` | Same debt as Plane / Thruster. Move to `WeaponDefinition` SOs when a second weapon ships. |
-| `Rope.*` | **Cosmetic / quality.** Rope blocks today don't deal damage and aren't visible to other players in any consequential way (the chain is just a hanging string). Stays in Tweakables. |
-| `Rotor.RPM` | **Cosmetic / quality** today; must move when rotors drive damage. The visual-only rotor (ropes = 0) is fine forever. |
-| `Rotor.RopeCount`, `Rotor.RopeRadius`, `Rotor.RopeSegments` | **Graphics-only by contract.** Hard requirement: rotor damage / hit area cannot depend on these. See § 3. |
+| `Combat.RopeDamagePerKj`, `Combat.RopeMinSpeed`, `Combat.RopeHitCooldown` | **MP debt.** Drive contact damage from `Hook` / `Mace` tip blocks (§ 3). Currently per-machine; server picks canonical values once netcode lands. |
+| `Aero.WingSpan`, `Aero.WingChord`, `Aero.WingThickness` | **Cosmetic / visual.** Drive `_wingMesh.localScale` only — `AeroSurfaceBlock.FixedUpdate` does NOT read them. If any future PR couples them to lift / drag / hit area, they MUST move to per-block blueprint config first. |
+| `Rope.*` | **Cosmetic / quality.** Rope blocks today don't deal damage at the segment level (only the adopted Hook / Mace tip does). The rope chain itself is just a hanging string. Stays in Tweakables. |
+| `Rotor.RPM` | **Cosmetic / quality** today; must move when rotors drive damage. The visual-only rotor (no foils adopted) is fine forever. |
 | `Impact.*` | Same single-player debt. Server picks the canonical values when MP lands. |
 | `Stress.*` | Dev-only. Never observed by other players because stress targets are local-only entities. Stays. |
 

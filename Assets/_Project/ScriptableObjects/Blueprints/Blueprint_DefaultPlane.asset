@@ -97,6 +97,6 @@ MonoBehaviour:
   - BlockId: block.cosmetic.rope
     Position: {x: 0, y: -1, z: -3}
     Up: {x: 0, y: 1, z: 0}
-  - BlockId: block.cosmetic.rotor
-    Position: {x: 0, y: 1, z: -2}
+  - BlockId: block.weapon.tip.hook
+    Position: {x: 0, y: -2, z: -3}
     Up: {x: 0, y: 1, z: 0}

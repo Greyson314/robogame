@@ -1,10 +1,12 @@
 # Session 18 — Helicopter foundations: stable frame + foil-dimension knobs
 
-> Status: **planning.** Carries forward the three open bugs from
-> [session 17](17-rotor-foil-decoupling-followups.md) (B1 garage render,
-> B2 chassis spinning with the rotor, B3 spin-out destruction). Sets the
-> multi-session direction for the helicopter chassis and lays out the
-> first-session scope cut.
+> Status: **closed.** Phase A (B1 garage gate) and Phase C (Aero
+> tweakables) shipped in this session. B2/B3 frame stability ended up
+> needing two more fixes that landed in [session 21](21-helicopter-spin-axis-lift.md):
+> pure-axial rotor lift (kills induced-drag yaw) and foil-vs-chassis
+> ignore-pair (kills collision-sweep yaw). The original session-17
+> diagnostic candidates ranked correctly on the lift bug but missed
+> the collision channel entirely.
 
 ## Multi-session goal (helicopter arc)
 

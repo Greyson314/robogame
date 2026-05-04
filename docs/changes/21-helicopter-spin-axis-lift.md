@@ -1,9 +1,12 @@
-# Session 21 — Helicopter frame stability: pure-axial rotor lift
+# Session 21 — Helicopter frame stability: pure-axial rotor lift + foil collision ignore-pair
 
-> Status: **shipped, awaiting in-game verification.** The helicopter
-> chassis was spinning about its own rotor axis at near-rotor speed
-> (the "catapulting itself within seconds" report) because the lift
-> from the four blades wasn't coplanar with the spin axis. Fix below.
+> Status: **shipped, awaiting in-game verification.** Two coupled bug
+> sources took out the helicopter's frame stability — both fixed in
+> this session, both needed (either alone leaves the chassis spinning):
+> 1. Lift was not coplanar with the spin axis (induced-drag yaw torque).
+> 2. Foil host-cube colliders swept through chassis colliders at the
+>    same y-level (collision-impulse yaw torque).
+>
 > Closes session 17's B2/B3 outstanding bugs.
 
 ## Diagnosis

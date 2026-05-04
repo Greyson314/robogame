@@ -1,8 +1,10 @@
 # Session 19 — Blueprint authoring cleanup, rotor stem fix, bigger helicopter, hook/mace, barbell
 
-> Status: **in progress.** Multi-phase autonomous run while the user is
-> away. Each phase commits at its natural boundary. Pushes are left for
-> the user.
+> Status: **closed.** All six phases shipped across the autonomous run
+> (one commit per phase). Helicopter frame stability that this session
+> set up the visual context for landed in
+> [session 21](21-helicopter-spin-axis-lift.md). Plane sandbox tweaks
+> live in [session 20](20-plane-rope-tip-sandbox.md).
 
 ## Multi-phase intent
 
