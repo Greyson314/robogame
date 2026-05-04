@@ -109,6 +109,17 @@ namespace Robogame.Core
         public const string AeroWingChord     = "Aero.WingChord";
         public const string AeroWingThickness = "Aero.WingThickness";
 
+        // Rope-tip contact damage (see TipBlock / HookBlock / MaceBlock).
+        // Single shared dmg/kJ across all tip types — Hook vs Mace
+        // differentiation comes from each block's mass (set in
+        // BlockDefinition), not from a per-type damage coefficient. Mass
+        // ÷ damage coupling matches the kinetic-energy formula's contract:
+        // dmg = ½ × μ × v² × dmgPerKj × 0.001. Mirrors PHYSICS_PLAN §3
+        // tuning knob spec.
+        public const string RopeDamagePerKj  = "Combat.RopeDamagePerKj";
+        public const string RopeMinSpeed     = "Combat.RopeMinSpeed";
+        public const string RopeHitCooldown  = "Combat.RopeHitCooldown";
+
         // Momentum / ramming impact (see MomentumImpactHandler). Damage
         // is computed from reduced-mass kinetic energy in kJ and then
         // distributed across a 3-ring splash profile so a hard ram
@@ -314,6 +325,19 @@ namespace Robogame.Core
             Register(AeroWingSpan,      "Aero", "Wing Span (m)",      1.00f, 0.30f, 3.00f);
             Register(AeroWingChord,     "Aero", "Wing Chord (m)",     0.90f, 0.20f, 2.50f);
             Register(AeroWingThickness, "Aero", "Wing Thickness (m)", 0.08f, 0.02f, 0.40f);
+
+            // Rope-tip damage. Defaults are intentionally conservative:
+            // a default-mass mace (2.0 kg) at 6 m/s above the threshold
+            // produces ~36 J → 0.036 kJ → 0.072 dmg with the default
+            // dmg/kJ of 2 — a rounding tap. Heavier swings (the rope's
+            // pendulum at apex on a stress tower) build to ~10 m/s
+            // tangential which yields ~50 J → 0.05 kJ → ~0.1 dmg. Bump
+            // dmg/kJ to 20+ for "test combat feel" sessions. Per
+            // PHYSICS_PLAN §3 these are MP debt — server picks
+            // canonical values once netcode lands.
+            Register(RopeDamagePerKj, "Combat", "Rope Damage per kJ", 2.0f, 0f, 50f);
+            Register(RopeMinSpeed,    "Combat", "Rope Min Speed (m/s)", 4.0f, 0f, 20f);
+            Register(RopeHitCooldown, "Combat", "Rope Hit Cooldown (s)", 0.10f, 0.02f, 1.0f);
 
             // Impact. Defaults tuned for a 50 kg plane vs 50 kg dummy at
             // 30 m/s closing — μ ≈ 25, KE ≈ 11.25 kJ, ×5 dmg/kJ ≈ 56 dmg

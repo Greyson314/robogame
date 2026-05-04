@@ -47,6 +47,15 @@ namespace Robogame.Tools.Editor
             // a kinematic hub plus its rope ring) but still well below
             // structural mass.
             CreateOrUpdate("BlockDef_Rotor",      BlockIds.Rotor,      "Rotor",          BlockCategory.Cosmetic,  maxHealth:  60f, mass: 0.6f, cpuCost: 10, tint: w);
+            // Hook + Mace tip blocks. Both adopt onto a rope's tip
+            // segment at game-start and deal contact damage per
+            // docs/PHYSICS_PLAN.md §3. Hook is light + sharp (high damage
+            // per kJ, low mass means modest KE per swing). Mace is heavy +
+            // blunt (low damage per kJ, high mass means big KE per swing).
+            // The mass differential is the gameplay differentiator; share
+            // the dmg/kJ tweakable so balance changes hit both at once.
+            CreateOrUpdate("BlockDef_Hook",       BlockIds.Hook,       "Rope Hook",      BlockCategory.Weapon,    maxHealth:  60f, mass: 0.5f, cpuCost: 12, tint: w);
+            CreateOrUpdate("BlockDef_Mace",       BlockIds.Mace,       "Rope Mace",      BlockCategory.Weapon,    maxHealth:  90f, mass: 2.0f, cpuCost: 18, tint: w);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();

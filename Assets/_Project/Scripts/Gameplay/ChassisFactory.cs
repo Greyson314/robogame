@@ -150,6 +150,12 @@ namespace Robogame.Gameplay
                 // present (the binder is just a BlockPlaced subscriber).
                 EnsureComponent<RobotRotorBinder>(root);
 
+                // Tip-block binder (Hook / Mace). Attaches the per-tip
+                // MonoBehaviour at placement; adoption onto an adjacent
+                // rope's chain happens in RopeBlock.Build at game-start.
+                // Zero cost when no tip blocks are placed.
+                EnsureComponent<RobotTipBlockBinder>(root);
+
                 // Ramming damage (kinetic-energy based). Lives on every
                 // player chassis so plane-vs-dummy / plane-vs-plane
                 // collisions both deal mutual damage scaled by reduced
@@ -236,6 +242,7 @@ namespace Robogame.Gameplay
             // tower symptom in v0.5.
             EnsureComponent<Robogame.Movement.RobotRopeBinder>(root);
             EnsureComponent<Robogame.Movement.RobotRotorBinder>(root);
+            EnsureComponent<Robogame.Movement.RobotTipBlockBinder>(root);
 
             grid.Clear();
             foreach (ChassisBlueprint.Entry entry in blueprint.Entries)

@@ -186,8 +186,79 @@ Each `WeaponBlock` owns its own `ProjectileGun` and yokes/aims at the
 chassis's shared `WeaponMount` aim point — multi-gun chassis was
 already supported, this is the first preset to exercise it.
 
+## Phase 5 — Hook + Mace tip blocks (rope-end damage)
+
+New placeable blocks that adopt onto an adjacent rope's tip segment
+at game-start and deal contact damage on collision per PHYSICS_PLAN §3.
+
+### New block ids and definitions
+
+- `BlockIds.Hook` — light + sharp, mass 0.5 kg, 60 HP.
+- `BlockIds.Mace` — heavy + blunt, mass 2.0 kg, 90 HP.
+
+Both go through `BlockDefinitionWizard.CreateTestDefinitions` so a
+re-scaffold creates the asset files automatically. Mass differential
+is the gameplay differentiator: same swing speed, ~4× the kinetic
+energy on a mace vs a hook.
+
+### TipBlock base class + subclasses
+
+`Movement/TipBlock.cs` (new) — abstract base. Holds the cooldown dict,
+the kinetic-energy formula, the chassis-self-damage filter. Subclasses
+implement `BuildTipVisual` to draw their own mesh + collider.
+
+`Movement/HookBlock.cs` — shaft + barb, box collider.
+`Movement/MaceBlock.cs` — sphere with six axial spikes, sphere collider.
+
+Damage formula matches PHYSICS_PLAN §3 spec:
+
+```
+μ = m_self × m_other / (m_self + m_other)   (collapses to m_self vs static)
+KE_J = ½ × μ × |v_rel|²
+KE_kJ = KE_J × 0.001
+damage = KE_kJ × Tweakables.RopeDamagePerKj
+```
+
+Speed gate: `Tweakables.RopeMinSpeed` (default 4 m/s).
+Per-pair cooldown: `Tweakables.RopeHitCooldown` (default 0.10 s).
+
+### Adoption flow
+
+`RobotTipBlockBinder` (new, mirrors `RobotRopeBinder`) attaches the
+right MonoBehaviour at placement time. `RopeBlock.Build` now calls
+`TryAdoptTipBlock` after spawning the chain: scans grid neighbours
+for a `TipBlock`, reparents it under the last segment, sums the tip's
+mass into the segment's rigidbody, and adds a
+`TipCollisionForwarder` on the segment that forwards
+`OnCollisionEnter` to the tip's `HandleCollision`.
+
+`DestroySegments` now calls `ReleaseAdoptedTip` first so the tip
+GameObject doesn't get destroyed alongside the segments on a Rebuild.
+
+### Tweakables
+
+`Combat.RopeDamagePerKj` (default 2.0, range 0..50).
+`Combat.RopeMinSpeed` (default 4.0, range 0..20).
+`Combat.RopeHitCooldown` (default 0.10, range 0.02..1.0).
+
+Per PHYSICS_PLAN §5 these are MP debt — server picks canonical values
+once netcode lands. Documented in the registration block.
+
+### BlueprintBuilder helpers
+
+- `RopeWithHook(ropeCell)` — places a Rope plus a Hook directly below.
+- `RopeWithMace(ropeCell)` — places a Rope plus a Mace directly below.
+
+`BlueprintAsciiDump` glyph map extended: `h` for Hook, `m` for Mace.
+
+### Tests
+
+`BlueprintBuilderTests` covers `RopeWithHook` / `RopeWithMace`
+placement and validates a CPU + cube + rope + hook chain passes
+connectivity. PlayMode tests for the actual contact damage are
+deferred — the formula is shape-mirrored on `MomentumImpactHandler`,
+which is already covered by ramming integration tests.
+
 ## Phases ahead
 
-- **Phase 5** — Hook + Mace tip blocks (new block ids, binders,
-  damage path per PHYSICS_PLAN §3).
 - **Phase 6** — barbell dummy + arena spawn wiring.

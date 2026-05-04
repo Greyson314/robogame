@@ -85,6 +85,13 @@ namespace Robogame.Movement
         private readonly List<Rigidbody> _segments = new();
         private GameObject _segmentContainer;
         private Rigidbody _anchorRb;
+        // Adopted tip block (Hook or Mace placed adjacent in the chassis
+        // grid). Stored so a Rebuild can put it back where we found it
+        // before destroying the segments.
+        private TipBlock _adoptedTip;
+        private Transform _tipOriginalParent;
+        private Vector3 _tipOriginalLocalPos;
+        private Quaternion _tipOriginalLocalRot;
 
         // Property cache for tinting without instantiating a new material.
         private static readonly int s_albedoColorId = Shader.PropertyToID("_AlbedoColor");
@@ -223,11 +230,102 @@ namespace Robogame.Movement
                 // without paying for full-chain world collision.
                 if (i == count - 1)
                 {
-                    RopeTip tip = seg.AddComponent<RopeTip>();
-                    tip.Initialize(segRad * 1.6f);
-                    tip.IgnoreChassisCollisions(_anchorRb.transform);
+                    // First, look for an adjacent Hook / Mace block to adopt
+                    // as a custom tip. If found, the default sphere collider
+                    // is skipped and the tip block's geometry / damage
+                    // logic takes over.
+                    if (TryAdoptTipBlock(rb))
+                    {
+                        // Adopted tip handles its own collider + IgnoreChassis;
+                        // mass is summed into rb inside TryAdoptTipBlock.
+                    }
+                    else
+                    {
+                        RopeTip tip = seg.AddComponent<RopeTip>();
+                        tip.Initialize(segRad * 1.6f);
+                        tip.IgnoreChassisCollisions(_anchorRb.transform);
+                    }
                 }
             }
+        }
+
+        // Look at the rope's grid neighbours for a Hook / Mace block.
+        // If found, reparent it under the last segment, sum its mass into
+        // the segment's rigidbody, and wire a TipCollisionForwarder on
+        // the segment so contact callbacks reach the tip block.
+        private bool TryAdoptTipBlock(Rigidbody lastSegmentRb)
+        {
+            BlockBehaviour ropeHost = GetComponent<BlockBehaviour>();
+            if (ropeHost == null) return false;
+            BlockGrid grid = GetComponentInParent<BlockGrid>();
+            if (grid == null) return false;
+
+            // Six axial neighbours; first hit wins. The blueprint convention
+            // is to place tips directly below the rope (-Y), but we accept
+            // any face neighbour so a creative builder can route a hook
+            // off the side of a rope-bearing arm.
+            Vector3Int[] all =
+            {
+                new Vector3Int( 0,-1, 0), new Vector3Int( 0, 1, 0),
+                new Vector3Int( 1, 0, 0), new Vector3Int(-1, 0, 0),
+                new Vector3Int( 0, 0, 1), new Vector3Int( 0, 0,-1),
+            };
+            TipBlock tip = null;
+            foreach (Vector3Int off in all)
+            {
+                if (!grid.TryGetBlock(ropeHost.GridPosition + off, out BlockBehaviour neighbor)) continue;
+                if (neighbor == null) continue;
+                tip = neighbor.GetComponent<TipBlock>();
+                if (tip != null) break;
+            }
+            if (tip == null) return false;
+
+            _adoptedTip            = tip;
+            _tipOriginalParent     = tip.transform.parent;
+            _tipOriginalLocalPos   = tip.transform.localPosition;
+            _tipOriginalLocalRot   = tip.transform.localRotation;
+
+            // Reparent under the last segment, sit at the segment center
+            // (the segment's collider area is what we want the tip to
+            // visually occupy), local rotation aligned to the segment
+            // forward.
+            tip.transform.SetParent(lastSegmentRb.transform, worldPositionStays: false);
+            tip.transform.localPosition = Vector3.zero;
+            tip.transform.localRotation = Quaternion.identity;
+
+            // Mass: the tip block's BlockDefinition mass is summed into
+            // the segment so the chain's pendulum dynamics reflect the
+            // weight at the end. Without this, a "heavy mace" wouldn't
+            // actually swing harder than a "light hook".
+            lastSegmentRb.mass += tip.Mass;
+
+            // Forward collision callbacks to the tip block.
+            TipCollisionForwarder fwd = lastSegmentRb.gameObject.AddComponent<TipCollisionForwarder>();
+            fwd.Tip = tip;
+            tip.AttachToHost(lastSegmentRb, _anchorRb);
+            return true;
+        }
+
+        private void ReleaseAdoptedTip()
+        {
+            if (_adoptedTip == null) return;
+            // Notify the tip its host is going away.
+            _adoptedTip.DetachFromHost();
+            // Reparent back to where we found it. If the original parent
+            // is gone (chassis destroyed), unparent to scene root so the
+            // tip GameObject doesn't leak under a destroyed segment.
+            if (_tipOriginalParent != null)
+            {
+                _adoptedTip.transform.SetParent(_tipOriginalParent, worldPositionStays: false);
+                _adoptedTip.transform.localPosition = _tipOriginalLocalPos;
+                _adoptedTip.transform.localRotation = _tipOriginalLocalRot;
+            }
+            else
+            {
+                _adoptedTip.transform.SetParent(null, worldPositionStays: true);
+            }
+            _adoptedTip = null;
+            _tipOriginalParent = null;
         }
 
         private void BuildSegmentVisual(Transform segRoot, float segLen, float segRad)
@@ -294,6 +392,9 @@ namespace Robogame.Movement
 
         private void DestroySegments()
         {
+            // Detach any adopted tip first, before the segment it's parented
+            // under gets destroyed — otherwise Unity destroys the tip too.
+            ReleaseAdoptedTip();
             _segments.Clear();
             _anchorRb = null;
             if (_segmentContainer == null) return;

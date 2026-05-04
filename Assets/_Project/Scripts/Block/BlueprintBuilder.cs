@@ -202,6 +202,35 @@ namespace Robogame.Block
             return this;
         }
 
+        // -----------------------------------------------------------------
+        // Rope with adopted tip
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Place a rope at <paramref name="ropeCell"/> with a Hook block
+        /// directly below it (so <see cref="Movement.RopeBlock"/> adopts
+        /// the hook as its tip at game-start). Both cells go in the
+        /// chassis grid; visual swap happens at runtime.
+        /// </summary>
+        public BlueprintBuilder RopeWithHook(Vector3Int ropeCell)
+        {
+            Block(BlockIds.Rope, ropeCell);
+            Block(BlockIds.Hook, ropeCell + Vector3Int.down);
+            return this;
+        }
+
+        /// <summary>
+        /// Place a rope at <paramref name="ropeCell"/> with a Mace block
+        /// directly below it. Heavier than a hook (default 2.0 kg vs 0.5
+        /// kg) so the chain swings with more momentum and hits harder.
+        /// </summary>
+        public BlueprintBuilder RopeWithMace(Vector3Int ropeCell)
+        {
+            Block(BlockIds.Rope, ropeCell);
+            Block(BlockIds.Mace, ropeCell + Vector3Int.down);
+            return this;
+        }
+
         // Pick two unit Vector3Ints perpendicular to `axis` (each axis-aligned).
         private static void LateralAxes(Vector3Int axis, out Vector3Int a, out Vector3Int b)
         {

@@ -38,6 +38,8 @@ namespace Robogame.Block
             { BlockIds.BombBay,    'B' },
             { BlockIds.Rope,       '|' },
             { BlockIds.Rotor,      'O' },
+            { BlockIds.Hook,       'h' },
+            { BlockIds.Mace,       'm' },
         };
 
         public static string Dump(BlueprintPlan plan)
@@ -92,7 +94,8 @@ namespace Robogame.Block
             }
 
             sb.Append("Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  ")
-              .Append("A=Aero  F=AeroFin  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor\n");
+              .Append("A=Aero  F=AeroFin  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  ")
+              .Append("h=Hook  m=Mace\n");
             return sb.ToString();
         }
     }

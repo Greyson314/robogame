@@ -24,5 +24,11 @@ namespace Robogame.Block
         public const string BombBay    = "block.weapon.bombbay";
         public const string Rope       = "block.cosmetic.rope";
         public const string Rotor      = "block.cosmetic.rotor";
+        // Tip blocks: adopted by an adjacent RopeBlock at game-start and
+        // attached to the rope's tip segment. Dealing contact damage on
+        // collision per docs/PHYSICS_PLAN.md §3 (reduced-mass × v_rel² /
+        // 2 × dmgPerKj, speed threshold, per-pair cooldown).
+        public const string Hook       = "block.weapon.tip.hook";
+        public const string Mace       = "block.weapon.tip.mace";
     }
 }

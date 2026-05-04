@@ -157,5 +157,42 @@ namespace Robogame.Tests.EditMode.Blueprints
                 .BuildValidated();
             Assert.AreEqual(1, plan.Entries.Length);
         }
+
+        // -----------------------------------------------------------------
+        // RopeWithHook / RopeWithMace
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void RopeWithHook_PlacesRopeAndHookBelow()
+        {
+            BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
+                .RopeWithHook(new Vector3Int(0, 0, 0))
+                .Build();
+            Assert.AreEqual(2, plan.Entries.Length);
+            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Rope && e.Position == new Vector3Int(0, 0, 0)));
+            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Hook && e.Position == new Vector3Int(0,-1, 0)));
+        }
+
+        [Test]
+        public void RopeWithMace_PlacesRopeAndMaceBelow()
+        {
+            BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
+                .RopeWithMace(new Vector3Int(0, 0, 0))
+                .Build();
+            Assert.AreEqual(2, plan.Entries.Length);
+            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Rope && e.Position == new Vector3Int(0, 0, 0)));
+            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Mace && e.Position == new Vector3Int(0,-1, 0)));
+        }
+
+        [Test]
+        public void Chassis_WithRopeWithHook_PassesValidation()
+        {
+            // CPU + cube above, rope hanging off cube, hook on rope tip.
+            BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
+                .Block(BlockIds.Cpu, 0, 0, 0)
+                .RopeWithHook(new Vector3Int(0, -1, 0))
+                .BuildValidated();
+            Assert.AreEqual(3, plan.Entries.Length);
+        }
     }
 }
