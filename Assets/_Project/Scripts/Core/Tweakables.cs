@@ -304,7 +304,7 @@ namespace Robogame.Core
             // Rope. Defaults match RopeBlock's serialized fields — these
             // become the live values once Tweakables initialises and any
             // active RopeBlock subscribes to Changed for hot-rebuild.
-            Register(RopeSegmentCount,   "Rope", "Segment Count",     5f,   2f,   32f);
+            Register(RopeSegmentCount,   "Rope", "Segment Count",     8f,   2f,   32f);
             Register(RopeSegmentLength,  "Rope", "Segment Length (m)", 0.50f, 0.10f, 1.50f);
             Register(RopeSegmentRadius,  "Rope", "Segment Radius (m)", 0.08f, 0.02f, 0.40f);
             Register(RopeSegmentMass,    "Rope", "Segment Mass (kg)",  0.04f, 0.005f, 1.0f);

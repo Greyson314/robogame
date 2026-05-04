@@ -17,33 +17,27 @@ plane and load it up with eight ropes-with-tips.
 
 [`GameplayScaffolder.BuildPlaneEntries`](../../Assets/_Project/Scripts/Tools/Editor/GameplayScaffolder.cs):
 
-- **Removed** the cosmetic tail rotor at `(0, 1, -2)` and the single
-  rope-tail at `(0, -1, -3)`.
-- **Added** eight `Rope` + tip pairs, all at `y=-1` below an existing
-  wing or tailplane cell, with the tip block at `y=-2`:
+- **Removed** the cosmetic tail rotor at `(0, 1, -2)`.
+- **Replaced** the single bare rope-tail at `(0, -1, -3)` with a
+  rope-with-hook pair: rope at `(0, -1, -3)`, hook at `(0, -2, -3)`.
+  Hook hangs straight off the thruster cell at the back of the
+  fuselage.
 
-| Rope cell | Tip type | Tip cell |
-|---|---|---|
-| `( 2, -1,  0)` | Hook | `( 2, -2,  0)` |
-| `(-2, -1,  0)` | Hook | `(-2, -2,  0)` |
-| `( 3, -1,  0)` | Mace | `( 3, -2,  0)` |
-| `(-3, -1,  0)` | Mace | `(-3, -2,  0)` |
-| `( 1, -1, -3)` | Hook | `( 1, -2, -3)` |
-| `(-1, -1, -3)` | Hook | `(-1, -2, -3)` |
-| `( 2, -1, -3)` | Mace | `( 2, -2, -3)` |
-| `(-2, -1, -3)` | Mace | `(-2, -2, -3)` |
+[`Tweakables.RopeSegmentCount`](../../Assets/_Project/Scripts/Core/Tweakables.cs):
 
-Mix is intentional — 4 hooks + 4 maces so the user sees both contact
-profiles in one play session. Outer wings carry the heavier maces
-(longer lever arm = more pendulum momentum); inner wings + tailplane
-inboards carry the lighter hooks.
+- Default bumped from 5 → 8 so the plane's tail rope reads as
+  "length 8" out of the box (4 m at 0.5 m / segment). Min/max range
+  unchanged at 2..32 — the slider still covers everything.
+  *Caveat:* if the user already has a value saved to disk in
+  `tweakables.json`, that persisted value will reload over the new
+  default. Use the slider or delete the file to pick up the new
+  default.
 
 ## Connectivity
 
-Every rope cell is face-adjacent to an existing wing or tailplane
-`Aero` cell (e.g. rope at `(2, -1, 0)` is adjacent to `(2, 0, 0)` —
-the second wing segment). Each tip cell is face-adjacent to its own
-rope cell at `y=-1`. Validator passes.
+Rope at `(0, -1, -3)` is face-adjacent to the thruster cell at
+`(0, 0, -3)`. Hook at `(0, -2, -3)` is adjacent to the rope cell.
+Validator passes.
 
 ## To exercise
 

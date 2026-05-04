@@ -167,36 +167,14 @@ namespace Robogame.Tools.Editor
             list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,    new Vector3Int( 0, 1, -3)));
             list.Add(new ChassisBlueprint.Entry(BlockIds.AeroFin, new Vector3Int( 0, 2, -3)));
 
-            // 8 ropes-with-tips hanging below the wings + tailplane —
-            // a sandbox loadout for hot-testing the new Hook / Mace
-            // contact-damage path (PHYSICS_PLAN §3) while the helicopter
-            // frame-stability bug is being diagnosed in parallel. Mix is
-            // 4 hooks + 4 maces so both behaviours are visible at once.
-            //
-            // Each pair is (rope @ y=-1, tip @ y=-2) directly below an
-            // existing wing or tailplane Aero cell, so face-adjacency
-            // connectivity walks rope → tip → CPU through the wing.
-            // Mirrored across X for symmetry.
-            //
-            // Outer wings carry the heavier maces (longer lever arm =
-            // more pendulum momentum); inner wings carry the lighter
-            // hooks. Tailplane mirrors the same pattern at z=-3.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int( 2, -1,  0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Hook, new Vector3Int( 2, -2,  0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int(-2, -1,  0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Hook, new Vector3Int(-2, -2,  0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int( 3, -1,  0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Mace, new Vector3Int( 3, -2,  0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int(-3, -1,  0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Mace, new Vector3Int(-3, -2,  0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int( 1, -1, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Hook, new Vector3Int( 1, -2, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int(-1, -1, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Hook, new Vector3Int(-1, -2, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int( 2, -1, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Mace, new Vector3Int( 2, -2, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int(-2, -1, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Mace, new Vector3Int(-2, -2, -3)));
+            // Single rope-with-tip hanging off the tail. 8 segments at
+            // 0.5 m each = 4 m of rope, dangling a hook below the
+            // thruster cell. Lets the user hot-test the rope-tip
+            // contact-damage path while the helicopter frame-stability
+            // bug is being diagnosed in parallel. Connectivity walks
+            // hook → rope → tail-boom cube → CPU.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int(0, -1, -3)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Hook, new Vector3Int(0, -2, -3)));
             return list.ToArray();
         }
 
