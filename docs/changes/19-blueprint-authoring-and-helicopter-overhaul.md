@@ -156,10 +156,38 @@ test cases moved their foil placements from `y=1` to `y=2` to reflect
 the new mechanism-cell scan. Axial-cull and zero-baseline-cost tests
 unchanged.
 
+## Phase 4 — Bigger helicopter, two guns
+
+Default helicopter scales up from ~11 cells to ~38. New layout, top-down:
+
+- **Body (y=0):** 3-wide × 9-deep central column with sides at z=-1..2.
+  CPU at the cabin centre; nose tip at (0,0,3); tail boom 4 cells at
+  x=0, z=-2..-5.
+- **Hardpoint guns (y=0):** outboard at (±2, 0, 0). Mirrored across X.
+  Each connects via face-adjacency through the corresponding cabin
+  side at (±1, 0, 0).
+- **Cabin roof (y=1):** 3×4 slab at z=-1..2, anchoring the rotor stem.
+- **Tail fin (y=1):** AeroFin at the boom tip, (0, 1, -5).
+- **Tail rotor (y=0):** bare cosmetic spinner at (1, 0, -4) on the
+  boom segment's +X face. Spin axis +X, no foils — purely visual.
+- **Main rotor + foil ring:** stem at (0, 2, 0); mechanism cube and
+  four foils at y=3 (the absolute topmost cells on the chassis,
+  matching the user's request).
+
+`HelicopterBlueprintTests` (new) covers four invariants:
+
+- Foils are at the absolute topmost Y layer.
+- Exactly two `BlockIds.Weapon` blocks.
+- Guns mirror across X (same Y, same Z, opposite X).
+- Full validator pass.
+- `RotorsGenerateLift = true`.
+
+Each `WeaponBlock` owns its own `ProjectileGun` and yokes/aims at the
+chassis's shared `WeaponMount` aim point — multi-gun chassis was
+already supported, this is the first preset to exercise it.
+
 ## Phases ahead
 
-- **Phase 4** — fully redesigned, larger helicopter using the new
-  builder, two guns.
 - **Phase 5** — Hook + Mace tip blocks (new block ids, binders,
   damage path per PHYSICS_PLAN §3).
 - **Phase 6** — barbell dummy + arena spawn wiring.

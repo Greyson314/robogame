@@ -293,39 +293,64 @@ namespace Robogame.Tools.Editor
 
         private static ChassisBlueprint.Entry[] BuildHelicopterEntries()
         {
-            // Helicopter sandbox chassis built via the new BlueprintBuilder.
-            // Two-block-tall rotor: stem at (0,1,0), mechanism cell at
-            // (0,2,0), foils ringed around the mechanism cell. Foils are
-            // therefore the absolute topmost blocks (y=2), matching the
-            // user's intent that the blades read as the head of the
-            // helicopter rather than overlap the cabin.
+            // Larger helicopter sandbox — ~38 cells, roughly 4× the size of
+            // the previous T-shaped placeholder. Built via BlueprintBuilder
+            // so the layout reads top-down as a description of the chassis
+            // rather than a coordinate dump.
             //
-            // Plan side profile (z increases forward):
+            // Plan side profile (z increases forward, +X = right):
             //
-            //          A      (y=2, foil ring at mechanism cell)
-            //          M      (y=2, hidden mechanism cap — rotor hides mesh)
-            //          R      (y=1, rotor stem on top of CPU)
-            //   N C  ─ ─ ─    (y=0, nose / cpu / tail boom)
-            //              F  (y=1, tail-fin stabiliser at the boom tip)
+            //                A       y=3 mechanism cell + foil ring
+            //             A  M  A    (foils are the absolute topmost blocks)
+            //                A
+            //                R       y=2 rotor stem (host cell of RotorBlock)
+            //          # # # # #     y=1 cabin roof (3w × 4d slab)
+            //          # # C # #     y=0 cabin floor (CPU at centre)
+            //        G # # # # # G   y=0 outboard hardpoint guns at |x|=2
+            //          # # # # #
+            //                  T     y=0 tail rotor on +X face of the boom
+            //          # # # # #
+            //                #       y=0 tail boom (4 cells, x=0 only)
+            //                #
+            //                #
+            //                F       y=1 vertical tail fin at the boom tip
             //
-            // ChassisKind.Ground keeps the arena spawn on the pad rather
-            // than 18 m up — flip to Plane once helicopter input is
-            // dialled in well enough to launch from altitude.
+            // Scope cuts: ChassisKind.Ground (arena spawn on the pad, not
+            // 18 m up) and RotorsGenerateLift = true (set externally in
+            // CreateOrUpdateBlueprint). Dual side guns share the chassis
+            // WeaponMount; both fire toward the player's aim point each
+            // press, giving the chassis a visible muzzle on each side.
             return BlueprintBuilder.Create("Helicopter", ChassisKind.Ground)
-                // Fuselage + tail boom along Z.
-                .Block(BlockIds.Cube, 0, 0,  1)
-                .Block(BlockIds.Cpu,  0, 0,  0)
-                .Row(BlockIds.Cube, new Vector3Int(0, 0, -1), new Vector3Int(0, 0, -3))
-                // Vertical tail fin on top of the rear of the boom.
-                .Block(BlockIds.AeroFin, 0, 1, -3)
-                // Main rotor + four foils ringed around the mechanism cell
-                // at (0,2,0). The mechanism cube is invisible at runtime
-                // (RotorBlock.HideMechanismCellMesh).
-                .RotorWithFoils(new Vector3Int(0, 1, 0))
-                // Tail rotor on the +X face of the rear boom cell. Bare —
-                // no foils, no mechanism cap — so the rotor's adoption
-                // scan finds nothing and the spin is purely cosmetic.
-                .RotorBare(new Vector3Int(1, 0, -3), spinAxis: Vector3Int.right)
+                // CPU at the cabin centre.
+                .Block(BlockIds.Cpu, 0, 0, 0)
+                // Central column along Z: tail boom (-5..-1) and forward
+                // fuselage (1..3). z=0 holds the CPU (already placed).
+                .Row(BlockIds.Cube, new Vector3Int(0, 0, -5), new Vector3Int(0, 0, -1))
+                .Row(BlockIds.Cube, new Vector3Int(0, 0,  1), new Vector3Int(0, 0,  3))
+                // Cabin sides at |x|=1, z=-1..2. Mirrored across X so
+                // the layout reads as one half + symmetry.
+                .MirrorX(b => b
+                    .Block(BlockIds.Cube, 1, 0, -1)
+                    .Block(BlockIds.Cube, 1, 0,  0)
+                    .Block(BlockIds.Cube, 1, 0,  1)
+                    .Block(BlockIds.Cube, 1, 0,  2))
+                // Outboard hardpoint guns at |x|=2, z=0. Each connects to
+                // the cabin via face-adjacency through (±1, 0, 0).
+                .MirrorX(b => b.Block(BlockIds.Weapon, 2, 0, 0))
+                // Cabin roof: 3-wide × 4-deep slab at y=1, z=-1..2.
+                .Box(BlockIds.Cube, new Vector3Int(-1, 1, -1), new Vector3Int(1, 1, 2))
+                // Vertical tail fin on top of the boom tip.
+                .Block(BlockIds.AeroFin, 0, 1, -5)
+                // Tail rotor: bare cosmetic spinner on the +X face of the
+                // boom segment at (0,0,-4). Spin axis is +X (its mechanism
+                // cell would be (2,0,-4) but no foils are placed there, so
+                // adoption finds zero and the rotor stays a pure visual).
+                .RotorBare(new Vector3Int(1, 0, -4), spinAxis: Vector3Int.right)
+                // Main rotor: stem at (0,2,0) on top of the cabin roof.
+                // RotorWithFoils() also drops the invisible mechanism cube
+                // and the four foils ringed around it at y=3 — those are
+                // the absolute topmost cells on the chassis.
+                .RotorWithFoils(new Vector3Int(0, 2, 0))
                 .Build()
                 .Entries;
         }
