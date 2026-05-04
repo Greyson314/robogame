@@ -14,24 +14,35 @@ MonoBehaviour:
   m_EditorClassIdentifier: Robogame.Block::Robogame.Block.ChassisBlueprint
   _displayName: Buggy
   _kind: 0
+  _rotorsGenerateLift: 0
   _entries:
   - BlockId: block.cpu.standard
     Position: {x: 0, y: 0, z: 0}
+    Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
     Position: {x: -1, y: 0, z: 0}
+    Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
     Position: {x: 1, y: 0, z: 0}
+    Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: 1}
+    Up: {x: 0, y: 1, z: 0}
   - BlockId: block.movement.wheel.steer
     Position: {x: -1, y: 0, z: 1}
+    Up: {x: 0, y: 1, z: 0}
   - BlockId: block.movement.wheel.steer
     Position: {x: 1, y: 0, z: 1}
+    Up: {x: 0, y: 1, z: 0}
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: -1}
+    Up: {x: 0, y: 1, z: 0}
   - BlockId: block.movement.wheel
     Position: {x: -1, y: 0, z: -1}
+    Up: {x: 0, y: 1, z: 0}
   - BlockId: block.movement.wheel
     Position: {x: 1, y: 0, z: -1}
+    Up: {x: 0, y: 1, z: 0}
   - BlockId: block.weapon.hitscan
     Position: {x: 0, y: 1, z: 0}
+    Up: {x: 0, y: 1, z: 0}

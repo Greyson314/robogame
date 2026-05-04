@@ -1,4 +1,6 @@
 using Robogame.Block;
+using Robogame.Core;
+using Robogame.Movement;
 using Robogame.Player;
 using UnityEngine;
 
@@ -44,6 +46,17 @@ namespace Robogame.Gameplay
         [SerializeField] private Vector3 _dummyPosition = new Vector3(0f, 0.5f, 18f);
         [SerializeField] private string _dummyName = "CombatDummy";
 
+        [Header("Stress test — rotor tower")]
+        [Tooltip("Optional spinning-rotor stress-test target. Spawned when " +
+                 "the Stress.RotorTower tweakable crosses 0.5 (drag the slider " +
+                 "in the settings panel or dev HUD). Use to profile rotor + " +
+                 "rope cost under load — see docs/PHYSICS_PLAN.md.")]
+        [SerializeField] private ChassisBlueprint _stressTowerBlueprint;
+        [SerializeField] private Vector3 _stressTowerPosition = new Vector3(40f, 0.5f, 18f);
+        [SerializeField] private string _stressTowerName = "StressRotorTower";
+
+        private GameObject _stressTowerGo;
+
         public GameObject Chassis { get; private set; }
 
         private void Start()
@@ -72,6 +85,29 @@ namespace Robogame.Gameplay
             Chassis = SpawnPlayerChassis(state);
             SpawnDummy(state);
             BindFollowCamera(Chassis);
+
+            // Stress tower: optional. Read the tweakable on entry and
+            // (de)spawn live as the slider moves. Subscribing here means
+            // dragging Stress.RotorTower in the settings panel pops the
+            // tower in/out without re-entering the arena.
+            ApplyStressTowerState(state);
+            Tweakables.Changed += OnTweakablesChanged;
+        }
+
+        private void OnDestroy()
+        {
+            Tweakables.Changed -= OnTweakablesChanged;
+        }
+
+        private void OnTweakablesChanged()
+        {
+            GameStateController state = GameStateController.Instance;
+            if (state == null) return;
+            ApplyStressTowerState(state);
+            // RPM changes too — re-push override values onto every rotor
+            // in the stress tower so the slider drives them live without
+            // tearing the chassis down.
+            UpdateStressTowerRpm();
         }
 
         private GameObject SpawnPlayerChassis(GameStateController state)
@@ -141,6 +177,86 @@ namespace Robogame.Gameplay
                 return;
             }
             SpawnDummy(state);
+        }
+
+        // -----------------------------------------------------------------
+        // Stress tower (optional spinning-rotor stress-test target)
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Reads <see cref="Tweakables.StressRotorTower"/> and brings the
+        /// stress-test rotor tower into existence (or tears it down) to
+        /// match. Safe to call any time after <see cref="Start"/>.
+        /// </summary>
+        public void ApplyStressTowerState(GameStateController state)
+        {
+            bool wantTower = Tweakables.Get(Tweakables.StressRotorTower) >= 0.5f;
+            if (wantTower) SpawnStressTower(state);
+            else           DespawnStressTower();
+        }
+
+        /// <summary>Force-respawn the stress tower (tears down any existing instance).</summary>
+        public void RespawnStressTower()
+        {
+            GameStateController state = GameStateController.Instance;
+            if (state == null) return;
+            DespawnStressTower();
+            // Flip the tweakable on so the user's intent is reflected and
+            // future Tweakables.Changed callbacks don't immediately undo us.
+            Tweakables.Set(Tweakables.StressRotorTower, 1f);
+            SpawnStressTower(state);
+        }
+
+        public void DespawnStressTower()
+        {
+            if (_stressTowerGo != null)
+            {
+                Destroy(_stressTowerGo);
+                _stressTowerGo = null;
+            }
+        }
+
+        private void SpawnStressTower(GameStateController state)
+        {
+            if (_stressTowerBlueprint == null)
+            {
+                Debug.LogWarning(
+                    "[Robogame] ArenaController: stress tower requested but " +
+                    "_stressTowerBlueprint is unassigned. Re-run Robogame › Scaffold " +
+                    "› Gameplay › Build All Pass A.", this);
+                return;
+            }
+            if (state.Library == null) return;
+            if (_stressTowerGo != null) return; // already spawned
+
+            // Reuse the dummy name path — GameObject.Find picks up the
+            // first match, but we keep our own ref in _stressTowerGo so
+            // Find isn't on the despawn hot path.
+            GameObject existing = GameObject.Find(_stressTowerName);
+            if (existing != null) Destroy(existing);
+
+            _stressTowerGo = new GameObject(_stressTowerName);
+            _stressTowerGo.transform.position = _stressTowerPosition;
+            Robogame.Robots.Robot tower = ChassisFactory.BuildTarget(_stressTowerGo, _stressTowerBlueprint, state.Library);
+            int blockCount = tower != null ? tower.BlockCount : 0;
+            Debug.Log($"[Robogame] Stress rotor tower spawned at {_stressTowerPosition} with {blockCount} blocks. " +
+                      "Drag Stress.TowerRpm in settings to spin it up.", _stressTowerGo);
+            UpdateStressTowerRpm();
+        }
+
+        /// <summary>
+        /// Push the current <see cref="Tweakables.StressRotorTowerRpm"/>
+        /// onto every <see cref="RotorBlock"/> under the spawned tower,
+        /// using the per-instance <see cref="RotorBlock.RpmOverride"/>
+        /// hatch so the tower spins independently of the player's chassis
+        /// rotors.
+        /// </summary>
+        private void UpdateStressTowerRpm()
+        {
+            if (_stressTowerGo == null) return;
+            float rpm = Tweakables.Get(Tweakables.StressRotorTowerRpm);
+            RotorBlock[] rotors = _stressTowerGo.GetComponentsInChildren<RotorBlock>(includeInactive: true);
+            for (int i = 0; i < rotors.Length; i++) rotors[i].RpmOverride = rpm;
         }
 
         private static void BindFollowCamera(GameObject chassis)

@@ -135,6 +135,27 @@ namespace Robogame.Gameplay
                     EnsureWeaponMountAndBinder(root);
                 }
 
+                // Rope binder is unconditional: ropes are commonly added
+                // mid-build (player drags one onto an existing plane), and
+                // the binder is just a BlockPlaced subscriber — zero cost
+                // when no rope blocks are present, and avoids an "I added
+                // a rope and nothing happened" trap when the blueprint
+                // didn't originally contain one.
+                EnsureComponent<RobotRopeBinder>(root);
+
+                // Rotor binder — same reasoning as the rope binder. Rotors
+                // are Cosmetic-tab build-mode blocks; players drop them
+                // onto an existing chassis and expect them to start
+                // spinning. Zero per-frame cost when no rotor blocks are
+                // present (the binder is just a BlockPlaced subscriber).
+                EnsureComponent<RobotRotorBinder>(root);
+
+                // Ramming damage (kinetic-energy based). Lives on every
+                // player chassis so plane-vs-dummy / plane-vs-plane
+                // collisions both deal mutual damage scaled by reduced
+                // mass and relative speed.
+                EnsureComponent<Robogame.Combat.MomentumImpactHandler>(root);
+
                 // --- Place the blocks. Subsystems / binders subscribed above
                 //     receive BlockPlaced events and self-attach correctly. ---
                 grid.Clear();
@@ -148,15 +169,31 @@ namespace Robogame.Gameplay
                             root);
                         continue;
                     }
-                    grid.PlaceBlock(def, entry.Position);
+                    grid.PlaceBlock(def, entry.Position, entry.EffectiveUp);
                 }
 
                 robot.RecalculateAggregates();
+
                 return robot;
             }
             finally
             {
                 root.SetActive(wasActive);
+
+                // Per-blueprint opt-in: helicopters flip their cosmetic
+                // rotors into lift mode (kinematic hub + ring of aerofoil
+                // blades). MUST run AFTER SetActive(true) — the
+                // RobotRotorBinder only attaches RotorBlock components
+                // during its OnEnable re-bind pass, so before activation
+                // there are no RotorBlocks to find. See
+                // RotorBlock.GeneratesLift and docs/PHYSICS_PLAN.md §2.
+                if (wasActive && blueprint.RotorsGenerateLift)
+                {
+                    foreach (Robogame.Movement.RotorBlock rotor in root.GetComponentsInChildren<Robogame.Movement.RotorBlock>(true))
+                    {
+                        rotor.GeneratesLift = true;
+                    }
+                }
             }
         }
 
@@ -182,6 +219,23 @@ namespace Robogame.Gameplay
 
             BlockGrid grid = EnsureComponent<BlockGrid>(root);
             Robot robot = EnsureComponent<Robot>(root);
+
+            // Target chassis is non-player but still a valid ramming
+            // victim — a plane crashing into the dummy must do (and
+            // receive) damage exactly as it would against another
+            // player. Lives on the same root Rigidbody.
+            EnsureComponent<Robogame.Combat.MomentumImpactHandler>(root);
+
+            // Passive targets (CombatDummy, StressRotorTower, future AI)
+            // must mirror the player's per-block attach hooks: BlockGrid
+            // raises BlockPlaced as cells are added, and these binders
+            // are what actually attach the RopeBlock / RotorBlock
+            // MonoBehaviours that build the visual rig + dynamic
+            // segments. Without them, blueprint-authored rope/rotor
+            // cells appear as bare host cubes — exactly the StressRotor
+            // tower symptom in v0.5.
+            EnsureComponent<Robogame.Movement.RobotRopeBinder>(root);
+            EnsureComponent<Robogame.Movement.RobotRotorBinder>(root);
 
             grid.Clear();
             foreach (ChassisBlueprint.Entry entry in blueprint.Entries)

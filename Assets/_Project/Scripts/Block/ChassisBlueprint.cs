@@ -49,10 +49,27 @@ namespace Robogame.Block
             [Tooltip("Grid coordinate, integer triple in robot-local space.")]
             public Vector3Int Position;
 
+            [Tooltip("Mount orientation: the direction the block's local +Y points in chassis space " +
+                     "(i.e. the face normal of the cube it's attached to). Default (0,0,0) is treated " +
+                     "as +Y so legacy entries stay upright. Most cosmetic blocks ignore this; rotors, " +
+                     "aerofoils, weapons, and thrusters use it to face outward from the mount face.")]
+            public Vector3Int Up;
+
+            /// <summary>Returns <see cref="Up"/> with the legacy zero → +Y fallback applied.</summary>
+            public Vector3Int EffectiveUp => Up == Vector3Int.zero ? Vector3Int.up : Up;
+
             public Entry(string blockId, Vector3Int position)
             {
                 BlockId = blockId;
                 Position = position;
+                Up = Vector3Int.up;
+            }
+
+            public Entry(string blockId, Vector3Int position, Vector3Int up)
+            {
+                BlockId = blockId;
+                Position = position;
+                Up = up;
             }
         }
 
@@ -62,6 +79,13 @@ namespace Robogame.Block
         [Tooltip("Coarse vehicle category. Drives spawn-time behaviour " +
                  "(e.g. planes are launched with forward velocity).")]
         [SerializeField] private ChassisKind _kind = ChassisKind.Ground;
+
+        [Tooltip("If true, every Rotor cell on this chassis spawns a 4-blade " +
+                 "aerofoil ring producing real lift via the standard AeroSurfaceBlock " +
+                 "math (helicopter / rotorcraft). When false (default) rotors are " +
+                 "purely cosmetic. Per-rotor opt-in lands when the blueprint format " +
+                 "supports per-cell config.")]
+        [SerializeField] private bool _rotorsGenerateLift = false;
 
         [Tooltip("Block placements that make up this chassis.")]
         [SerializeField] private Entry[] _entries = Array.Empty<Entry>();
@@ -76,6 +100,20 @@ namespace Robogame.Block
         {
             get => _kind;
             set => _kind = value;
+        }
+
+        /// <summary>
+        /// Whether <see cref="Block.BlockIds.Rotor"/> cells on this chassis
+        /// are propulsion rotors (spawn aerofoils, generate lift) or pure
+        /// cosmetic spinners. See <c>docs/PHYSICS_PLAN.md</c> §2 — this
+        /// is the temporary blueprint-level switch until per-cell config
+        /// lands; until then, "this chassis is a helicopter" is the right
+        /// granularity.
+        /// </summary>
+        public bool RotorsGenerateLift
+        {
+            get => _rotorsGenerateLift;
+            set => _rotorsGenerateLift = value;
         }
 
         public Entry[] Entries => _entries;

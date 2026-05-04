@@ -42,117 +42,14 @@ namespace Robogame.Tools.Editor
         }
 
         // -----------------------------------------------------------------
-        // Simple garage (legacy single-cube player)
-        // -----------------------------------------------------------------
-
-        [MenuItem(MenuRoot + "Build Test Garage")]
-        public static void BuildTestGarage()
-        {
-            ScaffoldUtils.OpenScene(ScaffoldUtils.GarageScene);
-
-            EnsureGround();
-            EnsureCamera();
-            EnsureLight();
-
-            GameObject player = ScaffoldUtils.GetOrCreate(
-                "Player",
-                () => GameObject.CreatePrimitive(PrimitiveType.Cube));
-            player.transform.position = new Vector3(0f, 1f, 0f);
-            player.transform.localScale = Vector3.one;
-
-            ScaffoldHelpers.EnsureComponent<Rigidbody>(player);
-            ScaffoldHelpers.EnsureComponent<RobotDrive>(player);
-            ScaffoldHelpers.EnsureComponent<GroundDriveSubsystem>(player);
-            ScaffoldHelpers.WirePlayerInput(player);
-            ScaffoldHelpers.EnsureComponent<PlayerController>(player);
-
-            ScaffoldUtils.SaveActiveScene();
-            Debug.Log("[Robogame] Built Garage.unity test scene.");
-        }
-
-        // -----------------------------------------------------------------
-        // Test robot
-        // -----------------------------------------------------------------
-
-        [MenuItem(MenuRoot + "Build Test Robot")]
-        public static void BuildTestRobot()
-        {
-            BlockDefinitionWizard.CreateTestDefinitions();
-            ScaffoldUtils.OpenScene(ScaffoldUtils.GarageScene);
-
-            EnsureGround();
-            EnsureCamera();
-            EnsureLight();
-            PopulateTestTerrain();
-
-            ScaffoldHelpers.ClearPlayerChassis(keepName: "Robot");
-
-            GameObject robotGO = ScaffoldUtils.GetOrCreate("Robot");
-            Robot robot = RobotLayouts.PopulateTestRobot(robotGO);
-
-            ScaffoldHelpers.EnsureDevHud();
-            ScaffoldUtils.SaveActiveScene();
-            Debug.Log($"[Robogame] Built Garage.unity with test robot. " +
-                      $"Blocks: {robot.BlockCount}, CPU: {robot.TotalCpu}, Mass: {robot.TotalBlockMass}");
-        }
-
-        // -----------------------------------------------------------------
-        // Test plane
-        // -----------------------------------------------------------------
-
-        [MenuItem(MenuRoot + "Build Test Plane")]
-        public static void BuildTestPlane()
-        {
-            BlockDefinitionWizard.CreateTestDefinitions();
-            ScaffoldUtils.OpenScene(ScaffoldUtils.GarageScene);
-
-            EnsureGround();
-            EnsureCamera();
-            EnsureLight();
-            PopulateTestTerrain();
-
-            ScaffoldHelpers.ClearPlayerChassis(keepName: "Plane");
-
-            GameObject planeGO = ScaffoldUtils.GetOrCreate("Plane");
-            Robot plane = RobotLayouts.PopulateTestPlane(planeGO);
-
-            ScaffoldHelpers.EnsureDevHud();
-            ScaffoldUtils.SaveActiveScene();
-            Debug.Log($"[Robogame] Built Garage.unity with test plane. " +
-                      $"Blocks: {plane.BlockCount}, CPU: {plane.TotalCpu}, Mass: {plane.TotalBlockMass}");
-        }
-
-        // -----------------------------------------------------------------
-        // Combat dummy
-        // -----------------------------------------------------------------
-
-        [MenuItem(MenuRoot + "Build Combat Dummy")]
-        public static void BuildCombatDummy()
-        {
-            BlockDefinitionWizard.CreateTestDefinitions();
-            ScaffoldUtils.OpenScene(ScaffoldUtils.GarageScene);
-
-            EnsureGround();
-            EnsureCamera();
-            EnsureLight();
-
-            GameObject dummyGO = ScaffoldUtils.GetOrCreate("CombatDummy");
-            Robot dummy = RobotLayouts.PopulateCombatDummy(dummyGO);
-
-            ScaffoldUtils.SaveActiveScene();
-            Debug.Log($"[Robogame] Built combat dummy. Blocks: {dummy.BlockCount}, Mass: {dummy.TotalBlockMass}");
-        }
-
-        // -----------------------------------------------------------------
-        // Build all
-        //
-        // Removed: the legacy `Build All && Configure` entry. It overlapped
-        // with `Scaffold/Gameplay/Build All Pass A` (which is now also
-        // surfaced as the top-level `Robogame/Build Everything` shortcut)
-        // but only built a single-robot subset, which competed for the
-        // Garage.unity scene with the Pass A flow. The individual
-        // `Build Test Robot` / `Build Combat Dummy` items remain for
-        // isolated tests.
+        // Removed: legacy `Build Test Garage` / `Build Test Robot` /
+        // `Build Test Plane` / `Build Combat Dummy` menu items. They
+        // predated Pass A and overlapped with
+        // `Scaffold/Gameplay/Build All Pass A` (also surfaced as the
+        // top-level `Robogame/Build Everything` shortcut), which is now
+        // the only sanctioned path for authoring the gameplay scenes.
+        // PopulateTestTerrain remains below as a public helper because
+        // EnvironmentBuilder.BuildArenaEnvironment still calls it.
         // -----------------------------------------------------------------
 
         // -----------------------------------------------------------------

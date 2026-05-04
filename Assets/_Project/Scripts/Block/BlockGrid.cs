@@ -103,6 +103,17 @@ namespace Robogame.Block
         /// or the definition is invalid.
         /// </summary>
         public BlockBehaviour PlaceBlock(BlockDefinition definition, Vector3Int gridPos)
+            => PlaceBlock(definition, gridPos, Vector3Int.up);
+
+        /// <summary>
+        /// Spawn a block at <paramref name="gridPos"/> oriented so its local
+        /// +Y axis points along <paramref name="up"/>. Use this when the
+        /// block has a meaningful "outward" direction (rotor spin axis,
+        /// aerofoil normal, weapon barrel, thruster nozzle) and the placer
+        /// wants it to face away from a specific cube face. Pass
+        /// <see cref="Vector3Int.up"/> for the legacy upward orientation.
+        /// </summary>
+        public BlockBehaviour PlaceBlock(BlockDefinition definition, Vector3Int gridPos, Vector3Int up)
         {
             if (definition == null)
             {
@@ -129,7 +140,7 @@ namespace Robogame.Block
 
             go.name = $"Block_{definition.Id}_{gridPos.x}_{gridPos.y}_{gridPos.z}";
             go.transform.localPosition = GridToLocal(gridPos);
-            go.transform.localRotation = Quaternion.identity;
+            go.transform.localRotation = OrientationFromUp(up);
             go.transform.localScale = Vector3.one * _cellSize;
 
             // Phase 2 cel-shading swap: blocks without a custom prefab read
@@ -174,6 +185,28 @@ namespace Robogame.Block
                 else DestroyImmediate(block.gameObject);
             }
             return true;
+        }
+
+        /// <summary>
+        /// Build a chassis-local rotation that maps the block's local +Y
+        /// onto <paramref name="up"/>. Stable across all six axis-aligned
+        /// directions: picks a perpendicular forward axis deterministically
+        /// (chassis +Z when not parallel to <paramref name="up"/>, else
+        /// chassis +X) so identical entries always produce identical
+        /// orientations. Treats <see cref="Vector3Int.zero"/> as +Y so
+        /// legacy blueprint entries (no Up field serialised) stay upright.
+        /// </summary>
+        public static Quaternion OrientationFromUp(Vector3Int up)
+        {
+            Vector3 u = up == Vector3Int.zero ? Vector3.up : ((Vector3)up).normalized;
+            // Pick a forward perpendicular to u. Prefer chassis +Z; fall
+            // back to +X when u is (anti-)parallel to +Z.
+            Vector3 fwdSeed = Mathf.Abs(Vector3.Dot(u, Vector3.forward)) < 0.99f
+                ? Vector3.forward
+                : Vector3.right;
+            Vector3 right = Vector3.Cross(u, fwdSeed).normalized;
+            Vector3 fwd   = Vector3.Cross(right, u).normalized;
+            return Quaternion.LookRotation(fwd, u);
         }
 
         /// <summary>

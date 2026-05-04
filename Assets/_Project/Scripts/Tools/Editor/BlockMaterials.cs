@@ -90,6 +90,20 @@ namespace Robogame.Tools.Editor
             Build("BlockMat_BombBay",   new Color(0.18f, 0.18f, 0.20f), metallic: 0.35f, smoothness: 0.45f, outline: true,
                   emission: WorldPalette.Hazard * 0.25f, outlineSize: 85f, textureIndex: BlockTextures.Picks.Thruster);
 
+            // Rope anchor: dark matte slate, no outline, no pattern. The
+            // anchor cube is hidden at runtime (RopeBlock.HideHostMesh),
+            // so the only time this material is seen is in the build
+            // ghost / garage preview. Match the rope segment colour so
+            // the preview reads as "rope" without extra wiring.
+            Build("BlockMat_Rope",      new Color(0.18f, 0.20f, 0.22f), metallic: 0.0f, smoothness: 0.10f, outline: false);
+
+            // Rotor anchor: same story — the host cube is hidden at
+            // runtime by RotorBlock so this material only appears in the
+            // build ghost. Lean cyan-tinted slate so the preview reads
+            // as "this thing has tech / will spin" before the player
+            // even places it.
+            Build("BlockMat_Rotor",     new Color(0.22f, 0.30f, 0.36f), metallic: 0.2f, smoothness: 0.40f, outline: false);
+
             AssetDatabase.SaveAssets();
         }
 
@@ -103,6 +117,10 @@ namespace Robogame.Tools.Editor
             // category alone — every other category maps 1:1.
             if (blockId == BlockIds.Wheel || blockId == BlockIds.WheelSteer)
                 return Load("BlockMat_WheelTire");
+            if (blockId == BlockIds.Rope)
+                return Load("BlockMat_Rope");
+            if (blockId == BlockIds.Rotor)
+                return Load("BlockMat_Rotor");
 
             switch (category)
             {

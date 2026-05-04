@@ -22,5 +22,7 @@ namespace Robogame.Block
         public const string Rudder     = "block.movement.rudder";
         public const string Weapon     = "block.weapon.hitscan";
         public const string BombBay    = "block.weapon.bombbay";
+        public const string Rope       = "block.cosmetic.rope";
+        public const string Rotor      = "block.cosmetic.rotor";
     }
 }

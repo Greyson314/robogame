@@ -685,6 +685,34 @@ them when they show up.
 
 ## 16. Performance budgets (targets, not law)
 
+> **Performance discipline scales with physics complexity.** Each new
+> physics-driven block we add (rotors, hover lifts, multi-rope rigs,
+> jointed limbs, future destruction debris) compounds against the
+> active-rigidbody and contact-solver budgets below. As more of these
+> ship, **performance checking becomes proportionally more important**
+> — not optional. Before merging any block that adds Rigidbodies,
+> Joints, or per-FixedUpdate force application, take a Profiler
+> capture with at least one populated chassis using the new feature
+> and confirm:
+> 1. **Active Rigidbodies** stays under the alarm threshold (see
+>    table below) for a *normal* loadout, not just an empty test
+>    chassis.
+> 2. **PhysX simulate** per FixedUpdate doesn't spike past 2 ms.
+> 3. **GC allocations / frame** stays at 0 B during steady-state
+>    play — no per-tick `new` in the new block's hot path.
+>
+> If the feature can be "visual-only" by default (e.g. a rotor with
+> 0 ropes), that path **must** add zero Rigidbodies / colliders —
+> exposed via a Tweakable so a builder can opt-in to the heavier
+> physics version per chassis. See [RotorBlock](../Assets/_Project/Scripts/Movement/RotorBlock.cs)
+> for the established pattern (one scene-root kinematic hub +
+> jointed chain, opt-in via `Tweakables.RotorRopeCount`).
+>
+> See [PHYSICS_PLAN.md](PHYSICS_PLAN.md) for the rope-tech migration
+> plan, the stress-test workflow (settings → Stress → "Spawn Rotor
+> Tower"), and the rule that gameplay-observable behaviour must
+> never depend on a Tweakable.
+
 Numbers we aim at for a desktop PC of ~2020 vintage (GTX 1660, 6-core
 CPU). Treat these as **alarms** — going over means stop and think,
 not stop and panic.

@@ -186,6 +186,7 @@ Assets/
 - [ ] Avoid `FindObjectOfType` (deprecated in Unity 6) — use serialized references, DI, or `FindFirstObjectByType` / `FindAnyObjectByType` only when truly necessary, and **never in `Update`**
 - [ ] Cache component lookups — `GetComponent` in `Update` is a common perf trap
 - [ ] Profile before optimizing — use the Unity Profiler, Frame Debugger, and Memory Profiler package
+- [ ] **Performance discipline scales with physics.** Every new physics-driven block (rotors, hover lifts, multi-rope rigs, future jointed limbs) compounds against the active-rigidbody and contact-solver budgets. As more of these ship, profiling each new block under a populated chassis becomes mandatory, not optional — see [`docs/BEST_PRACTICES.md` §16](docs/BEST_PRACTICES.md#16-performance-budgets-targets-not-law) and the migration plan in [`docs/PHYSICS_PLAN.md`](docs/PHYSICS_PLAN.md)
 - [ ] Pool frequently instantiated objects with **`UnityEngine.Pool.ObjectPool<T>`** (built-in since Unity 2021) — projectiles, particles, audio sources
 - [ ] Use `Addressables` for runtime asset loading *(planned)* — avoid `Resources/`
 - [ ] Use **assembly definitions (`.asmdef`)** to enforce module boundaries and speed up compilation

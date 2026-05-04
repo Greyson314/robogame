@@ -38,6 +38,16 @@ namespace Robogame.Tools.Editor
             CreateOrUpdate("BlockDef_Rudder",     BlockIds.Rudder,     "Rudder",         BlockCategory.Movement,  maxHealth:  60f, mass: 0.8f, cpuCost: 15, tint: w);
             CreateOrUpdate("BlockDef_Weapon",     BlockIds.Weapon,     "Hitscan Gun",    BlockCategory.Weapon,    maxHealth:  60f, mass: 1.5f, cpuCost: 20, tint: w);
             CreateOrUpdate("BlockDef_BombBay",    BlockIds.BombBay,    "Bomb Bay",       BlockCategory.Weapon,    maxHealth: 110f, mass: 3.0f, cpuCost: 40, tint: w);
+            // Rope is a Cosmetic free-body block: dangles a jointed
+            // chain below the host cell. Cheap CPU + low mass so a
+            // builder can hang one off any chassis without rebalancing.
+            CreateOrUpdate("BlockDef_Rope",       BlockIds.Rope,       "Rope",           BlockCategory.Cosmetic,  maxHealth:  40f, mass: 0.4f, cpuCost: 5,  tint: w);
+            // Rotor is a Cosmetic spinning block. Hosts an optional ring
+            // of ropes radiating from its hub — the helicopter / chained
+            // flail use case. Slightly heftier than a rope (it carries
+            // a kinematic hub plus its rope ring) but still well below
+            // structural mass.
+            CreateOrUpdate("BlockDef_Rotor",      BlockIds.Rotor,      "Rotor",          BlockCategory.Cosmetic,  maxHealth:  60f, mass: 0.6f, cpuCost: 10, tint: w);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();

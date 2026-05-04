@@ -142,6 +142,14 @@ namespace Robogame.Tools.Editor
             GameObject hudGO = ScaffoldUtils.GetOrCreate("DevHud");
             UI.DevHud hud = hudGO.GetComponent<UI.DevHud>();
             if (hud == null) hudGO.AddComponent<UI.DevHud>();
+
+            // FPS counter rides on the same GameObject so it's in lock-step
+            // with the dev HUD lifecycle but draws independently — DevHud
+            // is opt-in behind F1, the FPS readout is always visible
+            // top-left so a designer flipping the panel off doesn't lose
+            // the perf number.
+            UI.FpsCounter fps = hudGO.GetComponent<UI.FpsCounter>();
+            if (fps == null) hudGO.AddComponent<UI.FpsCounter>();
         }
     }
 }

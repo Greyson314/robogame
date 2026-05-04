@@ -305,9 +305,17 @@ namespace Robogame.Gameplay
             clone.name = source.name + " (Runtime)";
             clone.DisplayName = source.DisplayName;
             clone.Kind = source.Kind;
+            // Per-blueprint physics flags must round-trip through the
+            // clone or the runtime copy silently loses them — e.g. the
+            // helicopter blueprint's RotorsGenerateLift would be false
+            // on every spawn, leaving rotors cosmetic. Add new flags
+            // here when ChassisBlueprint grows them.
+            clone.RotorsGenerateLift = source.RotorsGenerateLift;
 
             ChassisBlueprint.Entry[] src = source.Entries;
             var copy = new ChassisBlueprint.Entry[src.Length];
+            // Entry is a struct so Array.Copy is a deep copy of all
+            // fields including Up — nothing extra to do for new fields.
             Array.Copy(src, copy, src.Length);
             clone.SetEntries(copy);
             return clone;

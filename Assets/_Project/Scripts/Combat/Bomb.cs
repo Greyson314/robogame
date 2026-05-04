@@ -107,7 +107,6 @@ namespace Robogame.Combat
             Vector3 point = collision.contactCount > 0
                 ? collision.GetContact(0).point
                 : transform.position;
-            Debug.Log($"[Robogame] Bomb hit '{collision.collider.name}' at {point} — exploding.", this);
             Explode(point, collision.collider);
         }
 

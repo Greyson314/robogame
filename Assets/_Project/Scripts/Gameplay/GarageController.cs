@@ -28,10 +28,11 @@ namespace Robogame.Gameplay
 
         [Tooltip("Height (in cells) the lowest block on the chassis is " +
                  "lifted above the garage floor. The bot 'hovers' at this " +
-                 "height by default so the wheels/fins/wings clear the floor " +
-                 "and the player can see it from a low garage camera. Set to 0 " +
+                 "height by default so the wheels/fins/wings (and any rope " +
+                 "blocks dangling below the chassis) clear the floor and " +
+                 "the player can see it from a low garage camera. Set to 0 " +
                  "to drop the chassis to ground-resting.")]
-        [SerializeField, Min(0f)] private float _hoverHeightCells = 4f;
+        [SerializeField, Min(0f)] private float _hoverHeightCells = 7f;
 
         [Tooltip("Name of the spawned chassis GameObject. Used by " +
                  "Robot.RebuildByName / DevHud.")]

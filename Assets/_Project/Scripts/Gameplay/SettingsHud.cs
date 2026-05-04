@@ -154,7 +154,9 @@ namespace Robogame.Gameplay
                 RefreshAllSliders();
             });
 
-            // Scrollable body.
+            // Scrollable body. Reserve a vertical strip on the right for
+            // the scrollbar so handle visuals don't overlap slider rows.
+            const float scrollbarWidth = 14f;
             var scrollGO = NewChild("Scroll", panel.transform);
             var scrollRT = scrollGO.GetComponent<RectTransform>();
             scrollRT.anchorMin = new Vector2(0f, 0f);
@@ -165,12 +167,23 @@ namespace Robogame.Gameplay
             scroll.horizontal = false;
             scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 30f;
 
             var viewportGO = NewChild("Viewport", scrollGO.transform);
-            FillParent(viewportGO);
+            var viewportRT = viewportGO.GetComponent<RectTransform>();
+            viewportRT.anchorMin = Vector2.zero;
+            viewportRT.anchorMax = Vector2.one;
+            viewportRT.offsetMin = Vector2.zero;
+            viewportRT.offsetMax = new Vector2(-(scrollbarWidth + 4f), 0f);
             viewportGO.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.02f);
             viewportGO.AddComponent<Mask>().showMaskGraphic = false;
-            scroll.viewport = viewportGO.GetComponent<RectTransform>();
+            scroll.viewport = viewportRT;
+
+            // Vertical scrollbar pinned to the right edge of the scroll area.
+            Scrollbar vbar = BuildVerticalScrollbar(scrollGO.transform, scrollbarWidth);
+            scroll.verticalScrollbar = vbar;
+            scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHideAndExpandViewport;
+            scroll.verticalScrollbarSpacing = 4f;
 
             var contentGO = NewChild("Content", viewportGO.transform);
             var contentRT = contentGO.GetComponent<RectTransform>();
@@ -388,6 +401,46 @@ namespace Robogame.Gameplay
             slider.value = Tweakables.Get(spec.Key);
             slider.wholeNumbers = false;
             return slider;
+        }
+
+        // Vertical scrollbar built to the same dark/orange palette as the
+        // sliders. Anchored to the right edge of <paramref name="parent"/>
+        // so the ScrollRect's AutoHideAndExpandViewport mode can show /
+        // hide it without leaving an awkward gap when content fits.
+        private static Scrollbar BuildVerticalScrollbar(Transform parent, float width)
+        {
+            var bar = NewChild("ScrollbarV", parent);
+            var rt = bar.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(1f, 0f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(1f, 0.5f);
+            rt.sizeDelta = new Vector2(width, 0f);
+            rt.anchoredPosition = Vector2.zero;
+            var bg = bar.AddComponent<Image>();
+            bg.color = new Color(1f, 1f, 1f, 0.06f);
+
+            var slidingArea = NewChild("Sliding Area", bar.transform);
+            var saRT = slidingArea.GetComponent<RectTransform>();
+            saRT.anchorMin = Vector2.zero;
+            saRT.anchorMax = Vector2.one;
+            saRT.offsetMin = new Vector2(2f, 2f);
+            saRT.offsetMax = new Vector2(-2f, -2f);
+
+            var handle = NewChild("Handle", slidingArea.transform);
+            var hRT = handle.GetComponent<RectTransform>();
+            hRT.anchorMin = Vector2.zero;
+            hRT.anchorMax = Vector2.one;
+            hRT.offsetMin = Vector2.zero;
+            hRT.offsetMax = Vector2.zero;
+            var hImg = handle.AddComponent<Image>();
+            hImg.color = new Color(0.95f, 0.55f, 0.10f, 0.90f);
+
+            var sb = bar.AddComponent<Scrollbar>();
+            sb.targetGraphic = hImg;
+            sb.handleRect = hRT;
+            sb.direction = Scrollbar.Direction.BottomToTop;
+            sb.value = 1f; // start scrolled to top (content anchored top-left)
+            return sb;
         }
 
         private void RefreshAllSliders()

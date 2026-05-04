@@ -93,6 +93,8 @@ namespace Robogame.UI
 
             if (GUILayout.Button("Rebuild Player Robot")) RebuildByName("Robot");
             if (GUILayout.Button("Rebuild Combat Dummy")) RebuildByName("CombatDummy");
+            if (GUILayout.Button("Spawn / Refresh Rotor Tower")) SpawnStressTower();
+            if (GUILayout.Button("Despawn Rotor Tower")) DespawnStressTower();
             if (GUILayout.Button("Damage Random Block")) DamageRandomBlock();
             if (GUILayout.Button("Destroy CPU")) DestroyCpu();
 
@@ -226,6 +228,27 @@ namespace Robogame.UI
             Robot.RebuildByName(n);
         }
 
+        private static void SpawnStressTower()
+        {
+            var arena = Object.FindAnyObjectByType<Robogame.Gameplay.ArenaController>();
+            if (arena == null)
+            {
+                Debug.LogWarning("[DevHud] No ArenaController in this scene — stress tower lives in the Arena.");
+                return;
+            }
+            arena.RespawnStressTower();
+        }
+
+        private static void DespawnStressTower()
+        {
+            var arena = Object.FindAnyObjectByType<Robogame.Gameplay.ArenaController>();
+            if (arena == null) return;
+            // Flip the tweakable off so the ArenaController's Changed-driven
+            // sync doesn't re-spawn it next frame.
+            Tweakables.Set(Tweakables.StressRotorTower, 0f);
+            arena.DespawnStressTower();
+        }
+
         // -----------------------------------------------------------------
         // Test actions (operate on whatever robot we can find — dummy preferred)
         // -----------------------------------------------------------------
@@ -265,11 +288,7 @@ namespace Robogame.UI
                 Robot r = dummy.GetComponent<Robot>();
                 if (r != null) return r;
             }
-#if UNITY_2023_1_OR_NEWER
             return Object.FindAnyObjectByType<Robot>();
-#else
-            return Object.FindObjectOfType<Robot>();
-#endif
         }
 
         // -----------------------------------------------------------------

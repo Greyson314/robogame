@@ -33,7 +33,9 @@ namespace Robogame.Tools.Editor
         private const string DefaultBuggyPath = BlueprintFolder + "/Blueprint_DefaultBuggy.asset";
         private const string DefaultBoatPath = BlueprintFolder + "/Blueprint_DefaultBoat.asset";
         private const string DefaultBomberPath = BlueprintFolder + "/Blueprint_DefaultBomber.asset";
+        private const string DefaultHelicopterPath = BlueprintFolder + "/Blueprint_DefaultHelicopter.asset";
         private const string CombatDummyPath = BlueprintFolder + "/Blueprint_CombatDummy.asset";
+        private const string StressTowerPath = BlueprintFolder + "/Blueprint_StressRotorTower.asset";
 
         // -----------------------------------------------------------------
         // Data assets
@@ -81,7 +83,22 @@ namespace Robogame.Tools.Editor
             CreateOrUpdateBlueprint(DefaultBuggyPath, "Buggy", ChassisKind.Ground, BuildBuggyEntries());
             CreateOrUpdateBlueprint(DefaultBoatPath,  "Boat",  ChassisKind.Ground, BuildBoatEntries());
             CreateOrUpdateBlueprint(DefaultBomberPath, "Bomber", ChassisKind.Plane, BuildBomberEntries());
+            // Helicopter: simple T-shaped sandbox chassis — short fuselage,
+            // long tail boom, vertical fin, rotor on top of the CPU. The
+            // rotor block flips into lift mode (kinematic hub + ring of
+            // aerofoil blades) via RotorsGenerateLift; ChassisFactory.Build
+            // sets the flag on every RotorBlock after placement. No
+            // thruster — forward flight via player tilt input is a
+            // separate session. Ground-kind for now (no plane-spawn
+            // forward velocity); revisit once helicopter input lands.
+            CreateOrUpdateBlueprint(DefaultHelicopterPath, "Helicopter", ChassisKind.Ground, BuildHelicopterEntries(), rotorsGenerateLift: true);
             CreateOrUpdateBlueprint(CombatDummyPath, "Combat Dummy", ChassisKind.Ground, BuildDummyEntries());
+            // Stress-test target: a tall column of rotors, each carrying
+            // a default ring of 4 ropes. The arena controller spawns this
+            // when the Stress.RotorTower tweakable is on; a dev session
+            // drags the slider to 1, the tower appears, the Profiler
+            // shows the truth about how the kinematic-hub trick scales.
+            CreateOrUpdateBlueprint(StressTowerPath, "Stress Rotor Tower", ChassisKind.Ground, BuildStressTowerEntries());
             AssetDatabase.SaveAssets();
             Debug.Log($"[Robogame] Default blueprints created (ground asset persisted: {AssetDatabase.Contains(ground)}).");
             return ground;
@@ -144,6 +161,19 @@ namespace Robogame.Tools.Editor
             list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-2, 0, -3)));
             list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,    new Vector3Int( 0, 1, -3)));
             list.Add(new ChassisBlueprint.Entry(BlockIds.AeroFin, new Vector3Int( 0, 2, -3)));
+            // Rope tail: free-body cosmetic chain hanging off the bottom
+            // of the thruster cell. Anchored under (0,0,-3), so it stays
+            // connected to the chassis via the y-axis neighbour for the
+            // CPU-connectivity check.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope,    new Vector3Int( 0, -1, -3)));
+            // Tail rotor: spinning hub on top of the rear fuselage at
+            // (0,1,-2). Connected to the cube at (0,0,-2) via the y-axis
+            // neighbour. Lives one cell forward of the vertical fin so
+            // the rotor visual doesn't intersect the fin. RotorBlock is
+            // cosmetic-only — no ropes, no lift — so this is just a
+            // spinning visual on the tail. Add a Rope cell adjacent if
+            // you want a chain hanging off the rotor.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Rotor,   new Vector3Int( 0,  1, -2)));
             return list.ToArray();
         }
 
@@ -263,6 +293,68 @@ namespace Robogame.Tools.Editor
             return list.ToArray();
         }
 
+        private static ChassisBlueprint.Entry[] BuildHelicopterEntries()
+        {
+            // Simple T-shaped helicopter sandbox chassis. Side profile:
+            //
+            //         R                 (y=1, z= 0)  rotor on top of CPU
+            //   N C T T T F             (y=0,  z=1..-3) nose / cpu / tail boom
+            //                F          (y=1, z=-3)   tail-fin stabiliser
+            //
+            // No propulsion of any kind — no thruster, no wheels, no
+            // aero surfaces. The rotor visual spins (cosmetic only,
+            // RotorBlock + tweakables drive RPM) but currently produces
+            // zero lift; the chassis just sits on the spawn pad. This
+            // matches the user's intent: "don't attach anything to the
+            // rotor yet" — the rope ring is intentionally suppressed via
+            // the future-room work in PHYSICS_PLAN.md §2 (rotor-as-lift),
+            // and the rotor stays bare so a follow-up session can wire
+            // up vertical thrust without first peeling cosmetics off.
+            //
+            // ChassisKind.Ground (not Plane) so the Arena spawn places
+            // it on the ground rather than 18 m up: a propulsion-less
+            // Plane-kind chassis would just freefall on launch and look
+            // broken. When the rotor drives lift, flip this to Plane.
+            var list = new List<ChassisBlueprint.Entry>();
+
+            // Fuselage + tail boom along Z. CPU at the cabin; nose cube
+            // forward; three-cell tail boom aft so the rotor disc and
+            // the tail fin are well-separated visually.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(0, 0,  1)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu,  new Vector3Int(0, 0,  0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(0, 0, -1)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(0, 0, -2)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(0, 0, -3)));
+
+            // Vertical tail fin sat on top of the rear of the boom. Reuses
+            // AeroFin so it shows the slanted-fin visual; with no aero
+            // movement the lift contribution is zero, it's purely a
+            // silhouette cue that this is a helicopter.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.AeroFin, new Vector3Int(0, 1, -3)));
+
+            // Main rotor on top of the CPU. RotorBlock is a spinner; it
+            // generates lift only by adopting separately-placed
+            // AeroSurfaceBlock cells in its 4 spin-plane neighbours
+            // (see RotorBlock.AdoptAdjacentAerofoils). The 4 Aero
+            // entries below are those blades — placed independently in
+            // the blueprint, picked up by the rotor at game-start.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Rotor, new Vector3Int(0, 1, 0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero,  new Vector3Int( 1, 1,  0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero,  new Vector3Int(-1, 1,  0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero,  new Vector3Int( 0, 1,  1)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero,  new Vector3Int( 0, 1, -1)));
+
+            // Tail rotor: mounted on the +X face of the boom cell at
+            // (0,0,-3), so its local +Y (= spin axis) points along +X.
+            // Demonstrates the new face-aware placement — a rotor on a
+            // horizontal face spins horizontally rather than helicopter-
+            // style. Adjacent to (0,0,-3) via the x-neighbour, so it
+            // passes the CPU-connectivity check trivially.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Rotor, new Vector3Int(1, 0, -3), new Vector3Int(1, 0, 0)));
+
+            return list.ToArray();
+        }
+
         private static ChassisBlueprint.Entry[] BuildDummyEntries()
         {
             // Big fortress dummy: 5w × 5d × 6h solid cube body with a CPU
@@ -286,8 +378,37 @@ namespace Robogame.Tools.Editor
             return list.ToArray();
         }
 
+        private static ChassisBlueprint.Entry[] BuildStressTowerEntries()
+        {
+            // Spinning-rotor tower used to visually stress-test multiple
+            // rotors on one chassis. A 1×1 column 10 cells tall with
+            // rotors at every odd y. The rotor block is now cosmetic
+            // (no Rigidbody, no ropes) so this loadout no longer
+            // exercises the joint solver — it's a sanity-check that
+            // many rotors at high RPM stay smooth and that the
+            // StressRotorTowerRpm override path still drives every
+            // rotor's spin rate. The original "80 dynamic rbs" stress
+            // test moves to the rope tower in a follow-up session
+            // (rotor + adjacent rope blocks); see PHYSICS_PLAN.md §2.
+            //
+            // CPU lives at the bottom so the rotors above all pass the
+            // CPU-connectivity check trivially (every cell is in a
+            // single y-axis chain back to (0,0,0)).
+            var list = new List<ChassisBlueprint.Entry>();
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)));
+            for (int y = 1; y < 10; y++)
+            {
+                bool isRotorLevel = (y % 2 == 1); // 1, 3, 5, 7, 9
+                list.Add(new ChassisBlueprint.Entry(
+                    isRotorLevel ? BlockIds.Rotor : BlockIds.Cube,
+                    new Vector3Int(0, y, 0)));
+            }
+            return list.ToArray();
+        }
+
         private static ChassisBlueprint CreateOrUpdateBlueprint(
-            string path, string displayName, ChassisKind kind, ChassisBlueprint.Entry[] entries)
+            string path, string displayName, ChassisKind kind, ChassisBlueprint.Entry[] entries,
+            bool rotorsGenerateLift = false)
         {
             ChassisBlueprint bp = LoadOrCreateAsset<ChassisBlueprint>(path);
             if (bp == null)
@@ -298,6 +419,7 @@ namespace Robogame.Tools.Editor
             bp.DisplayName = displayName;
             bp.Kind = kind;
             bp.SetEntries(entries);
+            bp.RotorsGenerateLift = rotorsGenerateLift;
             EditorUtility.SetDirty(bp);
             return bp;
         }
@@ -355,6 +477,7 @@ namespace Robogame.Tools.Editor
             ChassisBlueprint buggyBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultBuggyPath);
             ChassisBlueprint boatBpLive  = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultBoatPath);
             ChassisBlueprint bomberBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultBomberPath);
+            ChassisBlueprint helicopterBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultHelicopterPath);
             InputActionAsset actionsLive = AssetDatabase.LoadAssetAtPath<InputActionAsset>(ScaffoldUtils.InputActionsAsset);
 
             if (libLive == null)
@@ -367,16 +490,17 @@ namespace Robogame.Tools.Editor
             stateSO.FindProperty("_defaultBlueprint").objectReferenceValue = defaultBpLive;
             stateSO.FindProperty("_inputActions").objectReferenceValue = actionsLive;
 
-            // Populate the HUD-facing preset list (Tank / Plane / Buggy / Boat / Bomber).
+            // Populate the HUD-facing preset list (Tank / Plane / Buggy / Boat / Bomber / Helicopter).
             SerializedProperty presets = stateSO.FindProperty("_presetBlueprints");
             if (presets != null)
             {
-                presets.arraySize = 5;
+                presets.arraySize = 6;
                 presets.GetArrayElementAtIndex(0).objectReferenceValue = defaultBpLive;
                 presets.GetArrayElementAtIndex(1).objectReferenceValue = planeBpLive;
                 presets.GetArrayElementAtIndex(2).objectReferenceValue = buggyBpLive;
                 presets.GetArrayElementAtIndex(3).objectReferenceValue = boatBpLive;
                 presets.GetArrayElementAtIndex(4).objectReferenceValue = bomberBpLive;
+                presets.GetArrayElementAtIndex(5).objectReferenceValue = helicopterBpLive;
             }
             stateSO.ApplyModifiedPropertiesWithoutUndo();
 
@@ -440,6 +564,7 @@ namespace Robogame.Tools.Editor
             // here guarantees a live persistent ref that SerializedProperty will
             // actually keep. (Same pattern used in BuildBootstrapPassA.)
             ChassisBlueprint dummyBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(CombatDummyPath);
+            ChassisBlueprint stressBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(StressTowerPath);
             if (dummyBpLive == null)
             {
                 Debug.LogError(
@@ -457,6 +582,14 @@ namespace Robogame.Tools.Editor
                 // actually reaches the saved scene asset on re-scaffold.
                 SerializedProperty posProp = so.FindProperty("_dummyPosition");
                 if (posProp != null) posProp.vector3Value = new Vector3(0f, 0.5f, 18f);
+
+                // Stress tower blueprint — optional, only spawned when
+                // the Tweakable toggle is on. Wire it here so a fresh
+                // scaffold doesn't require a separate menu trip.
+                SerializedProperty stressProp = so.FindProperty("_stressTowerBlueprint");
+                if (stressProp != null) stressProp.objectReferenceValue = stressBpLive;
+                SerializedProperty stressPosProp = so.FindProperty("_stressTowerPosition");
+                if (stressPosProp != null) stressPosProp.vector3Value = new Vector3(40f, 0.5f, 18f);
 
                 so.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(arena);

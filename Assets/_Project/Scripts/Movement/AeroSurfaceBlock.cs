@@ -26,9 +26,21 @@ namespace Robogame.Movement
     /// Place several wing blocks in a row to build a wing of any span; the
     /// summed forces give correct pitch / roll torque around the COM.
     /// </para>
+    /// <para>
+    /// <b>Rotor mode.</b> When this surface is parented to a kinematic
+    /// <see cref="Rigidbody"/> (the rotor hub), velocity sampling uses
+    /// the hub (so <see cref="Rigidbody.GetPointVelocity"/> picks up
+    /// the rotor's tangential ω×r at the blade position) but the lift
+    /// force is applied to the first non-kinematic Rigidbody up the
+    /// chain — i.e. the chassis. Drag and sideslip are skipped in
+    /// rotor mode: a symmetric ring of blades would produce a pure
+    /// counter-torque on the chassis from drag, which we deliberately
+    /// don't model (Robocraft did the same; arcade kinematic rotors
+    /// don't kick reaction torque into the airframe). See
+    /// <c>docs/PHYSICS_PLAN.md</c> §2.
+    /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
-    [RequireComponent(typeof(BlockBehaviour))]
     public sealed class AeroSurfaceBlock : MonoBehaviour
     {
         [Header("Orientation")]
@@ -62,7 +74,21 @@ namespace Robogame.Movement
         [Tooltip("Wing visual size in metres (X = span, Y = thickness, Z = chord).")]
         [SerializeField] private Vector3 _wingSize = new Vector3(1f, 0.08f, 0.9f);
 
-        private Rigidbody _rb;
+        // Velocity reference: the IMMEDIATE parent Rigidbody. On a
+        // plane wing this is the chassis. On a rotor blade this is the
+        // kinematic hub spinning at ω rad/s, so GetPointVelocity at the
+        // blade picks up the tangential blade speed for free.
+        private Rigidbody _velocityRb;
+        // Force target: the first NON-KINEMATIC Rigidbody up the chain.
+        // Plane wings: same as _velocityRb (chassis). Rotor blades:
+        // chassis (skips past the kinematic hub). Force on a kinematic
+        // body is silently dropped by PhysX, so without this split the
+        // lift on rotor blades would be eaten by the hub.
+        private Rigidbody _forceTargetRb;
+        // True when we're a rotor blade: velocity-source != force-target.
+        // Suppresses drag and sideslip so a symmetric blade ring doesn't
+        // dump reaction torque into the chassis.
+        private bool _rotorMode;
 
         /// <summary>True for tail fins / rudders. Set this BEFORE the first FixedUpdate (e.g. from a binder right after AddComponent).</summary>
         public bool Vertical
@@ -83,15 +109,62 @@ namespace Robogame.Movement
 
         private void OnEnable()
         {
-            _rb = GetComponentInParent<Rigidbody>();
+            // If a rotor builder already injected an explicit force
+            // target via ConfigureRotorMode, don't clobber it here.
+            if (_rotorMode && _forceTargetRb != null) return;
+
+            _velocityRb = GetComponentInParent<Rigidbody>();
+            _forceTargetRb = ResolveForceTarget(_velocityRb);
+            _rotorMode = _velocityRb != null && _forceTargetRb != null && _velocityRb != _forceTargetRb;
+        }
+
+        /// <summary>
+        /// Wire this surface up as a rotor blade. <paramref name="hub"/>
+        /// is the kinematic spinning Rigidbody this blade is parented to
+        /// (used for velocity sampling so blade tangential ω×r feeds the
+        /// AoA/lift math); <paramref name="chassis"/> is the dynamic
+        /// Rigidbody that should receive the lift force. Call this right
+        /// after <see cref="GameObject.AddComponent{T}()"/> in the rotor
+        /// builder — it overrides what <see cref="OnEnable"/> would have
+        /// resolved (the hub is at scene root, so the auto-walk can't
+        /// find the chassis).
+        /// </summary>
+        public void ConfigureRotorMode(Rigidbody hub, Rigidbody chassis)
+        {
+            _velocityRb    = hub;
+            _forceTargetRb = chassis;
+            _rotorMode     = true;
+        }
+
+        // Walk up parents from the velocity rb until we find a non-kinematic
+        // Rigidbody. On a plane wing this is the chassis (one rb up the
+        // chain, already non-kinematic, returns it directly). On a rotor
+        // blade this skips past the kinematic hub to find the chassis.
+        private static Rigidbody ResolveForceTarget(Rigidbody start)
+        {
+            if (start == null) return null;
+            if (!start.isKinematic) return start;
+            Transform t = start.transform.parent;
+            while (t != null)
+            {
+                Rigidbody rb = t.GetComponentInParent<Rigidbody>();
+                if (rb == null) return null;
+                if (!rb.isKinematic) return rb;
+                t = rb.transform.parent;
+            }
+            return null;
         }
 
         private void FixedUpdate()
         {
-            if (_rb == null) return;
+            if (_velocityRb == null || _forceTargetRb == null) return;
 
             Vector3 worldPos = transform.position;
-            Vector3 worldVel = _rb.GetPointVelocity(worldPos);
+            // Velocity at the blade includes (chassis bulk motion) +
+            // (chassis angular vel × r) + (rotor spin × r when on a
+            // rotor hub) — PhysX synthesises the rotor contribution from
+            // the kinematic MoveRotation deltas the hub does each step.
+            Vector3 worldVel = _velocityRb.GetPointVelocity(worldPos);
             Vector3 localVel = transform.InverseTransformDirection(worldVel);
 
             float forward = localVel.z;
@@ -106,12 +179,12 @@ namespace Robogame.Movement
             float speedSqr = forward * forward;
 
             // Angle of attack: positive when the airflow strikes the
-            // lift-producing side of the surface (i.e. the cross-airflow
-            // component flowing toward -liftAxis at positive forward speed).
-            // Real symmetric airfoils produce zero lift at zero AoA —
-            // modelling that here is what fixes the "constant buoyancy"
-            // feel. Identical math for fins, just rotated 90°.
-            float aoa = forward > 0.5f ? Mathf.Atan2(-crossVel, forward) : 0f;
+            // lift-producing side of the surface. Threshold lowered
+            // from 0.5 to 0.05 m/s so a low-RPM rotor blade still
+            // produces collective-pitch lift on spin-up. For plane
+            // wings this changes nothing — they sit way above 0.5
+            // even on the runway, so the gate was always vestigial.
+            float aoa = forward > 0.05f ? Mathf.Atan2(-crossVel, forward) : 0f;
             float aoaClamped = Mathf.Clamp(aoa, -_stallAoA, _stallAoA);
             // Soft stall: past the stall angle, retain only postStallLift × cap.
             float stallFalloff = Mathf.Abs(aoa) > _stallAoA
@@ -121,19 +194,27 @@ namespace Robogame.Movement
 
             float liftMag = speedSqr * _liftCoef * liftFactor * Mathf.Sign(forward);
             if (_maxLift > 0f) liftMag = Mathf.Clamp(liftMag, -_maxLift, _maxLift);
-            _rb.AddForceAtPosition(liftAxis * liftMag, worldPos);
+            _forceTargetRb.AddForceAtPosition(liftAxis * liftMag, worldPos);
+
+            // Drag + sideslip are suppressed in rotor mode. A symmetric
+            // blade ring would otherwise apply equal-and-opposite
+            // tangential drags whose net torque on the chassis is the
+            // anti-torque of the rotor — realistic, but we explicitly
+            // don't model it (kinematic-hub design choice). Plane wings
+            // (rotorMode == false) keep both terms.
+            if (_rotorMode) return;
 
             // Drag along the chassis velocity (not local-Z), so going
             // sideways still costs energy.
             if (worldVel.sqrMagnitude > 0.001f)
             {
                 float dragMag = worldVel.sqrMagnitude * _dragCoef;
-                _rb.AddForceAtPosition(-worldVel.normalized * dragMag, worldPos);
+                _forceTargetRb.AddForceAtPosition(-worldVel.normalized * dragMag, worldPos);
             }
 
             // Sideslip / yaw-slip damping: linear in cross-axis velocity.
             float sideForce = -sideVel * _sideDamping;
-            _rb.AddForceAtPosition(sideAxis * sideForce, worldPos);
+            _forceTargetRb.AddForceAtPosition(sideAxis * sideForce, worldPos);
         }
 
         // -----------------------------------------------------------------

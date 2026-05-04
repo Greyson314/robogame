@@ -76,6 +76,45 @@ namespace Robogame.Core
         public const string BombRadius        = "Combat.BombRadius";        // explosion radius (m)
         public const string BombInitialSpeed  = "Combat.BombInitialSpeed";  // initial downward speed (m/s)
 
+        // Rope (free-body link block — see RopeBlock). Changing any of
+        // these in the settings menu triggers a rebuild of every active
+        // rope so geometry edits are visible without re-entering the
+        // garage.
+        public const string RopeSegmentCount   = "Rope.SegmentCount";   // links per rope (rounded to int at read site)
+        public const string RopeSegmentLength  = "Rope.SegmentLength";  // metres per link
+        public const string RopeSegmentRadius  = "Rope.SegmentRadius";  // capsule radius (m)
+        public const string RopeSegmentMass    = "Rope.SegmentMass";    // kg per link
+        public const string RopeAngularLimit   = "Rope.AngularLimit";   // joint bend limit (deg)
+        public const string RopeLinearDamping  = "Rope.LinearDamping";  // per-segment linear damping
+        public const string RopeAngularDamping = "Rope.AngularDamping"; // per-segment angular damping
+
+        // Rotor (spinning block, see RotorBlock). RPM drives the visual
+        // spin rate of every active rotor on every chassis, and (in
+        // lift mode) the angular speed of the kinematic hub that the
+        // adopted aerofoil blocks orbit. Blade dimensions come from
+        // each AeroSurfaceBlock's own _wingSize, since blades are now
+        // independent grid cells rather than synthesized children.
+        public const string RotorRpm = "Rotor.RPM"; // revolutions per minute
+
+        // Momentum / ramming impact (see MomentumImpactHandler). Damage
+        // is computed from reduced-mass kinetic energy in kJ and then
+        // distributed across a 3-ring splash profile so a hard ram
+        // crumples a few neighbouring blocks rather than evaporating
+        // exactly one cell.
+        public const string ImpactDamagePerKj  = "Impact.DamagePerKj";  // hp per kJ of normal-relative KE
+        public const string ImpactMinSpeed     = "Impact.MinSpeed";     // m/s threshold below which no damage
+        public const string ImpactRing0Scale   = "Impact.Ring0Scale";   // direct-hit cell multiplier
+        public const string ImpactRing1Scale   = "Impact.Ring1Scale";   // 1-step neighbour multiplier
+        public const string ImpactRing2Scale   = "Impact.Ring2Scale";   // 2-step neighbour multiplier
+
+        // Stress / debug. These are dev-only knobs surfaced in the
+        // settings panel + dev HUD so a session can stress-test the
+        // physics pipeline without code changes. Slider values >= 0.5
+        // are treated as "on" — the bool gate trick avoids adding a
+        // separate boolean storage type to the tweakables registry.
+        public const string StressRotorTower    = "Stress.RotorTower";    // 0/1 toggle: spawn the spinning-rotor tower in the arena
+        public const string StressRotorTowerRpm = "Stress.RotorTowerRpm"; // RPM applied to every rotor in the stress tower (independent of Rotor.RPM)
+
         // -----------------------------------------------------------------
         // Spec
         // -----------------------------------------------------------------
@@ -237,6 +276,45 @@ namespace Robogame.Core
             Register(BombDamage,        "Combat",   "Bomb Damage",       80.0f,  10f, 300f);
             Register(BombRadius,        "Combat",   "Bomb Radius (m)",   18.0f,   3f,  60f);
             Register(BombInitialSpeed,  "Combat",   "Bomb Initial Speed", 2.0f,   0f,  20f);
+
+            // Rope. Defaults match RopeBlock's serialized fields — these
+            // become the live values once Tweakables initialises and any
+            // active RopeBlock subscribes to Changed for hot-rebuild.
+            Register(RopeSegmentCount,   "Rope", "Segment Count",     5f,   2f,   32f);
+            Register(RopeSegmentLength,  "Rope", "Segment Length (m)", 0.50f, 0.10f, 1.50f);
+            Register(RopeSegmentRadius,  "Rope", "Segment Radius (m)", 0.08f, 0.02f, 0.40f);
+            Register(RopeSegmentMass,    "Rope", "Segment Mass (kg)",  0.04f, 0.005f, 1.0f);
+            Register(RopeAngularLimit,   "Rope", "Angular Limit (deg)",30.0f, 0f,    90f);
+            Register(RopeLinearDamping,  "Rope", "Linear Damping",     0.10f, 0f,    4f);
+            Register(RopeAngularDamping, "Rope", "Angular Damping",    0.50f, 0f,    4f);
+
+            // Rotor. 60 rpm = 1 rev/sec — slow enough to read individual
+            // blades by eye. Bump for fan/helicopter builds; drop to 0
+            // to freeze the visual entirely. Blade dimensions feed the
+            // lift-mode rotor only — cosmetic-only rotors ignore them.
+            // Length 1.0 m at radius 0.8 m gives a tip-to-tip span of
+            // ~3.6 m, big enough to read against a 1 m cube chassis.
+            // Chord 0.30 m matches the cosmetic bar silhouette.
+            Register(RotorRpm, "Rotor", "RPM", 60f, 0f, 600f);
+
+            // Impact. Defaults tuned for a 50 kg plane vs 50 kg dummy at
+            // 30 m/s closing — μ ≈ 25, KE ≈ 11.25 kJ, ×5 dmg/kJ ≈ 56 dmg
+            // at the contact cell, 17 / 6 dmg in the next two rings.
+            // Plenty to feel like a crash without instakilling either
+            // chassis. MinSpeed=2 stops harmless taxiing scrapes from
+            // bleeding HP while the player parks in the garage.
+            Register(ImpactDamagePerKj, "Impact", "Damage per kJ",    5.0f, 0f, 50f);
+            Register(ImpactMinSpeed,    "Impact", "Min Speed (m/s)",  2.0f, 0f, 20f);
+            Register(ImpactRing0Scale,  "Impact", "Direct Scale",     1.00f, 0f, 4f);
+            Register(ImpactRing1Scale,  "Impact", "Ring 1 Scale",     0.30f, 0f, 2f);
+            Register(ImpactRing2Scale,  "Impact", "Ring 2 Scale",     0.10f, 0f, 2f);
+
+            // Stress / debug. The arena controller subscribes to Changed
+            // and (de)spawns the rotor tower live as the slider crosses
+            // 0.5 — drag the tower in for a Profiler capture, drag it
+            // back out, no scene reload required.
+            Register(StressRotorTower,    "Stress", "Spawn Rotor Tower",  0.0f, 0f,   1f);
+            Register(StressRotorTowerRpm, "Stress", "Tower RPM",        300.0f, 0f, 600f);
 
             Load();
         }
