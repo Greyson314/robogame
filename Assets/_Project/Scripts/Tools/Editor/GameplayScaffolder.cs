@@ -35,6 +35,7 @@ namespace Robogame.Tools.Editor
         private const string DefaultHelicopterPath = BlueprintFolder + "/Blueprint_DefaultHelicopter.asset";
         private const string CombatDummyPath = BlueprintFolder + "/Blueprint_CombatDummy.asset";
         private const string StressTowerPath = BlueprintFolder + "/Blueprint_StressRotorTower.asset";
+        private const string BarbellDummyPath = BlueprintFolder + "/Blueprint_BarbellDummy.asset";
 
         // -----------------------------------------------------------------
         // Data assets
@@ -97,6 +98,12 @@ namespace Robogame.Tools.Editor
             // drags the slider to 1, the tower appears, the Profiler
             // shows the truth about how the kinematic-hub trick scales.
             CreateOrUpdateBlueprint(StressTowerPath, "Stress Rotor Tower", ChassisKind.Ground, BuildStressTowerEntries());
+            // Barbell dummy: two large mass cubes joined by a long rod.
+            // Used to test the new Hook / Mace tip blocks (PHYSICS_PLAN
+            // §3) — the player can hook onto a bell, swing the chassis
+            // around, or wallop the rod with a mace and watch
+            // momentum-impact damage chew through the structure.
+            CreateOrUpdateBlueprint(BarbellDummyPath, "Barbell Dummy", ChassisKind.Ground, BuildBarbellDummyEntries());
             AssetDatabase.SaveAssets();
             Debug.Log($"[Robogame] Default blueprints created (ground asset persisted: {AssetDatabase.Contains(ground)}).");
             return ground;
@@ -378,6 +385,29 @@ namespace Robogame.Tools.Editor
             return list.ToArray();
         }
 
+        private static ChassisBlueprint.Entry[] BuildBarbellDummyEntries()
+        {
+            // Barbell-shaped target dummy:
+            //   - End mass A: 3×3×3 cube cluster at z = -7..-5
+            //   - Rod:        1×1 column along x=y=0 from z = -4..4 (CPU at z=0)
+            //   - End mass B: 3×3×3 cube cluster at z = 5..7
+            //
+            // ~12.6 m long along Z, 3 m thick at the bells. Plenty of
+            // surface area for hooks to bite into and a long rod to
+            // smack with a mace.
+            return BlueprintBuilder.Create("Barbell Dummy", ChassisKind.Ground)
+                .Block(BlockIds.Cpu, 0, 0, 0)
+                // Rod: x=0, y=0, z=-4..-1 and z=1..4 (CPU at z=0).
+                .Row(BlockIds.Cube, new Vector3Int(0, 0, -4), new Vector3Int(0, 0, -1))
+                .Row(BlockIds.Cube, new Vector3Int(0, 0,  1), new Vector3Int(0, 0,  4))
+                // End mass A: 3×3×3 box at z=-7..-5.
+                .Box(BlockIds.Cube, new Vector3Int(-1, -1, -7), new Vector3Int(1, 1, -5))
+                // End mass B: 3×3×3 box at z=5..7.
+                .Box(BlockIds.Cube, new Vector3Int(-1, -1,  5), new Vector3Int(1, 1,  7))
+                .Build()
+                .Entries;
+        }
+
         private static ChassisBlueprint.Entry[] BuildStressTowerEntries()
         {
             // Spinning-rotor tower used to visually stress-test multiple
@@ -582,6 +612,7 @@ namespace Robogame.Tools.Editor
             // actually keep. (Same pattern used in BuildBootstrapPassA.)
             ChassisBlueprint dummyBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(CombatDummyPath);
             ChassisBlueprint stressBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(StressTowerPath);
+            ChassisBlueprint barbellBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(BarbellDummyPath);
             if (dummyBpLive == null)
             {
                 Debug.LogError(
@@ -607,6 +638,14 @@ namespace Robogame.Tools.Editor
                 if (stressProp != null) stressProp.objectReferenceValue = stressBpLive;
                 SerializedProperty stressPosProp = so.FindProperty("_stressTowerPosition");
                 if (stressPosProp != null) stressPosProp.vector3Value = new Vector3(40f, 0.5f, 18f);
+
+                // Barbell dummy: hookable + smackable target for the new
+                // tip blocks. Spawn position is off to the player's left
+                // so the existing combat dummy stays dead-ahead.
+                SerializedProperty barbellProp = so.FindProperty("_barbellBlueprint");
+                if (barbellProp != null) barbellProp.objectReferenceValue = barbellBpLive;
+                SerializedProperty barbellPosProp = so.FindProperty("_barbellPosition");
+                if (barbellPosProp != null) barbellPosProp.vector3Value = new Vector3(-25f, 1.5f, 18f);
 
                 so.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(arena);

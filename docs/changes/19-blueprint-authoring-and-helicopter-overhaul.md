@@ -259,6 +259,95 @@ connectivity. PlayMode tests for the actual contact damage are
 deferred — the formula is shape-mirrored on `MomentumImpactHandler`,
 which is already covered by ramming integration tests.
 
-## Phases ahead
+## Phase 6 — Barbell test dummy
 
-- **Phase 6** — barbell dummy + arena spawn wiring.
+New target dummy for testing the Hook + Mace tip blocks.
+
+### Shape
+
+A long Z-aligned barbell, ~12.6 m long, 3 m thick at the bells:
+
+- **End mass A:** 3×3×3 cube cluster (27 cells) at z=-7..-5.
+- **Rod:** 1×1 cube column from z=-4..-1 + z=1..4 + CPU at (0,0,0)
+  (9 cells total).
+- **End mass B:** 3×3×3 cube cluster (27 cells) at z=5..7.
+
+Total 63 cells. Built via the `BlueprintBuilder.Box` helper for the
+end masses and `Row` for the rod.
+
+### Spawn
+
+`ArenaController` gains `_barbellBlueprint` + `_barbellPosition` (default
+`(-25, 1.5, 18)`) and a new `SpawnBarbell` method that mirrors
+`SpawnDummy` (uses `ChassisFactory.BuildTarget` for a frozen-rotation
+target). The combat dummy stays dead-ahead at (0, 0.5, 18); the
+barbell sits 25 m to the player's left, both visible from spawn.
+
+`GameplayScaffolder.BuildArenaPassA` wires the new blueprint reference
++ position into the scene's `ArenaController` via SerializedObject,
+so `Robogame → Build Everything` propagates the change to disk.
+
+### Tests
+
+`BarbellDummyTests` (new): full validator pass, end-mass cell counts
+(27 + 27), rod-cell axis check (rod must lie on x=y=0), exactly one
+CPU. `PresetBlueprintTests.PresetPaths` extended so the barbell joins
+the auto-generated ASCII snapshot at `docs/blueprint-snapshots/`.
+
+### Tip-block collider hygiene fix
+
+While testing the tip-block path, found that `BlockGrid.PlaceBlock`'s
+default Cube primitive ships with a full-cell `BoxCollider`. With a
+hook adding its own small `BoxCollider` on top, both colliders fired
+independent OnCollisionEnter callbacks → potential double-damage.
+Fixed by stripping the host collider in `TipBlock.Awake` before
+`BuildTipVisual` runs. Damage routing still resolves correctly: the
+hook's own collider sits on the same GameObject as its
+`BlockBehaviour`, so `GetComponentInParent<IDamageable>()` from a
+contact still walks to the right HP holder.
+
+## Known edge cases (deferred)
+
+- A tip block whose host GameObject is reparented to a rope segment
+  becomes orphaned at scene root if the host segment is destroyed
+  (rope rebuild is fine; chassis-rb-destroy is not). `ReleaseAdoptedTip`
+  unparents to scene root in that case rather than leaking under a
+  destroyed segment, but the tip's own GameObject lifecycle could
+  still go stale. Acceptable for the autonomous run; revisit when
+  damage-driven rope-tip detach becomes a real gameplay path.
+- `Robot.DetachAsDebris` on an adopted tip would add a Rigidbody to
+  the tip GameObject. Detach reparents to scene root first, so no
+  child-of-rigidbody violation, but the rope segment's mass would
+  no longer reflect the missing tip. Edge case — flagged in the log
+  for a follow-up session.
+
+## Summary of the autonomous run
+
+Five commits, dependency-ordered, each committed but not pushed
+(per the user's "main-only, propose pushes at checkpoints" workflow):
+
+1. **Sessions 17/18 + Phase 1** — outstanding session 17/18 work folded
+   in; new BlueprintBuilder + Validator + AsciiDump foundations; tests.
+2. **Phase 3** — rotor stem visual + adoption shifts to mechanism cell.
+3. **Phase 4** — bigger helicopter, two side guns.
+4. **Phase 5** — Hook + Mace tip blocks with PHYSICS_PLAN §3 damage.
+5. **Phase 6** — barbell test dummy + arena spawn wiring.
+
+Next-session work (for the user, when they're back):
+- Run `Robogame → Build Everything` to re-scaffold blueprints, definitions,
+  and arena wiring.
+- Open the EditMode test runner; `BlueprintBuilderTests`,
+  `BlueprintValidatorTests`, `PresetBlueprintTests`, `HelicopterBlueprintTests`,
+  `BarbellDummyTests` all run without entering Play.
+- The PresetBlueprintTests' `DumpAllPresets` test writes
+  `docs/blueprint-snapshots/presets.md` — that file shows the actual
+  ASCII layouts of all blueprints. Read it to verify the helicopter
+  + barbell + others look like they should.
+- Hit Play → arena → check the helicopter rotor visual (stem + head),
+  watch the foils at the absolute top, fire the two guns. Smack the
+  barbell with a chassis carrying a Rope + Mace and watch contact
+  damage flow.
+- Session 17 B2/B3 frame-instability diagnostic logs are still in
+  `RotorBlock`. With the visual fix, the original "is the chassis
+  diverging or just clipping?" question is now answerable from a
+  single test flight.

@@ -39,6 +39,7 @@ namespace Robogame.Tests.EditMode.Blueprints
             BlueprintFolder + "/Blueprint_DefaultHelicopter.asset",
             BlueprintFolder + "/Blueprint_CombatDummy.asset",
             BlueprintFolder + "/Blueprint_StressRotorTower.asset",
+            BlueprintFolder + "/Blueprint_BarbellDummy.asset",
         };
 
         [TestCaseSource(nameof(PresetPaths))]

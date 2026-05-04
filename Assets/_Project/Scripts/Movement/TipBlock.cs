@@ -148,6 +148,17 @@ namespace Robogame.Movement
         protected virtual void Awake()
         {
             BlockVisuals.HideHostMesh(gameObject);
+            // BlockGrid.PlaceBlock spawns a Unity Cube primitive which
+            // ships with a full-cell BoxCollider. The tip block wants its
+            // own (smaller / shaped) collider instead — strip the
+            // primitive collider so we don't end up with two contact
+            // volumes registering independent hits.
+            Collider existing = GetComponent<Collider>();
+            if (existing != null)
+            {
+                if (Application.isPlaying) Destroy(existing);
+                else                       DestroyImmediate(existing);
+            }
             BuildTipVisual();
         }
 

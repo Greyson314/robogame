@@ -55,6 +55,14 @@ namespace Robogame.Gameplay
         [SerializeField] private Vector3 _stressTowerPosition = new Vector3(40f, 0.5f, 18f);
         [SerializeField] private string _stressTowerName = "StressRotorTower";
 
+        [Header("Barbell test dummy")]
+        [Tooltip("Hookable / smackable barbell-shaped target. Spawned " +
+                 "off to the player's left so the existing combat dummy " +
+                 "stays dead-ahead. Built from Blueprint_BarbellDummy.")]
+        [SerializeField] private ChassisBlueprint _barbellBlueprint;
+        [SerializeField] private Vector3 _barbellPosition = new Vector3(-25f, 1.5f, 18f);
+        [SerializeField] private string _barbellName = "BarbellDummy";
+
         private GameObject _stressTowerGo;
 
         public GameObject Chassis { get; private set; }
@@ -84,6 +92,7 @@ namespace Robogame.Gameplay
 
             Chassis = SpawnPlayerChassis(state);
             SpawnDummy(state);
+            SpawnBarbell(state);
             BindFollowCamera(Chassis);
 
             // Stress tower: optional. Read the tweakable on entry and
@@ -154,6 +163,21 @@ namespace Robogame.Gameplay
             Robogame.Robots.Robot dummy = ChassisFactory.BuildTarget(go, _dummyBlueprint, state.Library);
             int blockCount = dummy != null ? dummy.BlockCount : 0;
             Debug.Log($"[Robogame] Combat dummy spawned at {_dummyPosition} with {blockCount} blocks.", go);
+        }
+
+        private void SpawnBarbell(GameStateController state)
+        {
+            if (_barbellBlueprint == null) return; // optional — missing wire-up is fine
+            if (state.Library == null) return;
+
+            GameObject existing = GameObject.Find(_barbellName);
+            if (existing != null) Destroy(existing);
+
+            var go = new GameObject(_barbellName);
+            go.transform.position = _barbellPosition;
+            Robogame.Robots.Robot barbell = ChassisFactory.BuildTarget(go, _barbellBlueprint, state.Library);
+            int blockCount = barbell != null ? barbell.BlockCount : 0;
+            Debug.Log($"[Robogame] Barbell dummy spawned at {_barbellPosition} with {blockCount} blocks.", go);
         }
 
         /// <summary>
