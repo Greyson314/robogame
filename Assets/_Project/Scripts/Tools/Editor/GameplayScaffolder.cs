@@ -166,19 +166,37 @@ namespace Robogame.Tools.Editor
             list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-2, 0, -3)));
             list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,    new Vector3Int( 0, 1, -3)));
             list.Add(new ChassisBlueprint.Entry(BlockIds.AeroFin, new Vector3Int( 0, 2, -3)));
-            // Rope tail: free-body cosmetic chain hanging off the bottom
-            // of the thruster cell. Anchored under (0,0,-3), so it stays
-            // connected to the chassis via the y-axis neighbour for the
-            // CPU-connectivity check.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope,    new Vector3Int( 0, -1, -3)));
-            // Tail rotor: spinning hub on top of the rear fuselage at
-            // (0,1,-2). Connected to the cube at (0,0,-2) via the y-axis
-            // neighbour. Lives one cell forward of the vertical fin so
-            // the rotor visual doesn't intersect the fin. RotorBlock is
-            // cosmetic-only — no ropes, no lift — so this is just a
-            // spinning visual on the tail. Add a Rope cell adjacent if
-            // you want a chain hanging off the rotor.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Rotor,   new Vector3Int( 0,  1, -2)));
+
+            // 8 ropes-with-tips hanging below the wings + tailplane —
+            // a sandbox loadout for hot-testing the new Hook / Mace
+            // contact-damage path (PHYSICS_PLAN §3) while the helicopter
+            // frame-stability bug is being diagnosed in parallel. Mix is
+            // 4 hooks + 4 maces so both behaviours are visible at once.
+            //
+            // Each pair is (rope @ y=-1, tip @ y=-2) directly below an
+            // existing wing or tailplane Aero cell, so face-adjacency
+            // connectivity walks rope → tip → CPU through the wing.
+            // Mirrored across X for symmetry.
+            //
+            // Outer wings carry the heavier maces (longer lever arm =
+            // more pendulum momentum); inner wings carry the lighter
+            // hooks. Tailplane mirrors the same pattern at z=-3.
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int( 2, -1,  0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Hook, new Vector3Int( 2, -2,  0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int(-2, -1,  0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Hook, new Vector3Int(-2, -2,  0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int( 3, -1,  0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Mace, new Vector3Int( 3, -2,  0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int(-3, -1,  0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Mace, new Vector3Int(-3, -2,  0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int( 1, -1, -3)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Hook, new Vector3Int( 1, -2, -3)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int(-1, -1, -3)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Hook, new Vector3Int(-1, -2, -3)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int( 2, -1, -3)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Mace, new Vector3Int( 2, -2, -3)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int(-2, -1, -3)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Mace, new Vector3Int(-2, -2, -3)));
             return list.ToArray();
         }
 
