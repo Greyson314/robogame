@@ -13,7 +13,6 @@ namespace Robogame.Tools.Editor
     {
         public const string DefinitionsFolder = "Assets/_Project/ScriptableObjects/BlockDefinitions";
 
-        [MenuItem("Robogame/Scaffold/Create Test Block Definitions")]
         public static void CreateTestDefinitions()
         {
             EnsureFolder(DefinitionsFolder);

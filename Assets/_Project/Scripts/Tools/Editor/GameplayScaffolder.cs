@@ -24,7 +24,6 @@ namespace Robogame.Tools.Editor
     /// </remarks>
     public static class GameplayScaffolder
     {
-        private const string MenuRoot = "Robogame/Scaffold/Gameplay/";
         private const string SoFolder = "Assets/_Project/ScriptableObjects";
         private const string BlueprintFolder = SoFolder + "/Blueprints";
         private const string LibraryAssetPath = SoFolder + "/BlockDefinitionLibrary.asset";
@@ -41,7 +40,6 @@ namespace Robogame.Tools.Editor
         // Data assets
         // -----------------------------------------------------------------
 
-        [MenuItem(MenuRoot + "1 — Populate Block Definition Library")]
         public static BlockDefinitionLibrary PopulateBlockDefinitionLibrary()
         {
             BlockDefinitionWizard.CreateTestDefinitions();
@@ -70,8 +68,8 @@ namespace Robogame.Tools.Editor
             return lib;
         }
 
-        [MenuItem(MenuRoot + "2 — Create Default Blueprints")]
-        public static void CreateDefaultBlueprintsMenu() => CreateDefaultBlueprints();
+        // CreateDefaultBlueprintsMenu was the menu wrapper; menu hidden,
+        // but BuildAllPassA still calls CreateDefaultBlueprints directly.
 
         public static ChassisBlueprint CreateDefaultBlueprints()
         {
@@ -421,6 +419,26 @@ namespace Robogame.Tools.Editor
             bp.SetEntries(entries);
             bp.RotorsGenerateLift = rotorsGenerateLift;
             EditorUtility.SetDirty(bp);
+
+            // Run BlueprintValidator at scaffold time so a broken preset
+            // surfaces in the Console immediately, not at game start.
+            // Errors degrade to warnings here (the asset still saves) so
+            // the user can investigate without the whole Build All Pass A
+            // bailing out — but the warning is loud and clickable.
+            BlueprintPlan plan = new BlueprintPlan(displayName, kind, entries, rotorsGenerateLift);
+            BlueprintValidationResult result = BlueprintValidator.Validate(plan);
+            if (!result.IsValid)
+            {
+                Debug.LogWarning(
+                    $"[Robogame] Blueprint '{displayName}' has validation errors:\n{result}",
+                    bp);
+            }
+            else if (result.Warnings.Count > 0)
+            {
+                Debug.Log(
+                    $"[Robogame] Blueprint '{displayName}' validated with warnings:\n{result}",
+                    bp);
+            }
             return bp;
         }
 
@@ -428,7 +446,6 @@ namespace Robogame.Tools.Editor
         // Scenes
         // -----------------------------------------------------------------
 
-        [MenuItem(MenuRoot + "3 — Build Bootstrap (Pass A)")]
         public static void BuildBootstrapPassA()
         {
             BlockDefinitionLibrary lib = PopulateBlockDefinitionLibrary();
@@ -519,7 +536,6 @@ namespace Robogame.Tools.Editor
                       $"GameStateController wired: library={libOK}, defaultBlueprint={bpOK}, inputActions={inputOK}.");
         }
 
-        [MenuItem(MenuRoot + "4 — Build Garage Scene (Pass A)")]
         public static void BuildGaragePassA()
         {
             ScaffoldUtils.OpenScene(ScaffoldUtils.GarageScene);
@@ -538,7 +554,6 @@ namespace Robogame.Tools.Editor
             Debug.Log("[Robogame] Built Garage.unity (Pass A).");
         }
 
-        [MenuItem(MenuRoot + "5 — Build Arena Scene (Pass A)")]
         public static void BuildArenaPassA()
         {
             // Create the Arena scene file if missing.
@@ -603,7 +618,6 @@ namespace Robogame.Tools.Editor
             Debug.Log("[Robogame] Built Arena.unity (Pass A).");
         }
 
-        [MenuItem(MenuRoot + "5b — Build Water Arena Scene (Pass A)")]
         public static void BuildWaterArenaPassA()
         {
             // Create the WaterArena scene file if missing.
@@ -627,7 +641,6 @@ namespace Robogame.Tools.Editor
             Debug.Log("[Robogame] Built WaterArena.unity (Pass A).");
         }
 
-        [MenuItem(MenuRoot + "5c — Build Planet Arena Scene (Pass A)")]
         public static void BuildPlanetArenaPassA()
         {
             // Create the PlanetArena scene file if missing.
@@ -678,7 +691,6 @@ namespace Robogame.Tools.Editor
             Debug.Log("[Robogame] Built PlanetArena.unity (Pass A).");
         }
 
-        [MenuItem(MenuRoot + "Build All Pass A")]
         public static void BuildAllPassA()
         {
             // Treat this as a true catch-all: run every numbered menu step

@@ -1,0 +1,23 @@
+{
+    "name": "Robogame.Tests.PlayMode",
+    "rootNamespace": "Robogame.Tests.PlayMode",
+    "references": [
+        "Robogame.Core",
+        "Robogame.Block",
+        "Robogame.Movement",
+        "Robogame.Gameplay",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

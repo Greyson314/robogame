@@ -28,7 +28,6 @@ namespace Robogame.Tools.Editor
         private const string BombExplosionPrefabPath =
             "Assets/JMO Assets/Cartoon FX Remaster/CFXR Prefabs/Explosions/CFXR Explosion 1.prefab";
 
-        [MenuItem("Robogame/Scaffold/Create Combat VFX Library")]
         public static CombatVfxLibrary CreateOrUpdate()
         {
             EnsureFolder(LibraryFolder);

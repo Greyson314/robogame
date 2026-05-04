@@ -91,10 +91,23 @@ namespace Robogame.Core
         // Rotor (spinning block, see RotorBlock). RPM drives the visual
         // spin rate of every active rotor on every chassis, and (in
         // lift mode) the angular speed of the kinematic hub that the
-        // adopted aerofoil blocks orbit. Blade dimensions come from
-        // each AeroSurfaceBlock's own _wingSize, since blades are now
-        // independent grid cells rather than synthesized children.
+        // adopted aerofoil blocks orbit. Blade visual dimensions live
+        // on the Aero.* tweakables below — blades are independent grid
+        // cells and share a single set of cosmetic dims for now.
         public const string RotorRpm = "Rotor.RPM"; // revolutions per minute
+
+        // Aerofoil block visual dimensions (per AeroSurfaceBlock).
+        // COSMETIC ONLY — per docs/PHYSICS_PLAN.md §1.5 / §5.
+        // AeroSurfaceBlock.FixedUpdate MUST NOT read these: the lift math
+        // depends on _liftCoef × AoA × forward speed² only, with no wing-
+        // dimension term. The single consumer is ApplyOrientationToVisual,
+        // which writes _wingMesh.localScale. If a future PR couples wing
+        // dims to lift, drag, hit area, or any other gameplay-observable
+        // quantity, the data MUST move to the chassis blueprint (server-
+        // authoritative) before that PR ships.
+        public const string AeroWingSpan      = "Aero.WingSpan";
+        public const string AeroWingChord     = "Aero.WingChord";
+        public const string AeroWingThickness = "Aero.WingThickness";
 
         // Momentum / ramming impact (see MomentumImpactHandler). Damage
         // is computed from reduced-mass kinetic energy in kJ and then
@@ -290,12 +303,17 @@ namespace Robogame.Core
 
             // Rotor. 60 rpm = 1 rev/sec — slow enough to read individual
             // blades by eye. Bump for fan/helicopter builds; drop to 0
-            // to freeze the visual entirely. Blade dimensions feed the
-            // lift-mode rotor only — cosmetic-only rotors ignore them.
-            // Length 1.0 m at radius 0.8 m gives a tip-to-tip span of
-            // ~3.6 m, big enough to read against a 1 m cube chassis.
-            // Chord 0.30 m matches the cosmetic bar silhouette.
+            // to freeze the visual entirely.
             Register(RotorRpm, "Rotor", "RPM", 60f, 0f, 600f);
+
+            // Aerofoil visual dims. Defaults are the values the foil
+            // shipped with before this knob existed, so first load is
+            // visually unchanged. Live slider edits fire
+            // AeroSurfaceBlock.ApplyOrientationToVisual via
+            // Tweakables.Changed — every active foil resizes immediately.
+            Register(AeroWingSpan,      "Aero", "Wing Span (m)",      1.00f, 0.30f, 3.00f);
+            Register(AeroWingChord,     "Aero", "Wing Chord (m)",     0.90f, 0.20f, 2.50f);
+            Register(AeroWingThickness, "Aero", "Wing Thickness (m)", 0.08f, 0.02f, 0.40f);
 
             // Impact. Defaults tuned for a 50 kg plane vs 50 kg dummy at
             // 30 m/s closing — μ ≈ 25, KE ≈ 11.25 kJ, ×5 dmg/kJ ≈ 56 dmg

@@ -91,10 +91,8 @@ namespace Robogame.Tools.Editor
         /// </summary>
         /// <remarks>
         /// Wired from <see cref="HillsSettingsEditor"/>'s "Rebake hills
-        /// mesh" button. Also available from the menu under
-        /// <c>Robogame/Scaffold/Gameplay/Rebake Hills Mesh</c>.
+        /// mesh" button.
         /// </remarks>
-        [MenuItem("Robogame/Scaffold/Gameplay/Rebake Hills Mesh")]
         public static void RebakeMesh()
         {
             HillsSettings settings = LoadOrCreateSettings();

@@ -1,4 +1,5 @@
 using Robogame.Block;
+using Robogame.Core;
 using UnityEngine;
 
 namespace Robogame.Movement
@@ -71,8 +72,8 @@ namespace Robogame.Movement
 
         [Header("Visual rig (auto-built if blank)")]
         [SerializeField] private Transform _wingMesh;
-        [Tooltip("Wing visual size in metres (X = span, Y = thickness, Z = chord).")]
-        [SerializeField] private Vector3 _wingSize = new Vector3(1f, 0.08f, 0.9f);
+        // Wing dimensions (span / thickness / chord) come from the
+        // Aero.* tweakables — see ApplyOrientationToVisual.
 
         // Velocity reference: the IMMEDIATE parent Rigidbody. On a
         // plane wing this is the chassis. On a rotor blade this is the
@@ -109,6 +110,11 @@ namespace Robogame.Movement
 
         private void OnEnable()
         {
+            // Subscribe unconditionally so the rotor-mode early-return
+            // below doesn't strand foils without live resize.
+            Tweakables.Changed += OnTweakablesChanged;
+            ApplyOrientationToVisual();
+
             // If a rotor builder already injected an explicit force
             // target via ConfigureRotorMode, don't clobber it here.
             if (_rotorMode && _forceTargetRb != null) return;
@@ -117,6 +123,13 @@ namespace Robogame.Movement
             _forceTargetRb = ResolveForceTarget(_velocityRb);
             _rotorMode = _velocityRb != null && _forceTargetRb != null && _velocityRb != _forceTargetRb;
         }
+
+        private void OnDisable()
+        {
+            Tweakables.Changed -= OnTweakablesChanged;
+        }
+
+        private void OnTweakablesChanged() => ApplyOrientationToVisual();
 
         /// <summary>
         /// Wire this surface up as a rotor blade. <paramref name="hub"/>
@@ -235,17 +248,26 @@ namespace Robogame.Movement
         /// the configured wing size, vertical rotates 90° around forward
         /// (so the cube becomes a tall fin) and swaps span/thickness.
         /// </summary>
+        /// <remarks>
+        /// Wing dimensions come from the Aero.* tweakables (cosmetic-only
+        /// per docs/PHYSICS_PLAN.md §1.5). Live slider drags fire
+        /// <see cref="Tweakables.Changed"/>, which re-runs this method on
+        /// every active foil for instant resize.
+        /// </remarks>
         private void ApplyOrientationToVisual()
         {
             if (_wingMesh == null) return;
+            float span      = Tweakables.Get(Tweakables.AeroWingSpan);
+            float thickness = Tweakables.Get(Tweakables.AeroWingThickness);
+            float chord     = Tweakables.Get(Tweakables.AeroWingChord);
             if (_vertical)
             {
                 // Tall thin fin: swap X and Y so the long axis points up.
-                _wingMesh.localScale = new Vector3(_wingSize.y, _wingSize.x, _wingSize.z);
+                _wingMesh.localScale = new Vector3(thickness, span, chord);
             }
             else
             {
-                _wingMesh.localScale = _wingSize;
+                _wingMesh.localScale = new Vector3(span, thickness, chord);
             }
         }
     }

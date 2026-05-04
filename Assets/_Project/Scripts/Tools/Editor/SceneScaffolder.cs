@@ -17,13 +17,10 @@ namespace Robogame.Tools.Editor
     /// </summary>
     public static class SceneScaffolder
     {
-        private const string MenuRoot = "Robogame/Scaffold/";
-
         // -----------------------------------------------------------------
         // Bootstrap scene
         // -----------------------------------------------------------------
 
-        [MenuItem(MenuRoot + "Build Bootstrap Scene")]
         public static void BuildBootstrap()
         {
             ScaffoldUtils.OpenScene(ScaffoldUtils.BootstrapScene);
@@ -56,7 +53,6 @@ namespace Robogame.Tools.Editor
         // Test terrain
         // -----------------------------------------------------------------
 
-        [MenuItem(MenuRoot + "Build Test Terrain")]
         public static void BuildTestTerrain()
         {
             ScaffoldUtils.OpenScene(ScaffoldUtils.GarageScene);

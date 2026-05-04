@@ -161,7 +161,16 @@ namespace Robogame.Movement
 
         private void OnDisable()
         {
-            DestroyLiftRig();
+            // Intentionally do NOT tear down the lift rig here. Robot.CaptureTemplate
+            // briefly SetActive(false) → Instantiate → SetActive(true) on the chassis
+            // to clone it as a cold-storage template; that cascade fires OnDisable on
+            // every block. Tearing the rig down in that window fails — the foils'
+            // OriginalParent (the chassis grid root) is itself mid-deactivation, and
+            // Unity rejects SetParent into a transitioning GameObject. Skipping the
+            // teardown is safe: the hub lives at scene root and is unaffected by the
+            // chassis cascade. BuildLiftRig is idempotent (returns early when the rig
+            // already exists), so the post-snapshot OnEnable is a no-op. Real teardown
+            // happens in OnDestroy and in explicit Rebuild() calls.
         }
 
         private void OnDestroy() => DestroyLiftRig();
@@ -251,6 +260,13 @@ namespace Robogame.Movement
         private void BuildLiftRig()
         {
             if (!_generatesLift) return;
+            // Idempotent: already-built rig survives the OnEnable/OnDisable
+            // cascade triggered by Robot.CaptureTemplate (see OnDisable comment).
+            // Returning early here keeps a single hub + adoption set across that
+            // transient deactivation. Explicit Rebuild() callers (parent-change,
+            // GeneratesLift toggle) tear down first via DestroyLiftRig before
+            // calling BuildLiftRig, so the early-out doesn't block them.
+            if (_hubGo != null) return;
             // Need a chassis ancestor for the blades to push against.
             Rigidbody chassis = GetComponentInParent<Rigidbody>();
             if (chassis == null)
@@ -260,6 +276,16 @@ namespace Robogame.Movement
                     this);
                 return;
             }
+            // Garage / build-mode parking pins the chassis as kinematic +
+            // FreezeAll for static inspection. Don't reparent foils under a
+            // scene-root hub in that mode: the foils need to stay under the
+            // chassis grid root for the static display path to render them
+            // at their placed cells. The lift rig builds fresh on the next
+            // non-kinematic spawn — ArenaController calls ChassisFactory.Build
+            // on a fresh GameObject, which re-fires OnEnable with a non-
+            // kinematic chassis. Closes B1 from
+            // docs/changes/17-rotor-foil-decoupling-followups.md.
+            if (chassis.isKinematic) return;
 
             // Hub: kinematic Rigidbody at scene root. We MovePosition /
             // MoveRotation it each FixedUpdate; PhysX uses the per-step
@@ -274,6 +300,16 @@ namespace Robogame.Movement
             // in by AeroSurfaceBlock.ConfigureRotorMode passing the
             // chassis as the force target.
             _hubGo = new GameObject($"RotorHub_{name}");
+            // Deactivate immediately: the adoption pass below calls
+            // SetParent on each foil to put it under the hub. Unity throws
+            // "Cannot set the parent ... while activating or deactivating
+            // the parent" when the hub is mid-activation (which a freshly-
+            // created GameObject is). Same SetActive-during-mutation trick
+            // ChassisFactory.Build uses for AddComponent + reflection.
+            // We re-activate at the end of BuildLiftRig once every adoption
+            // is wired up; AeroSurfaceBlock.OnEnable's _rotorMode guard
+            // preserves the configuration the cascade re-fires.
+            _hubGo.SetActive(false);
             _hub   = _hubGo.AddComponent<Rigidbody>();
             _hub.isKinematic   = true;
             _hub.useGravity    = false;
@@ -282,6 +318,12 @@ namespace Robogame.Movement
             _hub.transform.SetPositionAndRotation(GetHubWorldPos(), GetHubWorldRot(0f));
 
             AdoptAdjacentAerofoils(chassis);
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            Debug.Log($"[RotorBlock] '{name}': BuildLiftRig adopted {_adoptedFoils.Count} foil(s).", this);
+#endif
+
+            _hubGo.SetActive(true);
         }
 
         // Scan the 4 grid neighbours of this rotor's cell that lie in
@@ -338,26 +380,37 @@ namespace Robogame.Movement
                     OriginalLocalRot = aero.transform.localRotation,
                 };
 
+                // Snapshot world position BEFORE reparenting. We restore
+                // it explicitly after SetParent because (a) worldPositionStays
+                // can drift by floating-point if the hub's world transform
+                // has a tiny translation/rotation accumulated from physics,
+                // and (b) we want exact placement at the cell we found.
+                Vector3 foilWorldPos = aero.transform.position;
+
                 // Reparent under the hub, keeping the foil at its
                 // currently-placed world position. As the hub spins,
                 // the foil orbits with it.
                 aero.transform.SetParent(_hub.transform, worldPositionStays: true);
+                aero.transform.position = foilWorldPos;
 
-                // Compute the foil's hub-local radial direction and the
-                // tangent perpendicular to both radial and the spin
-                // axis. Override the foil's rotation so its local +Z =
-                // tangent (chord into wind) and local +Y = spin axis
-                // (lift up), with collective pitch tilting the leading
-                // edge up around the radial axis.
-                Vector3 radialHubLocal = aero.transform.localPosition;
-                // Project radial onto spin plane (drop the axial component).
-                radialHubLocal = radialHubLocal - Vector3.Project(radialHubLocal, _spinAxisLocal);
-                if (radialHubLocal.sqrMagnitude < 1e-6f) continue;
-                radialHubLocal.Normalize();
-                Vector3 tangentHubLocal = Vector3.Cross(_spinAxisLocal.normalized, radialHubLocal).normalized;
-                Quaternion lookRot  = Quaternion.LookRotation(tangentHubLocal, _spinAxisLocal.normalized);
-                Quaternion pitchRot = Quaternion.AngleAxis(_collectivePitchDeg, Vector3.right);
-                aero.transform.localRotation = lookRot * pitchRot;
+                // Build the world-space rotation for this blade: forward =
+                // spin tangent (chord into the wind), up = spin axis
+                // (lift direction), then tilt the leading edge up by
+                // _collectivePitchDeg around the world-space radial axis.
+                // The radial-axis pitch is the physically correct
+                // collective formulation: each blade tilts about its own
+                // radial line, regardless of which side of the rotor it
+                // sits on. The previous local-+X formulation only matched
+                // this for blades aligned with world +X.
+                Vector3 spinAxisWorld = transform.TransformDirection(_spinAxisLocal).normalized;
+                Vector3 radialWorld   = foilWorldPos - _hub.transform.position;
+                radialWorld -= Vector3.Project(radialWorld, spinAxisWorld);
+                if (radialWorld.sqrMagnitude < 1e-6f) continue;
+                radialWorld.Normalize();
+                Vector3 tangentWorld = Vector3.Cross(spinAxisWorld, radialWorld).normalized;
+                Quaternion worldRot = Quaternion.LookRotation(tangentWorld, spinAxisWorld);
+                Quaternion pitchRot = Quaternion.AngleAxis(_collectivePitchDeg, radialWorld);
+                aero.transform.rotation = pitchRot * worldRot;
 
                 // Switch into rotor mode: sample velocity from the
                 // kinematic hub (so PhysX's GetPointVelocity returns
@@ -366,6 +419,13 @@ namespace Robogame.Movement
                 aero.ConfigureRotorMode(hub: _hub, chassis: chassis);
 
                 _adoptedFoils.Add(record);
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                Debug.Log(
+                    $"[RotorBlock] '{name}': adopted '{aero.name}' " +
+                    $"world={aero.transform.position:F3}, hub={_hub.transform.position:F3}",
+                    aero);
+#endif
             }
         }
 

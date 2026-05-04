@@ -19,7 +19,6 @@ namespace Robogame.Tools.Editor
             ScaffoldUtils.PlanetArenaScene,
         };
 
-        [MenuItem("Robogame/Scaffold/Sync Build Scene List")]
         public static void SyncSceneList()
         {
             var scenes = new System.Collections.Generic.List<EditorBuildSettingsScene>();
