@@ -449,7 +449,18 @@ namespace Robogame.Movement
                 // kinematic hub (so PhysX's GetPointVelocity returns
                 // ω×r at this foil's world position), apply lift to
                 // the chassis (so the chassis actually rises).
-                aero.ConfigureRotorMode(hub: _hub, chassis: chassis);
+                // Pass the rotor's transform + local spin axis so the
+                // foil applies lift along the rotor's axis (not its
+                // tilted transform.up). With collective pitch the
+                // pitched transform.up has a tangential component; left
+                // unchecked the four blades' lift sums to a yaw torque
+                // on the chassis at full rotor power. See
+                // AeroSurfaceBlock.ConfigureRotorMode docstring.
+                aero.ConfigureRotorMode(
+                    hub: _hub,
+                    chassis: chassis,
+                    rotorTransform: transform,
+                    spinAxisLocal: _spinAxisLocal);
 
                 _adoptedFoils.Add(record);
 

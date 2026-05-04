@@ -492,5 +492,58 @@ namespace Robogame.Tests.PlayMode.Movement
                 "_hubGo is null after BuildLiftRig with a dynamic chassis — " +
                 "hub should be built when the chassis is non-kinematic.");
         }
+
+        /// <summary>
+        /// Session-21 invariant: under rotor load, the chassis must not
+        /// yaw about the rotor's spin axis. A symmetric four-blade ring
+        /// applying lift along the spin axis produces zero net torque on
+        /// the chassis (each <c>r × F</c> contribution along the spin
+        /// axis is zero). If the lift force tilts off-axis (e.g. via the
+        /// foil's collective-pitch tilt), each blade's tangential lift
+        /// component sums to a yaw torque at full rotor power — that's
+        /// the helicopter "spinning at rotor speed" bug. This test
+        /// catches it by spinning a rotor with four foils for a fraction
+        /// of a second and asserting the chassis hasn't accumulated
+        /// significant angular velocity along the spin axis.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator RotorBlock_ChassisStaysSteadyAboutSpinAxis_UnderLoad()
+        {
+            // Foils ring the mechanism cell at y=2 (one cell above the
+            // rotor at y=1, along the +Y spin axis).
+            PlaceAero(new Vector3Int( 1, 2,  0));
+            PlaceAero(new Vector3Int(-1, 2,  0));
+            PlaceAero(new Vector3Int( 0, 2,  1));
+            PlaceAero(new Vector3Int( 0, 2, -1));
+
+            BlockDefinition rotorDef = MakeDef("block.rotor.test");
+            BlockBehaviour rotorBb = _grid.PlaceBlock(rotorDef, new Vector3Int(0, 1, 0));
+            Assert.IsNotNull(rotorBb);
+            rotorBb.gameObject.SetActive(false);
+            RotorBlock rotor = rotorBb.gameObject.AddComponent<RotorBlock>();
+            _grid.RebuildFromChildren();
+            rotorBb.gameObject.SetActive(true);
+            // High RPM exaggerates any imbalance — at 240 RPM (4 rev/s)
+            // ω ≈ 25 rad/s, blade speed ≈ 25 m/s at unit radius. Any
+            // residual lift-tangential component yaws the chassis fast.
+            rotor.RpmOverride = 240f;
+            rotor.GeneratesLift = true;
+
+            // Spin up + run several FixedUpdates so any per-step
+            // imbalance accumulates into measurable angular velocity.
+            for (int i = 0; i < 30; i++) yield return new WaitForFixedUpdate();
+
+            Assert.AreEqual(4, GetAdoptedFoilCount(rotor),
+                "Precondition failed: expected 4 adopted foils.");
+
+            // Spin axis world = rotor.transform.up (default identity rotation
+            // means spin axis = world +Y for this test's chassis).
+            Vector3 spinAxisWorld = rotor.transform.up.normalized;
+            float yawSpeed = Mathf.Abs(Vector3.Dot(_chassisRb.angularVelocity, spinAxisWorld));
+            Assert.LessOrEqual(yawSpeed, 1.0f,
+                $"Chassis yaw about spin axis grew to {yawSpeed:F3} rad/s in 30 fixed steps — " +
+                "lift is not coplanar with the spin axis (induced-drag yaw bug). " +
+                "ConfigureRotorMode must receive rotorTransform + spinAxisLocal.");
+        }
     }
 }

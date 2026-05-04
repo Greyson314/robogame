@@ -90,6 +90,15 @@ namespace Robogame.Movement
         // Suppresses drag and sideslip so a symmetric blade ring doesn't
         // dump reaction torque into the chassis.
         private bool _rotorMode;
+        // Rotor reference + spin axis (in rotor-block local space). When
+        // set, the lift force in rotor mode is applied along the rotor's
+        // spin axis rather than the foil's tilted transform.up. The
+        // collective-pitch tilt still drives AoA via crossVel, but
+        // purifying the force direction prevents the lift's tangential
+        // component from yawing the chassis. See ConfigureRotorMode +
+        // FixedUpdate for the why.
+        private Transform _rotorTransform;
+        private Vector3 _rotorSpinAxisLocal = Vector3.up;
 
         /// <summary>True for tail fins / rudders. Set this BEFORE the first FixedUpdate (e.g. from a binder right after AddComponent).</summary>
         public bool Vertical
@@ -136,17 +145,39 @@ namespace Robogame.Movement
         /// is the kinematic spinning Rigidbody this blade is parented to
         /// (used for velocity sampling so blade tangential ω×r feeds the
         /// AoA/lift math); <paramref name="chassis"/> is the dynamic
-        /// Rigidbody that should receive the lift force. Call this right
-        /// after <see cref="GameObject.AddComponent{T}()"/> in the rotor
-        /// builder — it overrides what <see cref="OnEnable"/> would have
-        /// resolved (the hub is at scene root, so the auto-walk can't
-        /// find the chassis).
+        /// Rigidbody that should receive the lift force.
         /// </summary>
-        public void ConfigureRotorMode(Rigidbody hub, Rigidbody chassis)
+        /// <remarks>
+        /// <para>
+        /// <paramref name="rotorTransform"/> + <paramref name="spinAxisLocal"/>
+        /// are optional but strongly recommended for rotor builds. When
+        /// provided, the lift force in rotor mode is applied along the
+        /// rotor's spin axis (in world space) rather than along the
+        /// foil's tilted <c>transform.up</c>. This is what keeps the
+        /// chassis from yawing under load: with collective pitch the
+        /// foil's <c>transform.up</c> has a tangential component, and
+        /// the lift force projected onto the spin tangent is "induced
+        /// drag" — which dumps a counter-torque into the chassis at the
+        /// rotor's full power. Real rotors handle this via anti-torque
+        /// (tail rotor, NOTAR); we explicitly don't model that, so the
+        /// blades' lift must be coplanar with the spin axis to stay
+        /// torque-neutral.
+        /// </para>
+        /// <para>
+        /// The pitch tilt still drives AoA via the foil's tilted local
+        /// frame and the velocity-vs-chord computation. Only the
+        /// FORCE DIRECTION is purified — magnitude is unchanged.
+        /// </para>
+        /// </remarks>
+        public void ConfigureRotorMode(
+            Rigidbody hub, Rigidbody chassis,
+            Transform rotorTransform = null, Vector3 spinAxisLocal = default)
         {
-            _velocityRb    = hub;
-            _forceTargetRb = chassis;
-            _rotorMode     = true;
+            _velocityRb       = hub;
+            _forceTargetRb    = chassis;
+            _rotorMode        = true;
+            _rotorTransform   = rotorTransform;
+            _rotorSpinAxisLocal = spinAxisLocal == default ? Vector3.up : spinAxisLocal.normalized;
         }
 
         // Walk up parents from the velocity rb until we find a non-kinematic
@@ -189,6 +220,16 @@ namespace Robogame.Movement
             float sideVel  = _vertical ? localVel.y : localVel.x;
             Vector3 liftAxis = _vertical ? transform.right : transform.up;
             Vector3 sideAxis = _vertical ? transform.up    : transform.right;
+            // Rotor mode: replace the foil-tilted lift axis with the
+            // rotor's spin axis so a symmetric blade ring's lift is
+            // purely axial and produces zero net yaw torque on the
+            // chassis. AoA still comes from the tilted foil's crossVel
+            // — only the force *direction* is purified. See
+            // ConfigureRotorMode docstring for the reasoning.
+            if (_rotorMode && _rotorTransform != null)
+            {
+                liftAxis = _rotorTransform.TransformDirection(_rotorSpinAxisLocal).normalized;
+            }
             float speedSqr = forward * forward;
 
             // Angle of attack: positive when the airflow strikes the
