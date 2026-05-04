@@ -68,8 +68,18 @@ namespace Robogame.Player
         [SerializeField, Range(1f, 2.5f)] private float _zoomMax = 1.4f;
         [Tooltip("How much each scroll-wheel notch shifts the zoom multiplier.")]
         [SerializeField, Min(0.005f)] private float _zoomStep = 0.08f;
+
         // Live multiplier on _distance. 1 = base, _zoomMin..max bounded.
-        private float _distanceMultiplier = 1f;
+        // STATIC so the player's chosen zoom level survives chassis
+        // respawn (Robot.Rebuilt fires after a crash, the camera's
+        // OnEnable runs again, but the static keeps the multiplier).
+        // Per CLAUDE.md "Statics survive domain reload, GameObjects
+        // don't" — reset on domain reload via the SubsystemRegistration
+        // callback below.
+        private static float s_distanceMultiplier = 1f;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStaticState() => s_distanceMultiplier = 1f;
 
         [Tooltip("Initial pitch in degrees (positive = looking down at the target).")]
         [SerializeField, Range(-89f, 89f)] private float _initialPitch = 18f;
@@ -263,8 +273,8 @@ namespace Robogame.Player
             if (Mathf.Abs(scroll) > 0.01f
                 && !(EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()))
             {
-                _distanceMultiplier = Mathf.Clamp(
-                    _distanceMultiplier - Mathf.Sign(scroll) * _zoomStep,
+                s_distanceMultiplier = Mathf.Clamp(
+                    s_distanceMultiplier - Mathf.Sign(scroll) * _zoomStep,
                     _zoomMin, _zoomMax);
             }
 
@@ -324,7 +334,7 @@ namespace Robogame.Player
         private Vector3 ResolveCameraPosition(Vector3 lookAt, Quaternion rot)
         {
             Vector3 dir = -(rot * Vector3.forward);
-            float effectiveDistance = _distance * _distanceMultiplier;
+            float effectiveDistance = _distance * s_distanceMultiplier;
             Vector3 desired = lookAt + dir * effectiveDistance;
 
             if (!_avoidObstacles) return desired;

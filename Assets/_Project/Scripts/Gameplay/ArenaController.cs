@@ -183,7 +183,14 @@ namespace Robogame.Gameplay
 
             var go = new GameObject(_dumbbellName);
             go.transform.position = _dumbbellPosition;
-            Robogame.Robots.Robot dumbbell = ChassisFactory.BuildTarget(go, _dumbbellBlueprint, state.Library);
+            // freezeRotation: false — the dumbbell is a hookable / liftable
+            // physics test object. Frozen rotation would make it act like
+            // a stationary fortress (the combat dummy's behaviour); the
+            // player should be able to swing the dumbbell around with a
+            // grapple, watch it tumble, drop it from altitude, etc.
+            Robogame.Robots.Robot dumbbell = ChassisFactory.BuildTarget(
+                go, _dumbbellBlueprint, state.Library,
+                freezeRotation: false);
             int blockCount = dumbbell != null ? dumbbell.BlockCount : 0;
             Debug.Log($"[Robogame] Dumbbell dummy spawned at {_dumbbellPosition} with {blockCount} blocks.", go);
         }

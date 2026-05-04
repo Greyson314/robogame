@@ -156,6 +156,12 @@ namespace Robogame.Gameplay
                 // Zero cost when no tip blocks are placed.
                 EnsureComponent<RobotTipBlockBinder>(root);
 
+                // Hook release hotkey (R). Walks the grid each Update
+                // and releases any grappled HookBlocks. Player-only —
+                // BuildTarget doesn't add this since target chassis
+                // can't grapple anything.
+                EnsureComponent<RobotHookReleaseInput>(root);
+
                 // Ramming damage (kinetic-energy based). Lives on every
                 // player chassis so plane-vs-dummy / plane-vs-plane
                 // collisions both deal mutual damage scaled by reduced
@@ -211,7 +217,8 @@ namespace Robogame.Gameplay
         public static Robot BuildTarget(
             GameObject root,
             ChassisBlueprint blueprint,
-            BlockDefinitionLibrary library)
+            BlockDefinitionLibrary library,
+            bool freezeRotation = true)
         {
             if (root == null || blueprint == null || library == null)
             {
@@ -221,7 +228,14 @@ namespace Robogame.Gameplay
 
             Rigidbody rb = EnsureComponent<Rigidbody>(root);
             rb.useGravity = true;
-            rb.constraints = RigidbodyConstraints.FreezeRotation;
+            // freezeRotation = true keeps standing dummies upright when
+            // shot / rammed (the historical default). Pass false for
+            // physics-test targets that the player is meant to grapple
+            // and lift around — e.g. the dumbbell, which becomes a real
+            // swinging mass when the helicopter hooks it.
+            rb.constraints = freezeRotation
+                ? RigidbodyConstraints.FreezeRotation
+                : RigidbodyConstraints.None;
 
             BlockGrid grid = EnsureComponent<BlockGrid>(root);
             Robot robot = EnsureComponent<Robot>(root);
