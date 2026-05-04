@@ -54,8 +54,14 @@ namespace Robogame.Tools.Editor
             // blunt (low damage per kJ, high mass means big KE per swing).
             // The mass differential is the gameplay differentiator; share
             // the dmg/kJ tweakable so balance changes hit both at once.
-            CreateOrUpdate("BlockDef_Hook",       BlockIds.Hook,       "Rope Hook",      BlockCategory.Weapon,    maxHealth:  60f, mass: 0.5f, cpuCost: 12, tint: w);
-            CreateOrUpdate("BlockDef_Mace",       BlockIds.Mace,       "Rope Mace",      BlockCategory.Weapon,    maxHealth:  90f, mass: 2.0f, cpuCost: 18, tint: w);
+            // Tip blocks scale up in session 22 so they actually wrap /
+            // smack chassis-scale targets. Hook's J-shape is ~2 m tall
+            // with a 1.5 m mouth (fits a 1 m chassis cell); mace's ball
+            // is 1 m diameter. Mass scales with envelope volume — both
+            // bumped roughly proportional, preserving the 3.3× hook→mace
+            // mass ratio that drives the kinetic-energy differential.
+            CreateOrUpdate("BlockDef_Hook",       BlockIds.Hook,       "Rope Hook",      BlockCategory.Weapon,    maxHealth: 120f, mass: 1.5f, cpuCost: 18, tint: w);
+            CreateOrUpdate("BlockDef_Mace",       BlockIds.Mace,       "Rope Mace",      BlockCategory.Weapon,    maxHealth: 180f, mass: 5.0f, cpuCost: 28, tint: w);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();

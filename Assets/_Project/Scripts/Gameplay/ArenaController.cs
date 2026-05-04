@@ -3,6 +3,7 @@ using Robogame.Core;
 using Robogame.Movement;
 using Robogame.Player;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Robogame.Gameplay
 {
@@ -55,13 +56,20 @@ namespace Robogame.Gameplay
         [SerializeField] private Vector3 _stressTowerPosition = new Vector3(40f, 0.5f, 18f);
         [SerializeField] private string _stressTowerName = "StressRotorTower";
 
-        [Header("Barbell test dummy")]
-        [Tooltip("Hookable / smackable barbell-shaped target. Spawned " +
+        [Header("Dumbbell test dummy")]
+        [Tooltip("Hookable / smackable dumbbell-shaped target. Spawned " +
                  "off to the player's left so the existing combat dummy " +
-                 "stays dead-ahead. Built from Blueprint_BarbellDummy.")]
-        [SerializeField] private ChassisBlueprint _barbellBlueprint;
-        [SerializeField] private Vector3 _barbellPosition = new Vector3(-25f, 1.5f, 18f);
-        [SerializeField] private string _barbellName = "BarbellDummy";
+                 "stays dead-ahead. Built from Blueprint_DumbbellDummy.")]
+        // FormerlySerializedAs preserves the scene wire-up across the
+        // session-22 rename (was _barbellBlueprint / _barbellPosition /
+        // _barbellName). Without it, opening Arena.unity would reset the
+        // value to null + default and require a Build Everything pass.
+        [FormerlySerializedAs("_barbellBlueprint")]
+        [SerializeField] private ChassisBlueprint _dumbbellBlueprint;
+        [FormerlySerializedAs("_barbellPosition")]
+        [SerializeField] private Vector3 _dumbbellPosition = new Vector3(-25f, 1.5f, 18f);
+        [FormerlySerializedAs("_barbellName")]
+        [SerializeField] private string _dumbbellName = "DumbbellDummy";
 
         private GameObject _stressTowerGo;
 
@@ -92,7 +100,7 @@ namespace Robogame.Gameplay
 
             Chassis = SpawnPlayerChassis(state);
             SpawnDummy(state);
-            SpawnBarbell(state);
+            SpawnDumbbell(state);
             BindFollowCamera(Chassis);
 
             // Stress tower: optional. Read the tweakable on entry and
@@ -165,19 +173,19 @@ namespace Robogame.Gameplay
             Debug.Log($"[Robogame] Combat dummy spawned at {_dummyPosition} with {blockCount} blocks.", go);
         }
 
-        private void SpawnBarbell(GameStateController state)
+        private void SpawnDumbbell(GameStateController state)
         {
-            if (_barbellBlueprint == null) return; // optional — missing wire-up is fine
+            if (_dumbbellBlueprint == null) return; // optional — missing wire-up is fine
             if (state.Library == null) return;
 
-            GameObject existing = GameObject.Find(_barbellName);
+            GameObject existing = GameObject.Find(_dumbbellName);
             if (existing != null) Destroy(existing);
 
-            var go = new GameObject(_barbellName);
-            go.transform.position = _barbellPosition;
-            Robogame.Robots.Robot barbell = ChassisFactory.BuildTarget(go, _barbellBlueprint, state.Library);
-            int blockCount = barbell != null ? barbell.BlockCount : 0;
-            Debug.Log($"[Robogame] Barbell dummy spawned at {_barbellPosition} with {blockCount} blocks.", go);
+            var go = new GameObject(_dumbbellName);
+            go.transform.position = _dumbbellPosition;
+            Robogame.Robots.Robot dumbbell = ChassisFactory.BuildTarget(go, _dumbbellBlueprint, state.Library);
+            int blockCount = dumbbell != null ? dumbbell.BlockCount : 0;
+            Debug.Log($"[Robogame] Dumbbell dummy spawned at {_dumbbellPosition} with {blockCount} blocks.", go);
         }
 
         /// <summary>

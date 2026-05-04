@@ -63,6 +63,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 22 | [Grapple hook: scaled-up tips, dumbbell target, joint-based latch (in progress)](22-grapple-hook-and-tip-resize.md) |
 | 21 | [Helicopter frame stability: pure-axial rotor lift](21-helicopter-spin-axis-lift.md) |
 | 20 | [Plane reconfigured as rope-tip test sandbox](20-plane-rope-tip-sandbox.md) |
 | 19 | [Blueprint authoring cleanup, rotor stem, bigger heli, hook/mace, barbell (autonomous, in-progress)](19-blueprint-authoring-and-helicopter-overhaul.md) |

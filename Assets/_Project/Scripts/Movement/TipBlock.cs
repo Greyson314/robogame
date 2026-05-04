@@ -164,14 +164,24 @@ namespace Robogame.Movement
 
         private void IgnoreChassisColliders(Transform chassisRoot)
         {
-            Collider self = GetComponent<Collider>();
-            if (self == null) return;
+            // Hook's J-shape ships 3 BoxColliders on the host
+            // (shaft + barb arm + barb tip) so the trap volume reads
+            // physically. Mace ships 1 sphere. Pair every host collider
+            // against every chassis collider so a swinging hook can't
+            // bash its own chassis with any of its three faces.
+            Collider[] selfCols = GetComponents<Collider>();
+            if (selfCols.Length == 0) return;
             Collider[] cols = chassisRoot.GetComponentsInChildren<Collider>(includeInactive: true);
-            for (int i = 0; i < cols.Length; i++)
+            for (int s = 0; s < selfCols.Length; s++)
             {
-                Collider c = cols[i];
-                if (c == null || c == self) continue;
-                Physics.IgnoreCollision(self, c, ignore: true);
+                Collider self = selfCols[s];
+                if (self == null) continue;
+                for (int i = 0; i < cols.Length; i++)
+                {
+                    Collider c = cols[i];
+                    if (c == null || c == self) continue;
+                    Physics.IgnoreCollision(self, c, ignore: true);
+                }
             }
         }
     }
