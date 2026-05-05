@@ -204,11 +204,32 @@ namespace Robogame.Movement
             if (_velocityRb == null || _forceTargetRb == null) return;
 
             Vector3 worldPos = transform.position;
-            // Velocity at the blade includes (chassis bulk motion) +
-            // (chassis angular vel × r) + (rotor spin × r when on a
-            // rotor hub) — PhysX synthesises the rotor contribution from
-            // the kinematic MoveRotation deltas the hub does each step.
-            Vector3 worldVel = _velocityRb.GetPointVelocity(worldPos);
+            // Velocity sampling differs between plane wings and rotor blades:
+            //
+            // Plane wing: full point velocity (chassis bulk + chassis angular
+            // tangent). The wing needs to "feel" the chassis flying through
+            // air for lift to scale with airspeed.
+            //
+            // Rotor blade: ONLY the rotor's tangential ω×r, with chassis bulk
+            // motion stripped. Including chassis bulk creates dissymmetry of
+            // lift — the advancing blade sees airspeed (ω + V_chassis) and
+            // the retreating blade sees (ω − V_chassis), so lift on the
+            // advancing side is ((ω+V)/(ω−V))² × the retreating side, which
+            // sums to a roll torque toward the retreating blade. Real rotors
+            // compensate via cyclic pitch; we don't model cyclic, so the
+            // disc would never balance. Same arcade reasoning as the drag /
+            // reaction-torque suppression below: kinematic-hub design,
+            // rotor disc kept symmetric on purpose.
+            Vector3 worldVel;
+            if (_rotorMode)
+            {
+                Vector3 rFromCom = worldPos - _velocityRb.worldCenterOfMass;
+                worldVel = Vector3.Cross(_velocityRb.angularVelocity, rFromCom);
+            }
+            else
+            {
+                worldVel = _velocityRb.GetPointVelocity(worldPos);
+            }
             Vector3 localVel = transform.InverseTransformDirection(worldVel);
 
             float forward = localVel.z;
@@ -244,7 +265,15 @@ namespace Robogame.Movement
             float stallFalloff = Mathf.Abs(aoa) > _stallAoA
                 ? Mathf.Lerp(1f, _postStallLift, Mathf.Clamp01((Mathf.Abs(aoa) - _stallAoA) / _stallAoA))
                 : 1f;
-            float liftFactor = (aoaClamped + _zeroLiftBias * Mathf.Sign(forward)) * stallFalloff;
+            // Vertical fins are symmetric airfoils: no camber-equivalent
+            // lateral lift at zero sideslip. Applying _zeroLiftBias to a
+            // vertical fin pushes the chassis sideways under any forward
+            // airspeed, which yaws + rolls the chassis (the fin sits
+            // behind and above COM, so a +X push induces both -Y yaw and
+            // -Z roll torques). _zeroLiftBias models cambered horizontal
+            // wings only.
+            float biasTerm = _vertical ? 0f : _zeroLiftBias * Mathf.Sign(forward);
+            float liftFactor = (aoaClamped + biasTerm) * stallFalloff;
 
             float liftMag = speedSqr * _liftCoef * liftFactor * Mathf.Sign(forward);
             if (_maxLift > 0f) liftMag = Mathf.Clamp(liftMag, -_maxLift, _maxLift);

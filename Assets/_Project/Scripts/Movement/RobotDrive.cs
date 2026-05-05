@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using Robogame.Block;
 using Robogame.Core;
@@ -56,6 +57,10 @@ namespace Robogame.Movement
         [Tooltip("Camera used for the aim ray. Defaults to Camera.main.")]
         [SerializeField] private Camera _aimCamera;
 
+        [Header("Diagnostics (temporary)")]
+        [Tooltip("Log inertia tensor + COM once after activation, then chassis-local angular velocity every second for ~10s. Used for tilt-bias debugging; remove once resolved.")]
+        [SerializeField] private bool _logChassisInertia = true;
+
         private readonly List<IDriveSubsystem> _subs = new List<IDriveSubsystem>(8);
         private bool _orderDirty;
 
@@ -89,11 +94,49 @@ namespace Robogame.Movement
         private void OnEnable()
         {
             Tweakables.Changed += ApplyTweakables;
+            if (_logChassisInertia) StartCoroutine(LogInertiaDiagnostics());
         }
 
         private void OnDisable()
         {
             Tweakables.Changed -= ApplyTweakables;
+        }
+
+        private IEnumerator LogInertiaDiagnostics()
+        {
+            // Wait one fixed step so RotorBlock.OnEnable has reparented foils
+            // off the chassis and PhysX has recomputed inertia from the
+            // post-cascade collider distribution.
+            yield return new WaitForFixedUpdate();
+            if (_rb == null) yield break;
+
+            Vector3 it = _rb.inertiaTensor;
+            Quaternion itr = _rb.inertiaTensorRotation;
+            Vector3 itrEuler = itr.eulerAngles;
+            Debug.Log(
+                $"[Diag] {name} mass={_rb.mass:F2}kg " +
+                $"COM(local)={_rb.centerOfMass} " +
+                $"COM(world)={_rb.worldCenterOfMass} " +
+                $"inertiaTensor={it} " +
+                $"inertiaTensorRotation(euler)={itrEuler}",
+                this);
+
+            for (int i = 0; i < 10; i++)
+            {
+                yield return new WaitForSeconds(1f);
+                if (_rb == null) yield break;
+                Vector3 omegaWorld = _rb.angularVelocity;
+                Vector3 omegaLocal = transform.InverseTransformDirection(omegaWorld);
+                Vector3 fwdWorld = transform.forward;
+                Vector3 rightWorld = transform.right;
+                float bankSin = -Vector3.Dot(rightWorld, Vector3.up);
+                Debug.Log(
+                    $"[Diag t={i + 1}s] {name} " +
+                    $"omega(local)={omegaLocal} (x=pitch y=yaw z=roll) " +
+                    $"bankSin(right.y inv)={bankSin:F3} " +
+                    $"vel(world)={_rb.linearVelocity}",
+                    this);
+            }
         }
 
         private void ApplyTweakables()
