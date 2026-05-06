@@ -81,6 +81,7 @@ namespace Robogame.Gameplay
 
         private void FixedUpdate()
         {
+            using var _scope = Robogame.Core.PerfMarkers.BuoyancyFixedUpdate.Auto();
             _surfaceContacts.Clear();
             WaterVolume water = WaterVolume.Active;
             if (water == null || _grid == null || _rb == null || _grid.Count == 0)

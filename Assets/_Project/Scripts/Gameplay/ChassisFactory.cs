@@ -46,6 +46,7 @@ namespace Robogame.Gameplay
             InputActionAsset inputActions = null,
             bool addPlayerInputs = true)
         {
+            using var _scope = Robogame.Core.PerfMarkers.ChassisFactoryBuild.Auto();
             if (root == null)
             {
                 Debug.LogError("[Robogame] ChassisFactory.Build: root is null.");

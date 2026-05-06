@@ -136,6 +136,27 @@ namespace Robogame.Movement
             return s_instance;
         }
 
+        /// <summary>Read-only access to the live singleton, or null if no chain has registered yet.</summary>
+        public static VerletRopeSimulator Instance => s_instance;
+
+        /// <summary>Number of chains currently being integrated. Diagnostic only.</summary>
+        public int ChainCount => _chains.Count;
+
+        /// <summary>Sum of particle counts across every active chain. Diagnostic only.</summary>
+        public int TotalParticleCount
+        {
+            get
+            {
+                int n = 0;
+                for (int i = 0; i < _chains.Count; i++)
+                {
+                    var c = _chains[i];
+                    if (c != null) n += c.Count;
+                }
+                return n;
+            }
+        }
+
         public void Register(VerletRopeChain chain)
         {
             if (chain == null) return;
@@ -154,21 +175,24 @@ namespace Robogame.Movement
         }
 
         // Cheap heuristic: a tip Rigidbody is "externally constrained"
-        // when it has a Joint component attached (HookBlock.Attach adds
-        // a ConfigurableJoint to lock to the grapple target). The
-        // simulator switches to "pin tip" mode in that state so the
-        // chain conforms to the grappled tip rather than dragging it.
+        // when it's been flipped non-kinematic. RopeBlock.Build leaves
+        // the tip kinematic in free flight (the simulator owns it via
+        // MovePosition); HookBlock.Attach is the only path that flips
+        // this off, so that PhysX integrates joint forces against the
+        // chassis. Reading isKinematic is a free property check vs the
+        // previous GetComponent<Joint>() per-chain-per-step walk —
+        // measurable in the rotor stress tower (5 ropes × 50 Hz = 250
+        // GetComponent calls/sec eliminated).
         private static bool IsTipExternallyConstrained(Rigidbody tipRb)
         {
-            if (tipRb == null) return false;
-            // GetComponent<Joint>() catches Configurable/Spring/Fixed/etc.
-            return tipRb.GetComponent<Joint>() != null;
+            return tipRb != null && !tipRb.isKinematic;
         }
 
         // --- Integration step ----------------------------------------------
 
         private void FixedUpdate()
         {
+            using var _scope = Robogame.Core.PerfMarkers.VerletRopeFixedUpdate.Auto();
             float dt = Time.fixedDeltaTime;
             Vector3 gravity = Physics.gravity;
 

@@ -224,6 +224,7 @@ namespace Robogame.Movement
 
         private void FixedUpdate()
         {
+            using var _scope = Robogame.Core.PerfMarkers.AeroSurfaceFixedUpdate.Auto();
             if (_velocityRb == null || _forceTargetRb == null) return;
 
             Vector3 worldPos = transform.position;

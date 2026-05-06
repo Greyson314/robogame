@@ -96,6 +96,10 @@ CBUFFER_START(UnityPerMaterial)
     SAMPLER(sampler_GrassDirectionMap);
     float _GrassDirectionStrength;
 
+    // [robogame mod] Stochastic-tile UV warp strength. See
+    // docs/PACKAGE_MODIFICATIONS.md.
+    float _TileWarpStrength;
+
 
     // RENDER SETTINGS
     int _SurfaceNormalExclusionEnabled;
@@ -585,7 +589,14 @@ float3 Fragment(Geoms IN) : SV_Target
     float shapeNoise, detailNoise, noise;
     shapeNoise = SAMPLE_TEXTURE2D(_ShapeNoiseTexture, sampler_ShapeNoiseTexture, uv * _InvShapeNoiseScale).r;
     detailNoise = SAMPLE_TEXTURE2D(_DetailNoiseTexture, sampler_DetailNoiseTexture, uv * _InvDetailNoiseScale).r;
-    
+
+    // [robogame mod] Capture raw, unbiased noise BEFORE the
+    // strength-lerp tames it (the lerp pushes both values toward 1,
+    // which would skew the warp toward +x +y instead of being
+    // symmetric around zero). Used below as a domain-warp on the
+    // ground/grass texture UVs. See docs/PACKAGE_MODIFICATIONS.md.
+    float2 tileWarp = (float2(shapeNoise, detailNoise) - 0.5) * _TileWarpStrength;
+
     shapeNoise = lerp(1.0, shapeNoise, _ShapeNoiseStrength);
     detailNoise = lerp(1.0, detailNoise, _DetailNoiseStrength);
     noise = shapeNoise * detailNoise;
@@ -684,9 +695,18 @@ float3 Fragment(Geoms IN) : SV_Target
     
     
     // Albedo
+    // [robogame mod] Apply the stochastic UV warp computed above to the
+    // grass + ground texture lookups so the visible tile grid breaks
+    // into smooth wobbly patches. The warp uses the raw shape/detail
+    // noise (low-frequency, ~175 m / 65 m tile sizes), so the warp
+    // pattern itself doesn't repeat within view — even though the
+    // underlying ground texture still tiles every _WorldScale metres,
+    // each tile reads from a slightly different region and the eye
+    // can't pick out the regular grid. See docs/PACKAGE_MODIFICATIONS.md.
+    float2 warpedUV = uv.xy + tileWarp;
     float3 grassColor, groundColor, albedo, tint;
-    grassColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, uv.xy).rgb;
-    groundColor = SAMPLE_TEXTURE2D(_GroundTex, sampler_GroundTex, uv.xy).rgb;
+    grassColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, warpedUV).rgb;
+    groundColor = SAMPLE_TEXTURE2D(_GroundTex, sampler_GroundTex, warpedUV).rgb;
     tint = lerp(float3(1,1,1), _GrassTintColor, interactivityColors.b);
     albedo = lerp(_BaseColor * groundColor, _TopColor * grassColor, sqrtHeight) * tint;
     

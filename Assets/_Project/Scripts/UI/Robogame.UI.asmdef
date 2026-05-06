@@ -5,6 +5,7 @@
         "Robogame.Core",
         "Robogame.Block",
         "Robogame.Gameplay",
+        "Robogame.Movement",
         "Robogame.Robots",
         "Unity.InputSystem"
     ],

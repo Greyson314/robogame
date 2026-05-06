@@ -354,6 +354,7 @@ namespace Robogame.Player
 
         private void LateUpdate()
         {
+            using var _scope = Robogame.Core.PerfMarkers.FollowCameraLateUpdate.Auto();
             if (_target == null) return;
 
             // Optional input smoothing — uses unscaled time so pause/slow-mo

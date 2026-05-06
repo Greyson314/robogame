@@ -101,6 +101,7 @@ namespace Robogame.Combat
 
         private void FixedUpdate()
         {
+            using var _scope = Robogame.Core.PerfMarkers.ProjectileFixedUpdate.Auto();
             if (!_alive) return;
 
             if (Time.time >= _expireAt)

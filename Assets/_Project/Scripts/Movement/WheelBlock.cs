@@ -141,6 +141,7 @@ namespace Robogame.Movement
 
         private void FixedUpdate()
         {
+            using var _scope = Robogame.Core.PerfMarkers.WheelFixedUpdate.Auto();
             UpdateSuspensionPhysics();
         }
 

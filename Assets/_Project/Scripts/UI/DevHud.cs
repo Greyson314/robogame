@@ -217,20 +217,36 @@ namespace Robogame.UI
             }
         }
 
-        private static GUIStyle RichLabel()
+        // Cache GUIStyles across frames. OnGUI fires multiple times per
+        // displayed frame (one per IMGUI event: Layout, Repaint, MouseMove,
+        // …), so allocating a fresh GUIStyle per call burned 4–6 GUIStyle
+        // objects per frame while the panel was open. The styles are
+        // stateless after construction, so caching is a safe one-line win.
+        // Fields are instance-level (not static) so a Play-mode domain
+        // reload can't carry over a stale GUI.skin reference.
+        private GUIStyle _richLabel;
+        private GUIStyle _sectionHeader;
+
+        private GUIStyle RichLabel()
         {
-            var s = new GUIStyle(GUI.skin.label) { richText = true, fontSize = 13 };
-            return s;
+            if (_richLabel == null)
+            {
+                _richLabel = new GUIStyle(GUI.skin.label) { richText = true, fontSize = 13 };
+            }
+            return _richLabel;
         }
 
-        private static GUIStyle SectionHeader()
+        private GUIStyle SectionHeader()
         {
-            var s = new GUIStyle(GUI.skin.button)
+            if (_sectionHeader == null)
             {
-                alignment = TextAnchor.MiddleLeft,
-                fontStyle = FontStyle.Bold,
-            };
-            return s;
+                _sectionHeader = new GUIStyle(GUI.skin.button)
+                {
+                    alignment = TextAnchor.MiddleLeft,
+                    fontStyle = FontStyle.Bold,
+                };
+            }
+            return _sectionHeader;
         }
 
         private static void RebuildByName(string n)

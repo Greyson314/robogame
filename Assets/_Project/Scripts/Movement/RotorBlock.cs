@@ -169,8 +169,17 @@ namespace Robogame.Movement
 
         private void OnEnable()
         {
+            // Cache the chassis Rigidbody once on enable so FixedUpdate
+            // doesn't pay GetComponentInParent every step. Invalidated by
+            // OnTransformParentChanged if a future reparent (e.g. debris
+            // detach) moves the rotor under a different chassis.
+            _chassisRbCached = GetComponentInParent<Rigidbody>();
+            _chassisRbCacheValid = true;
             BuildLiftRig();
         }
+
+        private Rigidbody _chassisRbCached;
+        private bool _chassisRbCacheValid;
 
         private void Start()
         {
@@ -207,9 +216,12 @@ namespace Robogame.Movement
 
         // The host block can be reparented at runtime (Robot.DetachAsDebris
         // hands orphaned blocks their own Rigidbody). Rebuild the lift rig
-        // so it tracks the new ancestor body.
+        // so it tracks the new ancestor body. Also invalidate the cached
+        // chassis Rigidbody so FixedUpdate re-resolves it against the new
+        // ancestry on the next step.
         private void OnTransformParentChanged()
         {
+            _chassisRbCacheValid = false;
             if (isActiveAndEnabled) Rebuild();
         }
 
@@ -551,6 +563,7 @@ namespace Robogame.Movement
 
         private void FixedUpdate()
         {
+            using var _scope = Robogame.Core.PerfMarkers.RotorFixedUpdate.Auto();
             // Garage / build-mode parking pins the chassis Rigidbody as
             // kinematic + frozen for static inspection. Honour that here:
             // a self-spinning rotor while everything else is frozen
@@ -559,7 +572,16 @@ namespace Robogame.Movement
             // produce phantom airspeed at the blades. Cosmetic-only
             // rotors with no chassis ancestor (debris, previews) keep
             // spinning — there's no chassis to be "frozen" against.
-            Rigidbody chassis = GetComponentInParent<Rigidbody>();
+            //
+            // Cache via _chassisRbCacheValid so a hot 50 Hz tick doesn't
+            // pay GetComponentInParent every step; OnTransformParentChanged
+            // flips the flag on reparent.
+            if (!_chassisRbCacheValid)
+            {
+                _chassisRbCached = GetComponentInParent<Rigidbody>();
+                _chassisRbCacheValid = true;
+            }
+            Rigidbody chassis = _chassisRbCached;
             bool frozen = chassis != null && chassis.isKinematic;
             if (frozen)
             {

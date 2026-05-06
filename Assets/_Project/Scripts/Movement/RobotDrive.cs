@@ -231,6 +231,7 @@ namespace Robogame.Movement
 
         private Vector3 ComputeAimPoint()
         {
+            using var _scope = Robogame.Core.PerfMarkers.AimComputeAimPoint.Auto();
             // AI-driven chassis: skip the camera-ray entirely so the player's
             // mouse can't accidentally retarget the bot's gun.
             if (AimPointOverride.HasValue) return AimPointOverride.Value;

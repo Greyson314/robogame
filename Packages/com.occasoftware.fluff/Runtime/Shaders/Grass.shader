@@ -37,7 +37,14 @@ Shader "OccaSoftware/Fluff/Grass"
         
         _GrassDirectionMap("Grass Direction Map", 2D) = "black" {}
         _GrassDirectionStrength("Grass Direction Strength", Float) = 0.2
-        
+
+        // [robogame mod] Stochastic-tile UV warp. Reuses the shape +
+        // detail noise samples (already paid for in the fragment) to
+        // perturb the ground / grass texture UVs, breaking the visible
+        // tile grid into smooth wobbly patches. Zero extra texture
+        // samples; one mad/lerp per fragment. See docs/PACKAGE_MODIFICATIONS.md.
+        _TileWarpStrength("Tile Warp Strength", Range(0, 1)) = 0.5
+
         _FadeStartDistance("Fade Start Distance", Float) = 50
         _MaximumDistance("Maximum Distance", Float) = 100
 

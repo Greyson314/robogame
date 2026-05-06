@@ -63,6 +63,8 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 27 | [Performance pass: docs, diagnostics, and conservative fixes](27-performance-pass.md) |
+| 26 | [MP-readiness pass: combat per-block migration, inertia tensor, Verlet ropes, polish](26-mp-readiness-pass.md) |
 | 25 | [Rope re-anchor on enable + cursor lock in build mode](25-rope-anchor-cursor-lock.md) |
 | 24 | [Build cam free-look, hook adoption, aim self-skip, arch dummy](24-build-cam-tip-binder-aim-arch.md) |
 | 23 | [Feel pass: rope-tip lifecycle, J-hook, helicopter symmetry, larger garage, free build cam, scroll zoom](23-feel-pass.md) |

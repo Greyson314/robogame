@@ -192,6 +192,7 @@ namespace Robogame.Robots
         /// <summary>Recompute mass, CPU, count, COM, and inertia tensor from the grid; sync to the rigidbody.</summary>
         public void RecalculateAggregates()
         {
+            using var _scope = Robogame.Core.PerfMarkers.RobotRecalcAggregates.Auto();
             if (_grid == null) return;
 
             int cpu = 0;

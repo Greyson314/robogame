@@ -177,7 +177,12 @@ namespace Robogame.Tools.Editor
             // ~7× contrast + HDR top gives the canopy-shadow stacking.
             Color baseHue = Brighten(WorldPalette.Grass, 0.18f);
             Color top     = new Color(baseHue.r * 1.55f, baseHue.g * 1.55f, baseHue.b * 1.55f, 1f); // HDR tip (~1.55× radiometric)
-            Color baseC   = new Color(baseHue.r * 0.22f, baseHue.g * 0.22f, baseHue.b * 0.22f, 1f); // crushed canopy floor
+            // _BaseColor is the ground colour visible BETWEEN blades. Pinned
+            // to RGB(173, 255, 147) — a bright handpainted-grass-friendly hue
+            // that complements the imported Grass_lighted_up tile texture and
+            // keeps the canopy floor reading as "lit grass" rather than the
+            // crushed-shadow look of the original FluffGround default.
+            Color baseC   = new Color(173f / 255f, 1f, 147f / 255f, 1f);
             Color wind    = Brighten(WorldPalette.Grass, 0.35f);
 
             mat.SetColor("_TopColor",       top);
@@ -221,14 +226,33 @@ namespace Robogame.Tools.Editor
             // visibly tile within a single screen.
             //
             // Effective tip height ≈ _MaximumHeight × (1 - _ShapeNoiseStrength).
-            // 1.2 × 0.85 ≈ 1.0 m of grass at the deepest noise pockets.
-            mat.SetFloat("_MaximumHeight",         1.2f);
-            mat.SetFloat("_ShellCount",            16f);
-            mat.SetFloat("_ShapeNoiseScale",       2.7f);
+            // 1.7 × 0.85 ≈ 1.45 m of grass at the deepest noise pockets.
+            //
+            // Shell count: 7 instead of the shader's max of 16. Each shell
+            // is a full geometry-shader output triangle; shaving 9 shells
+            // off the 28k-tri ground mesh saves ~250k post-geometry tris
+            // per frame *per render pass*. Visible difference at our
+            // framing is minimal because shape/detail noise + colour
+            // gradient do most of the "fluffy" work; the human eye stops
+            // resolving individual shells well before 16. Bump back to
+            // 12–16 only if the look visibly thins. See
+            // docs/PERFORMANCE.md § Fluff for the math.
+            mat.SetFloat("_MaximumHeight",         1.7f);
+            mat.SetFloat("_ShellCount",            7f);
+            // Shape / detail noise scales are normalised against _WorldScale
+            // (see comment block on _WorldScale below). The shader samples
+            // shape noise at world.xz / (_WorldScale × _ShapeNoiseScale)
+            // — so when we drop _WorldScale to tile the ground texture
+            // finer, we have to BUMP these scales by the same factor to
+            // keep the visible noise patterns the same size. The product
+            // _WorldScale × _ShapeNoiseScale ≈ 175 m (one shape-noise tile
+            // every ~175 m of world), and _WorldScale × _DetailNoiseScale
+            // ≈ 65 m (detail tile every ~65 m).
+            mat.SetFloat("_ShapeNoiseScale",       5.5f);
             mat.SetFloat("_ShapeNoiseStrength",    0.15f);
             // Detail noise: this is what carves the per-shell blade
             // silhouettes.
-            mat.SetFloat("_DetailNoiseScale",      1.0f);
+            mat.SetFloat("_DetailNoiseScale",      2.03f);
             mat.SetFloat("_DetailNoiseStrength",   0.65f);
             mat.SetFloat("_GrassDirectionStrength", 1.0f);
 
@@ -238,6 +262,17 @@ namespace Robogame.Tools.Editor
             // grass-noise-14 has fine blade-grain (good detail noise).
             AssignNoiseTexture(mat, "_ShapeNoiseTexture",  "grass-noise-23");
             AssignNoiseTexture(mat, "_DetailNoiseTexture", "grass-noise-14");
+
+            // Ground texture — pinned to the imported Handpainted Grass
+            // & Ground "lighted up" tile so the canopy floor between
+            // blades reads as real painted grass instead of the Fluff
+            // demo's flat colour swatch. Falls back silently if the
+            // package is absent (the floor will then sample as white,
+            // which the _BaseColor multiply tints to the configured hue).
+            AssignAssetTexture(
+                mat,
+                "_GroundTex",
+                "Assets/Handpainted_Grass_and_Ground_Textures/Textures/Grass/Grass_lighted/Grass_lighted_up.png");
 
             // Fins on — they fill the silhouette gap when viewing the
             // grass from the side (third-person camera arc). Top-down-only
@@ -267,16 +302,67 @@ namespace Robogame.Tools.Editor
             // is what reads as the on-screen patch size. 65 m landed
             // nicely after manual tuning at our FollowCamera framing.
             mat.SetFloat("_TextureSamplingMethod",         1f);
-            mat.SetFloat("_WorldScale",                    65f);
+            // _WorldScale = the world-space size in metres of one tile of
+            // _GroundTex / _MainTex. The Fluff shader samples those textures
+            // with `uv = positionWS.xz / _WorldScale` (Grass.hlsl line 533),
+            // ignoring the material's Tiling/Offset (`_GroundTex_ST`) entirely
+            // — Tiling on the inspector does NOTHING for ground colour.
+            //
+            // Earlier value 65 m made the imported handpainted-grass tile
+            // read as huge brush strokes at gameplay framing (camera ~5–10 m
+            // off the ground sees one tile every screen-width). 32 m hits a
+            // sweet spot for the Handpainted Grass tile: tile is small
+            // enough to register as ground variation rather than a single
+            // stretched stroke, large enough that obvious texture repeats
+            // don't read across the camera frustum.
+            //
+            // Compensated _ShapeNoiseScale and _DetailNoiseScale above so
+            // the shape/detail noise patterns themselves stay visually
+            // unchanged. The product (_WorldScale × _ShapeNoiseScale) ≈ 175 m
+            // of shape-noise tile and (_WorldScale × _DetailNoiseScale) ≈ 65 m
+            // of detail-noise tile, both held constant across the change.
+            mat.SetFloat("_WorldScale",                    32f);
             mat.SetFloat("_SurfaceNormalExclusionEnabled", 1f);
             mat.SetFloat("_SurfaceNormalPower",            2f);
             mat.EnableKeyword("_SurfaceNormalExclusionEnabled");
 
-            // Fade distance — high so the grass reads bright and edge-free
-            // out to the horizon. Drop these to 10–20 if profiling shows
-            // grass is the GPU bottleneck.
-            mat.SetFloat("_FadeStartDistance", 150f);
-            mat.SetFloat("_MaximumDistance",   220f);
+            // Tile warp — Robogame package modification to the Fluff
+            // shader (docs/PACKAGE_MODIFICATIONS.md). Reuses the shape +
+            // detail noise samples to warp the ground / grass texture
+            // UVs, hiding the regular tile grid as the imported
+            // Handpainted Grass tile is otherwise visibly repeating at
+            // gameplay framing. 0.5 is a moderate setting; bump to ~1.0
+            // for more visible wobble, drop to 0 to disable.
+            mat.SetFloat("_TileWarpStrength",              0.5f);
+
+            // Cast shadows OFF on the grass plane. The MeshRenderer's
+            // shadowCastingMode (set further down to ShadowCastingMode.Off)
+            // is the ACTUAL gate — Fluff's _CastShadowsEnabled material
+            // float is UI-only and not wired into the shader's runtime
+            // branches (verified in Grass.hlsl). Setting these floats to
+            // 0 mirrors the renderer state in the material inspector so
+            // a future maintainer doesn't see a misleading "Cast Shadows
+            // ✓" tick on a grass plane that doesn't actually cast.
+            mat.SetFloat("_CastShadows",                   0f);
+            mat.SetFloat("_CastShadowsEnabled",            0f);
+
+            // Fade distance window. Two thresholds, both critical for perf:
+            //   _FadeStartDistance — within this radius every triangle's
+            //                         geometry shader emits 16 shells AND
+            //                         6 fin layers. Past it, only shells.
+            //   _MaximumDistance   — past this, the grass shader skips
+            //                         shells entirely and emits only the
+            //                         base mesh.
+            // Earlier values (150 / 220) put almost the entire 220 × 220 m
+            // hills mesh in the most expensive band, since the player camera
+            // is rarely more than 10 m off the ground. Shrinking the fade
+            // window drops the geometry-shader workload by 4–10× depending
+            // on camera height, with no visible quality change at gameplay
+            // framing — the screen-space grass density inside ~80 m looks
+            // identical (you literally cannot resolve individual blades on
+            // grass that's > 80 m away). See docs/PERFORMANCE.md § Fluff.
+            mat.SetFloat("_FadeStartDistance", 22f);
+            mat.SetFloat("_MaximumDistance",   85f);
 
             // Wind — calmer.
             mat.SetFloat("_WindMainStrength",       0.06f);
@@ -318,6 +404,23 @@ namespace Robogame.Tools.Editor
             if (tex == null)
             {
                 Debug.LogWarning($"[FluffGround] Noise texture not found at '{path}'. Leaving '{propertyName}' as-is.");
+                return;
+            }
+            mat.SetTexture(propertyName, tex);
+        }
+
+        /// <summary>
+        /// Pins a project-asset texture (full asset-DB path) onto a
+        /// material property. Used for the ground-tile texture which lives
+        /// outside the Fluff package's noise folder. Silent no-op if the
+        /// asset is missing — the property keeps whatever it had.
+        /// </summary>
+        private static void AssignAssetTexture(Material mat, string propertyName, string assetPath)
+        {
+            Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
+            if (tex == null)
+            {
+                Debug.LogWarning($"[FluffGround] Texture not found at '{assetPath}'. Leaving '{propertyName}' as-is.");
                 return;
             }
             mat.SetTexture(propertyName, tex);

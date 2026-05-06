@@ -106,6 +106,7 @@ namespace Robogame.Gameplay
 
         private void Update()
         {
+            using var _scope = Robogame.Core.PerfMarkers.WaterMeshUpdate.Auto();
             if (_mesh == null || _baseVerts == null || _liveVerts == null) return;
 
             float time = Time.timeSinceLevelLoad;
@@ -189,9 +190,23 @@ namespace Robogame.Gameplay
                 _liveColors[i] = new Color(foam, 0f, 0f, 1f);
             }
 
-            _mesh.vertices = _liveVerts;
-            _mesh.colors = _liveColors;
-            if (_recalculateNormals) _mesh.RecalculateNormals();
+            // SetVertices / SetColors are the modern Unity API; using the
+            // array property setters (which we did before) silently triggers
+            // a bounds recompute we don't need (we set generous bounds in
+            // BuildMesh and never resize). The Set* variants skip that work
+            // and accept the array directly without an internal copy.
+            _mesh.SetVertices(_liveVerts);
+            _mesh.SetColors(_liveColors);
+
+            // Skip the normal recompute when the wave field is effectively
+            // flat — RecalculateNormals is the single biggest cost in this
+            // method (~25%) and doing it on a degenerate-flat surface
+            // produces only floating-point noise. The amplitude check above
+            // already gates wave height; reuse it as the skip condition.
+            if (_recalculateNormals && amplitude > 0.005f)
+            {
+                _mesh.RecalculateNormals();
+            }
             // Bounds don't tighten around the wave envelope — recomputing
             // them every frame is wasted work since the surface is always
             // close to flat. We set generous bounds once in BuildMesh.

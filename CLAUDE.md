@@ -15,6 +15,8 @@ Eventual goal: ship to Steam. Current state: singleplayer with garage + arenas (
 - **[docs/changes/architecture.md](docs/changes/architecture.md)** — current modules, runtime flow, gotchas.
 - **[docs/PHYSICS_PLAN.md](docs/PHYSICS_PLAN.md)** — § 1 is non-negotiable. Read in full before any physics work.
 - **[docs/BEST_PRACTICES.md](docs/BEST_PRACTICES.md)** — coding conventions, perf budgets (§ 16).
+- **[docs/PERFORMANCE.md](docs/PERFORMANCE.md)** — perf rules, diagnostics, predicted future hotspots, "the game feels slow" runbook.
+- **[docs/PACKAGE_MODIFICATIONS.md](docs/PACKAGE_MODIFICATIONS.md)** — third-party package source edits and how to re-apply them after an upgrade.
 - **[docs/NETCODE_PLAN.md](docs/NETCODE_PLAN.md)** — multiplayer-readiness contract.
 - **[docs/ART_DIRECTION.md](docs/ART_DIRECTION.md)** — palette, art rules, imported assets.
 - **[docs/SPHERICAL_ARENAS.md](docs/SPHERICAL_ARENAS.md)** — planet-arena physics and gravity model.
