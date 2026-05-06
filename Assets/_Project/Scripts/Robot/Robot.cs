@@ -178,7 +178,18 @@ namespace Robogame.Robots
         // Aggregates
         // -----------------------------------------------------------------
 
-        /// <summary>Recompute mass, CPU, and block count from the grid; sync to the rigidbody.</summary>
+        /// <summary>
+        /// Pull the optional COM offset from a sibling <see cref="Movement.RobotDrive"/>
+        /// (if any). Default zero — pure mass-weighted COM. Robots → Movement
+        /// is an existing asmdef edge, so the type reference is fine.
+        /// </summary>
+        private Vector3 ResolveCenterOfMassOffset()
+        {
+            Movement.RobotDrive drive = GetComponent<Movement.RobotDrive>();
+            return drive != null ? drive.GetCenterOfMassOffset() : Vector3.zero;
+        }
+
+        /// <summary>Recompute mass, CPU, count, COM, and inertia tensor from the grid; sync to the rigidbody.</summary>
         public void RecalculateAggregates()
         {
             if (_grid == null) return;
@@ -186,6 +197,7 @@ namespace Robogame.Robots
             int cpu = 0;
             float mass = 0f;
             int count = 0;
+            Vector3 weightedPos = Vector3.zero;
 
             foreach (var kvp in _grid.Blocks)
             {
@@ -194,16 +206,74 @@ namespace Robogame.Robots
                 cpu += b.Definition.CpuCost;
                 mass += b.Definition.Mass;
                 count++;
+                // Mass-weighted accumulation against the chassis-local
+                // grid origin. _grid.Blocks keys are integer cell coords;
+                // converting to chassis-local metres is a multiply by
+                // CellSize, which we do once at the end (cheaper than
+                // per-block).
+                weightedPos += (Vector3)kvp.Key * b.Definition.Mass;
             }
 
             TotalCpu = cpu;
             TotalBlockMass = mass;
             BlockCount = count;
 
-            if (_rb != null && mass > 0f)
+            if (_rb == null || mass <= 0f) return;
+
+            _rb.mass = mass;
+
+            // Mass-weighted COM in chassis-local metres. Apply the optional
+            // tuning offset (RobotDrive.CenterOfMassOffset) so a ground
+            // vehicle can keep the legacy "pull COM down 0.5" tip-resistance.
+            float cellSize = _grid.CellSize;
+            Vector3 com = (weightedPos / mass) * cellSize + ResolveCenterOfMassOffset();
+
+            // Explicit COM + inertia tensor management (PHYSICS_PLAN-aligned
+            // determinism; session-25 latent fix). PhysX auto-computes the
+            // inertia tensor from the collider distribution about the
+            // centerOfMass, which:
+            //   1. introduces frame mismatch when centerOfMass is overridden
+            //      to a constant that doesn't match the collider distribution,
+            //   2. silently changes when foils get adopted off the chassis
+            //      (their colliders move to a kinematic hub at scene root).
+            // Computing a diagonal inertia tensor from the block grid bakes
+            // the canonical chassis frame into the rigidbody — angular
+            // axes stay decoupled, foil adoption doesn't shift the tensor,
+            // and the same input produces the same response across machines
+            // (deterministic, MP-safe).
+            _rb.automaticCenterOfMass = false;
+            _rb.automaticInertiaTensor = false;
+            _rb.centerOfMass = com;
+            _rb.inertiaTensor = ComputeDiagonalInertiaTensor(com, cellSize);
+            _rb.inertiaTensorRotation = Quaternion.identity;
+        }
+
+        // Diagonal inertia tensor in chassis-local frame, computed from the
+        // block grid via the parallel-axis theorem. Each block is treated
+        // as a uniform-density cube of side = cellSize, contributing
+        // (1/6)·m·s² to its own diagonal plus m·d² for offset from COM
+        // along the perpendicular axes. Returns positive non-zero values
+        // (PhysX rejects zero on any diagonal).
+        private Vector3 ComputeDiagonalInertiaTensor(Vector3 com, float cellSize)
+        {
+            float ixx = 0f, iyy = 0f, izz = 0f;
+            float selfTerm = (cellSize * cellSize) / 6f; // for a uniform cube
+            foreach (var kvp in _grid.Blocks)
             {
-                _rb.mass = mass;
+                BlockBehaviour b = kvp.Value;
+                if (b == null || b.Definition == null) continue;
+                float m = b.Definition.Mass;
+                Vector3 r = (Vector3)kvp.Key * cellSize - com;
+                ixx += m * (selfTerm + r.y * r.y + r.z * r.z);
+                iyy += m * (selfTerm + r.x * r.x + r.z * r.z);
+                izz += m * (selfTerm + r.x * r.x + r.y * r.y);
             }
+            // PhysX disallows non-positive entries on the diagonal. Single-
+            // block chassis would otherwise hit that floor.
+            return new Vector3(
+                Mathf.Max(0.001f, ixx),
+                Mathf.Max(0.001f, iyy),
+                Mathf.Max(0.001f, izz));
         }
 
         private BlockBehaviour FindCpuBlock()

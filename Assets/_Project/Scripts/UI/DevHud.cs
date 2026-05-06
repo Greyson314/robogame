@@ -195,15 +195,25 @@ namespace Robogame.UI
 
         private static void DrawTweakSlider(Tweakables.Spec spec)
         {
-            float current = Tweakables.Get(spec.Key);
-            GUILayout.Label($"{spec.Label}: {current:0.00}");
-            float next = GUILayout.HorizontalSlider(current, spec.Min, spec.Max);
+            // Bool specs render as a real checkbox via GUILayout.Toggle;
+            // float specs keep the existing label + horizontal slider.
+            if (spec.Kind == Tweakables.SpecKind.Bool)
+            {
+                bool current = Tweakables.GetBool(spec.Key);
+                bool next = GUILayout.Toggle(current, $" {spec.Label}");
+                if (next != current) Tweakables.SetBool(spec.Key, next);
+                return;
+            }
+
+            float currentF = Tweakables.Get(spec.Key);
+            GUILayout.Label($"{spec.Label}: {currentF:0.00}");
+            float nextF = GUILayout.HorizontalSlider(currentF, spec.Min, spec.Max);
             // Tweakables.Set persists to disk + raises Changed; only push
             // when the value actually moved so we don't write every frame
             // the slider is hovered.
-            if (!Mathf.Approximately(next, current))
+            if (!Mathf.Approximately(nextF, currentF))
             {
-                Tweakables.Set(spec.Key, next);
+                Tweakables.Set(spec.Key, nextF);
             }
         }
 
@@ -245,7 +255,7 @@ namespace Robogame.UI
             if (arena == null) return;
             // Flip the tweakable off so the ArenaController's Changed-driven
             // sync doesn't re-spawn it next frame.
-            Tweakables.Set(Tweakables.StressRotorTower, 0f);
+            Tweakables.SetBool(Tweakables.StressRotorTower, false);
             arena.DespawnStressTower();
         }
 

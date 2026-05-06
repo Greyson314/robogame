@@ -59,7 +59,7 @@ namespace Robogame.Movement
 
         [Header("Diagnostics (temporary)")]
         [Tooltip("Log inertia tensor + COM once after activation, then chassis-local angular velocity every second for ~10s. Used for tilt-bias debugging; remove once resolved.")]
-        [SerializeField] private bool _logChassisInertia = true;
+        [SerializeField] private bool _logChassisInertia = false;
 
         private readonly List<IDriveSubsystem> _subs = new List<IDriveSubsystem>(8);
         private bool _orderDirty;
@@ -73,6 +73,16 @@ namespace Robogame.Movement
         /// <summary>Last computed world-space aim target.</summary>
         public Vector3 AimPoint => _aimPoint;
 
+        /// <summary>
+        /// Optional override for the aim target. When non-null,
+        /// <see cref="AimPoint"/> is forced to this value instead of being
+        /// computed from the camera-cursor ray. Used by AI bots so the
+        /// chassis's WeaponMount converges on a script-controlled point
+        /// (typically the player's chassis position) rather than wherever
+        /// the human player's mouse is pointing.
+        /// </summary>
+        public Vector3? AimPointOverride { get; set; }
+
         // -----------------------------------------------------------------
         // Lifecycle
         // -----------------------------------------------------------------
@@ -84,12 +94,19 @@ namespace Robogame.Movement
             _rb.linearDamping = LinearDamping;
             _rb.angularDamping = AngularDamping;
             _rb.interpolation = RigidbodyInterpolation.Interpolate;
-            _rb.centerOfMass = CenterOfMassOffset;
+            // No centerOfMass write here. Robot.RecalculateAggregates is
+            // the single source of truth for COM + inertia tensor post the
+            // session-25 inertia fix; it pulls the tuning offset from us
+            // via GetComponent<RobotDrive>() to keep the chassis-frame
+            // alignment intact (asmdef cycle would block the reverse path).
 
             _input = GetComponentInParent<IInputSource>();
             if (_aimCamera == null) _aimCamera = Camera.main;
             _aimPoint = transform.position + transform.forward * 30f;
         }
+
+        /// <summary>Public accessor for Robot.RecalculateAggregates to read the tuning offset.</summary>
+        public Vector3 GetCenterOfMassOffset() => CenterOfMassOffset;
 
         private void OnEnable()
         {
@@ -214,6 +231,9 @@ namespace Robogame.Movement
 
         private Vector3 ComputeAimPoint()
         {
+            // AI-driven chassis: skip the camera-ray entirely so the player's
+            // mouse can't accidentally retarget the bot's gun.
+            if (AimPointOverride.HasValue) return AimPointOverride.Value;
             if (_aimCamera == null) return transform.position + transform.forward * 30f;
 
             Mouse mouse = Mouse.current;

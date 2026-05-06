@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using Robogame.Block;
 using Robogame.Robots;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -68,6 +70,16 @@ namespace Robogame.Player
         [SerializeField, Range(1f, 2.5f)] private float _zoomMax = 1.4f;
         [Tooltip("How much each scroll-wheel notch shifts the zoom multiplier.")]
         [SerializeField, Min(0.005f)] private float _zoomStep = 0.08f;
+
+        [Header("Aim Down Sights")]
+        [Tooltip("Field of view (degrees) while right-mouse is held. Lower = tighter zoom. Mouse sensitivity scales with FoV automatically (see _referenceFov).")]
+        [SerializeField, Range(10f, 80f)] private float _adsFov = 35f;
+
+        [Tooltip("Seconds to ease the FoV between hipfire and ADS. 0 = instant snap.")]
+        [SerializeField, Range(0f, 0.5f)] private float _adsLerpTime = 0.12f;
+
+        [Tooltip("Hide own-chassis renderers while ADS is active so the bot doesn't obscure the view. Colliders/scripts untouched — only Renderer.enabled toggles.")]
+        [SerializeField] private bool _adsHideChassis = true;
 
         // Live multiplier on _distance. 1 = base, _zoomMin..max bounded.
         // STATIC so the player's chosen zoom level survives chassis
@@ -167,6 +179,16 @@ namespace Robogame.Player
         private string _targetName;
         private bool _cursorWasLocked;
 
+        // ADS state. _baseFov captured at Awake so the inspector value is
+        // honoured. _chassisRenderers is rebuilt whenever the target swaps
+        // (Robot.Rebuilt) so we don't toggle stale references after respawn.
+        private bool _adsActive;
+        private bool _chassisHidden;
+        private float _baseFov = 60f;
+        private float _fovVelocity;
+        private Renderer[] _chassisRenderers;
+        private Transform _renderersForTarget;
+
         // Single-element non-alloc buffer — SphereCast doesn't have a
         // NonAlloc overload that returns the *closest* hit cleanly, so we
         // use the simple SphereCast(out hit) variant; nothing to allocate.
@@ -174,6 +196,7 @@ namespace Robogame.Player
         private void Awake()
         {
             _camera = GetComponent<Camera>();
+            if (_camera != null) _baseFov = _camera.fieldOfView;
         }
 
         private void OnEnable()
@@ -203,6 +226,26 @@ namespace Robogame.Player
             // Only release the cursor if WE locked it, so we don't fight
             // other systems (UI screens, debug menus) that own the cursor.
             if (_cursorWasLocked) ReleaseCursor();
+
+            // Restore chassis visibility + reset ADS so re-enabling (e.g.
+            // exiting build mode) starts in hipfire with the bot showing.
+            _adsActive = false;
+            if (_chassisHidden) RestoreChassisVisibility();
+            if (_camera != null) _camera.fieldOfView = _baseFov;
+            _fovVelocity = 0f;
+        }
+
+        private void RestoreChassisVisibility()
+        {
+            if (_chassisRenderers != null)
+            {
+                for (int i = 0; i < _chassisRenderers.Length; i++)
+                {
+                    Renderer r = _chassisRenderers[i];
+                    if (r != null) r.enabled = true;
+                }
+            }
+            _chassisHidden = false;
         }
 
         private void HandleRobotRebuilt(Robot robot)
@@ -216,6 +259,12 @@ namespace Robogame.Player
                 _yaw = robot.transform.eulerAngles.y;
                 _smoothYaw = _yaw;
                 SnapToDesired();
+                // Stale renderer refs from the destroyed chassis can't
+                // be re-enabled later — drop the cache so the next ADS
+                // entry rebuilds against the new BlockGrid.
+                _chassisRenderers = null;
+                _renderersForTarget = null;
+                _chassisHidden = false;
             }
         }
 
@@ -260,7 +309,13 @@ namespace Robogame.Player
 
             // --- Mouse-driven orbit (only while captured, or if not using lock at all) ---
             bool inputActive = !_lockCursor || _cursorWasLocked;
-            if (!inputActive) return;
+            if (!inputActive)
+            {
+                // Cursor was released mid-ADS (Esc): drop the zoom so we
+                // don't stay stuck zoomed while the player navigates UI.
+                _adsActive = false;
+                return;
+            }
 
             Mouse m = Mouse.current;
             if (m == null) return;
@@ -290,6 +345,11 @@ namespace Robogame.Player
             _yaw   += delta.x * _yawSensitivity   * fovScale;
             float pitchDelta = delta.y * _pitchSensitivity * fovScale * (_invertY ? 1f : -1f);
             _pitch  = Mathf.Clamp(_pitch + pitchDelta, _minPitch, _maxPitch);
+
+            // Aim Down Sights — held while captured and not over UI. Build
+            // mode disables this whole component, so no explicit gate needed.
+            _adsActive = m.rightButton.isPressed
+                && !(EventSystem.current != null && EventSystem.current.IsPointerOverGameObject());
         }
 
         private void LateUpdate()
@@ -324,6 +384,66 @@ namespace Robogame.Player
                 _maxFollowSpeed > 0f ? _maxFollowSpeed : Mathf.Infinity,
                 dt);
             transform.rotation = rot;
+
+            ApplyAdsFov(dt);
+            ApplyChassisVisibility();
+        }
+
+        private void ApplyAdsFov(float dt)
+        {
+            if (_camera == null) return;
+            float target = _adsActive ? _adsFov : _baseFov;
+            if (_adsLerpTime <= 0f)
+            {
+                _camera.fieldOfView = target;
+                _fovVelocity = 0f;
+                return;
+            }
+            _camera.fieldOfView = Mathf.SmoothDamp(
+                _camera.fieldOfView, target, ref _fovVelocity, _adsLerpTime, Mathf.Infinity, dt);
+        }
+
+        private void ApplyChassisVisibility()
+        {
+            bool shouldHide = _adsActive && _adsHideChassis;
+            if (shouldHide == _chassisHidden) return;
+            EnsureChassisRendererCache();
+            if (_chassisRenderers == null) return;
+            for (int i = 0; i < _chassisRenderers.Length; i++)
+            {
+                Renderer r = _chassisRenderers[i];
+                if (r != null) r.enabled = !shouldHide;
+            }
+            _chassisHidden = shouldHide;
+        }
+
+        // Build the renderer list from the chassis's BlockGrid so adopted
+        // foils (reparented under a kinematic rotor hub at scene root) are
+        // captured too — a plain GetComponentsInChildren on the chassis
+        // transform would miss them. Cached per-target; invalidated by
+        // HandleRobotRebuilt + OnDisable.
+        private void EnsureChassisRendererCache()
+        {
+            if (_target == null) { _chassisRenderers = null; return; }
+            if (_renderersForTarget == _target && _chassisRenderers != null) return;
+
+            BlockGrid grid = _target.GetComponentInChildren<BlockGrid>(includeInactive: true);
+            if (grid != null)
+            {
+                List<Renderer> all = new List<Renderer>(grid.Count * 2);
+                foreach (var kvp in grid.Blocks)
+                {
+                    BlockBehaviour b = kvp.Value;
+                    if (b == null) continue;
+                    all.AddRange(b.GetComponentsInChildren<Renderer>(includeInactive: true));
+                }
+                _chassisRenderers = all.ToArray();
+            }
+            else
+            {
+                _chassisRenderers = _target.GetComponentsInChildren<Renderer>(includeInactive: true);
+            }
+            _renderersForTarget = _target;
         }
 
         /// <summary>

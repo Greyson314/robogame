@@ -34,6 +34,11 @@ namespace Robogame.Gameplay
         [Tooltip("Hotbar that selects which block ID is placed on left-click.")]
         [SerializeField] private BuildHotbar _hotbar;
 
+        [Tooltip("Optional variant config panel that supplies per-block dims (foil span/thickness/chord, rope segment count). Falls back to block defaults when null.")]
+        [SerializeField] private VariantConfigPanel _variantPanel;
+
+        public VariantConfigPanel VariantPanel { get => _variantPanel; set => _variantPanel = value; }
+
         [Tooltip("Layer mask used by the targeting raycast. Default: everything.")]
         [SerializeField] private LayerMask _raycastMask = ~0;
 
@@ -68,6 +73,16 @@ namespace Robogame.Gameplay
             public bool OverBudget => Used > Cap;
         }
 
+        /// <summary>Snapshot of chassis aggregates for HUD display.</summary>
+        public readonly struct ChassisStats
+        {
+            public readonly int CpuUsed, CpuCap, BlockCount;
+            public readonly float TotalMass;
+            public ChassisStats(int cpuUsed, int cpuCap, int blockCount, float mass)
+            { CpuUsed = cpuUsed; CpuCap = cpuCap; BlockCount = blockCount; TotalMass = mass; }
+            public bool OverBudget => CpuUsed > CpuCap;
+        }
+
         /// <summary>Live CPU usage of the chassis. Returns (0,0) if no grid.</summary>
         public CpuUsage GetCpuUsage()
         {
@@ -83,12 +98,37 @@ namespace Robogame.Gameplay
             return new CpuUsage(used, cpus * _cpuBudgetPerCpu);
         }
 
+        /// <summary>
+        /// Live chassis aggregates: CPU used / cap, block count, total mass.
+        /// Used by the BuildHotbar's stats overlay so the player has a
+        /// single-glance read on what the current build looks like before
+        /// they leave build mode.
+        /// </summary>
+        public ChassisStats GetChassisStats()
+        {
+            if (_grid == null) return new ChassisStats(0, 0, 0, 0f);
+            int used = 0, cpus = 0, count = 0;
+            float mass = 0f;
+            foreach (var kvp in _grid.Blocks)
+            {
+                BlockBehaviour b = kvp.Value;
+                if (b == null || b.Definition == null) continue;
+                used += Mathf.Max(0, b.Definition.CpuCost);
+                if (b.Definition.Category == BlockCategory.Cpu) cpus++;
+                mass += b.Definition.Mass;
+                count++;
+            }
+            return new ChassisStats(used, cpus * _cpuBudgetPerCpu, count, mass);
+        }
+
         // Targeting state -------------------------------------------------
         private BlockGrid _grid;
         private GameObject _ghost;
         private Material _ghostMatValid;
         private Material _ghostMatInvalid;
         private string _ghostBuiltForId;
+        private Vector3 _ghostBuiltForDims;
+        private Vector3Int _ghostBuiltForCell;
         private bool _ghostShowingValid;
 
         private bool _hasTarget;
@@ -161,9 +201,11 @@ namespace Robogame.Gameplay
                 _grid = _buildMode.Chassis != null ? _buildMode.Chassis.GetComponent<BlockGrid>() : null;
                 if (_grid == null) return;
             }
-            EnsureGhost(); // safety net if HandleEntered never fired.
-
             UpdateTarget();
+            // EnsureGhost runs AFTER UpdateTarget so cell-driven rebuilds
+            // (foil shift direction depends on _targetPlaceCell.x sign)
+            // see the freshly picked cell.
+            EnsureGhost();
             UpdateGhost();
             HandleClicks();
         }
@@ -277,15 +319,24 @@ namespace Robogame.Gameplay
             if (_ghostMatInvalid == null) _ghostMatInvalid = MakeGhostMat(new Color(0.95f, 0.25f, 0.20f, 0.45f));
 
             string targetId = _hotbar != null ? _hotbar.SelectedBlockId : BlockIds.Cube;
-            if (_ghost != null && _ghostBuiltForId == targetId) return;
+            // Variant dims drive the foil/rope ghost shape; target cell
+            // drives the outward-shift direction. Rebuild whenever any of
+            // those change so the preview tracks the live config.
+            Vector3 targetDims = _variantPanel != null ? _variantPanel.GetDimsForBlock(targetId) : Vector3.zero;
+            Vector3Int targetCell = _hasTarget ? _targetPlaceCell : Vector3Int.zero;
+            if (_ghost != null
+                && _ghostBuiltForId == targetId
+                && _ghostBuiltForDims == targetDims
+                && _ghostBuiltForCell == targetCell) return;
 
-            // Selection changed (or first build) — rebuild the ghost shape.
             if (_ghost != null) Object.Destroy(_ghost);
 
             BlockDefinition def = GetSelectedDefinition();
-            _ghost = BlockGhostFactory.Build(def, _ghostMatValid);
+            _ghost = BlockGhostFactory.Build(def, _ghostMatValid, targetDims, targetCell);
             _ghost.SetActive(false);
             _ghostBuiltForId = targetId;
+            _ghostBuiltForDims = targetDims;
+            _ghostBuiltForCell = targetCell;
             _ghostShowingValid = true;
         }
 
@@ -380,7 +431,12 @@ namespace Robogame.Gameplay
                 return;
             }
 
-            if (_grid.PlaceBlock(def, _targetPlaceCell) != null)
+            // Per-block "variable part" dims come from the variant panel
+            // (foils: span/thickness/chord; ropes: segment count). Vector3.zero
+            // tells PlaceBlock + the consuming component to fall back to
+            // block defaults.
+            Vector3 dims = _variantPanel != null ? _variantPanel.GetDimsForBlock(id) : Vector3.zero;
+            if (_grid.PlaceBlock(def, _targetPlaceCell, Vector3Int.up, dims) != null)
                 SyncBlueprintFromGrid();
         }
 
@@ -515,7 +571,11 @@ namespace Robogame.Gameplay
             {
                 BlockBehaviour b = kvp.Value;
                 if (b == null || b.Definition == null) continue;
-                list.Add(new ChassisBlueprint.Entry(b.Definition.Id, kvp.Key));
+                // Up is not yet captured per-instance on BlockBehaviour;
+                // build-mode placements always use Vector3Int.up. Authored
+                // blueprints with custom Up values are unaffected — they're
+                // edited via the editor scaffolder, not in-game.
+                list.Add(new ChassisBlueprint.Entry(b.Definition.Id, kvp.Key, Vector3Int.up, b.Dims));
             }
             state.CurrentBlueprint.SetEntries(list.ToArray());
         }

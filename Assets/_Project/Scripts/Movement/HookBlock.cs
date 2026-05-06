@@ -215,6 +215,14 @@ namespace Robogame.Movement
         {
             if (_hostRb == null || _grappleJoint != null) return;
 
+            // The rope's tip-end Rigidbody is kinematic during free flight
+            // so the Verlet simulator can drive it without PhysX integrator
+            // fighting back. A ConfigurableJoint on a kinematic body acts
+            // only as an immovable anchor — the chassis wouldn't be pulled
+            // toward the target. Flip back to non-kinematic before adding
+            // the joint so PhysX integrates joint forces in both directions.
+            _hostRb.isKinematic = false;
+
             ConfigurableJoint joint = _hostRb.gameObject.AddComponent<ConfigurableJoint>();
             joint.connectedBody = targetRb;
             joint.autoConfigureConnectedAnchor = false;
@@ -266,23 +274,37 @@ namespace Robogame.Movement
                 else                       DestroyImmediate(_grappleJoint);
                 _grappleJoint = null;
             }
+            // Restore kinematic mode so the simulator owns the body again
+            // (matches the inverse of Attach above; see RopeBlock comment
+            // on tipRb.isKinematic for the rationale).
+            if (_hostRb != null) _hostRb.isKinematic = true;
             _grappleTarget = null;
             _releaseTime   = Time.time;
         }
 
         private void FixedUpdate()
         {
-            // Only do work while grappled. Branch exits immediately
-            // for the common "not grappled" case.
-            if (_grappleJoint == null) return;
+            // Detect "PhysX broke the joint at end of last fixed step":
+            // the component is destroyed, _grappleJoint reads null, but
+            // _hostRb is still non-kinematic from when Attach flipped it.
+            // Without this branch, the tip would stay non-kinematic
+            // forever (leak) after a breakForce-triggered release.
+            if (_grappleJoint == null)
+            {
+                if (_hostRb != null && !_hostRb.isKinematic)
+                {
+                    // Path: PhysX broke the joint; nobody called Release.
+                    // Reverse Attach's state changes here.
+                    _hostRb.isKinematic = true;
+                    _grappleTarget = null;
+                    _releaseTime = Time.time;
+                }
+                return;
+            }
 
-            // Catch two cases the OnJointBreak callback would miss:
-            //   1. PhysX broke the joint at end of last fixed step;
-            //      the component is already destroyed → ref is null.
-            //   2. The target chassis was destroyed (HP→0); Unity
-            //      sets connectedBody to null but keeps the joint
-            //      alive, which would otherwise NRE on next access.
-            // Either way: tear down cleanly + start cooldown.
+            // Joint still alive — but the target chassis may have been
+            // destroyed (HP→0); Unity sets connectedBody to null and
+            // _grappleTarget to fake-null. Tear down cleanly.
             if (_grappleTarget == null || _grappleJoint.connectedBody == null)
             {
                 Release();

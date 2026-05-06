@@ -19,6 +19,7 @@ namespace Robogame.Block
         [SerializeField] private BlockDefinition _definition;
         [SerializeField] private Vector3Int _gridPosition;
         [SerializeField] private float _currentHealth;
+        [SerializeField] private Vector3 _dims;
 
         [Tooltip("Brightness at 0 HP, relative to the block's authored colour.")]
         [SerializeField, Range(0f, 1f)] private float _minDamageBrightness = 0.2f;
@@ -26,10 +27,43 @@ namespace Robogame.Block
         /// <summary>Fired when this block reaches 0 HP, immediately before it is removed from the grid.</summary>
         public event Action<BlockBehaviour> Destroyed;
 
+        /// <summary>
+        /// Fired after every successful <see cref="TakeDamage"/> call, with the block + damage actually
+        /// applied. Static so HUD overlays (floating damage numbers, hit markers) can subscribe without
+        /// per-block wiring. PHYSICS_PLAN-aligned: server-authoritative damage events flow through this
+        /// channel when MP lands; today every chassis fires it locally.
+        /// </summary>
+        public static event Action<BlockBehaviour, float> DamageDealt;
+
         public BlockDefinition Definition => _definition;
         public Vector3Int GridPosition => _gridPosition;
         public float CurrentHealth => _currentHealth;
         public bool IsAlive => _currentHealth > 0f;
+
+        /// <summary>
+        /// Per-instance "variable part" dimensions, copied from the
+        /// <see cref="ChassisBlueprint.Entry"/> that placed this block.
+        /// Vector3.zero means the consumer (AeroSurfaceBlock, RopeBlock, …)
+        /// should fall back to its block-default values. See the Entry's
+        /// Dims tooltip for the per-kind interpretation.
+        /// </summary>
+        public Vector3 Dims => _dims;
+
+        /// <summary>
+        /// Replace this block's dims at runtime. Used by tests + (eventually)
+        /// the build-mode "select existing block and modify" flow. Consumers
+        /// that need to react live (visual rebuild) can subscribe to
+        /// <see cref="DimsChanged"/>.
+        /// </summary>
+        public void SetDims(Vector3 dims)
+        {
+            if (_dims == dims) return;
+            _dims = dims;
+            DimsChanged?.Invoke(this);
+        }
+
+        /// <summary>Fired after <see cref="SetDims"/> mutates <see cref="Dims"/>.</summary>
+        public event Action<BlockBehaviour> DimsChanged;
 
         public float HealthFraction =>
             (_definition != null && _definition.MaxHealth > 0f)
@@ -45,10 +79,11 @@ namespace Robogame.Block
         private MaterialPropertyBlock _mpb;
 
         /// <summary>Internal initializer called by <see cref="BlockGrid"/> at placement time.</summary>
-        internal void Initialize(BlockDefinition definition, Vector3Int gridPosition)
+        internal void Initialize(BlockDefinition definition, Vector3Int gridPosition, Vector3 dims = default)
         {
             _definition = definition;
             _gridPosition = gridPosition;
+            _dims = dims;
             _currentHealth = definition != null ? definition.MaxHealth : 1f;
             CacheRenderers();
             UpdateDamageVisual();
@@ -67,6 +102,7 @@ namespace Robogame.Block
             float dealt = Mathf.Min(amount, _currentHealth);
             _currentHealth -= dealt;
             UpdateDamageVisual();
+            DamageDealt?.Invoke(this, dealt);
             if (_currentHealth <= 0f)
             {
                 _currentHealth = 0f;

@@ -40,6 +40,15 @@ namespace Robogame.Combat
         [Tooltip("Radius of the spawned bomb's sphere collider (m).")]
         [SerializeField, Min(0.05f)] private float _bombColliderRadius = 0.3f;
 
+        [Header("Bomb stats (fallback when no BombDefinition is wired)")]
+        [Tooltip("Inline fallback values used when the firing block's BlockDefinition has no BombDefinition. " +
+                 "Asset-authored BombDefinitions take precedence at every drop. PHYSICS_PLAN §5: gameplay-" +
+                 "observable stats live in server-authoritative blueprint data, NOT in per-machine Tweakables.")]
+        [SerializeField, Min(0.05f)] private float _dropInterval = 1.2f;
+        [SerializeField, Min(0f)]    private float _damage       = 80f;
+        [SerializeField, Min(0.1f)]  private float _radius       = 18f;
+        [SerializeField, Min(0f)]    private float _initialSpeed = 2f;
+
         [Header("Layers")]
         [Tooltip("Layers the bomb's explosion can damage.")]
         [SerializeField] private LayerMask _hitMask = ~0;
@@ -48,6 +57,7 @@ namespace Robogame.Combat
         private IInputSource _input;
         private Robot _ownerRobot;
         private Rigidbody _ownerRb;
+        private BlockBehaviour _block;
         private static Material s_bombMaterial;
 
         public Transform DropPoint { get; private set; }
@@ -57,6 +67,7 @@ namespace Robogame.Combat
             _input = GetComponentInParent<IInputSource>();
             _ownerRobot = GetComponentInParent<Robot>();
             _ownerRb = _ownerRobot != null ? _ownerRobot.GetComponent<Rigidbody>() : null;
+            _block = GetComponent<BlockBehaviour>();
 
             // Drop point is just an empty child so designers can re-aim
             // it from the inspector if a future bomb-bay variant wants
@@ -65,21 +76,29 @@ namespace Robogame.Combat
             DropPoint.localPosition = _dropLocalOffset;
         }
 
+        private BombDefinition ResolveDef()
+        {
+            if (_block == null || _block.Definition == null) return null;
+            return _block.Definition.GetComponentData<BombDefinition>();
+        }
+
         private void Update()
         {
             if (_input == null || !_input.FireHeld) return;
             if (Time.time < _nextDropTime) return;
 
-            float interval = Mathf.Max(0.05f, Tweakables.Get(Tweakables.BombDropInterval));
+            BombDefinition def = ResolveDef();
+            float interval = Mathf.Max(0.05f, def != null ? def.DropInterval : _dropInterval);
             _nextDropTime = Time.time + interval;
             DropOne();
         }
 
         private void DropOne()
         {
-            float damage     = Tweakables.Get(Tweakables.BombDamage);
-            float radius     = Tweakables.Get(Tweakables.BombRadius);
-            float startSpeed = Tweakables.Get(Tweakables.BombInitialSpeed);
+            BombDefinition def = ResolveDef();
+            float damage     = def != null ? def.Damage       : _damage;
+            float radius     = def != null ? def.Radius       : _radius;
+            float startSpeed = def != null ? def.InitialSpeed : _initialSpeed;
 
             Vector3 dropWorld = DropPoint.position;
             // "Down" in chassis-local space — uses the parent rigidbody's

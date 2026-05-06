@@ -103,7 +103,10 @@ namespace Robogame.Block
         /// or the definition is invalid.
         /// </summary>
         public BlockBehaviour PlaceBlock(BlockDefinition definition, Vector3Int gridPos)
-            => PlaceBlock(definition, gridPos, Vector3Int.up);
+            => PlaceBlock(definition, gridPos, Vector3Int.up, Vector3.zero);
+
+        public BlockBehaviour PlaceBlock(BlockDefinition definition, Vector3Int gridPos, Vector3Int up)
+            => PlaceBlock(definition, gridPos, up, Vector3.zero);
 
         /// <summary>
         /// Spawn a block at <paramref name="gridPos"/> oriented so its local
@@ -112,8 +115,11 @@ namespace Robogame.Block
         /// aerofoil normal, weapon barrel, thruster nozzle) and the placer
         /// wants it to face away from a specific cube face. Pass
         /// <see cref="Vector3Int.up"/> for the legacy upward orientation.
+        /// <paramref name="dims"/> is per-block "variable part" data
+        /// (see <see cref="ChassisBlueprint.Entry.Dims"/>); pass
+        /// <see cref="Vector3.zero"/> to use block defaults.
         /// </summary>
-        public BlockBehaviour PlaceBlock(BlockDefinition definition, Vector3Int gridPos, Vector3Int up)
+        public BlockBehaviour PlaceBlock(BlockDefinition definition, Vector3Int gridPos, Vector3Int up, Vector3 dims)
         {
             if (definition == null)
             {
@@ -156,7 +162,7 @@ namespace Robogame.Block
 
             BlockBehaviour block = go.GetComponent<BlockBehaviour>();
             if (block == null) block = go.AddComponent<BlockBehaviour>();
-            block.Initialize(definition, gridPos);
+            block.Initialize(definition, gridPos, dims);
 
             // CPU is the instakill cell — give it an unmistakable beacon so
             // the player (and future AI targeters) can spot it at a glance.

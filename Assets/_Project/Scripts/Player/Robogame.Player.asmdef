@@ -2,6 +2,8 @@
     "name": "Robogame.Player",
     "rootNamespace": "Robogame.Player",
     "references": [
+        "Robogame.Block",
+        "Robogame.Combat",
         "Robogame.Core",
         "Robogame.Input",
         "Robogame.Movement",

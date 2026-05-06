@@ -69,6 +69,16 @@ namespace Robogame.Block
                  "Falls back to the primitive's default material if null.")]
         [SerializeField] private Material _material;
 
+        [Header("Component data (kind-specific)")]
+        [Tooltip("Optional ScriptableObject carrying per-kind authored stats. " +
+                 "Examples: WeaponDefinition for Weapon blocks, BombDefinition for BombBay blocks. " +
+                 "The block component (ProjectileGun, BombBayBlock, etc.) is responsible for casting " +
+                 "to its expected type via GetComponentData<T>(); falls back to the component's own " +
+                 "SerializeField defaults if null.\n\n" +
+                 "Reference type is the ScriptableObject base because Robogame.Block can't take a " +
+                 "dependency on Robogame.Combat without an asmdef cycle. The cast is the price.")]
+        [SerializeField] private ScriptableObject _componentData;
+
         public string Id => _id;
         public string DisplayName => _displayName;
         public BlockCategory Category => _category;
@@ -78,6 +88,10 @@ namespace Robogame.Block
         public GameObject Prefab => _prefab;
         public Color TintColor => _tintColor;
         public Material Material => _material;
+        public ScriptableObject ComponentData => _componentData;
+
+        /// <summary>Convenience cast for consumers that know the expected type.</summary>
+        public T GetComponentData<T>() where T : ScriptableObject => _componentData as T;
 
 #if UNITY_EDITOR
         private void OnValidate()

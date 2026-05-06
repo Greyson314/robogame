@@ -6,88 +6,142 @@ using UnityEngine;
 namespace Robogame.Movement
 {
     /// <summary>
-    /// A free-body, jointed rope that dangles below its host block. Used
-    /// for hanging cosmetic rigging — e.g. a banner trailing under a
-    /// plane, an anchor chain hanging off a boat.
+    /// A free-body rope that dangles below its host block. Uses a Verlet
+    /// particle solver (<see cref="VerletRopeSimulator"/>) for the chain
+    /// body; only the hub-end (chassis) and tip-end (Hook / Mace host)
+    /// are real Rigidbodies. Per <c>docs/PHYSICS_PLAN.md</c> § 2.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Spawned by <see cref="RobotRopeBinder"/> on any block whose id is
-    /// <see cref="BlockIds.Rope"/>. The host cube's mesh is hidden; the
-    /// visible thing is a chain of N capsule segments connected by
-    /// <see cref="ConfigurableJoint"/>s, with segment 0 anchored to the
-    /// chassis <see cref="Rigidbody"/> at the bottom face of the host
-    /// cell.
+    /// <b>Migration from joint chains.</b> Prior to this PR the rope was
+    /// N rigidbodies + N <see cref="ConfigurableJoint"/>s, which scaled
+    /// poorly under stress (joint solver tax) and was unshipable for
+    /// MP (N rigid-body poses to replicate per chain per tick). The
+    /// Verlet implementation replicates as 2 rigidbody poses + spawn
+    /// time data and re-simulates client-side.
     /// </para>
     /// <para>
-    /// <b>Why segments live at scene root, not under the chassis.</b>
-    /// Unity does not support <see cref="Rigidbody"/> children of a
-    /// moving Rigidbody parent — the parent's transform writes would
-    /// kinematically yank the children every frame and fight the
-    /// solver. Per <c>docs/BEST_PRACTICES.md §3.1</c> the chassis is
-    /// one rigidbody plus child colliders; rope segments are extra
-    /// rigidbodies and therefore have to sit under their own
-    /// scene-root container. The joint to the chassis carries them
-    /// along while the physics solver figures out the rest.
+    /// <b>What still uses real Rigidbodies.</b>
     /// </para>
+    /// <list type="bullet">
+    ///   <item><b>Hub-end</b>: the chassis itself. Found via
+    ///         <c>GetComponentInParent&lt;Rigidbody&gt;()</c> on the rope
+    ///         block. The chain's particle 0 is anchored to the host
+    ///         cell's top face in chassis-local space.</item>
+    ///   <item><b>Tip-end</b>: a fresh Rigidbody at scene root, owned by
+    ///         this rope. It hosts the adopted Hook / Mace block + the
+    ///         <see cref="TipCollisionForwarder"/>, so contact damage
+    ///         + grapple joints work exactly as before. The simulator
+    ///         drives this body's position via <c>MovePosition</c> each
+    ///         step so PhysX still synthesises a velocity (collision
+    ///         resolution against world geometry stays sane).</item>
+    /// </list>
     /// <para>
-    /// <b>Cost.</b> One container GameObject + N segment Rigidbodies
-    /// per rope block. Default N = 8. A plane with one rope adds 8
-    /// rigidbodies to the active count — well under the
-    /// <c>BEST_PRACTICES.md §16</c> alarm of 64. Colliders are OFF by
-    /// default to avoid self-jamming with the chassis (the rope is
-    /// cosmetic, not a tow line — yet).
+    /// <b>Visual</b>: one cylinder per particle pair, parented to a
+    /// container at scene root. <see cref="VerletRopeChain.OnPostSolve"/>
+    /// updates their transforms each FixedUpdate after the constraint
+    /// solver settles.
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(BlockBehaviour))]
     public sealed class RopeBlock : MonoBehaviour
     {
-        [Header("Chain geometry")]
-        [Tooltip("Number of capsule segments hanging below the host cell. " +
-                 "Each segment is one visible \"link\" of the rope; the host " +
-                 "cell itself is hidden.")]
-        [SerializeField, Range(2, 32)] private int _segmentCount = 5;
-
-        [Tooltip("Length of one segment in metres. 0.5 means a 5-segment rope hangs ~2.5m — about 2.5 chassis cells, enough to read as a rope at gameplay distance.")]
-        [SerializeField, Min(0.05f)] private float _segmentLength = 0.5f;
-
-        [Tooltip("Radius of one capsule segment in metres.")]
-        [SerializeField, Min(0.01f)] private float _segmentRadius = 0.08f;
-
-        [Tooltip("Mass per segment in kilograms. Total rope mass = N × this. " +
-                 "Keep tiny so the rope doesn't perturb the chassis flight model.")]
-        [SerializeField, Min(0.001f)] private float _segmentMass = 0.04f;
-
-        [Header("Joint behaviour")]
-        [Tooltip("Maximum bend per joint in degrees, applied symmetrically around all three angular axes.")]
-        [SerializeField, Range(0f, 90f)] private float _angularLimit = 30f;
-
-        [Tooltip("Per-segment linear damping. Bleeds off whip oscillation.")]
-        [SerializeField, Min(0f)] private float _segmentLinearDamping = 0.10f;
-
-        [Tooltip("Per-segment angular damping. Higher = stiffer rope.")]
-        [SerializeField, Min(0f)] private float _segmentAngularDamping = 0.50f;
-
-        [Tooltip("If true, segments get capsule colliders and can interact with " +
-                 "the world (drag on the ground, snag on terrain). Off by " +
-                 "default — colliders on a long chain risk self-collision " +
-                 "with the chassis and other ropes, which causes jitter for " +
-                 "what is currently a purely cosmetic feature.")]
-        [SerializeField] private bool _segmentColliders = false;
-
         [Header("Visual")]
         [Tooltip("Tint applied to the segment cylinders. Defaults to a dark slate; " +
                  "override per-instance for team colours / banners later.")]
         [SerializeField] private Color _segmentColor = new Color(0.18f, 0.20f, 0.22f);
 
-        // Spawned objects -------------------------------------------------
-        private readonly List<Rigidbody> _segments = new();
-        private GameObject _segmentContainer;
-        private Rigidbody _anchorRb;
-        // Adopted tip block (Hook or Mace placed adjacent in the chassis
-        // grid). Stored so a Rebuild can put it back where we found it
-        // before destroying the segments.
+        [Tooltip("Verlet constraint solver iterations per sub-step. 8 handles a 32-segment rope cleanly. " +
+                 "Bump if you see visible stretching under high swing rates; drop for cosmetic chains.")]
+        [SerializeField, Range(1, 32)] private int _verletIterations = 8;
+
+        [Tooltip("Sub-steps per FixedUpdate. Each sub-step runs the full integrate+constraint pass with " +
+                 "dt/N. Higher = stabler when chassis moves fast (no implicit-velocity ringing in PBD). " +
+                 "4 is a strong default; 1 disables sub-stepping.")]
+        [SerializeField, Range(1, 8)] private int _verletSubSteps = 4;
+
+        [Tooltip("Bending stiffness in [0, 1]. Skip-one constraints pull non-adjacent particles toward " +
+                 "2 × segmentLength apart, so the rope drapes into smooth S-curves instead of folding " +
+                 "into discrete Z-shapes. 0 = beads-on-a-string. ~0.4 = fluid rope. ~0.8 = stiff cable.")]
+        [SerializeField, Range(0f, 1f)] private float _bendingStiffness = 0.4f;
+
+        // -----------------------------------------------------------------
+        // Defaults / per-block resolved live values
+        // -----------------------------------------------------------------
+
+        /// <summary>Block-default segment count when the entry's Dims.x is 0.</summary>
+        public const int DefaultSegmentCount = 8;
+        /// <summary>Min/max for the build-mode variant config slider.</summary>
+        public const int MinSegmentCount = 2, MaxSegmentCount = 32;
+
+        // Live geometry. Segment count is per-block (carried on the
+        // ChassisBlueprint.Entry that placed this rope) so a player's
+        // long-rope grappling hook and short-rope mace coexist on the
+        // same chassis. Length / radius / mass / damping remain Tweakables
+        // since the user explicitly wants them tweakable mid-match for
+        // tuning rope feel.
+        private int LiveSegmentCount
+        {
+            get
+            {
+                BlockBehaviour bb = GetComponent<BlockBehaviour>();
+                int authored = bb != null ? Mathf.RoundToInt(bb.Dims.x) : 0;
+                int raw = authored > 0 ? authored : DefaultSegmentCount;
+                return Mathf.Clamp(raw, MinSegmentCount, MaxSegmentCount);
+            }
+        }
+        private float LiveSegmentLength  => Mathf.Max(0.05f, Tweakables.Get(Tweakables.RopeSegmentLength));
+        private float LiveSegmentRadius  => Mathf.Max(0.01f, Tweakables.Get(Tweakables.RopeSegmentRadius));
+        private float LiveSegmentMass    => Mathf.Max(0.001f, Tweakables.Get(Tweakables.RopeSegmentMass));
+        private float LiveLinearDamping  => Mathf.Max(0f, Tweakables.Get(Tweakables.RopeLinearDamping));
+
+        // -----------------------------------------------------------------
+        // Runtime state
+        // -----------------------------------------------------------------
+
+        private VerletRopeChain _chain;
+        private GameObject _segmentContainer;       // visual cylinders
+        private Transform[] _segmentVisuals;        // one per (P[i], P[i+1])
+        private Rigidbody _hubRb;                   // chassis Rigidbody
+        private Rigidbody _tipRb;                   // per-rope, scene-root, hosts tip block
+        private GameObject _tipGo;
+        private SphereCollider _tipCollider;
+        private BlockBehaviour _block;
+        // Hard distance limit between chassis and tipRb (= total rope
+        // length). The Verlet particle simulation enforces chain shape
+        // but doesn't transmit force back to the chassis Rigidbody, so
+        // without this joint a grappled hook would let the plane fly
+        // off forever (particles just stretch indefinitely while the
+        // chassis is unconstrained). The ConfigurableJoint provides
+        // the physics-side coupling: chassis can move freely up to
+        // (totalLen) from the tip; beyond that PhysX yanks it back.
+        private ConfigurableJoint _chassisTipJoint;
+
+        // Visual-interpolation buffers. Each FixedUpdate's OnPostSolve
+        // shifts the previous physics-step positions into _prevParticleVis
+        // and copies the freshly-solved positions into _curParticleVis.
+        // LateUpdate lerps between them using Unity's standard
+        // interpolation fraction so cylinder visuals flow smoothly with
+        // the (Interpolate-mode) chassis + tip Rigidbodies instead of
+        // snapping at 50Hz.
+        private Vector3[] _prevParticleVis;
+        private Vector3[] _curParticleVis;
+        private float _lastSolveTime;
+        // Reusable per-frame buffer for interpolated positions; sized
+        // once at Build to avoid per-frame allocations.
+        private Vector3[] _renderParticleScratch;
+        // Temporal-smoothed particle positions for cylinder rendering.
+        // Absorbs sub-frame jitter that PBD's solver leaves at high
+        // damping (no inertia → constraint residuals oscillate frame-
+        // to-frame). Smoothing is heaviest near the hub (where the
+        // jitter manifests) and almost zero at the tip; the lag from
+        // smoothing is well under one render frame and imperceptible.
+        // See the LateUpdate comment for the full rationale + the
+        // canonical fixes deferred to a future session.
+        private Vector3[] _visualSmoothed;
+
+        // Adopted tip block (Hook or Mace) — same lifecycle as before.
         private TipBlock _adoptedTip;
         private Transform _tipOriginalParent;
         private Vector3 _tipOriginalLocalPos;
@@ -97,6 +151,10 @@ namespace Robogame.Movement
         private static readonly int s_albedoColorId = Shader.PropertyToID("_AlbedoColor");
         private static readonly int s_baseColorId   = Shader.PropertyToID("_BaseColor");
         private static readonly int s_legacyColorId = Shader.PropertyToID("_Color");
+
+        // -----------------------------------------------------------------
+        // Lifecycle
+        // -----------------------------------------------------------------
 
         private void Awake()
         {
@@ -108,52 +166,39 @@ namespace Robogame.Movement
         private void OnEnable()
         {
             Tweakables.Changed += OnTweakablesChanged;
-            // Rebuild on every OnEnable so the rope-chassis joint is
-            // fresh against the *current* chassis Rigidbody. The
-            // session-23 "idempotency" experiment (skip build when
-            // segments existed) caused the rope to detach from the
-            // plane on some chassis re-activations: segments persisted
-            // at scene root with joints pointing at a stale anchor rb,
-            // so the rope+tip fell straight to the ground while still
-            // visually a chain with the hook on the end. The original
-            // OnDisable SetParent crash that idempotency was meant to
-            // dodge is already handled by the OnDisable no-op below —
-            // the destroy here happens against an *active* chassis, so
-            // ReleaseAdoptedTip's SetParent doesn't fight a transitioning
-            // parent.
+            _block = GetComponent<BlockBehaviour>();
+            if (_block != null) _block.DimsChanged += OnBlockDimsChanged;
+            // Rebuild on every OnEnable so the rope-chassis anchor is
+            // fresh against the *current* chassis Rigidbody. Same reason
+            // the joint-chain version did this — chassis hot-swap from
+            // Robot.CaptureTemplate or respawn invalidates stale anchors.
             Rebuild();
         }
+
+        private void OnBlockDimsChanged(BlockBehaviour _) => Rebuild();
+
         private void OnDisable()
         {
             Tweakables.Changed -= OnTweakablesChanged;
-            // Intentionally do NOT destroy segments here. Robot.CaptureTemplate
-            // briefly SetActive(false) → Instantiate → SetActive(true) on the
-            // chassis to clone it as a cold-storage template; that cascade
-            // fires OnDisable on every block. DestroySegments would call
-            // ReleaseAdoptedTip, which tries to SetParent the tip back to
-            // its original parent (a chassis-hierarchy transform that's
-            // currently mid-deactivation) and Unity throws. Skip the teardown
-            // here — the segments live at scene root and aren't affected by
-            // the chassis cascade. Real teardown happens in OnDestroy and
-            // explicit Rebuild() calls (Tweakables change, parent swap).
+            if (_block != null) _block.DimsChanged -= OnBlockDimsChanged;
+            // Intentionally do NOT destroy the chain here. Robot.CaptureTemplate
+            // briefly SetActive(false → true) on the chassis to clone it as a
+            // cold-storage template; tearing down here triggers a SetParent
+            // on the adopted tip into a transitioning chassis hierarchy
+            // (Unity throws). The chain lives at scene root; the cascade
+            // doesn't touch it. Real teardown happens in OnDestroy and in
+            // explicit Rebuild() calls.
         }
-        private void OnDestroy() => DestroySegments();
 
-        // Tweakables.Changed fires for any key — cheap to just rebuild,
-        // since rope rebuilds are O(N segments) and N is tiny (≤32).
-        // Drag-tuning a slider in the settings menu therefore updates
-        // every active rope live without a scene reload.
+        // OnDestroy can fire while the chassis is mid-tear-down (e.g.
+        // GarageController.Respawn → Destroy(Chassis)). Reparenting the
+        // adopted tip into a transitioning chassis hierarchy throws —
+        // skip the reparent in that path. The tip GameObject is being
+        // destroyed alongside the chassis anyway. Mirrors the same fix
+        // applied to RotorBlock for foil reparent during chassis destroy.
+        private void OnDestroy() => DestroyChain(reparentTip: false);
+
         private void OnTweakablesChanged() => Rebuild();
-
-        // Live geometry — Tweakables overrides the inspector default at
-        // runtime so the settings menu is the single source of truth.
-        private int   LiveSegmentCount   => Mathf.Clamp(Mathf.RoundToInt(Tweakables.Get(Tweakables.RopeSegmentCount)), 2, 32);
-        private float LiveSegmentLength  => Mathf.Max(0.05f, Tweakables.Get(Tweakables.RopeSegmentLength));
-        private float LiveSegmentRadius  => Mathf.Max(0.01f, Tweakables.Get(Tweakables.RopeSegmentRadius));
-        private float LiveSegmentMass    => Mathf.Max(0.001f, Tweakables.Get(Tweakables.RopeSegmentMass));
-        private float LiveAngularLimit   => Mathf.Clamp(Tweakables.Get(Tweakables.RopeAngularLimit), 0f, 90f);
-        private float LiveLinearDamping  => Mathf.Max(0f, Tweakables.Get(Tweakables.RopeLinearDamping));
-        private float LiveAngularDamping => Mathf.Max(0f, Tweakables.Get(Tweakables.RopeAngularDamping));
 
         // The host block can be reparented at runtime — Robot.DetachAsDebris
         // hands orphaned blocks their own Rigidbody and reparents to scene
@@ -167,7 +212,7 @@ namespace Robogame.Movement
             // change callback didn't catch (e.g. the chassis Rigidbody
             // being destroyed mid-flight in some edge case).
             Rigidbody current = GetComponentInParent<Rigidbody>();
-            if (current != _anchorRb) Rebuild();
+            if (current != _hubRb) Rebuild();
         }
 
         // -----------------------------------------------------------------
@@ -176,116 +221,311 @@ namespace Robogame.Movement
 
         private void Rebuild()
         {
-            DestroySegments();
+            DestroyChain(reparentTip: true);
             Build();
         }
 
         private void Build()
         {
-            _anchorRb = GetComponentInParent<Rigidbody>();
-            if (_anchorRb == null) return; // no chassis to hang from yet
+            _hubRb = GetComponentInParent<Rigidbody>();
+            if (_hubRb == null) return; // no chassis to hang from yet
 
-            // Container at scene root so kinematic transform writes from
-            // the chassis don't drag our segment Rigidbodies around.
-            _segmentContainer = new GameObject($"Rope_{name}_Segments");
+            int N = LiveSegmentCount + 1;            // +1 because particles flank segments
+            float segLen = LiveSegmentLength;
+            float segRad = LiveSegmentRadius;
+            float segMass = LiveSegmentMass;
+            float linDamp = LiveLinearDamping;
 
-            // Hang along the chassis-down axis at spawn — gravity will
-            // straighten things out within a frame or two regardless.
-            Vector3 down = -transform.up;
-            // Anchor at the TOP face of the host cell. Rope cells are
-            // typically placed directly under another chassis block (e.g.
-            // under the plane's tail thruster), so starting the chain at
-            // the host cell's top means it visually flush-attaches to
-            // that block's underside instead of leaving a one-cell gap
-            // through the (hidden) host cell volume.
-            Vector3 anchorWorld = transform.position + transform.up * 0.5f;
+            // Anchor at the TOP face of the host cell (matches the joint-
+            // chain behaviour pre-Verlet so existing builds visually behave
+            // the same).
+            Vector3 hubAnchorWorld = transform.position + transform.up * 0.5f;
+            Vector3 hubAnchorLocal = _hubRb.transform.InverseTransformPoint(hubAnchorWorld);
 
-            int   count    = LiveSegmentCount;
-            float segLen   = LiveSegmentLength;
-            float segRad   = LiveSegmentRadius;
-            float segMass  = LiveSegmentMass;
-            float linDamp  = LiveLinearDamping;
-            float angDamp  = LiveAngularDamping;
+            // Spawn the tip-end Rigidbody at scene root. This is what
+            // hosts the adopted tip block + the collision forwarder.
+            // Default sphere collider; replaced when an adopted tip
+            // brings its own geometry.
+            Vector3 tipSpawnPos = hubAnchorWorld - transform.up * (segLen * (N - 1));
+            _tipGo = new GameObject($"RopeTip_{name}");
+            _tipGo.transform.position = tipSpawnPos;
+            _tipRb = _tipGo.AddComponent<Rigidbody>();
+            _tipRb.mass = segMass;
+            _tipRb.linearDamping = linDamp;
+            _tipRb.angularDamping = 5f;
+            // KINEMATIC for free flight. The simulator drives position
+            // and rotation via MovePosition / MoveRotation; PhysX does
+            // no force or impulse integration in that mode, so the
+            // tip's visual is a pure function of the simulator's solve
+            // — no chassis-speed-correlated jitter from PhysX integrator
+            // overshoot. HookBlock.Attach flips this back to non-
+            // kinematic when it adds the grapple joint (so the joint
+            // can pull the chassis), and Release flips it back to
+            // kinematic when the grapple ends. PhysX still triggers
+            // OnCollisionEnter on kinematic bodies that are MovePosition'd
+            // through a non-kinematic Rigidbody, so damage forwarding +
+            // grapple contact detection both still work.
+            _tipRb.isKinematic = true;
+            // Interpolation must match the rope cylinders (which have no
+            // Rigidbody and therefore render at their freshly-computed
+            // particle positions every frame). With Interpolate set, the
+            // tip Rigidbody's visual lagged the rope cylinders by one
+            // physics step — the hook visibly glitched against the
+            // already-rendered rope end. None matches the cylinders.
+            // Interpolate to match the chassis Rigidbody's interpolation
+            // mode + the visual interpolation we apply to rope cylinders
+            // in LateUpdate. Without this, the tip's visual would render
+            // at raw physics-step positions while the chassis flows
+            // smoothly, producing a 50Hz "snap" cadence on the hook
+            // against the smooth chassis.
+            _tipRb.interpolation = RigidbodyInterpolation.Interpolate;
+            _tipRb.collisionDetectionMode = CollisionDetectionMode.Discrete;
+            // Gravity is integrated by the simulator on the tip particle.
+            // Leaving it on the Rigidbody too would double-count: the
+            // particle falls AND the body falls, the chain stretches as
+            // both ends are pulled by gravity and the constraint solver
+            // can't resolve. The Rigidbody only exists for collisions +
+            // joint anchoring; the simulator drives its position via
+            // MovePosition each step.
+            _tipRb.useGravity = false;
+            // No rotation freeze. Direct rotation writes + FreezeRotation
+            // confuse Unity's Rigidbody.Interpolate (it caches rotation
+            // history per physics step, but constraint-blocked rotations
+            // bypass that path). Simulator uses MoveRotation now, which
+            // integrates cleanly through PhysX so Interpolate has clean
+            // prev/cur references and the hook visual flows smoothly.
+            _tipRb.constraints = RigidbodyConstraints.None;
+            // Default tip sphere — replaced by the adopted tip's collider
+            // (kept on the tip block GameObject) when adoption succeeds.
+            _tipCollider = _tipGo.AddComponent<SphereCollider>();
+            _tipCollider.radius = segRad * 1.6f;
+            _tipGo.layer = 2; // Ignore Raycast: keeps cursor / aim from latching onto the tip
+            // Don't let the tip Rigidbody collide with the chassis — same
+            // self-suppression the old default RopeTip did.
+            IgnoreCollidersAgainstChassis(_tipCollider, _hubRb.transform);
 
-            Rigidbody prev = _anchorRb;
-            Vector3 prevAttachWorld = anchorWorld;
+            // Chassis ↔ Tip distance joint. The Verlet simulator handles
+            // the chain SHAPE (catenary curve, swing physics) but does
+            // NOT transmit force back to the chassis Rigidbody — particles
+            // just enforce their own segment lengths in isolation. Without
+            // this physics-side joint, a grappled hook would let the plane
+            // fly off forever while the rope visually stretches. The joint
+            // is a hard linear-distance limit: chassis can move freely
+            // anywhere within (totalRopeLength) of the tip; beyond that
+            // PhysX applies the constraint to halt the chassis. Always-
+            // on (works in both free-flight and grappled modes; in free
+            // flight the simulator keeps the chain inside the limit so
+            // the joint is inactive). Linear motion Limited; angular Free
+            // so the chain still swings naturally.
+            float totalLen = segLen * (N - 1);
+            _chassisTipJoint = _tipGo.AddComponent<ConfigurableJoint>();
+            _chassisTipJoint.connectedBody = _hubRb;
+            _chassisTipJoint.autoConfigureConnectedAnchor = false;
+            _chassisTipJoint.anchor          = Vector3.zero;             // tipRb origin
+            _chassisTipJoint.connectedAnchor = hubAnchorLocal;           // chassis-local hub attach
+            _chassisTipJoint.xMotion = ConfigurableJointMotion.Limited;
+            _chassisTipJoint.yMotion = ConfigurableJointMotion.Limited;
+            _chassisTipJoint.zMotion = ConfigurableJointMotion.Limited;
+            _chassisTipJoint.angularXMotion = ConfigurableJointMotion.Free;
+            _chassisTipJoint.angularYMotion = ConfigurableJointMotion.Free;
+            _chassisTipJoint.angularZMotion = ConfigurableJointMotion.Free;
+            _chassisTipJoint.linearLimit = new SoftJointLimit { limit = totalLen, contactDistance = 0f };
+            // Soft spring on the limit gives a slight rubber-band tug
+            // instead of a brick-wall halt — matches the "rope stretches
+            // a little, then yanks" feel real grappling has. Spring
+            // stiffness chosen so a chassis at a few m/s past the limit
+            // is decelerated within ~half a second; tune higher for
+            // stiffer cables, lower for stretchier ropes.
+            _chassisTipJoint.linearLimitSpring = new SoftJointLimitSpring { spring = 8000f, damper = 250f };
+            _chassisTipJoint.enableCollision     = false;
+            _chassisTipJoint.enablePreprocessing = false;
 
-            for (int i = 0; i < count; i++)
+            // Build the chain.
+            _chain = new VerletRopeChain
             {
-                Vector3 segCentre = anchorWorld + down * (segLen * (i + 0.5f));
-                Quaternion segRot = Quaternion.LookRotation(down, transform.forward);
+                Particles = new VerletParticle[N],
+                Count = N,
+                HubRb = _hubRb,
+                HubAnchorLocal = hubAnchorLocal,
+                TipRb = _tipRb,
+                SegmentLength = segLen,
+                LinearDamping = linDamp,
+                Iterations = _verletIterations,
+                SubSteps = _verletSubSteps,
+                BendingStiffness = _bendingStiffness,
+                OnPostSolve = OnPostSolve,
+            };
 
-                GameObject seg = new GameObject($"Segment_{i}");
-                seg.transform.SetParent(_segmentContainer.transform, worldPositionStays: false);
-                seg.transform.SetPositionAndRotation(segCentre, segRot);
+            // Initial particle positions: even spacing along chassis-down
+            // from the hub anchor to the tip body. Verlet's prevPosition
+            // = position seeds zero starting velocity.
+            Vector3 down = -transform.up;
+            _prevParticleVis = new Vector3[N];
+            _curParticleVis = new Vector3[N];
+            _renderParticleScratch = new Vector3[N];
+            for (int i = 0; i < N; i++)
+            {
+                Vector3 p = hubAnchorWorld + down * (segLen * i);
+                _chain.Particles[i].Position = p;
+                _chain.Particles[i].PrevPosition = p;
+                _prevParticleVis[i] = p;
+                _curParticleVis[i] = p;
+            }
+            _lastSolveTime = Time.fixedTime;
+            // Tip rigidbody starts at the last particle.
+            _tipRb.position = _chain.Particles[N - 1].Position;
 
-                BuildSegmentVisual(seg.transform, segLen, segRad);
-
-                Rigidbody rb = seg.AddComponent<Rigidbody>();
-                rb.mass = segMass;
-                rb.linearDamping  = linDamp;
-                rb.angularDamping = angDamp;
-                rb.interpolation  = RigidbodyInterpolation.Interpolate;
-                // Discrete is fine: short segments + capped angular limits
-                // keep tunnelling out of reach. Continuous would be a
-                // contact-solver tax we don't need on cosmetic chain.
-                rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
-
-                if (_segmentColliders)
+            // Adopt a Hook / Mace neighbour, if present.
+            if (TryAdoptTipBlock(_tipRb))
+            {
+                // Adopted tip handles its own collider; suppress the
+                // default sphere we added above.
+                if (_tipCollider != null)
                 {
-                    CapsuleCollider cc = seg.AddComponent<CapsuleCollider>();
-                    cc.radius = segRad;
-                    cc.height = segLen;
-                    cc.direction = 2; // capsule axis = local Z (segment forward)
+                    Destroy(_tipCollider);
+                    _tipCollider = null;
                 }
+            }
 
-                BuildJoint(seg, rb, prev, prevAttachWorld, segLen);
+            // Visual cylinders.
+            BuildVisuals(N - 1, segRad);
 
-                _segments.Add(rb);
-                prev = rb;
-                prevAttachWorld = segCentre + down * (segLen * 0.5f); // bottom of this segment
+            // Register with the simulator. The simulator drives
+            // FixedUpdate; this RopeBlock just holds the data + visuals.
+            VerletRopeSimulator.GetOrCreate().Register(_chain);
+        }
 
-                // Tip collider on the LAST segment only. See RopeTip for
-                // why per-segment colliders are deliberately avoided
-                // (cost + joint-vs-contact solver fight). The tip stops
-                // the rope from phasing through the world entirely
-                // without paying for full-chain world collision.
-                if (i == count - 1)
+        // Hook called by the simulator after constraints settle each
+        // FixedUpdate. Snapshots particle positions into the visual-
+        // interpolation buffers; the actual cylinder transform updates
+        // happen in LateUpdate so they can flow smoothly with the
+        // (Interpolate-mode) chassis + tip Rigidbodies.
+        private void OnPostSolve()
+        {
+            if (_chain == null) return;
+            if (_prevParticleVis == null || _curParticleVis == null) return;
+
+            int N = _chain.Count;
+            // Promote previous CURRENT to PREVIOUS, then copy fresh
+            // post-solve positions into CURRENT.
+            for (int i = 0; i < N; i++)
+            {
+                _prevParticleVis[i] = _curParticleVis[i];
+                _curParticleVis[i] = _chain.Particles[i].Position;
+            }
+            _lastSolveTime = Time.fixedTime;
+        }
+
+        // Render visual cylinders at interpolated particle positions.
+        // Unity's standard render-time interpolation fraction
+        // alpha = (Time.time - Time.fixedTime) / Time.fixedDeltaTime
+        // is the same one Rigidbody.Interpolate uses, so the rope
+        // visual rate-matches the (interpolated) chassis Rigidbody and
+        // the (interpolated) tip Rigidbody — no 50Hz snap cadence.
+        private void LateUpdate()
+        {
+            if (_segmentVisuals == null) return;
+            if (_prevParticleVis == null || _curParticleVis == null) return;
+            if (_renderParticleScratch == null) return;
+
+            int N = _renderParticleScratch.Length;
+            float alpha = Time.fixedDeltaTime > 0f
+                ? Mathf.Clamp01((Time.time - _lastSolveTime) / Time.fixedDeltaTime)
+                : 1f;
+            for (int i = 0; i < N; i++)
+            {
+                _renderParticleScratch[i] = Vector3.LerpUnclamped(_prevParticleVis[i], _curParticleVis[i], alpha);
+            }
+
+            // Anchor render endpoints to the LIVE Rigidbody positions.
+            // The simulator runs in FixedUpdate, BEFORE PhysX integrates
+            // the chassis for that step, so its particles track the
+            // chassis from "one physics step ago." Unity's chassis
+            // Interpolate renders one step further forward; without
+            // this anchor override, the rope visually trails the chassis
+            // attachment by a step's worth of motion. Linear lerp of
+            // (hubShift, tipShift) preserves the chain shape while
+            // pinning both ends to the live anchors.
+            if (_hubRb != null && _tipRb != null && _chain != null && N >= 2)
+            {
+                Vector3 liveHub = _hubRb.transform.TransformPoint(_chain.HubAnchorLocal);
+                Vector3 liveTip = _tipRb.transform.position;
+                Vector3 hubShift = liveHub - _renderParticleScratch[0];
+                Vector3 tipShift = liveTip - _renderParticleScratch[N - 1];
+                for (int i = 0; i < N; i++)
                 {
-                    // First, look for an adjacent Hook / Mace block to adopt
-                    // as a custom tip. If found, the default sphere collider
-                    // is skipped and the tip block's geometry / damage
-                    // logic takes over.
-                    if (TryAdoptTipBlock(rb))
-                    {
-                        // Adopted tip handles its own collider + IgnoreChassis;
-                        // mass is summed into rb inside TryAdoptTipBlock.
-                    }
-                    else
-                    {
-                        RopeTip tip = seg.AddComponent<RopeTip>();
-                        tip.Initialize(segRad * 1.6f);
-                        tip.IgnoreChassisCollisions(_anchorRb.transform);
-                    }
+                    float t = (float)i / (N - 1);
+                    _renderParticleScratch[i] += Vector3.LerpUnclamped(hubShift, tipShift, t);
                 }
+            }
+
+            // Visual temporal smoothing. PBD's constraint solver leaves
+            // small per-frame residual error in particle positions —
+            // particle 1 wants to be exactly segLen from the chassis,
+            // but with a moving chassis + finite iterations the actual
+            // post-solve position oscillates by a small amount each
+            // frame. With high damping that oscillation isn't absorbed
+            // by particle inertia (because there is no inertia by
+            // design) so it shows up as visible jitter, worst on the
+            // hub-side particles where the constraint is tightest.
+            //
+            // The canonical fixes are: (a) more iterations / smaller
+            // sub-steps until the residual is below a visible threshold;
+            // (b) XPBD with explicit compliance terms that handle stiff
+            // constraints without residual oscillation; (c) a Featherstone-
+            // style multibody solver. All three are bigger lifts than
+            // the visible-quality bug warrants at this point. The cheap
+            // workaround applied here is a per-particle temporal low-
+            // pass filter: heavy smoothing near the hub (where jitter
+            // manifests), near-zero at the tip (preserves responsiveness
+            // for grapple). The induced visual lag is sub-frame and
+            // not perceptible.
+            //
+            // FUTURE: revisit when the Verlet solver gets an XPBD pass.
+            // PHYSICS_PLAN § 2 doesn't mandate XPBD but it's the natural
+            // next step if rope feel under aggressive damping matters.
+            if (_visualSmoothed == null || _visualSmoothed.Length != N)
+            {
+                _visualSmoothed = new Vector3[N];
+                for (int i = 0; i < N; i++) _visualSmoothed[i] = _renderParticleScratch[i];
+            }
+            for (int i = 0; i < N; i++)
+            {
+                float distFromHub = N > 1 ? (float)i / (N - 1) : 1f;
+                // 0.35 (heaviest near hub) → 0.95 (nearly raw at tip).
+                float lerpFactor = Mathf.Lerp(0.35f, 0.95f, distFromHub);
+                _visualSmoothed[i] = Vector3.LerpUnclamped(_visualSmoothed[i], _renderParticleScratch[i], lerpFactor);
+            }
+
+            for (int i = 0; i < _segmentVisuals.Length; i++)
+            {
+                Transform t = _segmentVisuals[i];
+                if (t == null) continue;
+                Vector3 a = _visualSmoothed[i];
+                Vector3 b = _visualSmoothed[i + 1];
+                Vector3 mid = (a + b) * 0.5f;
+                Vector3 d = b - a;
+                float len = d.magnitude;
+                if (len < 1e-5f) continue;
+                t.position = mid;
+                t.rotation = Quaternion.FromToRotation(Vector3.up, d / len);
+                Vector3 s = t.localScale;
+                s.y = len * 0.5f;
+                t.localScale = s;
             }
         }
 
-        // Look at the rope's grid neighbours for a Hook / Mace block.
-        // If found, reparent it under the last segment, sum its mass into
-        // the segment's rigidbody, and wire a TipCollisionForwarder on
-        // the segment so contact callbacks reach the tip block.
-        private bool TryAdoptTipBlock(Rigidbody lastSegmentRb)
+        // -----------------------------------------------------------------
+        // Adopted tip block (Hook / Mace)
+        // -----------------------------------------------------------------
+
+        private bool TryAdoptTipBlock(Rigidbody tipBody)
         {
             BlockBehaviour ropeHost = GetComponent<BlockBehaviour>();
             if (ropeHost == null) return false;
             BlockGrid grid = GetComponentInParent<BlockGrid>();
             if (grid == null) return false;
 
-            // Six axial neighbours; first hit wins. The blueprint convention
-            // is to place tips directly below the rope (-Y), but we accept
-            // any face neighbour so a creative builder can route a hook
-            // off the side of a rope-bearing arm.
             Vector3Int[] all =
             {
                 new Vector3Int( 0,-1, 0), new Vector3Int( 0, 1, 0),
@@ -307,139 +547,129 @@ namespace Robogame.Movement
             _tipOriginalLocalPos   = tip.transform.localPosition;
             _tipOriginalLocalRot   = tip.transform.localRotation;
 
-            // Reparent under the last segment, sit at the segment center
-            // (the segment's collider area is what we want the tip to
-            // visually occupy), local rotation aligned to the segment
-            // forward.
-            tip.transform.SetParent(lastSegmentRb.transform, worldPositionStays: false);
+            // Reparent under the tip-end Rigidbody.
+            tip.transform.SetParent(tipBody.transform, worldPositionStays: false);
             tip.transform.localPosition = Vector3.zero;
             tip.transform.localRotation = Quaternion.identity;
 
-            // Relax the last segment's joint angular limits to Free so
-            // the segment + adopted tip can pivot freely about the joint
-            // anchor. Without this, the 30° default limit constrains the
-            // hook's orientation to the chain's local frame and the
-            // J-silhouette never points "down" via gravity — it stays
-            // locked into whatever rotation the chain dictates. The
-            // relaxation is rebuilt fresh on every rope Rebuild (since
-            // the joint is part of the segment GameObject which we
-            // destroy + recreate), so we don't need a "restore" path.
-            ConfigurableJoint lastJoint = lastSegmentRb.GetComponent<ConfigurableJoint>();
-            if (lastJoint != null)
-            {
-                lastJoint.angularXMotion = ConfigurableJointMotion.Free;
-                lastJoint.angularYMotion = ConfigurableJointMotion.Free;
-                lastJoint.angularZMotion = ConfigurableJointMotion.Free;
-            }
+            // Mass: sum the tip block's authored mass into the tip-end
+            // body so swing dynamics reflect the weight at the end.
+            tipBody.mass += tip.Mass;
 
-            // Mass: the tip block's BlockDefinition mass is summed into
-            // the segment so the chain's pendulum dynamics reflect the
-            // weight at the end. Without this, a "heavy mace" wouldn't
-            // actually swing harder than a "light hook".
-            lastSegmentRb.mass += tip.Mass;
-
-            // Forward collision callbacks to the tip block.
-            TipCollisionForwarder fwd = lastSegmentRb.gameObject.AddComponent<TipCollisionForwarder>();
+            // Forward collisions to the tip block.
+            TipCollisionForwarder fwd = tipBody.gameObject.AddComponent<TipCollisionForwarder>();
             fwd.Tip = tip;
-            tip.AttachToHost(lastSegmentRb, _anchorRb);
+            tip.AttachToHost(tipBody, _hubRb);
             return true;
         }
 
-        private void ReleaseAdoptedTip()
+        private void ReleaseAdoptedTip(bool reparent = true)
         {
             if (_adoptedTip == null) return;
-            // Notify the tip its host is going away.
             _adoptedTip.DetachFromHost();
-            // Reparent back to where we found it. If the original parent
-            // is gone (chassis destroyed), unparent to scene root so the
-            // tip GameObject doesn't leak under a destroyed segment.
-            if (_tipOriginalParent != null)
+            if (reparent)
             {
-                _adoptedTip.transform.SetParent(_tipOriginalParent, worldPositionStays: false);
-                _adoptedTip.transform.localPosition = _tipOriginalLocalPos;
-                _adoptedTip.transform.localRotation = _tipOriginalLocalRot;
+                if (_tipOriginalParent != null)
+                {
+                    _adoptedTip.transform.SetParent(_tipOriginalParent, worldPositionStays: false);
+                    _adoptedTip.transform.localPosition = _tipOriginalLocalPos;
+                    _adoptedTip.transform.localRotation = _tipOriginalLocalRot;
+                }
+                else
+                {
+                    _adoptedTip.transform.SetParent(null, worldPositionStays: true);
+                }
             }
-            else
-            {
-                _adoptedTip.transform.SetParent(null, worldPositionStays: true);
-            }
+            // reparent=false: chassis is mid-destroy. The tip block is a
+            // chassis-grid child being destroyed alongside the chassis,
+            // so leaving its parent as the about-to-die tip-end body is
+            // fine — Unity will tear both down together.
             _adoptedTip = null;
             _tipOriginalParent = null;
         }
 
-        private void BuildSegmentVisual(Transform segRoot, float segLen, float segRad)
-        {
-            // Unity's primitive cylinder is height 2 along Y. Rotating to
-            // align with segment-local Z (forward) and scaling Y by L/2
-            // gives a capsule of correct length. Strip its collider — the
-            // capsule we add ourselves above is the only physical body.
-            Transform vis = BlockVisuals.GetOrCreatePrimitiveChild(
-                segRoot, "Vis", PrimitiveType.Cylinder, stripCollider: true);
-            vis.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            vis.localScale = new Vector3(segRad * 2f,
-                                         segLen * 0.5f,
-                                         segRad * 2f);
+        // -----------------------------------------------------------------
+        // Visuals
+        // -----------------------------------------------------------------
 
-            MeshRenderer mr = vis.GetComponent<MeshRenderer>();
-            if (mr != null)
+        private void BuildVisuals(int segmentVisualCount, float segRad)
+        {
+            _segmentContainer = new GameObject($"Rope_{name}_Segments");
+            _segmentVisuals = new Transform[segmentVisualCount];
+            for (int i = 0; i < segmentVisualCount; i++)
             {
-                MaterialPropertyBlock mpb = new MaterialPropertyBlock();
-                mr.GetPropertyBlock(mpb);
-                mpb.SetColor(s_albedoColorId, _segmentColor);
-                mpb.SetColor(s_baseColorId,   _segmentColor);
-                mpb.SetColor(s_legacyColorId, _segmentColor);
-                mr.SetPropertyBlock(mpb);
+                GameObject seg = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                seg.name = $"Vis_{i}";
+                Object.Destroy(seg.GetComponent<Collider>());
+                seg.transform.SetParent(_segmentContainer.transform, worldPositionStays: false);
+                // Cylinder's mesh is height 2 along Y. localScale.x/z =
+                // 2*radius gives the rope a real radius; localScale.y is
+                // overwritten in OnPostSolve to half the segment length.
+                seg.transform.localScale = new Vector3(segRad * 2f, 1f, segRad * 2f);
+                Renderer mr = seg.GetComponent<MeshRenderer>();
+                if (mr != null)
+                {
+                    var mpb = new MaterialPropertyBlock();
+                    mr.GetPropertyBlock(mpb);
+                    mpb.SetColor(s_albedoColorId, _segmentColor);
+                    mpb.SetColor(s_baseColorId,   _segmentColor);
+                    mpb.SetColor(s_legacyColorId, _segmentColor);
+                    mr.SetPropertyBlock(mpb);
+                }
+                _segmentVisuals[i] = seg.transform;
             }
         }
 
-        private void BuildJoint(GameObject seg, Rigidbody rb, Rigidbody prev, Vector3 prevAttachWorld, float segLen)
+        // -----------------------------------------------------------------
+        // Helpers
+        // -----------------------------------------------------------------
+
+        private static void IgnoreCollidersAgainstChassis(Collider self, Transform chassisRoot)
         {
-            float angLimit = LiveAngularLimit;
-            ConfigurableJoint joint = seg.AddComponent<ConfigurableJoint>();
-            joint.connectedBody = prev;
-            joint.autoConfigureConnectedAnchor = false;
-
-            // Anchor on this segment: top of capsule (= -L/2 along its forward Z).
-            joint.anchor = new Vector3(0f, 0f, -segLen * 0.5f);
-
-            // Connected anchor on prev: bottom of prev's last cell, in prev's local space.
-            joint.connectedAnchor = prev.transform.InverseTransformPoint(prevAttachWorld);
-
-            // Lock translation entirely — segments only swing.
-            joint.xMotion = ConfigurableJointMotion.Locked;
-            joint.yMotion = ConfigurableJointMotion.Locked;
-            joint.zMotion = ConfigurableJointMotion.Locked;
-
-            // Limited angular freedom on all three axes gives a believable
-            // rope-bend without the floppy degeneracy of full Free.
-            joint.angularXMotion = ConfigurableJointMotion.Limited;
-            joint.angularYMotion = ConfigurableJointMotion.Limited;
-            joint.angularZMotion = ConfigurableJointMotion.Limited;
-            joint.lowAngularXLimit  = new SoftJointLimit { limit = -angLimit };
-            joint.highAngularXLimit = new SoftJointLimit { limit =  angLimit };
-            joint.angularYLimit     = new SoftJointLimit { limit =  angLimit };
-            joint.angularZLimit     = new SoftJointLimit { limit =  angLimit };
-
-            // We never want the rope to push the chassis or other segments
-            // around through collision response — friction is what damping
-            // is for. enableCollision=false also disables collision
-            // between the joint pair, which is what we want for the
-            // chassis↔segment-0 link in particular.
-            joint.enableCollision    = false;
-            joint.enablePreprocessing = false;
+            if (self == null || chassisRoot == null) return;
+            Collider[] cols = chassisRoot.GetComponentsInChildren<Collider>(includeInactive: true);
+            for (int i = 0; i < cols.Length; i++)
+            {
+                Collider c = cols[i];
+                if (c == null || c == self) continue;
+                Physics.IgnoreCollision(self, c, ignore: true);
+            }
         }
 
-        private void DestroySegments()
+        private void DestroyChain(bool reparentTip)
         {
-            // Detach any adopted tip first, before the segment it's parented
-            // under gets destroyed — otherwise Unity destroys the tip too.
-            ReleaseAdoptedTip();
-            _segments.Clear();
-            _anchorRb = null;
-            if (_segmentContainer == null) return;
-            if (Application.isPlaying) Destroy(_segmentContainer);
-            else                       DestroyImmediate(_segmentContainer);
-            _segmentContainer = null;
+            // Detach any adopted tip first — its parent (the tip-end body)
+            // is about to be destroyed.
+            ReleaseAdoptedTip(reparentTip);
+
+            // Unregister from the simulator before tearing down so we
+            // don't get one more solve against destroyed targets.
+            if (_chain != null)
+            {
+                VerletRopeSimulator sim = VerletRopeSimulator.GetOrCreate();
+                if (sim != null) sim.Unregister(_chain);
+                _chain = null;
+            }
+
+            if (_tipGo != null)
+            {
+                if (Application.isPlaying) Destroy(_tipGo);
+                else                       DestroyImmediate(_tipGo);
+                _tipGo = null;
+                _tipRb = null;
+                _tipCollider = null;
+                _chassisTipJoint = null; // GC'd along with _tipGo
+            }
+
+            if (_segmentContainer != null)
+            {
+                if (Application.isPlaying) Destroy(_segmentContainer);
+                else                       DestroyImmediate(_segmentContainer);
+                _segmentContainer = null;
+                _segmentVisuals = null;
+            }
+
+            _hubRb = null;
         }
     }
 }

@@ -32,10 +32,12 @@ namespace Robogame.Tools.Editor
         private const string DefaultBuggyPath = BlueprintFolder + "/Blueprint_DefaultBuggy.asset";
         private const string DefaultBoatPath = BlueprintFolder + "/Blueprint_DefaultBoat.asset";
         private const string DefaultBomberPath = BlueprintFolder + "/Blueprint_DefaultBomber.asset";
+        private const string DefaultPropPlanePath = BlueprintFolder + "/Blueprint_DefaultPropPlane.asset";
         private const string DefaultHelicopterPath = BlueprintFolder + "/Blueprint_DefaultHelicopter.asset";
         private const string CombatDummyPath = BlueprintFolder + "/Blueprint_CombatDummy.asset";
         private const string StressTowerPath = BlueprintFolder + "/Blueprint_StressRotorTower.asset";
         private const string ArchDummyPath = BlueprintFolder + "/Blueprint_ArchDummy.asset";
+        private const string StressRopeTowerPath = BlueprintFolder + "/Blueprint_StressRopeTower.asset";
 
         // -----------------------------------------------------------------
         // Data assets
@@ -82,6 +84,12 @@ namespace Robogame.Tools.Editor
             CreateOrUpdateBlueprint(DefaultBuggyPath, "Buggy", ChassisKind.Ground, BuildBuggyEntries());
             CreateOrUpdateBlueprint(DefaultBoatPath,  "Boat",  ChassisKind.Ground, BuildBoatEntries());
             CreateOrUpdateBlueprint(DefaultBomberPath, "Bomber", ChassisKind.Plane, BuildBomberEntries());
+            // Propeller plane: same wing/tail layout as the standard plane
+            // but propulsion comes from a forward-facing rotor + 4-blade
+            // propeller ring at the nose instead of a thruster at the tail.
+            // RotorsGenerateLift = true flips the prop's foils into thrust
+            // mode (force along the rotor's spin axis = chassis +Z).
+            CreateOrUpdateBlueprint(DefaultPropPlanePath, "Prop Plane", ChassisKind.Plane, BuildPropPlaneEntries(), rotorsGenerateLift: true);
             // Helicopter: simple T-shaped sandbox chassis — short fuselage,
             // long tail boom, vertical fin, rotor on top of the CPU. The
             // rotor block flips into lift mode (kinematic hub + ring of
@@ -98,6 +106,12 @@ namespace Robogame.Tools.Editor
             // drags the slider to 1, the tower appears, the Profiler
             // shows the truth about how the kinematic-hub trick scales.
             CreateOrUpdateBlueprint(StressTowerPath, "Stress Rotor Tower", ChassisKind.Ground, BuildStressTowerEntries());
+            // Verlet rope profiling target (PHYSICS_PLAN § 2 trigger #1):
+            // 5 rotor levels × 4 ropes ringing each rotor's mech cell, each
+            // rope at default 8 segments → 5 × 4 = 20 chains × 8 segs =
+            // 160 particles. Old joint-chain pre-Verlet would be 160
+            // Rigidbodies + 160 ConfigurableJoints, well above the alarm.
+            CreateOrUpdateBlueprint(StressRopeTowerPath, "Stress Rope Tower", ChassisKind.Ground, BuildStressRopeTowerEntries(), rotorsGenerateLift: false);
             // Arch dummy: simple grounded archway. Two 1-cell-thick
             // pillars + a 1-cell-thick top beam. Designed for the
             // hook test loop: helicopter flies up to the arch, the
@@ -294,6 +308,59 @@ namespace Robogame.Tools.Editor
             return list.ToArray();
         }
 
+        private static ChassisBlueprint.Entry[] BuildPropPlaneEntries()
+        {
+            // Same fuselage / wing / tail / canard skeleton as the standard
+            // plane preset, but the rear thruster is gone and the nose
+            // carries a forward-facing rotor: spinAxis = +Z, mechanism cell
+            // one step further forward, four propeller blades ringed around
+            // the mechanism. With RotorsGenerateLift = true the foil
+            // physics (lift-along-spin-axis, dissymmetry stripped — see
+            // session-25 dissymmetry fix) push the chassis along its local
+            // +Z, which is exactly forward thrust.
+            //
+            // Layout (forward = +Z):
+            //   - Spine cubes: z=-3..3 (no thruster — replaced by nose rotor).
+            //   - CPU at origin.
+            //   - Top weapon at (0, 1, 0) — over the cockpit.
+            //   - Main wings: ±1..±4 at y=0, z=0.
+            //   - Forward stabilisers / canards: ±1..±2 at y=0, z=1.
+            //   - Tailplane: ±1..±2 at y=0, z=-3.
+            //   - Vertical fin on a 1-cell pylon at z=-3.
+            //   - Nose rotor: rotor (0,0,4), mech (0,0,5), 4 props around (0,0,5).
+            return BlueprintBuilder.Create("Prop Plane", ChassisKind.Plane)
+                .Block(BlockIds.Cpu, 0, 0, 0)
+                .Row(BlockIds.Cube, new Vector3Int(0, 0, -3), new Vector3Int(0, 0, -1))
+                .Row(BlockIds.Cube, new Vector3Int(0, 0,  1), new Vector3Int(0, 0,  3))
+                .Block(BlockIds.Weapon, 0, 1, 0)
+                // Main wings — 4 segments per side. Default span (1) means
+                // each foil is a single block; the player can tune span up
+                // via the build-mode variant panel for a wider profile.
+                .MirrorX(b => b
+                    .Block(BlockIds.Aero, 1, 0, 0)
+                    .Block(BlockIds.Aero, 2, 0, 0)
+                    .Block(BlockIds.Aero, 3, 0, 0)
+                    .Block(BlockIds.Aero, 4, 0, 0))
+                // Forward stabilisers / canards — same idea closer to the nose.
+                .MirrorX(b => b
+                    .Block(BlockIds.Aero, 1, 0, 1)
+                    .Block(BlockIds.Aero, 2, 0, 1))
+                // Tailplane.
+                .MirrorX(b => b
+                    .Block(BlockIds.Aero, 1, 0, -3)
+                    .Block(BlockIds.Aero, 2, 0, -3))
+                // Tail fin pylon + vertical fin.
+                .Block(BlockIds.Cube,    0, 1, -3)
+                .Block(BlockIds.AeroFin, 0, 2, -3)
+                // Nose-mounted propeller. spinAxis = +Z aligns the rotor's
+                // local +Y with chassis +Z, so the lateral axes ring
+                // (chassis ±X and ±Y) carries the four propeller blades.
+                // RotorWithFoils does the rotor + mech + 4 foils in one go.
+                .RotorWithFoils(new Vector3Int(0, 0, 4), new Vector3Int(0, 0, 1))
+                .Build()
+                .Entries;
+        }
+
         private static ChassisBlueprint.Entry[] BuildHelicopterEntries()
         {
             // Larger helicopter sandbox — ~38 cells, roughly 4× the size of
@@ -415,6 +482,39 @@ namespace Robogame.Tools.Editor
                 .Entries;
         }
 
+        private static ChassisBlueprint.Entry[] BuildStressRopeTowerEntries()
+        {
+            // PHYSICS_PLAN § 2 stress profile: rotor-tower with rope rings
+            // around each rotor's mechanism cell. Used to verify the Verlet
+            // implementation scales (5 rotors × 4 ropes × 8 segs = 160
+            // particles vs the joint-chain's 160 RBs+joints). Drag a rope
+            // off each rotor in the four cardinal directions; the ropes
+            // dangle as the rotor spins, so the simulator gets exercised
+            // every step.
+            var list = new List<ChassisBlueprint.Entry>();
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)));
+            for (int y = 1; y < 10; y++)
+            {
+                bool isRotorLevel = (y % 2 == 1);
+                list.Add(new ChassisBlueprint.Entry(
+                    isRotorLevel ? BlockIds.Rotor : BlockIds.Cube,
+                    new Vector3Int(0, y, 0)));
+                if (isRotorLevel)
+                {
+                    // Four ropes ringed around the rotor at the same y. The
+                    // RobotRopeBinder will spawn a Verlet rope chain on each
+                    // — total = 4 chains per rotor × 5 rotors = 20 chains.
+                    // Default 8 segments each = 160 particles for the Verlet
+                    // simulator to integrate every FixedUpdate.
+                    list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int( 1, y,  0)));
+                    list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int(-1, y,  0)));
+                    list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int( 0, y,  1)));
+                    list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int( 0, y, -1)));
+                }
+            }
+            return list.ToArray();
+        }
+
         private static ChassisBlueprint.Entry[] BuildStressTowerEntries()
         {
             // Spinning-rotor tower used to visually stress-test multiple
@@ -509,7 +609,7 @@ namespace Robogame.Tools.Editor
             var boot = bootstrap.GetComponent<GameBootstrap>();
             if (boot == null) boot = bootstrap.AddComponent<GameBootstrap>();
             SerializedObject bootSO = new SerializedObject(boot);
-            bootSO.FindProperty("_firstScene").stringValue = "Garage";
+            bootSO.FindProperty("_firstScene").stringValue = "MainMenu";
             bootSO.FindProperty("_persistAcrossScenes").boolValue = true;
             bootSO.ApplyModifiedPropertiesWithoutUndo();
 
@@ -533,6 +633,7 @@ namespace Robogame.Tools.Editor
             ChassisBlueprint buggyBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultBuggyPath);
             ChassisBlueprint boatBpLive  = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultBoatPath);
             ChassisBlueprint bomberBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultBomberPath);
+            ChassisBlueprint propPlaneBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultPropPlanePath);
             ChassisBlueprint helicopterBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultHelicopterPath);
             InputActionAsset actionsLive = AssetDatabase.LoadAssetAtPath<InputActionAsset>(ScaffoldUtils.InputActionsAsset);
 
@@ -546,17 +647,18 @@ namespace Robogame.Tools.Editor
             stateSO.FindProperty("_defaultBlueprint").objectReferenceValue = defaultBpLive;
             stateSO.FindProperty("_inputActions").objectReferenceValue = actionsLive;
 
-            // Populate the HUD-facing preset list (Tank / Plane / Buggy / Boat / Bomber / Helicopter).
+            // Populate the HUD-facing preset list (Tank / Plane / Buggy / Boat / Bomber / Prop Plane / Helicopter).
             SerializedProperty presets = stateSO.FindProperty("_presetBlueprints");
             if (presets != null)
             {
-                presets.arraySize = 6;
+                presets.arraySize = 7;
                 presets.GetArrayElementAtIndex(0).objectReferenceValue = defaultBpLive;
                 presets.GetArrayElementAtIndex(1).objectReferenceValue = planeBpLive;
                 presets.GetArrayElementAtIndex(2).objectReferenceValue = buggyBpLive;
                 presets.GetArrayElementAtIndex(3).objectReferenceValue = boatBpLive;
                 presets.GetArrayElementAtIndex(4).objectReferenceValue = bomberBpLive;
-                presets.GetArrayElementAtIndex(5).objectReferenceValue = helicopterBpLive;
+                presets.GetArrayElementAtIndex(5).objectReferenceValue = propPlaneBpLive;
+                presets.GetArrayElementAtIndex(6).objectReferenceValue = helicopterBpLive;
             }
             stateSO.ApplyModifiedPropertiesWithoutUndo();
 
@@ -573,6 +675,42 @@ namespace Robogame.Tools.Editor
             ScaffoldUtils.SaveActiveScene();
             Debug.Log($"[Robogame] Built Bootstrap.unity (Pass A). " +
                       $"GameStateController wired: library={libOK}, defaultBlueprint={bpOK}, inputActions={inputOK}.");
+        }
+
+        public static void BuildMainMenuPassA()
+        {
+            // Create the MainMenu scene file if missing. The menu is light
+            // weight — empty scene + a single GameObject with the
+            // MainMenuController, which builds its own Canvas in Awake.
+            if (!File.Exists(ScaffoldUtils.MainMenuScene))
+            {
+                Scene newScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                EditorSceneManager.SaveScene(newScene, ScaffoldUtils.MainMenuScene);
+            }
+            ScaffoldUtils.OpenScene(ScaffoldUtils.MainMenuScene);
+
+            // Drop a controller GameObject if not already present. The
+            // controller subscribes to no scene-level data — it's pure UI
+            // and a SceneManager.LoadScene call.
+            GameObject controller = ScaffoldUtils.GetOrCreate("MainMenuController");
+            if (controller.GetComponent<MainMenuController>() == null)
+                controller.AddComponent<MainMenuController>();
+
+            // A camera is required for any scene; without it, Unity logs
+            // a "no main camera" warning every frame. Plain solid-colour
+            // camera is enough — the menu draws via UGUI overlay anyway.
+            GameObject camGO = ScaffoldUtils.GetOrCreate("Main Camera",
+                () => new GameObject("Main Camera"));
+            Camera cam = camGO.GetComponent<Camera>();
+            if (cam == null) cam = camGO.AddComponent<Camera>();
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.04f, 0.05f, 0.08f, 1f);
+            cam.orthographic = true;
+            cam.orthographicSize = 5f;
+            cam.tag = "MainCamera";
+
+            ScaffoldUtils.SaveActiveScene();
+            Debug.Log("[Robogame] Built MainMenu.unity (Pass A).");
         }
 
         public static void BuildGaragePassA()
@@ -793,6 +931,7 @@ namespace Robogame.Tools.Editor
             AssetDatabase.SaveAssets();
 
             BuildBootstrapPassA();
+            BuildMainMenuPassA();
             BuildArenaPassA();
             BuildWaterArenaPassA();
             BuildPlanetArenaPassA();

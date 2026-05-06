@@ -65,6 +65,15 @@ namespace Robogame.Gameplay
             }
         }
 
+        /// <summary>
+        /// Fired whenever <see cref="SelectedBlockId"/> changes (slot
+        /// click, number key, Q/E, tab click). Args: the new block id.
+        /// VariantConfigPanel uses this to show/hide the foil/rope
+        /// dimension sliders for the currently-selected block.
+        /// </summary>
+        public event System.Action<string> SelectedBlockChanged;
+        private string _lastFiredBlockId;
+
         // -----------------------------------------------------------------
         // Categories
         // -----------------------------------------------------------------
@@ -305,9 +314,15 @@ namespace Robogame.Gameplay
         private void RefreshCpuReadout()
         {
             if (_cpuReadout == null || _editor == null) return;
-            BlockEditor.CpuUsage u = _editor.GetCpuUsage();
-            _cpuReadout.text = $"CPU  {u.Used} / {u.Cap}";
-            bool hot = u.Cap == 0 || u.OverBudget || u.Used >= u.Cap;
+            BlockEditor.ChassisStats s = _editor.GetChassisStats();
+            // Three lines: CPU budget headline + chassis aggregates. Mass
+            // and block count let the builder gauge whether they're at
+            // "tank chassis" weight vs "fragile interceptor" before
+            // committing to a launch.
+            _cpuReadout.text =
+                $"CPU  {s.CpuUsed} / {s.CpuCap}\n" +
+                $"MASS  {s.TotalMass:0.0} kg     BLOCKS  {s.BlockCount}";
+            bool hot = s.CpuCap == 0 || s.OverBudget || s.CpuUsed >= s.CpuCap;
             _cpuReadout.color = hot
                 ? new Color(0.95f, 0.30f, 0.25f, 1f)
                 : new Color(1f, 1f, 1f, 0.9f);
@@ -382,12 +397,13 @@ namespace Robogame.Gameplay
             _cpuReadout.fontSize = 18;
             _cpuReadout.color = new Color(1f, 1f, 1f, 0.9f);
             _cpuReadout.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            _cpuReadout.text = "CPU  0 / 0";
+            _cpuReadout.text = "CPU  0 / 0\nMASS  0.0 kg     BLOCKS  0";
+            _cpuReadout.lineSpacing = 1.0f;
             var crt = cpuGO.GetComponent<RectTransform>();
             crt.anchorMin = new Vector2(0.5f, 0f);
             crt.anchorMax = new Vector2(0.5f, 0f);
             crt.pivot     = new Vector2(0.5f, 0f);
-            crt.sizeDelta = new Vector2(260f, 24f);
+            crt.sizeDelta = new Vector2(360f, 48f);
             crt.anchoredPosition = new Vector2(0f, _bottomMargin + _slotSize.y + _tabSize.y + 30f);
         }
 
@@ -517,6 +533,28 @@ namespace Robogame.Gameplay
                 lrt.offsetMin = Vector2.zero;
                 lrt.offsetMax = Vector2.zero;
 
+                // "VAR" badge for blocks whose dimensions are configurable
+                // via the VariantConfigPanel (foils + ropes today). Visual
+                // cue so the player knows the slider panel will appear when
+                // they select this slot.
+                if (VariantConfigPanel.IsVariableBlock(def.Id))
+                {
+                    var badgeGO = new GameObject("VarBadge");
+                    badgeGO.transform.SetParent(slotGO.transform, worldPositionStays: false);
+                    var badge = badgeGO.AddComponent<Text>();
+                    badge.text = "VAR";
+                    badge.fontSize = 11;
+                    badge.fontStyle = FontStyle.Bold;
+                    badge.alignment = TextAnchor.UpperRight;
+                    badge.color = new Color(0.95f, 0.55f, 0.10f, 1f);
+                    badge.font = font;
+                    var brt = badgeGO.GetComponent<RectTransform>();
+                    brt.anchorMin = Vector2.zero;
+                    brt.anchorMax = Vector2.one;
+                    brt.offsetMin = new Vector2(4f, 4f);
+                    brt.offsetMax = new Vector2(-6f, -4f);
+                }
+
                 _slots.Add(new Slot { Def = def, Background = img, LabelText = label, NumberText = num });
             }
         }
@@ -544,6 +582,16 @@ namespace Robogame.Gameplay
             {
                 if (_slots[i].Background != null)
                     _slots[i].Background.color = SlotColor(i == _selectedSlotIndex);
+            }
+            // Single source of truth for SelectedBlockChanged. Every code
+            // path that mutates _selectedSlotIndex / _activeCategoryIndex
+            // already calls this method (see CycleCategory / SetSelectedSlot
+            // / SetActiveCategory / RebuildSlots).
+            string id = SelectedBlockId;
+            if (id != _lastFiredBlockId)
+            {
+                _lastFiredBlockId = id;
+                SelectedBlockChanged?.Invoke(id);
             }
         }
 

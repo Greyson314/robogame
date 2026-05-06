@@ -36,6 +36,21 @@ namespace Robogame.Movement
     [RequireComponent(typeof(BlockBehaviour))]
     public abstract class TipBlock : MonoBehaviour
     {
+        [Header("Damage stats (per-tip-block)")]
+        [Tooltip("Reduced-mass kinetic energy → HP coefficient (HP per kJ). " +
+                 "PHYSICS_PLAN §5: gameplay-observable values must live on the " +
+                 "block, not in per-machine Tweakables. Sub-classes (Hook / Mace) " +
+                 "tune this in their inspector for per-tip balance.")]
+        [SerializeField, Min(0f)] private float _damagePerKj = 2.0f;
+
+        [Tooltip("Relative-velocity floor below which contacts deal no damage. " +
+                 "Stops idle rope-bumps from chip-damaging blocks.")]
+        [SerializeField, Min(0f)] private float _minSpeedForDamage = 4.0f;
+
+        [Tooltip("Per-pair contact cooldown (s). Prevents one bounce from " +
+                 "registering five OnCollisionEnter hits on a wide chassis.")]
+        [SerializeField, Min(0.02f)] private float _hitCooldown = 0.10f;
+
         // The rope segment we've been attached to. Set by RopeBlock when
         // it adopts us. Null while we're still parented in the chassis
         // grid (the inactive "garaged" state).
@@ -120,13 +135,13 @@ namespace Robogame.Movement
             // to the contact collider (for static geometry).
             UnityEngine.Object key = (UnityEngine.Object)otherRb ?? collision.collider;
             float now = Time.time;
-            float cooldown = Mathf.Max(0.02f, Tweakables.Get(Tweakables.RopeHitCooldown));
+            float cooldown = Mathf.Max(0.02f, _hitCooldown);
             if (_cooldownByOther.TryGetValue(key, out float lastTime) && (now - lastTime) < cooldown)
                 return;
             _cooldownByOther[key] = now;
 
             // Speed gate.
-            float minSpeed = Mathf.Max(0f, Tweakables.Get(Tweakables.RopeMinSpeed));
+            float minSpeed = Mathf.Max(0f, _minSpeedForDamage);
             Vector3 vRel = collision.relativeVelocity;
             float speed = vRel.magnitude;
             if (speed < minSpeed) return;
@@ -138,7 +153,7 @@ namespace Robogame.Movement
             float mu = float.IsPositiveInfinity(mOther) ? mSelf : mSelf * mOther / (mSelf + mOther);
             float energyJ = 0.5f * mu * speed * speed;
             float energyKj = energyJ * 0.001f;
-            float dmgPerKj = Mathf.Max(0f, Tweakables.Get(Tweakables.RopeDamagePerKj));
+            float dmgPerKj = Mathf.Max(0f, _damagePerKj);
             float damage = energyKj * dmgPerKj;
             if (damage <= 0f) return;
 

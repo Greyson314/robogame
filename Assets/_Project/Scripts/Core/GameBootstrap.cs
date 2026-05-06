@@ -11,7 +11,7 @@ namespace Robogame.Core
     /// Responsibilities (current scope is intentionally minimal):
     /// <list type="bullet">
     /// <item>Initialise core services / event bus (TBD).</item>
-    /// <item>Load the first gameplay scene (Garage by default).</item>
+    /// <item>Load the first gameplay scene (MainMenu by default).</item>
     /// </list>
     /// As the project grows, this is the place to register a DI container,
     /// stand up the event bus, and run any one-shot bootstrap tasks.
@@ -19,7 +19,7 @@ namespace Robogame.Core
     public sealed class GameBootstrap : MonoBehaviour
     {
         [Tooltip("Scene to load after bootstrap completes. Must be in Build Profiles.")]
-        [SerializeField] private string _firstScene = "Garage";
+        [SerializeField] private string _firstScene = "MainMenu";
 
         [Tooltip("If true, the bootstrap scene survives across loads (useful for persistent services).")]
         [SerializeField] private bool _persistAcrossScenes = true;

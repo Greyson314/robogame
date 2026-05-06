@@ -13,6 +13,7 @@ namespace Robogame.Tools.Editor
         private static readonly string[] CanonicalSceneOrder = new[]
         {
             ScaffoldUtils.BootstrapScene,
+            ScaffoldUtils.MainMenuScene,
             ScaffoldUtils.GarageScene,
             ScaffoldUtils.ArenaScene,
             ScaffoldUtils.WaterArenaScene,

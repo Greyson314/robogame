@@ -1,4 +1,5 @@
 using Robogame.Block;
+using Robogame.Movement;
 using UnityEngine;
 
 namespace Robogame.Gameplay
@@ -30,7 +31,8 @@ namespace Robogame.Gameplay
         /// material (the caller swaps between valid/invalid via
         /// <see cref="ApplyMaterial"/>).
         /// </summary>
-        public static GameObject Build(BlockDefinition def, Material initialMat)
+        public static GameObject Build(BlockDefinition def, Material initialMat,
+            Vector3 dims = default, Vector3Int targetCell = default)
         {
             var root = new GameObject("BlockGhost");
             // Parent will set position/rotation; root scale stays 1 so the
@@ -46,10 +48,10 @@ namespace Robogame.Gameplay
                     BuildThruster(root.transform);
                     break;
                 case BlockIds.Aero:
-                    BuildWing(root.transform, vertical: false);
+                    BuildWing(root.transform, vertical: false, dims: dims, cellPos: targetCell);
                     break;
                 case BlockIds.AeroFin:
-                    BuildWing(root.transform, vertical: true);
+                    BuildWing(root.transform, vertical: true,  dims: dims, cellPos: targetCell);
                     break;
                 case BlockIds.Rudder:
                     BuildRudder(root.transform);
@@ -99,15 +101,18 @@ namespace Robogame.Gameplay
                 Quaternion.Euler(90f, 0f, 0f), new Vector3(0.5f, 0.4f, 0.5f));
         }
 
-        private static void BuildWing(Transform parent, bool vertical)
+        private static void BuildWing(Transform parent, bool vertical, Vector3 dims, Vector3Int cellPos)
         {
-            // Mirrors AeroSurfaceBlock visual: thin flat box (1 × 0.08 × 0.9
-            // for horizontal). For a vertical fin we swap span/thickness so
-            // the long axis points up, matching the real fin's rig.
+            // Mirror AeroSurfaceBlock.ApplyOrientationToVisual: same scale +
+            // outward shift so the ghost is a faithful preview of what the
+            // placed foil will look like. _rotorMode is always false here
+            // (build-mode placement is never rotor-adopted at hover time).
+            AeroSurfaceBlock.ResolveDims(dims, out float span, out float thickness, out float chord);
             Vector3 size = vertical
-                ? new Vector3(0.08f, 1f, 0.9f)
-                : new Vector3(1f, 0.08f, 0.9f);
-            Spawn(parent, PrimitiveType.Cube, Vector3.zero, Quaternion.identity, size);
+                ? new Vector3(thickness, span, chord)
+                : new Vector3(span,      thickness, chord);
+            Vector3 shift = AeroSurfaceBlock.ComputeWingShift(cellPos, span, vertical, rotorMode: false);
+            Spawn(parent, PrimitiveType.Cube, shift, Quaternion.identity, size);
         }
 
         private static void BuildWeapon(Transform parent)

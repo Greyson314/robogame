@@ -19,21 +19,35 @@ namespace Robogame.Block
     /// <c>schemaVersion</c> knob for forward migration.
     /// </para>
     /// <para>
-    /// v1 schema:
+    /// v1 schema (legacy):
     /// <code>
     /// {
     ///   "schemaVersion": 1,
     ///   "displayName": "My Robot",
-    ///   "kind": "Ground",          // ChassisKind enum name
+    ///   "kind": "Ground",
     ///   "createdUtc": "2025-04-30T18:42:11Z",
     ///   "entries": [{ "id": "block.cpu.standard", "x": 0, "y": 0, "z": 0 }, ...]
     /// }
     /// </code>
     /// </para>
+    /// <para>
+    /// v2 schema (current). Adds:
+    /// <list type="bullet">
+    /// <item><c>rotorsGenerateLift</c> at the top level so helicopter saves
+    /// reload as helicopters (was silently dropped on save in v1).</item>
+    /// <item><c>ux/uy/uz</c> per-entry mount orientation (also silently
+    /// dropped in v1).</item>
+    /// <item><c>dx/dy/dz</c> per-entry "variable part" dimensions —
+    /// foil span/thickness/chord, rope segment count. Vector3.zero means
+    /// "use block defaults". See <see cref="ChassisBlueprint.Entry.Dims"/>.</item>
+    /// </list>
+    /// v1 saves load fine: missing fields default (up = +Y, dims = zero,
+    /// rotorsGenerateLift = false).
+    /// </para>
     /// </remarks>
     public static class BlueprintSerializer
     {
-        public const int CurrentSchemaVersion = 1;
+        public const int CurrentSchemaVersion = 2;
 
         // -----------------------------------------------------------------
         // DTOs (private — JsonUtility needs concrete [Serializable] types)
@@ -46,6 +60,7 @@ namespace Robogame.Block
             public string displayName;
             public string kind;
             public string createdUtc;
+            public bool rotorsGenerateLift;
             public EntryDto[] entries;
         }
 
@@ -56,6 +71,15 @@ namespace Robogame.Block
             public int x;
             public int y;
             public int z;
+            // v2 additions. JsonUtility writes default-valued ints as 0,
+            // so loading a v1 entry into this DTO gives ux/uy/uz = 0 — we
+            // detect that pattern and snap to (0,1,0) per Entry.EffectiveUp.
+            public int ux;
+            public int uy;
+            public int uz;
+            public float dx;
+            public float dy;
+            public float dz;
         }
 
         // -----------------------------------------------------------------
@@ -74,12 +98,20 @@ namespace Robogame.Block
             var entries = new EntryDto[src.Length];
             for (int i = 0; i < src.Length; i++)
             {
+                Vector3Int up = src[i].EffectiveUp;
+                Vector3 dims = src[i].Dims;
                 entries[i] = new EntryDto
                 {
                     id = src[i].BlockId,
                     x = src[i].Position.x,
                     y = src[i].Position.y,
                     z = src[i].Position.z,
+                    ux = up.x,
+                    uy = up.y,
+                    uz = up.z,
+                    dx = dims.x,
+                    dy = dims.y,
+                    dz = dims.z,
                 };
             }
 
@@ -89,6 +121,7 @@ namespace Robogame.Block
                 displayName = string.IsNullOrEmpty(blueprint.DisplayName) ? "Untitled" : blueprint.DisplayName,
                 kind = blueprint.Kind.ToString(),
                 createdUtc = DateTime.UtcNow.ToString("o"),
+                rotorsGenerateLift = blueprint.RotorsGenerateLift,
                 entries = entries,
             };
             return JsonUtility.ToJson(dto, prettyPrint);
@@ -136,8 +169,9 @@ namespace Robogame.Block
                 error = $"Blueprint schema v{dto.schemaVersion} is newer than this build (v{CurrentSchemaVersion}). Update the game?";
                 return false;
             }
-            // Future-proofing: if we bump the version, place migration here
-            // before the per-version copy out below.
+            // v1 → v2 migration: missing fields fall through as zero values.
+            // EntryDto's per-entry up/dims default to zero, which Entry's
+            // EffectiveUp + per-block defaults already handle correctly.
 
             ChassisKind kind = ChassisKind.Ground;
             if (!string.IsNullOrEmpty(dto.kind) && !Enum.TryParse(dto.kind, ignoreCase: true, out kind))
@@ -156,13 +190,18 @@ namespace Robogame.Block
                     error = $"Entry [{i}] has no block id.";
                     return false;
                 }
-                copy.Add(new ChassisBlueprint.Entry(e.id, new Vector3Int(e.x, e.y, e.z)));
+                Vector3Int up = new Vector3Int(e.ux, e.uy, e.uz);
+                // v1 entries hit Entry.EffectiveUp's zero → +Y fallback;
+                // v2 entries with real (0,0,0) up are invalid by definition.
+                Vector3 dims = new Vector3(e.dx, e.dy, e.dz);
+                copy.Add(new ChassisBlueprint.Entry(e.id, new Vector3Int(e.x, e.y, e.z), up, dims));
             }
 
             ChassisBlueprint bp = ScriptableObject.CreateInstance<ChassisBlueprint>();
             bp.name = string.IsNullOrEmpty(dto.displayName) ? "Untitled (Loaded)" : dto.displayName + " (Loaded)";
             bp.DisplayName = string.IsNullOrEmpty(dto.displayName) ? "Untitled" : dto.displayName;
             bp.Kind = kind;
+            bp.RotorsGenerateLift = dto.rotorsGenerateLift;
             bp.SetEntries(copy.ToArray());
 
             blueprint = bp;

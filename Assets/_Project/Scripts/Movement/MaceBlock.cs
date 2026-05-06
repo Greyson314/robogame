@@ -9,7 +9,7 @@ namespace Robogame.Movement
     /// scale targets. Mass is the gameplay differentiator vs the hook —
     /// a default-spec mace at 5 kg vs a 1.5 kg hook gives ~3.3× the
     /// kinetic energy at the same swing speed, so the mace hits harder
-    /// per impact even with identical <c>Combat.RopeDamagePerKj</c>.
+    /// per impact even with identical <c>TipBlock._damagePerKj</c>.
     /// </summary>
     public sealed class MaceBlock : TipBlock
     {

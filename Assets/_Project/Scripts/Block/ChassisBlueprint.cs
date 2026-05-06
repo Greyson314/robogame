@@ -55,6 +55,14 @@ namespace Robogame.Block
                      "aerofoils, weapons, and thrusters use it to face outward from the mount face.")]
             public Vector3Int Up;
 
+            [Tooltip("Per-block 'variable part' dimensions. Interpretation depends on the block kind:\n" +
+                     "  • AeroSurfaceBlock (Aero / AeroFin): x=span, y=thickness, z=chord (metres).\n" +
+                     "  • RopeBlock: x=segment count (rounded to int).\n" +
+                     "  • All other blocks: ignored.\n" +
+                     "Vector3.zero means 'use the block-default'. Saved blueprints carry these so " +
+                     "a wing-tuned plane stays a wing-tuned plane after a reload.")]
+            public Vector3 Dims;
+
             /// <summary>Returns <see cref="Up"/> with the legacy zero → +Y fallback applied.</summary>
             public Vector3Int EffectiveUp => Up == Vector3Int.zero ? Vector3Int.up : Up;
 
@@ -63,6 +71,7 @@ namespace Robogame.Block
                 BlockId = blockId;
                 Position = position;
                 Up = Vector3Int.up;
+                Dims = Vector3.zero;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up)
@@ -70,6 +79,15 @@ namespace Robogame.Block
                 BlockId = blockId;
                 Position = position;
                 Up = up;
+                Dims = Vector3.zero;
+            }
+
+            public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims)
+            {
+                BlockId = blockId;
+                Position = position;
+                Up = up;
+                Dims = dims;
             }
         }
 

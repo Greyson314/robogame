@@ -43,7 +43,8 @@ namespace Robogame.Gameplay
             GameObject root,
             ChassisBlueprint blueprint,
             BlockDefinitionLibrary library,
-            InputActionAsset inputActions = null)
+            InputActionAsset inputActions = null,
+            bool addPlayerInputs = true)
         {
             if (root == null)
             {
@@ -81,11 +82,16 @@ namespace Robogame.Gameplay
 
                 // Input: handler reads from an InputActionAsset; if none is
                 // supplied the chassis will simply have no inputs (useful for
-                // bots/dummies later).
-                PlayerInputHandler inputHandler = EnsureComponent<PlayerInputHandler>(root);
-                if (inputActions != null)
+                // bots/dummies later). When addPlayerInputs is false the
+                // caller is responsible for attaching its own IInputSource
+                // (e.g. DummyAiInputSource) on the root before SetActive.
+                if (addPlayerInputs)
                 {
-                    AssignSerializedReference(inputHandler, "_actions", inputActions);
+                    PlayerInputHandler inputHandler = EnsureComponent<PlayerInputHandler>(root);
+                    if (inputActions != null)
+                    {
+                        AssignSerializedReference(inputHandler, "_actions", inputActions);
+                    }
                 }
                 EnsureComponent<PlayerController>(root);
 
@@ -170,8 +176,11 @@ namespace Robogame.Gameplay
                 // Hook release hotkey (R). Walks the grid each Update
                 // and releases any grappled HookBlocks. Player-only —
                 // BuildTarget doesn't add this since target chassis
-                // can't grapple anything.
-                EnsureComponent<RobotHookReleaseInput>(root);
+                // can't grapple anything. AI bots also skip it.
+                if (addPlayerInputs)
+                {
+                    EnsureComponent<RobotHookReleaseInput>(root);
+                }
 
                 // Ramming damage (kinetic-energy based). Lives on every
                 // player chassis so plane-vs-dummy / plane-vs-plane
@@ -192,7 +201,7 @@ namespace Robogame.Gameplay
                             root);
                         continue;
                     }
-                    grid.PlaceBlock(def, entry.Position, entry.EffectiveUp);
+                    grid.PlaceBlock(def, entry.Position, entry.EffectiveUp, entry.Dims);
                 }
 
                 robot.RecalculateAggregates();
@@ -277,7 +286,7 @@ namespace Robogame.Gameplay
             {
                 BlockDefinition def = library.Get(entry.BlockId);
                 if (def == null) continue;
-                grid.PlaceBlock(def, entry.Position);
+                grid.PlaceBlock(def, entry.Position, entry.EffectiveUp, entry.Dims);
             }
 
             robot.RecalculateAggregates();

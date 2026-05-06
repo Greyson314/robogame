@@ -1,5 +1,6 @@
 using System.IO;
 using Robogame.Block;
+using Robogame.Combat;
 using UnityEditor;
 using UnityEngine;
 
@@ -12,10 +13,19 @@ namespace Robogame.Tools.Editor
     public static class BlockDefinitionWizard
     {
         public const string DefinitionsFolder = "Assets/_Project/ScriptableObjects/BlockDefinitions";
+        public const string WeaponDefinitionsFolder = "Assets/_Project/ScriptableObjects/WeaponDefinitions";
 
         public static void CreateTestDefinitions()
         {
             EnsureFolder(DefinitionsFolder);
+            EnsureFolder(WeaponDefinitionsFolder);
+
+            // Author the per-kind component-data SOs FIRST so the
+            // BlockDefinition writes below can reference live assets.
+            WeaponDefinition smgDef = CreateOrUpdateWeaponDefinition(
+                "Weapon_Smg", fireRate: 12f, muzzleSpeed: 80f, spreadDeg: 1.2f, damage: 25f, recoil: 5f);
+            BombDefinition bombDef = CreateOrUpdateBombDefinition(
+                "Bomb_Default", dropInterval: 1.2f, damage: 80f, radius: 18f, initialSpeed: 2f);
 
             // Phase 1+2: every block reads through a shared, palette-backed
             // MK Toon material. Build them BEFORE the definitions so the
@@ -35,8 +45,8 @@ namespace Robogame.Tools.Editor
             CreateOrUpdate("BlockDef_Aero",       BlockIds.Aero,       "Wing Section",   BlockCategory.Movement,  maxHealth:  50f, mass: 0.6f, cpuCost: 10, tint: w);
             CreateOrUpdate("BlockDef_AeroFin",    BlockIds.AeroFin,    "Tail Fin",       BlockCategory.Movement,  maxHealth:  50f, mass: 0.5f, cpuCost: 8,  tint: w);
             CreateOrUpdate("BlockDef_Rudder",     BlockIds.Rudder,     "Rudder",         BlockCategory.Movement,  maxHealth:  60f, mass: 0.8f, cpuCost: 15, tint: w);
-            CreateOrUpdate("BlockDef_Weapon",     BlockIds.Weapon,     "Hitscan Gun",    BlockCategory.Weapon,    maxHealth:  60f, mass: 1.5f, cpuCost: 20, tint: w);
-            CreateOrUpdate("BlockDef_BombBay",    BlockIds.BombBay,    "Bomb Bay",       BlockCategory.Weapon,    maxHealth: 110f, mass: 3.0f, cpuCost: 40, tint: w);
+            CreateOrUpdate("BlockDef_Weapon",     BlockIds.Weapon,     "Hitscan Gun",    BlockCategory.Weapon,    maxHealth:  60f, mass: 1.5f, cpuCost: 20, tint: w, componentData: smgDef);
+            CreateOrUpdate("BlockDef_BombBay",    BlockIds.BombBay,    "Bomb Bay",       BlockCategory.Weapon,    maxHealth: 110f, mass: 3.0f, cpuCost: 40, tint: w, componentData: bombDef);
             // Rope is a Cosmetic free-body block: dangles a jointed
             // chain below the host cell. Cheap CPU + low mass so a
             // builder can hang one off any chassis without rebalancing.
@@ -88,7 +98,8 @@ namespace Robogame.Tools.Editor
             float maxHealth,
             float mass,
             int cpuCost,
-            Color tint)
+            Color tint,
+            ScriptableObject componentData = null)
         {
             string path = $"{DefinitionsFolder}/{assetName}.asset";
             BlockDefinition def = AssetDatabase.LoadAssetAtPath<BlockDefinition>(path);
@@ -120,10 +131,67 @@ namespace Robogame.Tools.Editor
                 if (categoryMat != null) matProp.objectReferenceValue = categoryMat;
             }
 
+            // Component data (kind-specific stat blob: WeaponDefinition,
+            // BombDefinition, …). The wizard passes a live SO ref; the
+            // serialized property writes by ObjectReference so the
+            // BlockDefinition.asset on disk carries the GUID.
+            SerializedProperty cdProp = so.FindProperty("_componentData");
+            if (cdProp != null)
+            {
+                cdProp.objectReferenceValue = componentData;
+            }
+
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(def);
 
             if (created) Debug.Log($"[Robogame] Created {assetName} -> {path}");
+        }
+
+        // -----------------------------------------------------------------
+        // Per-kind component-data assets (WeaponDefinition / BombDefinition)
+        // -----------------------------------------------------------------
+
+        private static WeaponDefinition CreateOrUpdateWeaponDefinition(
+            string assetName, float fireRate, float muzzleSpeed, float spreadDeg, float damage, float recoil)
+        {
+            string path = $"{WeaponDefinitionsFolder}/{assetName}.asset";
+            WeaponDefinition def = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(path);
+            if (def == null)
+            {
+                def = ScriptableObject.CreateInstance<WeaponDefinition>();
+                AssetDatabase.CreateAsset(def, path);
+                Debug.Log($"[Robogame] Created {assetName} -> {path}");
+            }
+            SerializedObject so = new SerializedObject(def);
+            so.FindProperty("_fireRate").floatValue      = fireRate;
+            so.FindProperty("_muzzleSpeed").floatValue   = muzzleSpeed;
+            so.FindProperty("_spreadDeg").floatValue     = spreadDeg;
+            so.FindProperty("_damage").floatValue        = damage;
+            so.FindProperty("_recoilImpulse").floatValue = recoil;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(def);
+            return def;
+        }
+
+        private static BombDefinition CreateOrUpdateBombDefinition(
+            string assetName, float dropInterval, float damage, float radius, float initialSpeed)
+        {
+            string path = $"{WeaponDefinitionsFolder}/{assetName}.asset";
+            BombDefinition def = AssetDatabase.LoadAssetAtPath<BombDefinition>(path);
+            if (def == null)
+            {
+                def = ScriptableObject.CreateInstance<BombDefinition>();
+                AssetDatabase.CreateAsset(def, path);
+                Debug.Log($"[Robogame] Created {assetName} -> {path}");
+            }
+            SerializedObject so = new SerializedObject(def);
+            so.FindProperty("_dropInterval").floatValue = dropInterval;
+            so.FindProperty("_damage").floatValue       = damage;
+            so.FindProperty("_radius").floatValue       = radius;
+            so.FindProperty("_initialSpeed").floatValue = initialSpeed;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(def);
+            return def;
         }
 
         private static void EnsureFolder(string assetPath)

@@ -43,6 +43,7 @@ namespace Robogame.Gameplay
         private BuildModeController _buildMode;
         private BlockEditor _editor;
         private BuildHotbar _hotbar;
+        private VariantConfigPanel _variantPanel;
 
         /// <summary>The build-mode controller hosted on this object. Lazily created.</summary>
         public BuildModeController BuildMode => _buildMode;
@@ -211,6 +212,14 @@ namespace Robogame.Gameplay
             _hotbar.BuildMode = _buildMode;
             _hotbar.Editor = _editor;
             _editor.Hotbar = _hotbar;
+
+            // Variant config panel — shows foil/rope dimension sliders when
+            // the matching block is selected in the hotbar. Lives on the
+            // same GameObject so its setup mirrors the hotbar's lifecycle.
+            if (_variantPanel == null) _variantPanel = gameObject.AddComponent<VariantConfigPanel>();
+            _variantPanel.BuildMode = _buildMode;
+            _variantPanel.Hotbar = _hotbar;
+            _editor.VariantPanel = _variantPanel;
         }
 
         /// <summary>Toggle build mode. Forwarded by HUD button + hotkey.</summary>

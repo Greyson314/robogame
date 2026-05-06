@@ -3,6 +3,7 @@ using Robogame.Core;
 using Robogame.Movement;
 using Robogame.Player;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.Serialization;
 
 namespace Robogame.Gameplay
@@ -33,6 +34,9 @@ namespace Robogame.Gameplay
 
         [Tooltip("Name of the spawned chassis GameObject.")]
         [SerializeField] private string _chassisName = "Robot";
+
+        [Tooltip("Hotkey that respawns the player chassis at the configured spawn point. Skipped while a UI panel (Settings, Build) holds the cursor.")]
+        [SerializeField] private Key _respawnKey = Key.K;
 
         [Header("Combat dummy")]
         [Tooltip("If assigned, a stationary target chassis is built from this " +
@@ -75,7 +79,22 @@ namespace Robogame.Gameplay
         [FormerlySerializedAs("_barbellName")]
         [SerializeField] private string _archName = "ArchDummy";
 
+        [Header("Tank dummy bot")]
+        [Tooltip("Optional patrolling tank target. Spawned when Stress.TankDummy " +
+                 "crosses 0.5. If left null, the controller uses the first " +
+                 "Ground-kind preset from GameStateController.PresetBlueprints " +
+                 "(typically 'Tank').")]
+        [SerializeField] private ChassisBlueprint _tankDummyBlueprint;
+        [SerializeField] private Vector3 _tankDummySpawn = new Vector3(28f, 2.0f, 0f);
+        [SerializeField] private string _tankDummyName = "TankDummy";
+        [Tooltip("Centre of the tank's patrol circle in world space.")]
+        [SerializeField] private Vector3 _tankDummyPatrolCentre = Vector3.zero;
+        [Tooltip("Radius of the patrol circle (m).")]
+        [SerializeField, Min(8f)] private float _tankDummyPatrolRadius = 30f;
+
         private GameObject _stressTowerGo;
+        private GameObject _tankDummyGo;
+        private DummyAiInputSource _tankDummyAi;
 
         public GameObject Chassis { get; private set; }
 
@@ -112,6 +131,7 @@ namespace Robogame.Gameplay
             // dragging Stress.RotorTower in the settings panel pops the
             // tower in/out without re-entering the arena.
             ApplyStressTowerState(state);
+            ApplyTankDummyState(state);
             Tweakables.Changed += OnTweakablesChanged;
         }
 
@@ -129,6 +149,8 @@ namespace Robogame.Gameplay
             // in the stress tower so the slider drives them live without
             // tearing the chassis down.
             UpdateStressTowerRpm();
+            ApplyTankDummyState(state);
+            ApplyTankDummyFire();
         }
 
         private GameObject SpawnPlayerChassis(GameStateController state)
@@ -222,6 +244,40 @@ namespace Robogame.Gameplay
             SpawnDummy(state);
         }
 
+        /// <summary>
+        /// Tear down the current player chassis and rebuild it at the
+        /// configured spawn point. Bound to <see cref="_respawnKey"/> via
+        /// <see cref="Update"/>; also exposed as a SettingsHud action button.
+        /// </summary>
+        public void RespawnPlayer()
+        {
+            GameStateController state = GameStateController.Instance;
+            if (state == null)
+            {
+                Debug.LogWarning("[Robogame] ArenaController.RespawnPlayer: no GameStateController.", this);
+                return;
+            }
+            Chassis = SpawnPlayerChassis(state);
+            BindFollowCamera(Chassis);
+            // Re-bind the tank dummy's target so its turret tracks the new chassis.
+            ApplyTankDummyFire();
+        }
+
+        private void Update()
+        {
+            // Hotkey-driven respawn. Cursor-locked check keeps this from
+            // firing while the player types into a settings field. The
+            // Settings panel doesn't currently host a text input, but this
+            // is the right shape for when it does.
+            Keyboard kb = Keyboard.current;
+            if (kb == null) return;
+            if (kb[_respawnKey].wasPressedThisFrame
+                && Cursor.lockState == CursorLockMode.Locked)
+            {
+                RespawnPlayer();
+            }
+        }
+
         // -----------------------------------------------------------------
         // Stress tower (optional spinning-rotor stress-test target)
         // -----------------------------------------------------------------
@@ -233,7 +289,7 @@ namespace Robogame.Gameplay
         /// </summary>
         public void ApplyStressTowerState(GameStateController state)
         {
-            bool wantTower = Tweakables.Get(Tweakables.StressRotorTower) >= 0.5f;
+            bool wantTower = Tweakables.GetBool(Tweakables.StressRotorTower);
             if (wantTower) SpawnStressTower(state);
             else           DespawnStressTower();
         }
@@ -246,7 +302,7 @@ namespace Robogame.Gameplay
             DespawnStressTower();
             // Flip the tweakable on so the user's intent is reflected and
             // future Tweakables.Changed callbacks don't immediately undo us.
-            Tweakables.Set(Tweakables.StressRotorTower, 1f);
+            Tweakables.SetBool(Tweakables.StressRotorTower, true);
             SpawnStressTower(state);
         }
 
@@ -302,6 +358,98 @@ namespace Robogame.Gameplay
             for (int i = 0; i < rotors.Length; i++) rotors[i].RpmOverride = rpm;
         }
 
+        // -----------------------------------------------------------------
+        // Tank dummy bot (optional patrolling target)
+        // -----------------------------------------------------------------
+
+        public void ApplyTankDummyState(GameStateController state)
+        {
+            bool wantBot = Tweakables.GetBool(Tweakables.TankDummySpawn);
+            if (wantBot) SpawnTankDummy(state);
+            else         DespawnTankDummy();
+        }
+
+        public void DespawnTankDummy()
+        {
+            if (_tankDummyGo != null)
+            {
+                Destroy(_tankDummyGo);
+                _tankDummyGo = null;
+                _tankDummyAi = null;
+            }
+        }
+
+        private void SpawnTankDummy(GameStateController state)
+        {
+            if (_tankDummyGo != null) return; // already alive
+            if (state.Library == null) return;
+
+            ChassisBlueprint bp = ResolveTankDummyBlueprint(state);
+            if (bp == null)
+            {
+                Debug.LogWarning(
+                    "[Robogame] ArenaController: Tank dummy requested but no " +
+                    "ChassisBlueprint resolved (assign _tankDummyBlueprint in the " +
+                    "inspector or ensure GameStateController has a Ground preset).",
+                    this);
+                return;
+            }
+
+            GameObject existing = GameObject.Find(_tankDummyName);
+            if (existing != null) Destroy(existing);
+
+            // Build via the player path (with addPlayerInputs=false) so the
+            // bot gets full GroundDriveSubsystem + WeaponMount + binders.
+            // We attach the AI input source manually before activation so
+            // PlayerController.Awake's GetComponent<IInputSource> resolves
+            // to it.
+            _tankDummyGo = new GameObject(_tankDummyName);
+            _tankDummyGo.transform.SetPositionAndRotation(_tankDummySpawn, Quaternion.identity);
+            _tankDummyGo.SetActive(false);
+            _tankDummyAi = _tankDummyGo.AddComponent<DummyAiInputSource>();
+            _tankDummyAi.CircleCentre = _tankDummyPatrolCentre;
+            _tankDummyAi.CircleRadius = _tankDummyPatrolRadius;
+            ChassisFactory.Build(
+                _tankDummyGo, bp, state.Library,
+                inputActions: null, addPlayerInputs: false);
+            _tankDummyGo.SetActive(true);
+
+            ApplyTankDummyFire();
+            Debug.Log($"[Robogame] Tank dummy spawned at {_tankDummySpawn} " +
+                      $"(blueprint='{bp.name}', patrol r={_tankDummyPatrolRadius}m).",
+                      _tankDummyGo);
+        }
+
+        private void ApplyTankDummyFire()
+        {
+            if (_tankDummyAi == null) return;
+            bool fire = Tweakables.GetBool(Tweakables.TankDummyFire);
+            _tankDummyAi.FireAtTarget = fire;
+            // Re-bind target each time the toggle changes — the player chassis
+            // may have been respawned since the bot was created.
+            _tankDummyAi.Target = Chassis != null ? Chassis.transform : GameObject.Find(_chassisName)?.transform;
+        }
+
+        private ChassisBlueprint ResolveTankDummyBlueprint(GameStateController state)
+        {
+            if (_tankDummyBlueprint != null) return _tankDummyBlueprint;
+            // Prefer a preset whose name contains "Tank"; fall back to any
+            // Ground-kind preset.
+            for (int i = 0; i < state.PresetBlueprints.Count; i++)
+            {
+                ChassisBlueprint bp = state.PresetBlueprints[i];
+                if (bp == null) continue;
+                if (bp.name.IndexOf("Tank", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    return bp;
+            }
+            for (int i = 0; i < state.PresetBlueprints.Count; i++)
+            {
+                ChassisBlueprint bp = state.PresetBlueprints[i];
+                if (bp != null && bp.Kind == ChassisKind.Ground) return bp;
+            }
+            return null;
+        }
+
         private static void BindFollowCamera(GameObject chassis)
         {
             if (chassis == null) return;
@@ -314,6 +462,18 @@ namespace Robogame.Gameplay
 
             if (mainCam.GetComponent<AimReticle>() == null)
                 mainCam.gameObject.AddComponent<AimReticle>();
+            if (mainCam.GetComponent<HitMarkerOverlay>() == null)
+                mainCam.gameObject.AddComponent<HitMarkerOverlay>();
+            if (mainCam.GetComponent<VehicleStatsHud>() == null)
+                mainCam.gameObject.AddComponent<VehicleStatsHud>();
+            if (mainCam.GetComponent<DeathOverlay>() == null)
+                mainCam.gameObject.AddComponent<DeathOverlay>();
+            // FloatingDamageOverlay is implemented + opt-in: re-enable by
+            // adding it manually to the camera if you want damage numbers
+            // back. The class file at Player/FloatingDamageOverlay.cs
+            // is intact.
+            FloatingDamageOverlay existingDamage = mainCam.GetComponent<FloatingDamageOverlay>();
+            if (existingDamage != null) Destroy(existingDamage);
         }
 
         /// <summary>Transition back to the garage scene.</summary>

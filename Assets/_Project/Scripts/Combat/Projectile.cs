@@ -35,6 +35,17 @@ namespace Robogame.Combat
     {
         public const float MaxLifetimeSeconds = 4f;
 
+        /// <summary>
+        /// Fired when a projectile damages a non-owner target. Args:
+        /// (ownerRobot, worldHitPoint). UI overlays subscribe to surface
+        /// hit markers when the owner matches the local player's chassis.
+        /// </summary>
+        public static event System.Action<Robot, Vector3> Hit;
+
+        // Statics survive domain reload; explicit reset.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetHitEvent() => Hit = null;
+
         // Reusable raycast buffer — every projectile shares it. Fine because
         // FixedUpdate is single-threaded and we read results synchronously
         // before the next bullet's tick.
@@ -175,6 +186,7 @@ namespace Robogame.Combat
                 if (targetRobot != null && targetRobot != _owner && targetRobot.Grid != null)
                 {
                     targetRobot.Grid.ApplySplashDamage(block.GridPosition, _splashRings);
+                    Hit?.Invoke(_owner, hit.point);
                     return;
                 }
             }
@@ -187,6 +199,7 @@ namespace Robogame.Combat
             Robot owner = (dmg as Component)?.GetComponentInParent<Robot>();
             if (owner != null && owner == _owner) return;
             dmg.TakeDamage(_splashRings[0]);
+            Hit?.Invoke(_owner, hit.point);
         }
     }
 }

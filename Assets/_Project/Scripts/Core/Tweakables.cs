@@ -62,25 +62,22 @@ namespace Robogame.Core
         public const string WaveSpeed         = "Water.WaveSpeed";
         public const string WaveSteepness     = "Water.WaveSteepness";
 
-        // Combat — SMG pellet weapon. One stat block today; will move
-        // to per-WeaponDefinition ScriptableObjects when a second
-        // weapon type ships (Plasma / Rail / etc.).
-        public const string SmgFireRate       = "Combat.SmgFireRate";       // shots per second
-        public const string SmgMuzzleSpeed    = "Combat.SmgMuzzleSpeed";    // m/s
-        public const string SmgSpread         = "Combat.SmgSpread";         // half-cone deg
-        public const string SmgDamage         = "Combat.SmgDamage";         // direct-hit dmg
+        // Combat.Smg* and Combat.Bomb* MIGRATED to per-block authoring
+        // (this PR). ProjectileGun reads from
+        // BlockDefinition.GetComponentData<WeaponDefinition>() and
+        // falls back to inline SerializeField defaults; BombBayBlock
+        // reads from BombDefinition the same way. Live tuning happens
+        // in the editor via the asset (Assets/_Project/ScriptableObjects/
+        // WeaponDefinitions/Weapon_Smg.asset), not via the in-game
+        // Settings UI. PHYSICS_PLAN § 5.
 
-        // Bomb bay (gravity bomb dropped from chassis -Y).
-        public const string BombDropInterval  = "Combat.BombDropInterval";  // seconds between drops while held
-        public const string BombDamage        = "Combat.BombDamage";        // direct-hit dmg at impact cell
-        public const string BombRadius        = "Combat.BombRadius";        // explosion radius (m)
-        public const string BombInitialSpeed  = "Combat.BombInitialSpeed";  // initial downward speed (m/s)
-
-        // Rope (free-body link block — see RopeBlock). Changing any of
-        // these in the settings menu triggers a rebuild of every active
-        // rope so geometry edits are visible without re-entering the
-        // garage.
-        public const string RopeSegmentCount   = "Rope.SegmentCount";   // links per rope (rounded to int at read site)
+        // Rope (free-body link block — see RopeBlock). Length / radius /
+        // mass / damping / joint-limit stay as Tweakables intentionally:
+        // rope feel is hard to dial in without live mid-match tuning, and
+        // the user explicitly carved out an exception here. Segment COUNT
+        // moved to per-block blueprint config (ChassisBlueprint.Entry.Dims.x)
+        // so a long-rope grappling hook and a short-rope mace can coexist
+        // on the same chassis. See RopeBlock.LiveSegmentCount.
         public const string RopeSegmentLength  = "Rope.SegmentLength";  // metres per link
         public const string RopeSegmentRadius  = "Rope.SegmentRadius";  // capsule radius (m)
         public const string RopeSegmentMass    = "Rope.SegmentMass";    // kg per link
@@ -89,36 +86,41 @@ namespace Robogame.Core
         public const string RopeAngularDamping = "Rope.AngularDamping"; // per-segment angular damping
 
         // Rotor (spinning block, see RotorBlock). RPM drives the visual
-        // spin rate of every active rotor on every chassis, and (in
-        // lift mode) the angular speed of the kinematic hub that the
-        // adopted aerofoil blocks orbit. Blade visual dimensions live
-        // on the Aero.* tweakables below — blades are independent grid
-        // cells and share a single set of cosmetic dims for now.
+        // spin rate of every active rotor and (in lift mode) the kinematic
+        // hub's angular velocity.
+        // FUTURE PER-BLOCK MIGRATION: per-rotor RPM (so a slow main rotor
+        // can coexist with a fast tail rotor) belongs on the blueprint
+        // entry's Dims field. Same MP-debt status as the audit below.
         public const string RotorRpm = "Rotor.RPM"; // revolutions per minute
 
-        // Aerofoil block visual dimensions (per AeroSurfaceBlock).
-        // COSMETIC ONLY — per docs/PHYSICS_PLAN.md §1.5 / §5.
-        // AeroSurfaceBlock.FixedUpdate MUST NOT read these: the lift math
-        // depends on _liftCoef × AoA × forward speed² only, with no wing-
-        // dimension term. The single consumer is ApplyOrientationToVisual,
-        // which writes _wingMesh.localScale. If a future PR couples wing
-        // dims to lift, drag, hit area, or any other gameplay-observable
-        // quantity, the data MUST move to the chassis blueprint (server-
-        // authoritative) before that PR ships.
-        public const string AeroWingSpan      = "Aero.WingSpan";
-        public const string AeroWingChord     = "Aero.WingChord";
-        public const string AeroWingThickness = "Aero.WingThickness";
+        // ---------------------------------------------------------------
+        // MP DEBT AUDIT (PHYSICS_PLAN § 1.5)
+        // ---------------------------------------------------------------
+        // Tweakables that remain are either world-physics (server-canonical
+        // when MP lands) or rope-feel knobs the user explicitly carved out
+        // for live tuning. Per-block / per-chassis migrations still pending:
+        //
+        //   • Plane.* / Ground.* / Chassis.*  — chassis-type tuning.
+        //                                       → per-blueprint config.
+        //   • Thruster.* / Rudder.*           — per-block.
+        //   • Rotor.RPM                       — per-rotor.
+        //   • Impact.* / Water.*              — world physics. Stay as
+        //                                       Tweakables; server picks
+        //                                       canonical values in MP.
+        //   • Rope.SegmentLength/Radius/Mass  — rope feel; stay tunable.
+        //   • Rope.AngularLimit/Damping       — rope feel; stay tunable.
+        //
+        // Already migrated:
+        //   • Aero.WingSpan / Chord / Thickness → BlockBehaviour.Dims (per-foil).
+        //   • Rope.SegmentCount                  → BlockBehaviour.Dims.x (per-rope).
+        //   • Combat.Smg*                        → WeaponDefinition SO (per-weapon-block).
+        //   • Combat.Bomb*                       → BombDefinition SO (per-bomb-block).
+        //   • Combat.Rope* (tip damage)          → TipBlock SerializeFields (per-tip-block).
 
-        // Rope-tip contact damage (see TipBlock / HookBlock / MaceBlock).
-        // Single shared dmg/kJ across all tip types — Hook vs Mace
-        // differentiation comes from each block's mass (set in
-        // BlockDefinition), not from a per-type damage coefficient. Mass
-        // ÷ damage coupling matches the kinetic-energy formula's contract:
-        // dmg = ½ × μ × v² × dmgPerKj × 0.001. Mirrors PHYSICS_PLAN §3
-        // tuning knob spec.
-        public const string RopeDamagePerKj  = "Combat.RopeDamagePerKj";
-        public const string RopeMinSpeed     = "Combat.RopeMinSpeed";
-        public const string RopeHitCooldown  = "Combat.RopeHitCooldown";
+        // Rope-tip contact damage MIGRATED to per-tip-block SerializeFields
+        // on TipBlock (this PR). HookBlock and MaceBlock both inherit those
+        // fields; mass differential between Hook and Mace continues to drive
+        // the kinetic-energy gameplay differential. PHYSICS_PLAN § 3 / § 5.
 
         // Momentum / ramming impact (see MomentumImpactHandler). Damage
         // is computed from reduced-mass kinetic energy in kJ and then
@@ -139,9 +141,23 @@ namespace Robogame.Core
         public const string StressRotorTower    = "Stress.RotorTower";    // 0/1 toggle: spawn the spinning-rotor tower in the arena
         public const string StressRotorTowerRpm = "Stress.RotorTowerRpm"; // RPM applied to every rotor in the stress tower (independent of Rotor.RPM)
 
+        // Tank dummy bot: drives in a circle, optional fire-at-player.
+        // Singleplayer training affordance — see DummyAiInputSource for the
+        // multiplayer-debt note. 0/1 toggles per the existing Stress.* convention.
+        public const string TankDummySpawn = "Stress.TankDummy";       // 0/1 toggle: spawn / despawn the patrolling tank
+        public const string TankDummyFire  = "Stress.TankDummyFire";   // 0/1 toggle: tank fires at player chassis when in arc + range
+
         // -----------------------------------------------------------------
         // Spec
         // -----------------------------------------------------------------
+
+        public enum SpecKind
+        {
+            /// <summary>Continuous slider value in [Min, Max].</summary>
+            Float,
+            /// <summary>On/off toggle. Stored as 0 (off) or 1 (on); UI renders as a checkbox.</summary>
+            Bool,
+        }
 
         public sealed class Spec
         {
@@ -151,10 +167,11 @@ namespace Robogame.Core
             public readonly float Default;
             public readonly float Min;
             public readonly float Max;
-            public Spec(string key, string group, string label, float def, float min, float max)
+            public readonly SpecKind Kind;
+            public Spec(string key, string group, string label, float def, float min, float max, SpecKind kind = SpecKind.Float)
             {
                 Key = key; Group = group; Label = label;
-                Default = def; Min = min; Max = max;
+                Default = def; Min = min; Max = max; Kind = kind;
             }
         }
 
@@ -193,11 +210,18 @@ namespace Robogame.Core
                 return;
             }
             float clamped = Mathf.Clamp(value, s.Min, s.Max);
+            if (s.Kind == SpecKind.Bool) clamped = clamped >= 0.5f ? 1f : 0f;
             if (_values.TryGetValue(key, out float current) && Mathf.Approximately(current, clamped)) return;
             _values[key] = clamped;
             Save();
             Changed?.Invoke();
         }
+
+        /// <summary>Convenience: read a Bool-kind tweakable as a real bool.</summary>
+        public static bool GetBool(string key) => Get(key) >= 0.5f;
+
+        /// <summary>Convenience: write a Bool-kind tweakable from a real bool.</summary>
+        public static void SetBool(string key, bool value) => Set(key, value ? 1f : 0f);
 
         public static void Reset(string key)
         {
@@ -232,7 +256,7 @@ namespace Robogame.Core
             Register(PlaneYawDamping,   "Plane",    "Yaw Damping",        1.6f, 0f,  6f);
 
             // Thruster.
-            Register(ThrusterMaxThrust, "Thruster", "Max Thrust",       310.0f, 50f, 800f);
+            Register(ThrusterMaxThrust, "Thruster", "Max Thrust",       310.0f, 50f, 4000f);
             Register(ThrusterIdle,      "Thruster", "Idle Throttle",      0.4f,  0f,   1f);
             Register(ThrusterResponse,  "Thruster", "Throttle Response",  2.6f,  0.5f, 10f);
 
@@ -279,32 +303,15 @@ namespace Robogame.Core
             Register(WaveSpeed,         "Water",    "Wave Speed",          2.0f, 0f,   10f);
             Register(WaveSteepness,     "Water",    "Wave Steepness",     0.45f, 0f,    1f);
 
-            // Combat — SMG-style pellet rifle. Defaults tuned for a
-            // 220 m arena: 80 m/s pellets are visibly trackable
-            // (~2.75 s flight time edge-to-edge), 12 rps reads as a
-            // light SMG burst, 1.2° spread gives bullet drift over a
-            // 50 m engagement without making close range cone-of-fail.
-            // 25 dmg direct hit kills a 100 HP cube in 4 shots.
-            Register(SmgFireRate,       "Combat",   "Fire Rate (rps)",   12.0f,  4f,  25f);
-            Register(SmgMuzzleSpeed,    "Combat",   "Muzzle Speed (m/s)",80.0f, 30f, 200f);
-            Register(SmgSpread,         "Combat",   "Spread (deg)",       1.2f,  0f,   6f);
-            Register(SmgDamage,         "Combat",   "Direct Damage",     25.0f,  1f, 100f);
+            // SMG / Bomb stats migrated to per-block ScriptableObjects
+            // (WeaponDefinition / BombDefinition wired via
+            // BlockDefinition.ComponentData). Edit the assets in the
+            // editor; live in-game tuning is gone for these by design.
 
-            // Bomb bay. One bomb every 1.2 s reads as a heavy ordnance
-            // cadence (vs the SMG's 12 rps). 18 m radius covers ~1.5
-            // chassis lengths so it kills lightly-armoured ground targets
-            // in one hit while still letting tanks survive a near-miss.
-            // 80 dmg at the centre cell drops a 100 HP cube, falloff in
-            // splash rings handles edge damage.
-            Register(BombDropInterval,  "Combat",   "Bomb Drop Interval", 1.2f,  0.3f, 5f);
-            Register(BombDamage,        "Combat",   "Bomb Damage",       80.0f,  10f, 300f);
-            Register(BombRadius,        "Combat",   "Bomb Radius (m)",   18.0f,   3f,  60f);
-            Register(BombInitialSpeed,  "Combat",   "Bomb Initial Speed", 2.0f,   0f,  20f);
-
-            // Rope. Defaults match RopeBlock's serialized fields — these
-            // become the live values once Tweakables initialises and any
-            // active RopeBlock subscribes to Changed for hot-rebuild.
-            Register(RopeSegmentCount,   "Rope", "Segment Count",     8f,   2f,   32f);
+            // Rope physics. Segment count moved to per-block blueprint
+            // config — see RopeBlock.LiveSegmentCount and the audit comment
+            // up top. Length / radius / mass / damping / joint-limit stay
+            // hot-tunable per the user's "ropes need in-match tuning" call.
             Register(RopeSegmentLength,  "Rope", "Segment Length (m)", 0.50f, 0.10f, 1.50f);
             Register(RopeSegmentRadius,  "Rope", "Segment Radius (m)", 0.08f, 0.02f, 0.40f);
             Register(RopeSegmentMass,    "Rope", "Segment Mass (kg)",  0.04f, 0.005f, 1.0f);
@@ -314,30 +321,18 @@ namespace Robogame.Core
 
             // Rotor. 60 rpm = 1 rev/sec — slow enough to read individual
             // blades by eye. Bump for fan/helicopter builds; drop to 0
-            // to freeze the visual entirely.
+            // to freeze the visual entirely. Per-rotor RPM is on the
+            // MP-debt list (see audit) — migrate to BlockBehaviour.Dims
+            // when the build mode lets users author per-rotor configs.
             Register(RotorRpm, "Rotor", "RPM", 60f, 0f, 600f);
 
-            // Aerofoil visual dims. Defaults are the values the foil
-            // shipped with before this knob existed, so first load is
-            // visually unchanged. Live slider edits fire
-            // AeroSurfaceBlock.ApplyOrientationToVisual via
-            // Tweakables.Changed — every active foil resizes immediately.
-            Register(AeroWingSpan,      "Aero", "Wing Span (m)",      1.00f, 0.30f, 3.00f);
-            Register(AeroWingChord,     "Aero", "Wing Chord (m)",     0.90f, 0.20f, 2.50f);
-            Register(AeroWingThickness, "Aero", "Wing Thickness (m)", 0.08f, 0.02f, 0.40f);
+            // Aerofoil visual dims migrated to per-block blueprint config
+            // (ChassisBlueprint.Entry.Dims) in the variable-parts pass.
+            // Authored in the build mode VariantConfigPanel; AeroSurface-
+            // Block reads BlockBehaviour.Dims at place-time. No tweakables.
 
-            // Rope-tip damage. Defaults are intentionally conservative:
-            // a default-mass mace (2.0 kg) at 6 m/s above the threshold
-            // produces ~36 J → 0.036 kJ → 0.072 dmg with the default
-            // dmg/kJ of 2 — a rounding tap. Heavier swings (the rope's
-            // pendulum at apex on a stress tower) build to ~10 m/s
-            // tangential which yields ~50 J → 0.05 kJ → ~0.1 dmg. Bump
-            // dmg/kJ to 20+ for "test combat feel" sessions. Per
-            // PHYSICS_PLAN §3 these are MP debt — server picks
-            // canonical values once netcode lands.
-            Register(RopeDamagePerKj, "Combat", "Rope Damage per kJ", 2.0f, 0f, 50f);
-            Register(RopeMinSpeed,    "Combat", "Rope Min Speed (m/s)", 4.0f, 0f, 20f);
-            Register(RopeHitCooldown, "Combat", "Rope Hit Cooldown (s)", 0.10f, 0.02f, 1.0f);
+            // Rope-tip damage migrated to per-tip-block SerializeFields on
+            // TipBlock (this PR). HookBlock and MaceBlock inherit them.
 
             // Impact. Defaults tuned for a 50 kg plane vs 50 kg dummy at
             // 30 m/s closing — μ ≈ 25, KE ≈ 11.25 kJ, ×5 dmg/kJ ≈ 56 dmg
@@ -355,18 +350,29 @@ namespace Robogame.Core
             // and (de)spawns the rotor tower live as the slider crosses
             // 0.5 — drag the tower in for a Profiler capture, drag it
             // back out, no scene reload required.
-            Register(StressRotorTower,    "Stress", "Spawn Rotor Tower",  0.0f, 0f,   1f);
-            Register(StressRotorTowerRpm, "Stress", "Tower RPM",        300.0f, 0f, 600f);
+            RegisterBool(StressRotorTower, "Stress", "Spawn Rotor Tower", false);
+            Register(StressRotorTowerRpm,  "Stress", "Tower RPM",       300.0f, 0f, 600f);
+            RegisterBool(TankDummySpawn,   "Stress", "Spawn Tank Dummy",   false);
+            RegisterBool(TankDummyFire,    "Stress", "Tank Fires Player",  false);
 
             Load();
         }
 
         private static void Register(string key, string group, string label, float def, float min, float max)
         {
-            var s = new Spec(key, group, label, def, min, max);
+            var s = new Spec(key, group, label, def, min, max, SpecKind.Float);
             _specs.Add(s);
             _byKey[key] = s;
             _values[key] = def;
+        }
+
+        private static void RegisterBool(string key, string group, string label, bool def)
+        {
+            float v = def ? 1f : 0f;
+            var s = new Spec(key, group, label, v, 0f, 1f, SpecKind.Bool);
+            _specs.Add(s);
+            _byKey[key] = s;
+            _values[key] = v;
         }
 
         private static string SavePath
@@ -411,7 +417,9 @@ namespace Robogame.Core
                 {
                     string k = doc.keys[i];
                     if (!_byKey.TryGetValue(k, out Spec s)) continue;
-                    _values[k] = Mathf.Clamp(doc.values[i], s.Min, s.Max);
+                    float v = Mathf.Clamp(doc.values[i], s.Min, s.Max);
+                    if (s.Kind == SpecKind.Bool) v = v >= 0.5f ? 1f : 0f;
+                    _values[k] = v;
                 }
             }
             catch (Exception e)

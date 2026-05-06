@@ -194,7 +194,16 @@ namespace Robogame.Movement
             // happens in OnDestroy and in explicit Rebuild() calls.
         }
 
-        private void OnDestroy() => DestroyLiftRig();
+        // OnDestroy fires while the chassis is mid-destruction (e.g.
+        // GarageController.Respawn calls Destroy(Chassis)). Unity rejects
+        // SetParent into a transitioning GameObject — so skip the foil
+        // reparent in that path. The hub is at scene root so destroying
+        // it directly is fine; foils are children of the hub today, so
+        // they get destroyed along with it. Live-runtime Rebuild() calls
+        // (rotor mode toggle, OnTransformParentChanged) still need the
+        // reparent to avoid orphaning foils into the hub on subsequent
+        // builds, hence the param.
+        private void OnDestroy() => DestroyLiftRig(reparentFoils: false);
 
         // The host block can be reparented at runtime (Robot.DetachAsDebris
         // hands orphaned blocks their own Rigidbody). Rebuild the lift rig
@@ -206,7 +215,7 @@ namespace Robogame.Movement
 
         private void Rebuild()
         {
-            DestroyLiftRig();
+            DestroyLiftRig(reparentFoils: true);
             BuildLiftRig();
         }
 
@@ -506,18 +515,24 @@ namespace Robogame.Movement
             }
         }
 
-        private void DestroyLiftRig()
+        private void DestroyLiftRig(bool reparentFoils)
         {
             // Put adopted foils back where they were. If the foil has
             // already been destroyed (mid-flight damage), Unity's null
             // check picks that up via the implicit Object cast.
-            foreach (AdoptedFoil rec in _adoptedFoils)
+            // reparentFoils=false from OnDestroy: the chassis is mid-
+            // destruction and SetParent into a transitioning GameObject
+            // throws. Foils get destroyed with the hub below in that path.
+            if (reparentFoils)
             {
-                if (rec.Aero == null) continue;
-                if (rec.OriginalParent == null) continue;
-                rec.Aero.transform.SetParent(rec.OriginalParent, worldPositionStays: false);
-                rec.Aero.transform.localPosition = rec.OriginalLocalPos;
-                rec.Aero.transform.localRotation = rec.OriginalLocalRot;
+                foreach (AdoptedFoil rec in _adoptedFoils)
+                {
+                    if (rec.Aero == null) continue;
+                    if (rec.OriginalParent == null) continue;
+                    rec.Aero.transform.SetParent(rec.OriginalParent, worldPositionStays: false);
+                    rec.Aero.transform.localPosition = rec.OriginalLocalPos;
+                    rec.Aero.transform.localRotation = rec.OriginalLocalRot;
+                }
             }
             _adoptedFoils.Clear();
 

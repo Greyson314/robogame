@@ -29,9 +29,11 @@ namespace Robogame.Combat
     /// <item>Damage is applied in <see cref="Projectile.FixedUpdate"/> via
     ///       <see cref="Physics.RaycastNonAlloc"/>, never via Rigidbody
     ///       collision callbacks — deterministic and server-auth-ready.</item>
-    /// <item>Fire rate / muzzle speed / spread / damage are live-tunable
-    ///       through <see cref="Tweakables"/> so the SettingsHud can drive
-    ///       weapon feel without recompiles.</item>
+    /// <item>Fire rate / muzzle speed / spread / damage / recoil read from
+    ///       a per-weapon <see cref="WeaponDefinition"/> on the block's
+    ///       <see cref="Robogame.Block.BlockDefinition"/>. PHYSICS_PLAN
+    ///       § 5: gameplay-observable stats MUST live in server-
+    ///       authoritative blueprint data, not in per-machine Tweakables.</item>
     /// <item>Fire is suppressed when the cursor is over UI (handled by
     ///       <c>PlayerInputHandler.FireHeld</c>), so HUD clicks don't
     ///       trigger bursts.</item>
@@ -39,13 +41,6 @@ namespace Robogame.Combat
     ///       the GameObjects don't — reset them at
     ///       <see cref="RuntimeInitializeLoadType.SubsystemRegistration"/>.</item>
     /// </list>
-    /// </para>
-    /// <para>
-    /// <b>Future split.</b> Per-weapon stat blobs (Plasma, Rail, Mortar...)
-    /// belong on a <c>WeaponDefinition</c> ScriptableObject keyed off the
-    /// firing block. We're not there yet — there's exactly one weapon type
-    /// — so the SMG knobs live in <see cref="Tweakables"/> for live tuning.
-    /// Move them to an SO once a second weapon ships.
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
@@ -56,8 +51,19 @@ namespace Robogame.Combat
         // rare case where a weapon block wants its own per-instance feel).
         // -----------------------------------------------------------------
 
-        [Header("Damage rings (direct → splash falloff)")]
-        [Tooltip("Per-ring damage applied via BlockGrid splash. Index 0 = direct hit. Index 0 is also live-overridable via Tweakables (Combat.SmgDamage).")]
+        [Header("Weapon stats (fallback when no WeaponDefinition is wired)")]
+        [Tooltip("Inline fallbacks used when the firing block's BlockDefinition has no WeaponDefinition attached. " +
+                 "Asset-authored WeaponDefinitions take precedence at every fire.")]
+        [SerializeField, Min(0.1f)] private float _fireRate = 12f;
+        [SerializeField, Min(1f)]   private float _muzzleSpeed = 80f;
+        [SerializeField, Range(0f, 30f)] private float _spreadDeg = 1.2f;
+        [SerializeField, Min(0f)]   private float _damage = 25f;
+        [SerializeField, Min(0f)]   private float _recoilImpulse = 5f;
+
+        [Header("Splash falloff (block-graph rings beyond direct hit)")]
+        [Tooltip("Multipliers applied to the headline damage at ring i+1. Index 0 is replaced with " +
+                 "the resolved direct-hit damage at fire time. Tune the falloff ratio in the inspector " +
+                 "if a chassis-shape needs more or less collateral.")]
         [SerializeField] private float[] _splashRings = { 25f, 8f, 2f };
 
         [Header("Range")]
@@ -78,6 +84,7 @@ namespace Robogame.Combat
 
         private IInputSource _input;
         private Robot _ownerRobot;
+        private Robogame.Block.BlockBehaviour _block;
         private float _nextFireTime;
 
         // One pool shared by every gun in the scene. Projectiles are
@@ -100,7 +107,23 @@ namespace Robogame.Combat
             if (_muzzle == null) _muzzle = transform;
             _input = GetComponentInParent<IInputSource>();
             _ownerRobot = GetComponentInParent<Robot>();
+            _block = GetComponent<Robogame.Block.BlockBehaviour>();
         }
+
+        // Resolve weapon stats. Per-weapon-block WeaponDefinition (on
+        // BlockDefinition.ComponentData) wins; otherwise fall back to
+        // the inline SerializeField defaults. PHYSICS_PLAN § 5 — server-
+        // authoritative blueprint data, NEVER read from Tweakables.
+        private WeaponDefinition ResolveDef()
+        {
+            if (_block == null || _block.Definition == null) return null;
+            return _block.Definition.GetComponentData<WeaponDefinition>();
+        }
+        private float ResolveFireRate()      { var d = ResolveDef(); return d != null ? d.FireRate      : _fireRate; }
+        private float ResolveMuzzleSpeed()   { var d = ResolveDef(); return d != null ? d.MuzzleSpeed   : _muzzleSpeed; }
+        private float ResolveSpread()        { var d = ResolveDef(); return d != null ? d.SpreadDeg     : _spreadDeg; }
+        private float ResolveDamage()        { var d = ResolveDef(); return d != null ? d.Damage        : _damage; }
+        private float ResolveRecoilImpulse() { var d = ResolveDef(); return d != null ? d.RecoilImpulse : _recoilImpulse; }
 
         /// <summary>Override the muzzle transform (used by <see cref="WeaponBlock"/> at spawn).</summary>
         public void SetMuzzle(Transform muzzle)
@@ -113,7 +136,7 @@ namespace Robogame.Combat
             if (_input == null || !_input.FireHeld) return;
             if (Time.time < _nextFireTime) return;
 
-            float fireRate = Mathf.Max(0.1f, Tweakables.Get(Tweakables.SmgFireRate));
+            float fireRate = Mathf.Max(0.1f, ResolveFireRate());
             _nextFireTime = Time.time + 1f / fireRate;
             Fire();
         }
@@ -127,15 +150,15 @@ namespace Robogame.Combat
             EnsurePool();
             Projectile p = s_pool.Get();
 
-            // Patch up the per-shot damage row from Tweakables. Splash
+            // Resolve per-shot stats from the WeaponDefinition. Splash
             // falloff (index 1+) keeps its inspector-default ratios so
             // tuning the headline number doesn't accidentally rebalance
             // splash propagation.
-            float headline = Tweakables.Get(Tweakables.SmgDamage);
+            float headline = ResolveDamage();
             if (_splashRings.Length > 0) _splashRings[0] = headline;
 
-            float speed = Tweakables.Get(Tweakables.SmgMuzzleSpeed);
-            float spreadDeg = Tweakables.Get(Tweakables.SmgSpread);
+            float speed = ResolveMuzzleSpeed();
+            float spreadDeg = ResolveSpread();
 
             Vector3 origin = _muzzle.position;
             Vector3 dir = ApplySpread(_muzzle.forward, _muzzle.right, _muzzle.up, spreadDeg);
@@ -156,6 +179,19 @@ namespace Robogame.Combat
                 owner: _ownerRobot,
                 onDespawn: ReleaseProjectile);
             s_active.Add(p);
+
+            // Recoil: equal-and-opposite impulse at the muzzle. Applied at
+            // the muzzle position (not COM) so the moment arm gives a small
+            // pitch/yaw kick matching where the shot left the chassis. Uses
+            // ForceMode.Impulse so the value reads in N·s regardless of
+            // FixedUpdate dt. Skipped if 0 or if there's no chassis Rigidbody
+            // (free-floating editor weapons during scaffold).
+            float recoil = ResolveRecoilImpulse();
+            if (recoil > 0f && _ownerRobot != null && _ownerRobot.Rigidbody != null)
+            {
+                _ownerRobot.Rigidbody.AddForceAtPosition(
+                    -dir * recoil, origin, ForceMode.Impulse);
+            }
         }
 
         /// <summary>

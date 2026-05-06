@@ -2,6 +2,7 @@ using System.Collections;
 using System.Reflection;
 using NUnit.Framework;
 using Robogame.Core;
+using Robogame.Block;
 using Robogame.Movement;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -99,10 +100,9 @@ namespace Robogame.Tests.PlayMode.Movement
             if (_chassisGo != null) Object.Destroy(_chassisGo);
             // _foilGo is a child of _hubGo, destroyed with it.
 
-            // Reset aero tweakables so cross-test pollution doesn't carry over.
-            Tweakables.Reset(Tweakables.AeroWingSpan);
-            Tweakables.Reset(Tweakables.AeroWingChord);
-            Tweakables.Reset(Tweakables.AeroWingThickness);
+            // Aero dimensions are now per-block (BlockBehaviour.Dims), not
+            // global Tweakables, so cross-test pollution doesn't survive a
+            // fresh GameObject. Nothing to reset.
         }
 
         // -----------------------------------------------------------------------
@@ -199,25 +199,22 @@ namespace Robogame.Tests.PlayMode.Movement
         // -----------------------------------------------------------------------
 
         /// <summary>
-        /// Change C contract: setting <c>Aero.WingSpan</c>, <c>Aero.WingChord</c>,
-        /// or <c>Aero.WingThickness</c> via <see cref="Tweakables.Set"/> must
-        /// immediately update <c>_wingMesh.localScale</c> on every active foil.
-        /// Horizontal foil: span → scale.x, thickness → scale.y, chord → scale.z.
+        /// Change C contract: setting <see cref="BlockBehaviour.Dims"/> via
+        /// <see cref="BlockBehaviour.SetDims"/> must immediately update
+        /// <c>_wingMesh.localScale</c> on every active foil. Horizontal foil:
+        /// span → scale.x, thickness → scale.y, chord → scale.z. Live updates
+        /// flow through the BlockBehaviour.DimsChanged event the
+        /// AeroSurfaceBlock subscribes to in OnEnable.
         /// </summary>
         [UnityTest]
-        public IEnumerator WingMeshScale_TracksAeroWingSpanTweakable_Live()
+        public IEnumerator WingMeshScale_TracksBlockDims_Live()
         {
-            // Start with defaults so any prior test pollution is cleared.
-            Tweakables.Reset(Tweakables.AeroWingSpan);
-            Tweakables.Reset(Tweakables.AeroWingChord);
-            Tweakables.Reset(Tweakables.AeroWingThickness);
-
             // Use a standalone foil parented directly to the dynamic chassis
             // (not the hub) so OnEnable resolves cleanly without rotor-mode.
             GameObject foilGo = new GameObject("VisualFoil");
             foilGo.transform.SetParent(_chassisGo.transform, worldPositionStays: false);
+            BlockBehaviour bb = foilGo.AddComponent<BlockBehaviour>();
             AeroSurfaceBlock foil = foilGo.AddComponent<AeroSurfaceBlock>();
-            // Vertical = false (default) — horizontal wing mapping.
 
             yield return null; // let Awake/OnEnable fire
 
@@ -225,22 +222,22 @@ namespace Robogame.Tests.PlayMode.Movement
             Assert.IsNotNull(mesh, "Precondition: _wingMesh must be non-null after Awake.");
 
             // --- Span → scale.x ---
-            Tweakables.Set(Tweakables.AeroWingSpan, 2.5f);
-            yield return null; // Changed event fires synchronously; yield lets scale flush
+            bb.SetDims(new Vector3(2.5f, AeroSurfaceBlock.DefaultThickness, AeroSurfaceBlock.DefaultChord));
+            yield return null;
             Assert.AreEqual(2.5f, mesh.localScale.x, 0.001f,
-                "scale.x should track AeroWingSpan (horizontal foil).");
+                "scale.x should track Dims.x (horizontal foil span).");
 
             // --- Chord → scale.z ---
-            Tweakables.Set(Tweakables.AeroWingChord, 1.8f);
+            bb.SetDims(new Vector3(2.5f, AeroSurfaceBlock.DefaultThickness, 1.8f));
             yield return null;
             Assert.AreEqual(1.8f, mesh.localScale.z, 0.001f,
-                "scale.z should track AeroWingChord (horizontal foil).");
+                "scale.z should track Dims.z (horizontal foil chord).");
 
             // --- Thickness → scale.y ---
-            Tweakables.Set(Tweakables.AeroWingThickness, 0.15f);
+            bb.SetDims(new Vector3(2.5f, 0.15f, 1.8f));
             yield return null;
             Assert.AreEqual(0.15f, mesh.localScale.y, 0.001f,
-                "scale.y should track AeroWingThickness (horizontal foil).");
+                "scale.y should track Dims.y (horizontal foil thickness).");
         }
 
         /// <summary>
@@ -251,20 +248,17 @@ namespace Robogame.Tests.PlayMode.Movement
         [UnityTest]
         public IEnumerator VerticalFin_SwapsSpanAndThickness()
         {
-            Tweakables.Reset(Tweakables.AeroWingSpan);
-            Tweakables.Reset(Tweakables.AeroWingThickness);
-
             GameObject foilGo = new GameObject("VerticalFoil");
             foilGo.transform.SetParent(_chassisGo.transform, worldPositionStays: false);
             foilGo.SetActive(false);
+            BlockBehaviour bb = foilGo.AddComponent<BlockBehaviour>();
             AeroSurfaceBlock foil = foilGo.AddComponent<AeroSurfaceBlock>();
             foil.Vertical = true; // set before first enable
             foilGo.SetActive(true);
 
             yield return null; // Awake/OnEnable fires with Vertical already true
 
-            Tweakables.Set(Tweakables.AeroWingSpan,      1.5f);
-            Tweakables.Set(Tweakables.AeroWingThickness, 0.1f);
+            bb.SetDims(new Vector3(1.5f, 0.1f, AeroSurfaceBlock.DefaultChord));
             yield return null;
 
             Transform mesh = GetWingMesh(foil);
@@ -290,22 +284,16 @@ namespace Robogame.Tests.PlayMode.Movement
         /// test will fail and surface the coupling before it ships.
         /// </summary>
         [UnityTest]
-        public IEnumerator LiftForce_DoesNotChange_WhenAeroDimsChange()
+        public IEnumerator LiftForce_DoesNotChange_WhenBlockDimsChange()
         {
-            // Reset dims to the registered defaults so test starts clean.
-            Tweakables.Reset(Tweakables.AeroWingSpan);
-            Tweakables.Reset(Tweakables.AeroWingChord);
-            Tweakables.Reset(Tweakables.AeroWingThickness);
-
             // Build a standalone foil directly on the chassis (not a hub child)
             // so _velocityRb == _forceTargetRb == the chassis — the simplest
             // topology for measuring lift without rotor-mode complications.
             GameObject foilGo = new GameObject("LiftTestFoil");
             foilGo.transform.SetParent(_chassisGo.transform, worldPositionStays: false);
-            // Orient the foil so its local +Z (forward) aligns with chassis +Z.
-            // AeroSurfaceBlock.FixedUpdate requires forward > 0.05 m/s to compute AoA.
             foilGo.transform.localRotation = Quaternion.identity;
             foilGo.transform.localPosition = new Vector3(1f, 0f, 0f); // offset from COM
+            BlockBehaviour bb = foilGo.AddComponent<BlockBehaviour>();
             AeroSurfaceBlock foil = foilGo.AddComponent<AeroSurfaceBlock>();
 
             // Let Awake/OnEnable settle — chassis is dynamic, _velocityRb resolves.
@@ -319,19 +307,17 @@ namespace Robogame.Tests.PlayMode.Movement
             _chassisRb.useGravity = false;
 
             // --- Sample 1: default dims ---
-            // Give the chassis a forward velocity so the foil sees airflow.
             _chassisRb.linearVelocity = new Vector3(0f, 0f, 10f);
             _chassisRb.angularVelocity = Vector3.zero;
             Vector3 velBefore1 = _chassisRb.linearVelocity;
 
-            yield return new WaitForFixedUpdate(); // one FixedUpdate applies the lift
+            yield return new WaitForFixedUpdate();
 
             Vector3 delta1 = _chassisRb.linearVelocity - velBefore1;
 
-            // --- Sample 2: max span ---
-            Tweakables.Set(Tweakables.AeroWingSpan, 3.0f); // max value
+            // --- Sample 2: max span via per-block Dims ---
+            bb.SetDims(new Vector3(AeroSurfaceBlock.MaxSpan, AeroSurfaceBlock.DefaultThickness, AeroSurfaceBlock.DefaultChord));
 
-            // Reset chassis to identical initial conditions.
             _chassisRb.linearVelocity = new Vector3(0f, 0f, 10f);
             _chassisRb.angularVelocity = Vector3.zero;
             Vector3 velBefore2 = _chassisRb.linearVelocity;
@@ -345,11 +331,11 @@ namespace Robogame.Tests.PlayMode.Movement
             // (chassis position drifts slightly between the two samples, giving a
             // tiny lever-arm difference; irrelevant for the §1.5 check).
             Assert.AreEqual(delta1.x, delta2.x, 1e-4f,
-                "Lift X changed when AeroWingSpan changed — visual dim is coupled to gameplay (§1.5 violation).");
+                "Lift X changed when foil span changed — visual dim is coupled to gameplay (§1.5 violation).");
             Assert.AreEqual(delta1.y, delta2.y, 1e-4f,
-                "Lift Y changed when AeroWingSpan changed — visual dim is coupled to gameplay (§1.5 violation).");
+                "Lift Y changed when foil span changed — visual dim is coupled to gameplay (§1.5 violation).");
             Assert.AreEqual(delta1.z, delta2.z, 1e-4f,
-                "Lift Z changed when AeroWingSpan changed — visual dim is coupled to gameplay (§1.5 violation).");
+                "Lift Z changed when foil span changed — visual dim is coupled to gameplay (§1.5 violation).");
         }
     }
 }
