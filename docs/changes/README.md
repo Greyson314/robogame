@@ -63,6 +63,12 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 33 | [Rope is inert in build mode → Hook/Mace placeable + removable from chassis grid; ghost previews for Hook/Mace/Rope/Rotor](33-rope-build-mode-tip-blocks.md) |
+| 32 | [Projectile-system unification — single custom-stepped integrator (ProjectileWorld) replaces three Rigidbody-based MBs](32-projectile-unification.md) |
+| 31 | [Cannon weapon, bomb-jitter / hook-punt / camera-aim bug fixes, damage-number summation, kill announcer, pause-on-settings, aim-line preview](31-cannon-bugfixes-features.md) |
+| 30 | [Audio v1: Universal Sound FX wired into 21 cues, pooled voices, rotor whine loop, mixer-ready](30-audio-v1.md) |
+| 29 | [VFX feel pass + audio system bones (muzzle flashes, hit sparks, debris dust, thruster plume; Audio settings + AudioRouter)](29-vfx-and-audio-bones.md) |
+| 28 | [Pillar 1: singleplayer game loop (MatchController, AI bots, objective HUD, end overlay)](28-pillar-1-game-loop.md) |
 | 27 | [Performance pass: docs, diagnostics, and conservative fixes](27-performance-pass.md) |
 | 26 | [MP-readiness pass: combat per-block migration, inertia tensor, Verlet ropes, polish](26-mp-readiness-pass.md) |
 | 25 | [Rope re-anchor on enable + cursor lock in build mode](25-rope-anchor-cursor-lock.md) |

@@ -16,17 +16,34 @@ namespace Robogame.Block
     public static class BlockVisuals
     {
         /// <summary>
-        /// Hide the host GameObject's renderer/mesh so child rig visuals
+        /// Hide the host GameObject's renderer so child rig visuals
         /// show through. The collider is intentionally preserved — it
-        /// still serves as a hit volume for damage raycasts.
+        /// still serves as a hit volume for damage raycasts and
+        /// build-mode targeting. The MeshFilter's <c>sharedMesh</c>
+        /// is intentionally left in place so a later
+        /// <see cref="SetHostMeshVisible"/> call can re-enable the
+        /// renderer without needing a mesh reference.
         /// </summary>
         public static void HideHostMesh(GameObject host)
         {
             if (host == null) return;
             MeshRenderer mr = host.GetComponent<MeshRenderer>();
             if (mr != null) mr.enabled = false;
-            MeshFilter mf = host.GetComponent<MeshFilter>();
-            if (mf != null) mf.sharedMesh = null;
+        }
+
+        /// <summary>
+        /// Toggle the host GameObject's MeshRenderer on/off without
+        /// touching its mesh reference. Used by blocks that hide their
+        /// host cube during live play but want to re-show it in
+        /// build-mode (e.g. rope blocks need their grid cell visible
+        /// when the chassis is parked-kinematic so the player can see
+        /// where the rope attaches).
+        /// </summary>
+        public static void SetHostMeshVisible(GameObject host, bool visible)
+        {
+            if (host == null) return;
+            MeshRenderer mr = host.GetComponent<MeshRenderer>();
+            if (mr != null) mr.enabled = visible;
         }
 
         /// <summary>

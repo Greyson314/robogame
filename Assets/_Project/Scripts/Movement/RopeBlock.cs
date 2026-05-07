@@ -147,6 +147,14 @@ namespace Robogame.Movement
         private Vector3 _tipOriginalLocalPos;
         private Quaternion _tipOriginalLocalRot;
 
+        // Tracks whether the most recent Build() ran the live (non-kinematic)
+        // path or the static (kinematic / garage) path. Update() polls the
+        // chassis Rigidbody's isKinematic flag and triggers a Rebuild on
+        // transitions — this is what catches the garage's spawn → park
+        // sequence (chassis is non-kinematic when blocks first OnEnable, then
+        // GarageController.ParkChassis flips it kinematic the same frame).
+        private bool _builtKinematic;
+
         // Property cache for tinting without instantiating a new material.
         private static readonly int s_albedoColorId = Shader.PropertyToID("_AlbedoColor");
         private static readonly int s_baseColorId   = Shader.PropertyToID("_BaseColor");
@@ -212,7 +220,16 @@ namespace Robogame.Movement
             // change callback didn't catch (e.g. the chassis Rigidbody
             // being destroyed mid-flight in some edge case).
             Rigidbody current = GetComponentInParent<Rigidbody>();
-            if (current != _hubRb) Rebuild();
+            if (current != _hubRb) { Rebuild(); return; }
+            // Detect the garage's spawn → park transition. Block OnEnable
+            // (and therefore the first Build) runs while the chassis is
+            // still non-kinematic, so the live rig builds first; the
+            // chassis flips kinematic a moment later via
+            // GarageController.ParkChassis, and this catches that. Same
+            // path catches the inverse (garage → arena hand-off would
+            // be a fresh chassis instance, but if a kinematic chassis is
+            // ever flipped non-kinematic in place, we rebuild live).
+            if (current != null && current.isKinematic != _builtKinematic) Rebuild();
         }
 
         // -----------------------------------------------------------------
@@ -235,6 +252,30 @@ namespace Robogame.Movement
             float segRad = LiveSegmentRadius;
             float segMass = LiveSegmentMass;
             float linDamp = LiveLinearDamping;
+
+            _builtKinematic = _hubRb.isKinematic;
+
+            // Default state for the live path: host cell hidden so the
+            // dangling chain replaces it visually. The static path
+            // re-shows it in BuildStaticVisual below.
+            BlockVisuals.SetHostMeshVisible(gameObject, false);
+
+            // Garage / build-mode parking pins the chassis as kinematic +
+            // FreezeAll for static inspection. Don't spawn the live Verlet
+            // rig + scene-root tip Rigidbody + tip-block adoption in that
+            // mode: an adopted Hook / Mace is reparented out of the chassis
+            // grid hierarchy, which makes BlockEditor.UpdateTarget reject
+            // raycasts on it (its `IsChildOf(chassis)` check fails) and the
+            // player can't right-click to remove it. Mirrors the same gate
+            // RotorBlock.BuildLiftRig has for foils. The live rig builds
+            // fresh on the next non-kinematic spawn — ArenaController calls
+            // ChassisFactory.Build on a fresh GameObject, which re-fires
+            // OnEnable with a non-kinematic chassis.
+            if (_builtKinematic)
+            {
+                BuildStaticVisual(N, segLen, segRad);
+                return;
+            }
 
             // Anchor at the TOP face of the host cell (matches the joint-
             // chain behaviour pre-Verlet so existing builds visually behave
@@ -591,6 +632,55 @@ namespace Robogame.Movement
         // -----------------------------------------------------------------
         // Visuals
         // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Static garage-mode visual: a single cylinder hanging from the
+        /// host cell's bottom face, length = total rope length. Parented
+        /// under the host transform so it tracks the chassis without
+        /// needing a Verlet solver. Reuses <see cref="_segmentContainer"/>
+        /// so the existing <see cref="DestroyChain"/> teardown path
+        /// covers it. No tip Rigidbody, no chassis-tip joint, no
+        /// adoption — Hook/Mace stay at their grid cells with native
+        /// colliders so build-mode placement and right-click removal
+        /// work normally.
+        /// </summary>
+        private void BuildStaticVisual(int particleCount, float segLen, float segRad)
+        {
+            float totalLen = segLen * (particleCount - 1);
+            // Show the host cell so the player can see where the rope
+            // attaches in build mode — the live path hides it because the
+            // dangling chain visual replaces the cube; the static path
+            // has no chain-mid visual, so the cell mesh IS the visual cue.
+            BlockVisuals.SetHostMeshVisible(gameObject, true);
+
+            _segmentContainer = new GameObject($"Rope_{name}_StaticVisual");
+            _segmentContainer.transform.SetParent(transform, worldPositionStays: false);
+            _segmentContainer.transform.localPosition = Vector3.zero;
+            _segmentContainer.transform.localRotation = Quaternion.identity;
+
+            GameObject cyl = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            cyl.name = "Vis_Static";
+            Object.Destroy(cyl.GetComponent<Collider>());
+            cyl.transform.SetParent(_segmentContainer.transform, worldPositionStays: false);
+            // Cylinder primitive: long axis is local +Y, mesh height 2 →
+            // localScale.y is HALF the visual length. Top face at y = 0,
+            // bottom at y = -totalLen → centre at y = -totalLen/2.
+            // Anchor the top at the host cell's BOTTOM face (y = -0.5)
+            // so the rope visually emerges from underneath the cell.
+            cyl.transform.localPosition = new Vector3(0f, -0.5f - totalLen * 0.5f, 0f);
+            cyl.transform.localRotation = Quaternion.identity;
+            cyl.transform.localScale    = new Vector3(segRad * 2f, totalLen * 0.5f, segRad * 2f);
+            Renderer mr = cyl.GetComponent<MeshRenderer>();
+            if (mr != null)
+            {
+                var mpb = new MaterialPropertyBlock();
+                mr.GetPropertyBlock(mpb);
+                mpb.SetColor(s_albedoColorId, _segmentColor);
+                mpb.SetColor(s_baseColorId,   _segmentColor);
+                mpb.SetColor(s_legacyColorId, _segmentColor);
+                mr.SetPropertyBlock(mpb);
+            }
+        }
 
         private void BuildVisuals(int segmentVisualCount, float segRad)
         {

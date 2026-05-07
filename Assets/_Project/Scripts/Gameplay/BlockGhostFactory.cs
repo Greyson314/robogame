@@ -59,6 +59,18 @@ namespace Robogame.Gameplay
                 case BlockIds.Weapon:
                     BuildWeapon(root.transform);
                     break;
+                case BlockIds.Rope:
+                    BuildRope(root.transform);
+                    break;
+                case BlockIds.Rotor:
+                    BuildRotor(root.transform);
+                    break;
+                case BlockIds.Hook:
+                    BuildHook(root.transform);
+                    break;
+                case BlockIds.Mace:
+                    BuildMace(root.transform);
+                    break;
                 default:
                     BuildCube(root.transform);
                     break;
@@ -131,6 +143,76 @@ namespace Robogame.Gameplay
             // cell so it reads as "deep blade in the water".
             Spawn(parent, PrimitiveType.Cube, Vector3.zero, Quaternion.identity,
                 new Vector3(0.08f, 0.9f, 0.7f));
+        }
+
+        private static void BuildRope(Transform parent)
+        {
+            // Compact host cube + a short downward stub indicating the
+            // rope hangs from the cell's bottom face. The placed rope's
+            // static visual is much longer (segLen × N), but a ghost
+            // preview at unit-cell scale just needs to read as
+            // "this is a rope cell". The stub is intentionally short so
+            // the ghost stays inside the placement cell visually.
+            Spawn(parent, PrimitiveType.Cube, Vector3.zero, Quaternion.identity,
+                new Vector3(0.7f, 0.4f, 0.7f));
+            Spawn(parent, PrimitiveType.Cylinder, new Vector3(0f, -0.35f, 0f),
+                Quaternion.identity, new Vector3(0.18f, 0.15f, 0.18f));
+        }
+
+        private static void BuildRotor(Transform parent)
+        {
+            // Mirrors RotorBlock's cosmetic rig: short mast on the cell's
+            // top face + a thin disc with one crossbar so the rotor reads
+            // as "spinning thing" not "plain cube".
+            Spawn(parent, PrimitiveType.Cube, Vector3.zero, Quaternion.identity,
+                new Vector3(0.7f, 0.7f, 0.7f));
+            Spawn(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.45f, 0f),
+                Quaternion.identity, new Vector3(0.12f, 0.15f, 0.12f));
+            Spawn(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.65f, 0f),
+                Quaternion.Euler(90f, 0f, 0f), new Vector3(0.85f, 0.05f, 0.08f));
+        }
+
+        private static void BuildHook(Transform parent)
+        {
+            // J-shape mirroring HookBlock.BuildTipVisual but scaled into
+            // a single cell. The actual hook geometry extends ~1.7 cells
+            // along the rope-local +Z axis; for a build-mode preview we
+            // shrink it so the player sees a recognisable hook shape
+            // inside the placement cell. Frame: +Y points forward
+            // (chassis-forward when sitting at a grid cell), -Y stays
+            // inside the cell.
+            // Vertical shaft.
+            Spawn(parent, PrimitiveType.Cube, new Vector3(0f, 0f, 0.18f),
+                Quaternion.identity, new Vector3(0.18f, 0.18f, 0.7f));
+            // Horizontal barb arm (curl back forward).
+            Spawn(parent, PrimitiveType.Cube, new Vector3(0f, 0.30f, 0.45f),
+                Quaternion.identity, new Vector3(0.18f, 0.7f, 0.18f));
+            // Barb tip (pointing back up).
+            Spawn(parent, PrimitiveType.Cube, new Vector3(0f, 0.6f, 0.20f),
+                Quaternion.identity, new Vector3(0.18f, 0.18f, 0.4f));
+        }
+
+        private static void BuildMace(Transform parent)
+        {
+            // Spiked sphere mirroring MaceBlock.BuildTipVisual at unit-
+            // cell scale: central ball + 6 short axial spikes. Reads as
+            // "spiky ball" against the plain-cube fallback that other
+            // weapons use.
+            Spawn(parent, PrimitiveType.Sphere, Vector3.zero, Quaternion.identity,
+                new Vector3(0.7f, 0.7f, 0.7f));
+            Vector3[] axes =
+            {
+                new Vector3( 1, 0, 0), new Vector3(-1, 0, 0),
+                new Vector3( 0, 1, 0), new Vector3( 0,-1, 0),
+                new Vector3( 0, 0, 1), new Vector3( 0, 0,-1),
+            };
+            for (int i = 0; i < axes.Length; i++)
+            {
+                Vector3 upHint = (Mathf.Abs(axes[i].y) > 0.5f) ? Vector3.right : Vector3.up;
+                Spawn(parent, PrimitiveType.Cube, axes[i] * 0.40f,
+                    Quaternion.LookRotation(axes[i], upHint),
+                    new Vector3(0.14f, 0.14f, 0.30f));
+            }
         }
 
         // -----------------------------------------------------------------
