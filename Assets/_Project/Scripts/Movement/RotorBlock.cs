@@ -186,7 +186,95 @@ namespace Robogame.Movement
             // Defer mesh suppression to Start so every block in the
             // chassis has already gone through its own Awake/OnEnable;
             // the grid lookup will reliably resolve the mechanism cube.
-            HideMechanismCellMesh();
+            // The actual hide/show decision is folded into
+            // RefreshMechanismCellMeshVisibility so it can re-evaluate on
+            // the garage's spawn → park transition (chassis is non-
+            // kinematic at Start() but gets parked the same frame, so a
+            // first-pass hide here would unhide-by-toggle on the next
+            // Update tick).
+            RefreshMechanismCellMeshVisibility();
+            // Start the rotor whine loop. Start() (not OnEnable) so the
+            // template-snapshot dance Robot.CaptureTemplate runs at
+            // chassis spawn doesn't spawn a phantom audio source on the
+            // HideAndDontSave clone — Start only fires on real instances.
+            StartRotorAudioLoop();
+        }
+
+        // Tracks the visibility state we last applied to the mechanism
+        // cell's host mesh. Compared against the desired state every
+        // Update so the spawn → park (and the inverse) transitions get
+        // caught the same way RopeBlock catches its kinematic flip.
+        private bool _mechanismCellMeshHidden;
+        private bool _mechanismCellMeshAppliedOnce;
+
+        private void Update()
+        {
+            // Cheap: only re-evaluate when the chassis kinematic state
+            // actually changed. In an arena (non-kinematic) and a
+            // garage (kinematic) the steady-state cost is one Rigidbody
+            // null-check + bool compare per rotor per frame.
+            Rigidbody chassis = _chassisRbCacheValid ? _chassisRbCached : GetComponentInParent<Rigidbody>();
+            if (chassis == null) return;
+            bool desiredHidden = !chassis.isKinematic;
+            if (_mechanismCellMeshAppliedOnce && desiredHidden == _mechanismCellMeshHidden) return;
+            RefreshMechanismCellMeshVisibility();
+        }
+
+        private AudioLoopHandle _audioLoop;
+        // Per-cue base volume captured at start so the RPM scaling in
+        // UpdateRotorAudio respects the cue's authored loudness rather
+        // than hardcoding it. Engine-driven props sit slightly louder
+        // than the helicopter-whine cue.
+        private float _audioBaseVolume = 0.45f;
+
+        private void StartRotorAudioLoop()
+        {
+            if (_audioLoop != null && _audioLoop.IsValid) return;
+            // A rotor with adopted foils is acting as a propeller —
+            // pick the engine-driven prop loop. A bare rotor (tail
+            // rotor / cosmetic spinner) gets the helicopter-blade
+            // whine. By Start() the lift rig has already adopted any
+            // adjacent foils (BuildLiftRig runs in OnEnable), so the
+            // count is final at this point.
+            AudioCue cue;
+            if (_adoptedFoils.Count > 0)
+            {
+                cue = AudioCue.PropellerLoop;
+                _audioBaseVolume = 0.55f;
+            }
+            else
+            {
+                cue = AudioCue.RotorSpin;
+                _audioBaseVolume = 0.45f;
+            }
+            _audioLoop = AudioRouter.PlayLoop(cue, transform);
+            // Initial pitch + volume reflect current RPM so a stress-tower
+            // rotor that boots up at 600 RPM doesn't audibly ramp.
+            UpdateRotorAudio();
+        }
+
+        private void UpdateRotorAudio()
+        {
+            if (_audioLoop == null || !_audioLoop.IsValid) return;
+            // Garage rotors live on a kinematic chassis — silence them
+            // so the player isn't auditioned by every chassis on the
+            // podium turntable.
+            bool frozen = _chassisRbCached != null && _chassisRbCached.isKinematic;
+            if (frozen)
+            {
+                _audioLoop.SetBaseVolume(0f);
+                return;
+            }
+            float rpm = Mathf.Max(0f, LiveRpm);
+            // Volume fades in over the first 200 RPM so a parked chassis
+            // is quiet. Above 200 RPM the cue plays at its authored
+            // base volume from the cue library.
+            float volScale = Mathf.Clamp01(rpm / 200f);
+            _audioLoop.SetBaseVolume(_audioBaseVolume * volScale);
+            // Pitch: 0.5 at rest, 1.6 at the 600 RPM tweakable cap.
+            // Tracks RPM linearly which is good enough for arcade.
+            float pitch = Mathf.Lerp(0.5f, 1.6f, rpm / 600f);
+            _audioLoop.SetPitch(pitch);
         }
 
         private void OnDisable()
@@ -212,7 +300,12 @@ namespace Robogame.Movement
         // (rotor mode toggle, OnTransformParentChanged) still need the
         // reparent to avoid orphaning foils into the hub on subsequent
         // builds, hence the param.
-        private void OnDestroy() => DestroyLiftRig(reparentFoils: false);
+        private void OnDestroy()
+        {
+            DestroyLiftRig(reparentFoils: false);
+            _audioLoop?.Stop();
+            _audioLoop = null;
+        }
 
         // The host block can be reparented at runtime (Robot.DetachAsDebris
         // hands orphaned blocks their own Rigidbody). Rebuild the lift rig
@@ -621,6 +714,10 @@ namespace Robogame.Movement
                 _hub.MovePosition(GetHubWorldPos());
                 _hub.MoveRotation(GetHubWorldRot(_angleRad));
             }
+
+            // Refresh audio loop pitch / volume from the current RPM.
+            // Cheap (two interp + two field writes); fine in FixedUpdate.
+            UpdateRotorAudio();
         }
 
         private Vector3 GetHubWorldPos()
@@ -634,22 +731,25 @@ namespace Robogame.Movement
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Hide the mesh on the cube placed at the mechanism cell (the
-        /// cell one step along the spin axis from the rotor's own cell).
-        /// The cube is there to anchor the foil ring to the chassis grid
-        /// for connectivity; visually it would clip with the rotor's disc
-        /// and bars. Suppressing the host mesh leaves the collider in
-        /// place (so damage routing still works) but lets the rotor
-        /// visual read as one continuous "mast + head" silhouette.
+        /// Toggle the mesh on the cube at the mechanism cell (one step
+        /// along the spin axis) based on whether the chassis is currently
+        /// non-kinematic. In flight (non-kinematic chassis) the cube is
+        /// hidden so the rotor reads as one continuous "mast + head"
+        /// silhouette without the cube clipping through the disc and
+        /// bars. In the kinematic garage the cube stays visible so a
+        /// player who places a rotor under an existing block doesn't
+        /// see that block apparently "destroyed" — the cube is still in
+        /// the grid (collider intact, damage routes normally), it just
+        /// looks gone if its mesh is hidden during static inspection.
         /// </summary>
         /// <remarks>
-        /// Called from <see cref="Start"/> rather than <see cref="Awake"/>:
-        /// at <c>Awake</c> time other blocks may not have been placed in
-        /// the grid yet. <c>Start</c> fires after every block in the
-        /// chassis has gone through its own <c>Awake</c>+<c>OnEnable</c>.
-        /// Safe to no-op if the mechanism cell is empty (bare rotor).
+        /// Called from <see cref="Start"/> for the initial pass and
+        /// re-checked every <see cref="Update"/> so the garage's
+        /// spawn → park transition flips the mesh back to visible the
+        /// frame after Start. Idempotent: only writes when the desired
+        /// state differs from the last applied state.
         /// </remarks>
-        private void HideMechanismCellMesh()
+        private void RefreshMechanismCellMeshVisibility()
         {
             BlockBehaviour rotorBlock = GetComponent<BlockBehaviour>();
             if (rotorBlock == null) return;
@@ -660,7 +760,17 @@ namespace Robogame.Movement
             Vector3Int mechanismCell = rotorBlock.GridPosition + spinAxisGridInt;
             if (!grid.TryGetBlock(mechanismCell, out BlockBehaviour neighbor)) return;
             if (neighbor == null) return;
-            BlockVisuals.HideHostMesh(neighbor.gameObject);
+
+            Rigidbody chassis = _chassisRbCacheValid ? _chassisRbCached : GetComponentInParent<Rigidbody>();
+            // Kinematic = parked / build-mode = show the cube. Non-
+            // kinematic = in-flight = hide so the rotor head silhouette
+            // is clean. Empty mechanism cell (bare rotor) is handled
+            // above by the early-return.
+            bool desiredHidden = chassis != null && !chassis.isKinematic;
+            if (_mechanismCellMeshAppliedOnce && desiredHidden == _mechanismCellMeshHidden) return;
+            BlockVisuals.SetHostMeshVisible(neighbor.gameObject, !desiredHidden);
+            _mechanismCellMeshHidden = desiredHidden;
+            _mechanismCellMeshAppliedOnce = true;
         }
     }
 }

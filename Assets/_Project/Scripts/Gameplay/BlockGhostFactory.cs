@@ -161,15 +161,27 @@ namespace Robogame.Gameplay
 
         private static void BuildRotor(Transform parent)
         {
-            // Mirrors RotorBlock's cosmetic rig: short mast on the cell's
-            // top face + a thin disc with one crossbar so the rotor reads
-            // as "spinning thing" not "plain cube".
-            Spawn(parent, PrimitiveType.Cube, Vector3.zero, Quaternion.identity,
-                new Vector3(0.7f, 0.7f, 0.7f));
-            Spawn(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.45f, 0f),
-                Quaternion.identity, new Vector3(0.12f, 0.15f, 0.12f));
-            Spawn(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.65f, 0f),
-                Quaternion.Euler(90f, 0f, 0f), new Vector3(0.85f, 0.05f, 0.08f));
+            // Mirror RotorBlock.BuildBlockVisual exactly so the ghost
+            // previews the rotor's full 2-cell visual footprint: mast
+            // spans the rotor cell up into the mechanism cell, disc +
+            // crossed bars sit at MechanismHeight (y = +1.0 in cell
+            // units, which is the centre of the cell ABOVE). Placing
+            // the rotor under an existing block is legal but the
+            // existing block's cell will end up clipping with this
+            // disc; the ghost makes that geometry visible BEFORE the
+            // click so the player isn't surprised.
+            // Mast (rotor cell + into the cell above).
+            Spawn(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.25f, 0f),
+                Quaternion.identity, new Vector3(0.25f, 0.75f, 0.25f));
+            // Disc at mechanism cell centre (y = +1.0).
+            Spawn(parent, PrimitiveType.Cylinder, new Vector3(0f, 1.0f, 0f),
+                Quaternion.identity, new Vector3(0.70f, 0.06f, 0.70f));
+            // Crossed bars on top of the disc — two cubes intersecting
+            // at right angles so the spin direction reads at a glance.
+            Spawn(parent, PrimitiveType.Cube, new Vector3(0f, 1.0f, 0f),
+                Quaternion.identity, new Vector3(0.95f, 0.08f, 0.10f));
+            Spawn(parent, PrimitiveType.Cube, new Vector3(0f, 1.0f, 0f),
+                Quaternion.identity, new Vector3(0.10f, 0.08f, 0.95f));
         }
 
         private static void BuildHook(Transform parent)

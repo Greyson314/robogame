@@ -646,7 +646,6 @@ namespace Robogame.Movement
         /// </summary>
         private void BuildStaticVisual(int particleCount, float segLen, float segRad)
         {
-            float totalLen = segLen * (particleCount - 1);
             // Show the host cell so the player can see where the rope
             // attaches in build mode — the live path hides it because the
             // dangling chain visual replaces the cube; the static path
@@ -658,18 +657,55 @@ namespace Robogame.Movement
             _segmentContainer.transform.localPosition = Vector3.zero;
             _segmentContainer.transform.localRotation = Quaternion.identity;
 
+            // Geometry: by default the rope dangles to its full live length
+            // straight down so the player can see how long the rope will
+            // be in flight. If a tip block (Hook / Mace) is placed on an
+            // adjacent grid cell, the cylinder instead spans from the rope
+            // cell centre to the tip cell centre — visually meeting the
+            // tip so the player doesn't see "rope cell, hook one cell
+            // below, then 8 cells of dead rope hanging into empty space".
+            // The arena's live-rope path adopts the tip and the chain
+            // dangles to its full length there; the garage trade-off is
+            // visual coherence over scale fidelity.
+            float fullLen = segLen * (particleCount - 1);
+            Vector3 startLocal = new Vector3(0f, -0.5f, 0f); // bottom face of host cell
+            Vector3 endLocal;
+            if (TryGetAdjacentTipCellLocal(out Vector3 tipCellLocal))
+            {
+                // tipCellLocal is the tip block's grid centre expressed in
+                // host-local space. Cylinder ends inside the tip cell so
+                // the tip block's visual sits at the rope's end without a
+                // gap.
+                endLocal = tipCellLocal;
+            }
+            else
+            {
+                endLocal = new Vector3(0f, -0.5f - fullLen, 0f);
+            }
+
+            Vector3 axisLocal = endLocal - startLocal;
+            float length = axisLocal.magnitude;
+            if (length < 1e-4f)
+            {
+                // Degenerate: no cylinder needed (host cube already at the
+                // tip cell, e.g. tip and rope cells overlap).
+                return;
+            }
+
             GameObject cyl = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             cyl.name = "Vis_Static";
             Object.Destroy(cyl.GetComponent<Collider>());
             cyl.transform.SetParent(_segmentContainer.transform, worldPositionStays: false);
             // Cylinder primitive: long axis is local +Y, mesh height 2 →
-            // localScale.y is HALF the visual length. Top face at y = 0,
-            // bottom at y = -totalLen → centre at y = -totalLen/2.
-            // Anchor the top at the host cell's BOTTOM face (y = -0.5)
-            // so the rope visually emerges from underneath the cell.
-            cyl.transform.localPosition = new Vector3(0f, -0.5f - totalLen * 0.5f, 0f);
-            cyl.transform.localRotation = Quaternion.identity;
-            cyl.transform.localScale    = new Vector3(segRad * 2f, totalLen * 0.5f, segRad * 2f);
+            // localScale.y is HALF the visual length. Centre at the
+            // midpoint of (start, end). Rotation aligns local +Y with the
+            // start→end direction so the cylinder spans the gap whether
+            // the tip is below, beside, or above (sideways tip placements
+            // are uncommon but supported by the grid; visualise honestly).
+            Vector3 mid = (startLocal + endLocal) * 0.5f;
+            cyl.transform.localPosition = mid;
+            cyl.transform.localRotation = Quaternion.FromToRotation(Vector3.up, axisLocal / length);
+            cyl.transform.localScale    = new Vector3(segRad * 2f, length * 0.5f, segRad * 2f);
             Renderer mr = cyl.GetComponent<MeshRenderer>();
             if (mr != null)
             {
@@ -680,6 +716,45 @@ namespace Robogame.Movement
                 mpb.SetColor(s_legacyColorId, _segmentColor);
                 mr.SetPropertyBlock(mpb);
             }
+        }
+
+        /// <summary>
+        /// Look for a <see cref="TipBlock"/> in any of the 6 grid neighbours
+        /// of this rope's host cell. If found, return the tip cell's
+        /// position in host-local space (the cylinder spans from the host
+        /// cell to that local position). Mirrors
+        /// <see cref="TryAdoptTipBlock"/>'s neighbour scan so the static
+        /// visual previews exactly which tip the live path will adopt.
+        /// </summary>
+        private bool TryGetAdjacentTipCellLocal(out Vector3 tipCellLocal)
+        {
+            tipCellLocal = default;
+            BlockBehaviour ropeHost = GetComponent<BlockBehaviour>();
+            if (ropeHost == null) return false;
+            BlockGrid grid = GetComponentInParent<BlockGrid>();
+            if (grid == null) return false;
+            Vector3Int[] all =
+            {
+                new Vector3Int( 0,-1, 0), new Vector3Int( 0, 1, 0),
+                new Vector3Int( 1, 0, 0), new Vector3Int(-1, 0, 0),
+                new Vector3Int( 0, 0, 1), new Vector3Int( 0, 0,-1),
+            };
+            for (int i = 0; i < all.Length; i++)
+            {
+                Vector3Int neighbourCell = ropeHost.GridPosition + all[i];
+                if (!grid.TryGetBlock(neighbourCell, out BlockBehaviour neighbour)) continue;
+                if (neighbour == null) continue;
+                if (neighbour.GetComponent<TipBlock>() == null) continue;
+                // Convert neighbour world position to host-local. The tip
+                // cell is one chassis-grid cell away from the rope cell;
+                // working in host-local makes the cylinder transform
+                // naturally with the chassis without re-deriving every
+                // FixedUpdate.
+                Vector3 neighbourWorld = neighbour.transform.position;
+                tipCellLocal = transform.InverseTransformPoint(neighbourWorld);
+                return true;
+            }
+            return false;
         }
 
         private void BuildVisuals(int segmentVisualCount, float segRad)

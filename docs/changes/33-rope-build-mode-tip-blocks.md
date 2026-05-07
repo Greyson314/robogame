@@ -92,3 +92,46 @@ no rebuild trigger. The rotor's FixedUpdate runtime gate suppresses
 already been reparented to the scene-root hub. Same fix shape would
 work — track `_builtKinematic`, rebuild on transition. Not pulled
 into this session to keep the change scoped to the user's report.
+
+## Follow-up fixes from first playtest
+
+User reported two issues post-commit:
+
+1. **"8 feet of dead rope visually in the garage."** The hook adjacent
+   to the rope cell sat 1 cell below the rope, but the static-visual
+   cylinder dangled the full 8-cell live length, ending in empty
+   space. Visual mismatch with the placement model.
+2. **Rotor "destroys" the cube above it.** `HideMechanismCellMesh`
+   ran from `RotorBlock.Start` and unconditionally hid the renderer
+   on the cell along the spin axis. In flight that's correct — the
+   rotor's disc and bars replace the cube visually. In the garage
+   it just looked like the cube had vanished, on top of the
+   already-confusing 2-cell-tall rotor footprint.
+3. **Rotor ghost still read as a cube.** First-pass `BuildRotor`
+   used a 0.7-cell host cube + tiny mast + a single short bar; at
+   ghost material alpha the small parts wash into the cube and the
+   player only registers "cube".
+
+Fixes:
+
+- `RopeBlock.BuildStaticVisual` now scans the 6 grid neighbours for
+  a `TipBlock` (mirrors `TryAdoptTipBlock`'s scan). When one is
+  found, the cylinder spans from the rope cell's bottom face to the
+  tip cell's centre — visually meeting the hook / mace, no dead
+  rope. When none is found, full-length dangle as before. Direction
+  derived from world-space tip offset → host-local via
+  `InverseTransformPoint`, so sideways placements (rare but legal)
+  visualise honestly.
+- `RotorBlock.HideMechanismCellMesh` becomes
+  `RefreshMechanismCellMeshVisibility` — gates the hide on
+  `chassis.isKinematic`. New `Update()` re-evaluates each frame
+  with a cheap `desiredHidden == _mechanismCellMeshHidden`
+  early-out so the steady-state cost is one Rigidbody null-check +
+  bool compare per rotor per frame. `BlockVisuals.SetHostMeshVisible`
+  is the toggle target.
+- `BlockGhostFactory.BuildRotor` now mirrors
+  `RotorBlock.BuildBlockVisual` exactly: mast spans the rotor cell
+  up into the mechanism cell (y = -0.5 .. +1.0), disc + crossed
+  bars at `MechanismHeight` (y = +1.0). The ghost extends visibly
+  into the cell above, telegraphing the 2-cell footprint before
+  placement.
