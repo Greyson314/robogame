@@ -301,13 +301,15 @@ namespace Robogame.Gameplay
                 // Swept-volume check: scalable blocks (e.g. wings with
                 // span > 1) extend beyond their host cell. Reject a
                 // placement whose visible extent would interpenetrate an
-                // existing block. Build-mode placements always use +Y up;
-                // candidate dims come from the variant panel's
-                // next-placement cache.
+                // existing block. Up is the face normal we picked in
+                // UpdateTarget (recoverable as place-cell − hit-cell);
+                // candidate dims come from the variant panel.
+                Vector3Int candidateUp = cell - _targetHitCell;
+                if (candidateUp == Vector3Int.zero) candidateUp = Vector3Int.up;
                 Vector3 candidateDims = _variantPanel != null
                     ? _variantPanel.GetDimsForBlock(selected.Id)
                     : Vector3.zero;
-                if (BlockOccupancy.WouldOverlapInGrid(_grid, selected.Id, cell, Vector3Int.up, candidateDims))
+                if (BlockOccupancy.WouldOverlapInGrid(_grid, selected.Id, cell, candidateUp, candidateDims))
                     return false;
             }
             return true;
@@ -448,7 +450,13 @@ namespace Robogame.Gameplay
             // tells PlaceBlock + the consuming component to fall back to
             // block defaults.
             Vector3 dims = _variantPanel != null ? _variantPanel.GetDimsForBlock(id) : Vector3.zero;
-            if (_grid.PlaceBlock(def, _targetPlaceCell, Vector3Int.up, dims) != null)
+            // Up = face normal of the cell we're attaching to. Without
+            // this, every placement would orient as +Y and a wing on a
+            // side-mount face would point along chassis +Y instead of
+            // outward from the face.
+            Vector3Int placeUp = _targetPlaceCell - _targetHitCell;
+            if (placeUp == Vector3Int.zero) placeUp = Vector3Int.up;
+            if (_grid.PlaceBlock(def, _targetPlaceCell, placeUp, dims) != null)
             {
                 SyncBlueprintFromGrid();
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.BlockPlace);

@@ -134,16 +134,16 @@ namespace Robogame.Gameplay
                     EnsureComponent<RobotWheelBinder>(root);
                 }
 
-                // The aero binder turns Thruster / Aero / AeroFin / Rudder block
-                // primitives into their behaviour components (jet rig +
-                // force-applying ThrusterBlock, lifting AeroSurfaceBlock,
-                // yaw-applying RudderBlock). It's needed any time those
-                // blocks exist, regardless of chassis kind — e.g. a
-                // Ground-kind boat with a thruster + rudder.
-                if (hasAero || hasThruster || hasRudder || blueprint.Kind == ChassisKind.Plane)
-                {
-                    EnsureComponent<RobotAeroBinder>(root);
-                }
+                // Aero binder is unconditional, same reasoning as the
+                // rope / rotor / tip-block binders below: build-mode
+                // players drag wings / thrusters / rudders onto an
+                // existing chassis (e.g. add wings to a buggy) and
+                // expect them to work without re-spawning. The binder
+                // is a BlockPlaced subscriber — zero per-frame cost
+                // when none of those blocks are present, and avoids
+                // the "I added a wing and it stayed a cube" trap
+                // when the blueprint started without aero.
+                EnsureComponent<RobotAeroBinder>(root);
 
                 // PlaneControlSubsystem owns pitch/roll/yaw authority and
                 // only makes sense on aircraft. Skip it on a thruster-only
