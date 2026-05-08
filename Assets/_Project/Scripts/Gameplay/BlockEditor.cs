@@ -129,6 +129,7 @@ namespace Robogame.Gameplay
         private string _ghostBuiltForId;
         private Vector3 _ghostBuiltForDims;
         private Vector3Int _ghostBuiltForCell;
+        private Vector3Int _ghostBuiltForUp;
         private bool _ghostShowingValid;
 
         private bool _hasTarget;
@@ -334,23 +335,29 @@ namespace Robogame.Gameplay
 
             string targetId = _hotbar != null ? _hotbar.SelectedBlockId : BlockIds.Cube;
             // Variant dims drive the foil/rope ghost shape; target cell
-            // drives the outward-shift direction. Rebuild whenever any of
-            // those change so the preview tracks the live config.
+            // drives the outward-shift direction; mount-up (face normal)
+            // drives the foil horizontal-vs-vertical geometry choice.
+            // Rebuild whenever any of those change so the preview tracks
+            // the live config.
             Vector3 targetDims = _variantPanel != null ? _variantPanel.GetDimsForBlock(targetId) : Vector3.zero;
             Vector3Int targetCell = _hasTarget ? _targetPlaceCell : Vector3Int.zero;
+            Vector3Int targetUp = _hasTarget ? (_targetPlaceCell - _targetHitCell) : Vector3Int.up;
+            if (targetUp == Vector3Int.zero) targetUp = Vector3Int.up;
             if (_ghost != null
                 && _ghostBuiltForId == targetId
                 && _ghostBuiltForDims == targetDims
-                && _ghostBuiltForCell == targetCell) return;
+                && _ghostBuiltForCell == targetCell
+                && _ghostBuiltForUp == targetUp) return;
 
             if (_ghost != null) Object.Destroy(_ghost);
 
             BlockDefinition def = GetSelectedDefinition();
-            _ghost = BlockGhostFactory.Build(def, _ghostMatValid, targetDims, targetCell);
+            _ghost = BlockGhostFactory.Build(def, _ghostMatValid, targetDims, targetCell, targetUp);
             _ghost.SetActive(false);
             _ghostBuiltForId = targetId;
             _ghostBuiltForDims = targetDims;
             _ghostBuiltForCell = targetCell;
+            _ghostBuiltForUp = targetUp;
             _ghostShowingValid = true;
         }
 
@@ -394,7 +401,12 @@ namespace Robogame.Gameplay
             }
             _ghost.SetActive(true);
             _ghost.transform.position = _grid.GridToWorld(_targetPlaceCell);
-            _ghost.transform.rotation = _buildMode.Chassis.rotation;
+            // Apply the per-cell rotation the placed block would get
+            // (BlockGrid.OrientationFromUp), then the chassis world
+            // rotation. Without this, the ghost stays axis-aligned and a
+            // foil/rotor preview wouldn't reflect the mount face.
+            _ghost.transform.rotation = _buildMode.Chassis.rotation
+                * BlockGrid.OrientationFromUp(_ghostBuiltForUp);
             // The ghost factory authored shapes at unit-cell scale, so we
             // just multiply by the grid's cell size (with a tiny inflation
             // so the ghost doesn't z-fight neighbouring solid blocks).

@@ -30,13 +30,26 @@ namespace Robogame.Gameplay
         /// returned root has no colliders, no shadows, and a single shared
         /// material (the caller swaps between valid/invalid via
         /// <see cref="ApplyMaterial"/>).
+        /// <paramref name="up"/> is the mount face normal in chassis-local
+        /// space; the caller applies the cell rotation (<see cref="BlockGrid.OrientationFromUp"/>)
+        /// to the returned ghost. Foil shapes use <paramref name="up"/> to
+        /// pick horizontal-vs-vertical mesh-axis treatment so the ghost
+        /// matches what <see cref="Robogame.Movement.RobotAeroBinder"/>
+        /// will configure on the placed block.
         /// </summary>
         public static GameObject Build(BlockDefinition def, Material initialMat,
-            Vector3 dims = default, Vector3Int targetCell = default)
+            Vector3 dims = default, Vector3Int targetCell = default, Vector3Int up = default)
         {
             var root = new GameObject("BlockGhost");
             // Parent will set position/rotation; root scale stays 1 so the
             // primitive child scales below behave like authored values.
+
+            // Mount-aware foil treatment: top/bottom mounts get the
+            // horizontal-wing geometry; any other face gets the vertical
+            // treatment so the wing extends OUTWARD from the mount face.
+            // Mirrors the Vertical = sideMount logic in RobotAeroBinder.
+            Vector3Int mountUp = up == Vector3Int.zero ? Vector3Int.up : up;
+            bool foilSideMount = mountUp != Vector3Int.up && mountUp != Vector3Int.down;
 
             switch (def != null ? def.Id : null)
             {
@@ -48,7 +61,7 @@ namespace Robogame.Gameplay
                     BuildThruster(root.transform);
                     break;
                 case BlockIds.Aero:
-                    BuildWing(root.transform, vertical: false, dims: dims, cellPos: targetCell);
+                    BuildWing(root.transform, vertical: foilSideMount, dims: dims, cellPos: targetCell);
                     break;
                 case BlockIds.AeroFin:
                     BuildWing(root.transform, vertical: true,  dims: dims, cellPos: targetCell);
