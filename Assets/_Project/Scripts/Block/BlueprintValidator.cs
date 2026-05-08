@@ -80,6 +80,34 @@ namespace Robogame.Block
                 }
             }
 
+            // 4. Swept-volume overlap. Default-dim blocks are unit cubes that
+            //    fit their cell, so this only matters for scalable parts
+            //    (foils today, more in later phases) whose extent depends on
+            //    Dims. Cell size of 1.0 because overlap is scale-invariant —
+            //    BlockOccupancy answers in cell-local units and the result
+            //    holds for whatever cellSize the chassis ships with.
+            ChassisBlueprint.Entry[] entries = plan.Entries;
+            int n = entries.Length;
+            Bounds[] bounds = new Bounds[n];
+            for (int i = 0; i < n; i++)
+            {
+                bounds[i] = BlockOccupancy.ComputeSweptBoundsLocal(
+                    entries[i].BlockId, entries[i].Position, entries[i].EffectiveUp,
+                    entries[i].Dims, cellSize: 1f);
+            }
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = i + 1; j < n; j++)
+                {
+                    if (BlockOccupancy.StrictOverlap(bounds[i], bounds[j]))
+                    {
+                        r.AddError(
+                            $"Cell {entries[i].Position} ({entries[i].BlockId}) overlaps " +
+                            $"cell {entries[j].Position} ({entries[j].BlockId}).");
+                    }
+                }
+            }
+
             return r;
         }
     }

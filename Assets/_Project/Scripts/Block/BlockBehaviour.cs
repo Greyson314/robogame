@@ -18,6 +18,7 @@ namespace Robogame.Block
     {
         [SerializeField] private BlockDefinition _definition;
         [SerializeField] private Vector3Int _gridPosition;
+        [SerializeField] private Vector3Int _up = Vector3Int.up;
         [SerializeField] private float _currentHealth;
         [SerializeField] private Vector3 _dims;
 
@@ -37,6 +38,13 @@ namespace Robogame.Block
 
         public BlockDefinition Definition => _definition;
         public Vector3Int GridPosition => _gridPosition;
+        /// <summary>
+        /// Mount-up direction (which chassis-face the block is attached to)
+        /// in chassis-local space. Mirrors <see cref="ChassisBlueprint.Entry.EffectiveUp"/>:
+        /// <see cref="Vector3Int.zero"/> falls back to <see cref="Vector3Int.up"/>
+        /// so legacy in-memory state stays upright.
+        /// </summary>
+        public Vector3Int Up => _up == Vector3Int.zero ? Vector3Int.up : _up;
         public float CurrentHealth => _currentHealth;
         public bool IsAlive => _currentHealth > 0f;
 
@@ -79,11 +87,12 @@ namespace Robogame.Block
         private MaterialPropertyBlock _mpb;
 
         /// <summary>Internal initializer called by <see cref="BlockGrid"/> at placement time.</summary>
-        internal void Initialize(BlockDefinition definition, Vector3Int gridPosition, Vector3 dims = default)
+        internal void Initialize(BlockDefinition definition, Vector3Int gridPosition, Vector3 dims = default, Vector3Int up = default)
         {
             _definition = definition;
             _gridPosition = gridPosition;
             _dims = dims;
+            _up = up == Vector3Int.zero ? Vector3Int.up : up;
             _currentHealth = definition != null ? definition.MaxHealth : 1f;
             CacheRenderers();
             UpdateDamageVisual();

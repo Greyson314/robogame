@@ -63,6 +63,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 38 | [Scalable parts Phase 1: swept-volume occupancy check (block placements that interpenetrate are now rejected)](38-scalable-parts-phase1-occupancy.md) |
 | 37 | [Scalable parts: Phase 0 audit (no code; lift-vs-dims gap surfaced)](37-scalable-parts-audit.md) |
 | 36 | [Follow-ups: animated flip, repair-pad beacon, aero regen visual, rope re-adoption + max-stretch break, hook orphan-joint cleanup](36-followups.md) |
 | 35 | [Scrap pickups: drop on chassis death, collect by overlap, magnetic pull, foundational ScrapHeld counter + HUD](35-scrap-pickups.md) |

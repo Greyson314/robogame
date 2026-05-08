@@ -66,6 +66,17 @@ namespace Robogame.Block
             return this;
         }
 
+        /// <summary>
+        /// Place a single block with explicit mount up + per-instance dims
+        /// (foil span/thickness/chord, rope segment count, ...). Used by
+        /// tests that exercise the swept-volume occupancy rules.
+        /// </summary>
+        public BlueprintBuilder Block(string blockId, Vector3Int position, Vector3Int up, Vector3 dims)
+        {
+            _entries.Add(new ChassisBlueprint.Entry(blockId, position, up, dims));
+            return this;
+        }
+
         // -----------------------------------------------------------------
         // Linear and rectangular fills
         // -----------------------------------------------------------------

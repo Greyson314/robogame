@@ -162,7 +162,7 @@ namespace Robogame.Block
 
             BlockBehaviour block = go.GetComponent<BlockBehaviour>();
             if (block == null) block = go.AddComponent<BlockBehaviour>();
-            block.Initialize(definition, gridPos, dims);
+            block.Initialize(definition, gridPos, dims, up);
 
             // CPU is the instakill cell — give it an unmistakable beacon so
             // the player (and future AI targeters) can spot it at a glance.

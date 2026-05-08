@@ -297,6 +297,18 @@ namespace Robogame.Gameplay
             if (selected != null)
             {
                 if (selected.Category == BlockCategory.Cpu && HasAnyCpu()) return false;
+
+                // Swept-volume check: scalable blocks (e.g. wings with
+                // span > 1) extend beyond their host cell. Reject a
+                // placement whose visible extent would interpenetrate an
+                // existing block. Build-mode placements always use +Y up;
+                // candidate dims come from the variant panel's
+                // next-placement cache.
+                Vector3 candidateDims = _variantPanel != null
+                    ? _variantPanel.GetDimsForBlock(selected.Id)
+                    : Vector3.zero;
+                if (BlockOccupancy.WouldOverlapInGrid(_grid, selected.Id, cell, Vector3Int.up, candidateDims))
+                    return false;
             }
             return true;
         }
@@ -586,11 +598,7 @@ namespace Robogame.Gameplay
             {
                 BlockBehaviour b = kvp.Value;
                 if (b == null || b.Definition == null) continue;
-                // Up is not yet captured per-instance on BlockBehaviour;
-                // build-mode placements always use Vector3Int.up. Authored
-                // blueprints with custom Up values are unaffected — they're
-                // edited via the editor scaffolder, not in-game.
-                list.Add(new ChassisBlueprint.Entry(b.Definition.Id, kvp.Key, Vector3Int.up, b.Dims));
+                list.Add(new ChassisBlueprint.Entry(b.Definition.Id, kvp.Key, b.Up, b.Dims));
             }
             state.CurrentBlueprint.SetEntries(list.ToArray());
         }
