@@ -113,6 +113,12 @@ namespace Robogame.Movement
         // FixedUpdate for the why.
         private Transform _rotorTransform;
         private Vector3 _rotorSpinAxisLocal = Vector3.up;
+        // Cached planform-area scale for the lift formula:
+        //   (span * chord) / (DefaultSpan * DefaultChord)
+        // Equals 1 at default dims so existing chassis numbers are
+        // preserved; equals N for an N× larger wing. Recomputed on
+        // OnEnable + DimsChanged, never per-frame.
+        private float _liftAreaScale = 1f;
 
         /// <summary>True for tail fins / rudders. Set this BEFORE the first FixedUpdate (e.g. from a binder right after AddComponent).</summary>
         public bool Vertical
@@ -148,6 +154,7 @@ namespace Robogame.Movement
             _block = GetComponent<BlockBehaviour>();
             if (_block != null) _block.DimsChanged += OnDimsChanged;
             ApplyOrientationToVisual();
+            RecomputeAreaScale();
 
             // If a rotor builder already injected an explicit force
             // target via ConfigureRotorMode, don't clobber it here.
@@ -163,7 +170,22 @@ namespace Robogame.Movement
             if (_block != null) _block.DimsChanged -= OnDimsChanged;
         }
 
-        private void OnDimsChanged(BlockBehaviour _) => ApplyOrientationToVisual();
+        private void OnDimsChanged(BlockBehaviour _)
+        {
+            ApplyOrientationToVisual();
+            RecomputeAreaScale();
+        }
+
+        // Lift now scales with planform area (span × chord) so a 2× wing
+        // produces 2× lift. Default dims (span=1, chord=DefaultChord)
+        // give scale=1, preserving every shipped chassis's behaviour.
+        // Per-block driven, not Tweakable-driven — see PHYSICS_PLAN §5.
+        private void RecomputeAreaScale()
+        {
+            Vector3 dims = _block != null ? _block.Dims : Vector3.zero;
+            ResolveDims(dims, out float span, out _, out float chord);
+            _liftAreaScale = (span * chord) / (DefaultSpan * DefaultChord);
+        }
 
         /// <summary>
         /// Wire this surface up as a rotor blade. <paramref name="hub"/>
@@ -306,7 +328,7 @@ namespace Robogame.Movement
             float biasTerm = _vertical ? 0f : _zeroLiftBias * Mathf.Sign(forward);
             float liftFactor = (aoaClamped + biasTerm) * stallFalloff;
 
-            float liftMag = speedSqr * _liftCoef * liftFactor * Mathf.Sign(forward);
+            float liftMag = speedSqr * _liftCoef * _liftAreaScale * liftFactor * Mathf.Sign(forward);
             if (_maxLift > 0f) liftMag = Mathf.Clamp(liftMag, -_maxLift, _maxLift);
             _forceTargetRb.AddForceAtPosition(liftAxis * liftMag, worldPos);
 

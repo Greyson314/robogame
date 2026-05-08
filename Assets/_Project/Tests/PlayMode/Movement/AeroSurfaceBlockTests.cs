@@ -271,20 +271,21 @@ namespace Robogame.Tests.PlayMode.Movement
         }
 
         /// <summary>
-        /// PHYSICS_PLAN §1.5 contract: changing aerofoil visual dimensions must
-        /// not change the lift output of a wing in FixedUpdate.
+        /// Phase 1.5 contract: lift scales with planform area
+        /// (<c>span × chord</c>) so a 2× wing produces 2× lift. Default
+        /// dims preserve the historical baseline.
         ///
-        /// The lift formula in <see cref="AeroSurfaceBlock"/> FixedUpdate is:
-        ///   lift = speed² × _liftCoef × liftFactor
-        /// It has no wing-dimension term. This test confirms that contract holds
-        /// by measuring the chassis velocity delta over two FixedUpdate ticks:
-        /// once at default dims, then at max span (3 m), and asserting equality.
+        /// Drives the <see cref="AeroSurfaceBlock"/> FixedUpdate path:
+        ///   lift = speed² × _liftCoef × _liftAreaScale × liftFactor
+        /// where <c>_liftAreaScale = (span * chord) / (DefaultSpan * DefaultChord)</c>.
         ///
-        /// If a future PR introduces a span or chord term in the lift path, this
-        /// test will fail and surface the coupling before it ships.
+        /// PHYSICS_PLAN §5 separately says that the per-machine
+        /// <c>Aero.WingSpan/Chord/Thickness</c> Tweakables are
+        /// cosmetic-only — those still don't touch lift. Only per-block
+        /// <see cref="BlockBehaviour.Dims"/> (a blueprint-level value) does.
         /// </summary>
         [UnityTest]
-        public IEnumerator LiftForce_DoesNotChange_WhenBlockDimsChange()
+        public IEnumerator LiftForce_ScalesWithPlanformArea_WhenSpanChanges()
         {
             // Build a standalone foil directly on the chassis (not a hub child)
             // so _velocityRb == _forceTargetRb == the chassis — the simplest
@@ -299,14 +300,12 @@ namespace Robogame.Tests.PlayMode.Movement
             // Let Awake/OnEnable settle — chassis is dynamic, _velocityRb resolves.
             yield return new WaitForFixedUpdate();
 
-            // Precondition: _forceTargetRb must be the chassis.
             Assert.AreSame(_chassisRb, GetForceTargetRb(foil),
                 "Precondition: _forceTargetRb should resolve to chassis in standalone topology.");
 
-            // Disable gravity so the only force acting is the foil's lift.
             _chassisRb.useGravity = false;
 
-            // --- Sample 1: default dims ---
+            // --- Sample 1: default dims (baseline) ---
             _chassisRb.linearVelocity = new Vector3(0f, 0f, 10f);
             _chassisRb.angularVelocity = Vector3.zero;
             Vector3 velBefore1 = _chassisRb.linearVelocity;
@@ -315,8 +314,9 @@ namespace Robogame.Tests.PlayMode.Movement
 
             Vector3 delta1 = _chassisRb.linearVelocity - velBefore1;
 
-            // --- Sample 2: max span via per-block Dims ---
-            bb.SetDims(new Vector3(AeroSurfaceBlock.MaxSpan, AeroSurfaceBlock.DefaultThickness, AeroSurfaceBlock.DefaultChord));
+            // --- Sample 2: 2× span, same chord/thickness ---
+            const float doubledSpan = 2f * AeroSurfaceBlock.DefaultSpan;
+            bb.SetDims(new Vector3(doubledSpan, AeroSurfaceBlock.DefaultThickness, AeroSurfaceBlock.DefaultChord));
 
             _chassisRb.linearVelocity = new Vector3(0f, 0f, 10f);
             _chassisRb.angularVelocity = Vector3.zero;
@@ -326,16 +326,55 @@ namespace Robogame.Tests.PlayMode.Movement
 
             Vector3 delta2 = _chassisRb.linearVelocity - velBefore2;
 
-            // The velocity deltas should be identical: same lift, same mass.
-            // Tolerance 1e-4 m/s handles floating-point variation between steps
-            // (chassis position drifts slightly between the two samples, giving a
-            // tiny lever-arm difference; irrelevant for the §1.5 check).
-            Assert.AreEqual(delta1.x, delta2.x, 1e-4f,
-                "Lift X changed when foil span changed — visual dim is coupled to gameplay (§1.5 violation).");
+            // delta2 should be ~2× delta1 on the lift axis (Y) since planform
+            // area doubled. Tolerance 5% to absorb floating-point variation
+            // and the small lever-arm drift between the two samples.
+            float ratio = delta2.y / delta1.y;
+            Assert.AreEqual(2f, ratio, 0.1f,
+                $"Doubled-span foil should produce ~2× lift; got delta1.y={delta1.y:F4} delta2.y={delta2.y:F4} ratio={ratio:F3}.");
+        }
+
+        /// <summary>
+        /// Sanity check: a foil at <c>Dims = Vector3.zero</c> (= "use
+        /// block defaults") produces the same lift as one at
+        /// <c>(DefaultSpan, DefaultThickness, DefaultChord)</c>. Defends
+        /// the area-scale baseline so default-dim chassis preserve their
+        /// historical numbers.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator LiftForce_DefaultDims_MatchesExplicitDefaults()
+        {
+            GameObject foilGo = new GameObject("LiftTestFoil_Default");
+            foilGo.transform.SetParent(_chassisGo.transform, worldPositionStays: false);
+            foilGo.transform.localRotation = Quaternion.identity;
+            foilGo.transform.localPosition = new Vector3(1f, 0f, 0f);
+            BlockBehaviour bb = foilGo.AddComponent<BlockBehaviour>();
+            AeroSurfaceBlock foil = foilGo.AddComponent<AeroSurfaceBlock>();
+
+            yield return new WaitForFixedUpdate();
+            _chassisRb.useGravity = false;
+
+            // --- Sample 1: implicit defaults (Dims = zero) ---
+            _chassisRb.linearVelocity = new Vector3(0f, 0f, 10f);
+            _chassisRb.angularVelocity = Vector3.zero;
+            Vector3 velBefore1 = _chassisRb.linearVelocity;
+            yield return new WaitForFixedUpdate();
+            Vector3 delta1 = _chassisRb.linearVelocity - velBefore1;
+
+            // --- Sample 2: explicit defaults ---
+            bb.SetDims(new Vector3(
+                AeroSurfaceBlock.DefaultSpan,
+                AeroSurfaceBlock.DefaultThickness,
+                AeroSurfaceBlock.DefaultChord));
+
+            _chassisRb.linearVelocity = new Vector3(0f, 0f, 10f);
+            _chassisRb.angularVelocity = Vector3.zero;
+            Vector3 velBefore2 = _chassisRb.linearVelocity;
+            yield return new WaitForFixedUpdate();
+            Vector3 delta2 = _chassisRb.linearVelocity - velBefore2;
+
             Assert.AreEqual(delta1.y, delta2.y, 1e-4f,
-                "Lift Y changed when foil span changed — visual dim is coupled to gameplay (§1.5 violation).");
-            Assert.AreEqual(delta1.z, delta2.z, 1e-4f,
-                "Lift Z changed when foil span changed — visual dim is coupled to gameplay (§1.5 violation).");
+                "Implicit defaults (Dims=zero) must produce the same lift as explicit DefaultSpan/Chord.");
         }
     }
 }
