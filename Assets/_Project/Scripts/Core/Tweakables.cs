@@ -147,6 +147,36 @@ namespace Robogame.Core
         public const string TankDummySpawn = "Stress.TankDummy";       // 0/1 toggle: spawn / despawn the patrolling tank
         public const string TankDummyFire  = "Stress.TankDummyFire";   // 0/1 toggle: tank fires at player chassis when in arc + range
 
+        // Audio mix bus volumes, 0–1 (linear). AudioRouter converts these
+        // to dB at the mixer level so the slider reads as "perceived
+        // loudness" and a value of 0 produces silence. The Mute toggle
+        // is a hard global cut applied on top — used to gate every group
+        // without rewriting individual slider values.
+        // Presentation-only; the "no Tweakable affects gameplay" rule
+        // (PHYSICS_PLAN § 1.5) is satisfied by construction.
+        public const string AudioMaster = "Audio.MasterVolume";
+        public const string AudioSfx    = "Audio.SfxVolume";
+        public const string AudioMusic  = "Audio.MusicVolume";
+        public const string AudioUI     = "Audio.UIVolume";
+        public const string AudioMute   = "Audio.Mute";
+
+        // QoL toggle: freeze gameplay while the settings panel is
+        // open. Defaults to true — players reaching for Esc usually
+        // want the world to stop, not to die mid-tweak. Disable for
+        // tuning sessions where you want to see the slider's effect
+        // on a moving chassis live.
+        // Pure presentation flag (no gameplay-canonical impact);
+        // satisfies the "no Tweakable affects MP outcomes" rule by
+        // construction since pausing is a singleplayer-only concept.
+        public const string SettingsPause = "QoL.PauseOnSettings";
+
+        // Air dummy bot: same idea, plane chassis. Spawn/Fire toggles.
+        // Like the tank: spawn flag drops the bot into the arena passively
+        // (Patrol-only, no target); fire flag binds the player as the target
+        // and switches the bot into Pursue/Engage with live fire.
+        public const string AirDummySpawn  = "Stress.AirDummy";        // 0/1 toggle: spawn / despawn the patrolling air bot
+        public const string AirDummyFire   = "Stress.AirDummyFire";    // 0/1 toggle: air bot engages + fires at player
+
         // -----------------------------------------------------------------
         // Spec
         // -----------------------------------------------------------------
@@ -354,6 +384,22 @@ namespace Robogame.Core
             Register(StressRotorTowerRpm,  "Stress", "Tower RPM",       300.0f, 0f, 600f);
             RegisterBool(TankDummySpawn,   "Stress", "Spawn Tank Dummy",   false);
             RegisterBool(TankDummyFire,    "Stress", "Tank Fires Player",  false);
+            RegisterBool(AirDummySpawn,    "Stress", "Spawn Air Dummy",    false);
+            RegisterBool(AirDummyFire,     "Stress", "Air Bot Fires",      false);
+
+            // Audio mix. Defaults: Master 1.0, SFX/Music/UI 0.8, no
+            // mute. AudioRouter subscribes to Changed and re-applies
+            // every value when any one moves. The unit is linear gain
+            // 0–1; the dB conversion happens in AudioRouter so the
+            // slider stays interpretable from the inspector.
+            Register(AudioMaster,    "Audio", "Master Volume", 1.00f, 0f, 1f);
+            Register(AudioSfx,       "Audio", "SFX Volume",    0.80f, 0f, 1f);
+            Register(AudioMusic,     "Audio", "Music Volume",  0.80f, 0f, 1f);
+            Register(AudioUI,        "Audio", "UI Volume",     0.80f, 0f, 1f);
+            RegisterBool(AudioMute,  "Audio", "Mute All",      false);
+
+            // QoL.
+            RegisterBool(SettingsPause, "QoL", "Pause When Settings Open", true);
 
             Load();
         }

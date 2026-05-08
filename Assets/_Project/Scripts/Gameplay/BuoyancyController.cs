@@ -147,6 +147,30 @@ namespace Robogame.Gameplay
             }
 
             ApplyDrag(water, submergedFractionSum, blockCount);
+            UpdateSplashAudio(submergedFractionSum, blockCount);
+        }
+
+        // Splash one-shot: fire on dry → wet transition with a re-arm
+        // cooldown so a chassis bobbing at the surface line doesn't
+        // re-trigger every other physics step. Threshold of 2+ wet
+        // blocks discriminates a real entry from one corner cube
+        // grazing a wave crest.
+        private bool _wasWet;
+        private float _splashRearmAt;
+        private const float SplashRearmSeconds = 1.5f;
+        private const int SplashWetBlockThreshold = 2;
+
+        private void UpdateSplashAudio(float submergedFractionSum, int blockCount)
+        {
+            bool isWet = blockCount >= SplashWetBlockThreshold;
+            float now = Time.time;
+            if (isWet && !_wasWet && now >= _splashRearmAt)
+            {
+                Robogame.Core.AudioRouter.PlayOneShot(
+                    Robogame.Core.AudioCue.WaterSplash, transform.position);
+                _splashRearmAt = now + SplashRearmSeconds;
+            }
+            _wasWet = isWet;
         }
 
         /// <summary>

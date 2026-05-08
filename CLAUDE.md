@@ -18,6 +18,7 @@ Eventual goal: ship to Steam. Current state: singleplayer with garage + arenas (
 - **[docs/PERFORMANCE.md](docs/PERFORMANCE.md)** — perf rules, diagnostics, predicted future hotspots, "the game feels slow" runbook.
 - **[docs/PACKAGE_MODIFICATIONS.md](docs/PACKAGE_MODIFICATIONS.md)** — third-party package source edits and how to re-apply them after an upgrade.
 - **[docs/NETCODE_PLAN.md](docs/NETCODE_PLAN.md)** — multiplayer-readiness contract.
+- **[docs/AUDIO_PLAN.md](docs/AUDIO_PLAN.md)** — audio plumbing rules; read before authoring sound clips or touching `AudioRouter`.
 - **[docs/ART_DIRECTION.md](docs/ART_DIRECTION.md)** — palette, art rules, imported assets.
 - **[docs/SPHERICAL_ARENAS.md](docs/SPHERICAL_ARENAS.md)** — planet-arena physics and gravity model.
 - **[docs/ROBOCRAFT_REFERENCE.md](docs/ROBOCRAFT_REFERENCE.md)** — design research baseline.
@@ -32,6 +33,7 @@ Eventual goal: ship to Steam. Current state: singleplayer with garage + arenas (
 5. **Default to zero baseline cost.** Every new physics block must have a config that adds zero Rigidbodies and zero colliders. Anything heavier is opt-in.
 6. **No per-frame allocations.** No `new` in `Update` / `FixedUpdate` / `OnCollision*`. Pre-size lists at build time, reuse them.
 7. **Profile before claiming a perf characteristic.** "Well under budget" is not acceptable without a Profiler capture or a static count from a real measurement.
+8. **Every new feature ships with VFX + audio.** As of session 30 (audio v1) the project has both pipelines wired (`VfxSpawner` + procedural particle kinds; `AudioRouter` + `AudioCue` + `AudioCueLibrary`). New gameplay systems — weapons, blocks, movement modes, match-state events, UI — must include a good-faith pass at both. If a clip / cue doesn't exist yet, declare the cue, leave the library entry blank, and call `AudioRouter.PlayOneShot` at the gameplay site anyway: the missing-cue logger surfaces it and the audio pass picks it up. Same for VFX: pick the closest `VfxKind`, hook the call site, tune scale at the editor table. **Do not ship a feature with both audio AND VFX deferred to "later".** See [docs/AUDIO_PLAN.md](docs/AUDIO_PLAN.md) for the audio-side contract and [docs/changes/29-vfx-and-audio-bones.md](docs/changes/29-vfx-and-audio-bones.md) for the VFX kinds.
 
 ## Known failure modes (these have bitten before)
 

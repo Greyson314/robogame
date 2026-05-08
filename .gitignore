@@ -9,6 +9,11 @@
 # Claude Code worktrees — git worktrees live here, never source
 .claude/worktrees/
 
+# Universal Sound FX — third-party audio library, kept on disk for Unity
+# imports but too large to commit (20k+ wav files).
+/Assets/Universal Sound FX/
+/Assets/Universal Sound FX.meta
+
 .utmp/
 /[Ll]ibrary/
 /[Tt]emp/

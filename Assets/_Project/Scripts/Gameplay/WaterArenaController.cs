@@ -42,6 +42,15 @@ namespace Robogame.Gameplay
         [Tooltip("Name of the spawned chassis GameObject.")]
         [SerializeField] private string _chassisName = "Robot";
 
+        [Header("Repair pad")]
+        [Tooltip("If true, a procedural healing AoE pad spawns at the position below. " +
+                 "Drive the player chassis onto it to gradually rebuild from the blueprint.")]
+        [SerializeField] private bool _spawnRepairPad = true;
+
+        [Tooltip("Pad placement. Default: corner of the water arena, raised slightly so the trigger " +
+                 "sits above the water surface.")]
+        [SerializeField] private Vector3 _repairPadPosition = new Vector3(35f, 1.5f, 35f);
+
         public GameObject Chassis { get; private set; }
 
         private void Start()
@@ -71,6 +80,7 @@ namespace Robogame.Gameplay
             Chassis = SpawnPlayerChassis(state);
             BindFollowCamera(Chassis);
             BindBuoyancy(Chassis);
+            if (_spawnRepairPad) RepairPad.CreateProcedural(_repairPadPosition, transform);
         }
 
         private GameObject SpawnPlayerChassis(GameStateController state)

@@ -10,7 +10,7 @@ namespace Robogame.Player
     /// Tracks the firing chassis via <see cref="FollowCamera.Target"/>: a
     /// hit is "ours" iff its owner robot matches that target's
     /// <see cref="Robot"/> component. Subscribes to
-    /// <see cref="Projectile.Hit"/>; nothing else needed for routing.
+    /// <see cref="ProjectileWorld.HitLanded"/>; nothing else needed for routing.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class HitMarkerOverlay : MonoBehaviour
@@ -50,12 +50,12 @@ namespace Robogame.Player
 
         private void OnEnable()
         {
-            Projectile.Hit += HandleProjectileHit;
+            ProjectileWorld.HitLanded += HandleProjectileHit;
         }
 
         private void OnDisable()
         {
-            Projectile.Hit -= HandleProjectileHit;
+            ProjectileWorld.HitLanded -= HandleProjectileHit;
         }
 
         private void HandleProjectileHit(Robot owner, Vector3 worldPoint)

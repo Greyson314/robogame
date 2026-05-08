@@ -79,7 +79,20 @@ namespace Robogame.Gameplay
 
                 BlockGrid grid = EnsureComponent<BlockGrid>(root);
                 Robot robot = EnsureComponent<Robot>(root);
+                // Stash the blueprint + library on the Robot so repair-style
+                // systems (RepairPad) can re-place destroyed blocks without
+                // having to re-walk the GameStateController. Reference, not
+                // a copy — see Robot.Blueprint docs.
+                robot.Blueprint = blueprint;
+                robot.Library = library;
                 RobotDrive drive = EnsureComponent<RobotDrive>(root);
+                // Per-chassis wind loop. Plays the WindLoop cue at a
+                // speed-driven volume + pitch. Auto-no-op if the cue
+                // library is missing the entry. Bot chassis get one
+                // too; the cue's 2D blend means each chassis's wind
+                // sits in its own mix slot, with overall presence
+                // controlled by SFX bus volume.
+                EnsureComponent<Movement.ChassisWindAudio>(root);
 
                 // Input: handler reads from an InputActionAsset; if none is
                 // supplied the chassis will simply have no inputs (useful for
@@ -105,10 +118,14 @@ namespace Robogame.Gameplay
                     if (e.BlockId == BlockIds.Thruster) hasThruster = true;
                     if (e.BlockId == BlockIds.Rudder) hasRudder = true;
                     // Match any weapon-category block by id, so new weapon
-                    // variants (BombBay, future rocket pods, …) trigger the
-                    // weapon-mount + binder path without needing to be
-                    // listed individually here.
-                    if (e.BlockId == BlockIds.Weapon || e.BlockId == BlockIds.BombBay) hasWeapon = true;
+                    // variants (BombBay, Cannon, future rocket pods, …)
+                    // trigger the weapon-mount + binder path. Adding a new
+                    // weapon block requires a new id case here OR the
+                    // binder simply never sees the block and the chassis
+                    // ships without firing logic.
+                    if (e.BlockId == BlockIds.Weapon
+                        || e.BlockId == BlockIds.BombBay
+                        || e.BlockId == BlockIds.Cannon) hasWeapon = true;
                 }
 
                 if (hasWheels)
@@ -181,6 +198,12 @@ namespace Robogame.Gameplay
                 if (addPlayerInputs)
                 {
                     EnsureComponent<RobotHookReleaseInput>(root);
+
+                    // Self-righting flip hotkey (H). Polls the keyboard
+                    // each Update and snap-rotates the chassis so its
+                    // local +Y aligns with gravity-up. Player-only — bots
+                    // don't need a "get unstuck" button. Cooldown-gated.
+                    EnsureComponent<FlipController>(root);
                 }
 
                 // Ramming damage (kinetic-energy based). Lives on every
@@ -188,6 +211,12 @@ namespace Robogame.Gameplay
                 // collisions both deal mutual damage scaled by reduced
                 // mass and relative speed.
                 EnsureComponent<Robogame.Combat.MomentumImpactHandler>(root);
+
+                // Scrap drop on death. Subscribes to Robot.Destroyed and
+                // scatters a handful of ScrapPickup instances around the
+                // chassis centre. Lives on every chassis (player + bot)
+                // so any side's death yields collectible scrap.
+                EnsureComponent<ScrapDropper>(root);
 
                 // --- Place the blocks. Subsystems / binders subscribed above
                 //     receive BlockPlaced events and self-attach correctly. ---
@@ -266,6 +295,10 @@ namespace Robogame.Gameplay
             // receive) damage exactly as it would against another
             // player. Lives on the same root Rigidbody.
             EnsureComponent<Robogame.Combat.MomentumImpactHandler>(root);
+
+            // Scrap drop on death — same as Build(). A combat dummy
+            // killed by the player should still yield scrap.
+            EnsureComponent<ScrapDropper>(root);
 
             // Passive targets (CombatDummy, StressRotorTower, future AI)
             // must mirror the player's per-block attach hooks: BlockGrid

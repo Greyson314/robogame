@@ -4,7 +4,9 @@
     "references": [
         "Robogame.Core",
         "Robogame.Block",
+        "Robogame.Input",
         "Robogame.Movement",
+        "Robogame.Player",
         "Robogame.Gameplay",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

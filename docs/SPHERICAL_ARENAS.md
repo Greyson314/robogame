@@ -197,8 +197,8 @@ Audit, with verdicts.
 
 - **`GroundDriveSubsystem.cs`** — the bulk of the change. Cache `localUp` at the top of `ApplyDrive`, substitute throughout. ~6 call sites.
 - **`WheelBlock.cs`** — ground raycast direction + suspension force direction. 2 call sites.
-- **`Projectile.cs`** — gravity becomes `Vector3` not `float`. Re-sample `GravityField` per `FixedUpdate` step (cheap; one dot/sqrt). Velocity update becomes `_velocity += gravityVec * dt` instead of `_velocity += Vector3.down * (_gravity * dt)`. [Projectile.cs#L106](Assets/_Project/Scripts/Combat/Projectile.cs#L106)
-- **`ProjectileGun.cs`** — when launching a projectile, pass the gravity vector at the muzzle position (or pass `null` and let the projectile sample). Tiny.
+- **`ProjectileWorld.cs`** — `ProjectileSpec.GravityWorld` is already a `Vector3` (session 32). The integrator currently treats it as constant for the projectile's lifetime; the planet-aware version re-samples `GravityField` per `FixedUpdate` step inside the integrator loop (cheap — one dot/sqrt per active projectile per step). One call site near the velocity update.
+- **Weapon blocks (`ProjectileGun.cs` / `BombBayBlock.cs` / `CannonBlock.cs`)** — already pass a `GravityWorld` vector when building `ProjectileSpec`. For planet support, drop the bake-at-fire-time and let the world sample per-step. No call-site change beyond removing the per-fire scalar gravity computation.
 - **`WeaponBlock.cs`** / **`WeaponMount.cs`** — `Quaternion.LookRotation(dir, Vector3.up)` becomes `Quaternion.LookRotation(dir, localUp)` so turret yaw aligns with the local horizon. 3 call sites.
 - **`PlaneControlSubsystem.cs`** — bank signal currently uses `Vector3.up`; becomes `localUp`. The fact that this *just works* on a sphere is a reward for keeping aircraft physics frame-relative from the start. 1 call site.
 - **`BuoyancyController.cs`** — buoyancy force direction changes from `Vector3.up` to `localUp`. Plus the water-plane assumption needs to become a water-shell assumption (see [§10](#10-water-on-a-planet)).
@@ -317,13 +317,13 @@ Spawns a `Planet` GameObject at world origin with:
 
 ### Projectiles
 
-Already easy. `Projectile.cs` is a swept raycast that integrates its own velocity. Two changes:
+Already easy. `ProjectileWorld` (session 32) is a flat-array swept-cast integrator that owns every projectile's velocity. Two changes:
 
-1. **Gravity is a vector field, not a scalar.** Replace the `float _gravity` parameter with a re-sampled `Vector3` per `FixedUpdate` step. Physical accuracy improves slightly for long shots (gravity direction changes mid-flight as the projectile rounds the curve toward another part of the planet).
+1. **Gravity is a vector field, not a scalar.** `ProjectileSpec.GravityWorld` is already a `Vector3`, baked at fire time. The planet-aware version re-samples `GravityField` per step inside the integrator loop. Physical accuracy improves slightly for long shots (gravity direction changes mid-flight as the projectile rounds the curve toward another part of the planet).
 
 2. **Sweep raycast layer mask still works.** The planet is a `SphereCollider` on the ground layer; bullets stop on it like any other ground collider. No special handling.
 
-Code change is < 10 lines, isolated to [Projectile.cs](Assets/_Project/Scripts/Combat/Projectile.cs) and the call to `Launch` from [ProjectileGun.cs](Assets/_Project/Scripts/Combat/ProjectileGun.cs).
+Code change is < 10 lines, isolated to the integrator loop in [ProjectileWorld.cs](../Assets/_Project/Scripts/Combat/ProjectileWorld.cs).
 
 ### Aiming
 

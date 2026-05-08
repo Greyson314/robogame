@@ -61,7 +61,7 @@ namespace Robogame.Player
         [SerializeField, Min(1f)] private float _distance = 18f;
 
         [Tooltip("Vertical offset from the target's pivot to the look-at point.")]
-        [SerializeField] private float _height = 1f;
+        [SerializeField] private float _height = 2.4f;
 
         [Header("Zoom")]
         [Tooltip("Mouse-scroll zoom multiplier floor. 0.6 = camera can zoom IN to 60% of base distance (40% closer).")]
@@ -134,6 +134,11 @@ namespace Robogame.Player
 
         [Tooltip("Layers considered obstacles. Default: everything except IgnoreRaycast.")]
         [SerializeField] private LayerMask _obstacleMask = ~(1 << 2);
+
+        [Tooltip("Minimum height above the chassis target the camera is allowed to drop to. " +
+                 "Stops a ground-bot's pitch-down aim from pulling the camera underground via " +
+                 "the obstacle SphereCast. Set negative to disable.")]
+        [SerializeField] private float _minHeightAboveTarget = 0.5f;
 
         [Header("Rebinding")]
         [Tooltip("If true, auto-rebind the target when a Robot with the matching name is rebuilt.")]
@@ -458,9 +463,7 @@ namespace Robogame.Player
             float effectiveDistance = _distance * s_distanceMultiplier;
             Vector3 desired = lookAt + dir * effectiveDistance;
 
-            if (!_avoidObstacles) return desired;
-
-            if (Physics.SphereCast(
+            if (_avoidObstacles && Physics.SphereCast(
                     lookAt,
                     _collisionProbeRadius,
                     dir,
@@ -471,11 +474,23 @@ namespace Robogame.Player
             {
                 // Ignore hits on the player's own chassis so we don't pull
                 // the camera into our own root.
-                if (_target != null && hit.transform.IsChildOf(_target))
-                    return desired;
+                if (_target == null || !hit.transform.IsChildOf(_target))
+                {
+                    float clamped = Mathf.Max(0f, hit.distance - _collisionPadding);
+                    desired = lookAt + dir * clamped;
+                }
+            }
 
-                float clamped = Mathf.Max(0f, hit.distance - _collisionPadding);
-                return lookAt + dir * clamped;
+            // Y-floor: never let the camera dip below (target.y +
+            // _minHeightAboveTarget). A ground-bot pitching down hard
+            // to aim at another ground bot was using the SphereCast's
+            // terrain hit to pull the camera through ground; the
+            // floor breaks that geometry trap. Set
+            // _minHeightAboveTarget to a negative number to disable.
+            if (_target != null && _minHeightAboveTarget >= 0f)
+            {
+                float floorY = _target.position.y + _minHeightAboveTarget;
+                if (desired.y < floorY) desired.y = floorY;
             }
             return desired;
         }
@@ -511,7 +526,15 @@ namespace Robogame.Player
             return upAlign * Quaternion.Euler(_smoothPitch, _smoothYaw, 0f);
         }
 
-        private void ApplyCursorLock()
+        /// <summary>
+        /// Lock the OS cursor to the centre of the window and re-arm the
+        /// per-frame relock guard so a focus drop is auto-recovered. Public
+        /// so external systems (post-warmup gameplay resume, settings panel
+        /// dismiss) can hand cursor control back to the FollowCamera without
+        /// poking <c>Cursor.lockState</c> directly. No-op if
+        /// <c>_lockCursor</c> is disabled in the inspector.
+        /// </summary>
+        public void ApplyCursorLock()
         {
             if (!_lockCursor) return;
             Cursor.lockState = CursorLockMode.Locked;
@@ -519,7 +542,17 @@ namespace Robogame.Player
             _cursorWasLocked = true;
         }
 
-        private void ReleaseCursor()
+        /// <summary>
+        /// Release the OS cursor and stop the per-frame re-lock guard. Public
+        /// so external systems (match-end overlay, settings panel, scripted
+        /// cutscenes) can hand control back to the OS without fighting the
+        /// FollowCamera's "did focus drop?" relock heuristic in
+        /// <see cref="HandleCursorLockHotkey"/>. Without this, simply assigning
+        /// <c>Cursor.lockState = None</c> from outside lasts exactly one frame
+        /// because the next <see cref="LateUpdate"/> sees
+        /// <c>_cursorWasLocked == true</c> and re-locks.
+        /// </summary>
+        public void ReleaseCursor()
         {
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;

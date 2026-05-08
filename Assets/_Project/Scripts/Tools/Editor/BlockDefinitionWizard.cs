@@ -26,6 +26,10 @@ namespace Robogame.Tools.Editor
                 "Weapon_Smg", fireRate: 12f, muzzleSpeed: 80f, spreadDeg: 1.2f, damage: 25f, recoil: 5f);
             BombDefinition bombDef = CreateOrUpdateBombDefinition(
                 "Bomb_Default", dropInterval: 1.2f, damage: 80f, radius: 18f, initialSpeed: 2f);
+            CannonDefinition cannonDef = CreateOrUpdateCannonDefinition(
+                "Cannon_Default",
+                fireInterval: 0.85f, muzzleSpeed: 80f, damage: 60f,
+                ballRadius: 0.28f, recoil: 28f, ballMass: 5f);
 
             // Phase 1+2: every block reads through a shared, palette-backed
             // MK Toon material. Build them BEFORE the definitions so the
@@ -47,6 +51,12 @@ namespace Robogame.Tools.Editor
             CreateOrUpdate("BlockDef_Rudder",     BlockIds.Rudder,     "Rudder",         BlockCategory.Movement,  maxHealth:  60f, mass: 0.8f, cpuCost: 15, tint: w);
             CreateOrUpdate("BlockDef_Weapon",     BlockIds.Weapon,     "Hitscan Gun",    BlockCategory.Weapon,    maxHealth:  60f, mass: 1.5f, cpuCost: 20, tint: w, componentData: smgDef);
             CreateOrUpdate("BlockDef_BombBay",    BlockIds.BombBay,    "Bomb Bay",       BlockCategory.Weapon,    maxHealth: 110f, mass: 3.0f, cpuCost: 40, tint: w, componentData: bombDef);
+            // Cannon: pirate-themed gravity-projectile weapon. Slower
+            // fire rate than SMG (~1 shot/sec), heavier per-hit damage,
+            // gravity-affected so the player has to lead targets.
+            // Heavier than the SMG block so it reads as "real artillery"
+            // when placed on a chassis.
+            CreateOrUpdate("BlockDef_Cannon",     BlockIds.Cannon,     "Cannon",         BlockCategory.Weapon,    maxHealth:  90f, mass: 3.5f, cpuCost: 35, tint: w, componentData: cannonDef);
             // Rope is a Cosmetic free-body block: dangles a jointed
             // chain below the host cell. Cheap CPU + low mass so a
             // builder can hang one off any chassis without rebalancing.
@@ -189,6 +199,30 @@ namespace Robogame.Tools.Editor
             so.FindProperty("_damage").floatValue       = damage;
             so.FindProperty("_radius").floatValue       = radius;
             so.FindProperty("_initialSpeed").floatValue = initialSpeed;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(def);
+            return def;
+        }
+
+        private static CannonDefinition CreateOrUpdateCannonDefinition(
+            string assetName, float fireInterval, float muzzleSpeed, float damage,
+            float ballRadius, float recoil, float ballMass)
+        {
+            string path = $"{WeaponDefinitionsFolder}/{assetName}.asset";
+            CannonDefinition def = AssetDatabase.LoadAssetAtPath<CannonDefinition>(path);
+            if (def == null)
+            {
+                def = ScriptableObject.CreateInstance<CannonDefinition>();
+                AssetDatabase.CreateAsset(def, path);
+                Debug.Log($"[Robogame] Created {assetName} -> {path}");
+            }
+            SerializedObject so = new SerializedObject(def);
+            so.FindProperty("_fireInterval").floatValue   = fireInterval;
+            so.FindProperty("_muzzleSpeed").floatValue    = muzzleSpeed;
+            so.FindProperty("_damage").floatValue         = damage;
+            so.FindProperty("_ballRadius").floatValue     = ballRadius;
+            so.FindProperty("_recoilImpulse").floatValue  = recoil;
+            so.FindProperty("_ballMass").floatValue       = ballMass;
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(def);
             return def;

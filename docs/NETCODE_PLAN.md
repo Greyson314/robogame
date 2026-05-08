@@ -342,24 +342,26 @@ NGO 2.x has been adding a Network Animator and a Tick System but does **not** ha
 
 ## 9. Combat: Server-Authoritative Projectiles + Client Tracers
 
-The good news: our [Projectile.cs](Assets/_Project/Scripts/Combat/Projectile.cs) was deliberately built for this. It has **no Rigidbody**, runs a swept raycast in `FixedUpdate`, and applies damage on the same frame the hit happens. That's exactly what server-authoritative projectiles look like.
+Session 32 unified all projectiles (SMG, bomb, cannon) into a single custom-stepped service: [`ProjectileWorld`](../Assets/_Project/Scripts/Combat/ProjectileWorld.cs). **No projectile owns a Rigidbody or a PhysX collider.** The world integrates ballistic state in `FixedUpdate` (semi-implicit Euler) and per-step sweeps a `Physics.Raycast` or `Physics.SphereCast` for hit detection. That's already exactly what server-authoritative projectiles look like — no PhysX non-determinism to fight, no rollback gymnastics, no per-projectile network identity.
 
 ### Authoritative projectile flow
 
-1. **Client presses fire** → `ProjectileGun.RequestFire()` builds a `FireCommand { tick, aimDir, muzzlePose }` and:
-   - **Sends `ServerRpc(FireCommand)`** to the server.
-   - **Locally spawns a "ghost" tracer** — a visual-only `Projectile` instance that flies with no damage. This is the click-feedback the player sees.
+1. **Client presses fire** → weapon block builds a `ProjectileSpec` and calls `ProjectileWorld.Spawn(in spec)`. In MP, that call splits:
+   - **Sends `ServerRpc(FireCommand { tick, aimDir, muzzlePose, weaponBlockId })`** to the server.
+   - **Locally calls `ProjectileWorld.Spawn` with `damage = 0`** as a predicted ghost tracer — the click-feedback the player sees.
 
 2. **Server receives `ServerRpc`** →
    - Validates: was the gun off cooldown at `tick`? Is the aim within plausible bounds vs. the last received aim snapshot? Is the player alive?
-   - If valid: spawns an authoritative `Projectile` on the server, tracks it, applies damage on hit.
-   - Sends `ClientRpc(ProjectileSpawnEvent { id, originPose, velocity, ownerId })` to all clients.
+   - If valid: builds the authoritative `ProjectileSpec` and spawns into its own `ProjectileWorld`. Damage applies on hit.
+   - Sends `ClientRpc(ProjectileSpawnEvent { id, spec, ownerId, serverTickFired })` to all clients.
 
 3. **Clients receive the event** →
-   - The owning client **replaces** their ghost tracer with the authoritative one (or just lets the ghost die naturally — the visual lie is < 1 RTT and players don't notice).
-   - Other clients **spawn a non-authoritative tracer** for the visual.
+   - The owning client **replaces** their ghost (or lets it expire — the visual lie is < 1 RTT and players don't notice).
+   - Other clients spawn a non-authoritative cosmetic projectile through their own `ProjectileWorld`.
 
 4. **Server detects hit** → `ClientRpc(BlockHitBatch)` (see §7). Visual hit FX play on every client.
+
+The fact that the simulation is pure data (`pos`, `vel`, `gravity`, `lifetime`) rather than a `Rigidbody` GameObject is what makes step 4's lag-compensation rewind tractable in Phase 6+.
 
 ### Lag compensation (Phase 6+)
 

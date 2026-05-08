@@ -62,6 +62,34 @@ namespace Robogame.Movement
         // re-attach so the player can pull the rope free between swings.
         private float _releaseTime = -999f;
 
+        // The RopeBlock's chassis↔tip ConfigurableJoint, cached at
+        // adoption time. While grappled we soften this joint's spring
+        // to prevent resonance between two locked-distance constraints
+        // (chassis-tip + grapple) on a low-mass tip body — see Attach
+        // / Release for the swap rationale.
+        private ConfigurableJoint _chassisTipJoint;
+        private SoftJointLimitSpring _origChassisSpring;
+        private bool _origChassisSpringSaved;
+        // Soft values applied while grappled. Tuned so the rope still
+        // pulls the chassis back toward the grapple anchor (so the
+        // player can swing) but the spring force never spikes hard
+        // enough to instantly catapult a low-mass target into the
+        // chassis. See the bug writeup in the session-30 addendum.
+        private const float GrappledChassisSpring = 600f;
+        private const float GrappledChassisDamper = 250f;
+
+        // While grappled, temporarily fatten the tip Rigidbody. The
+        // chassis↔tip joint applies a restoring force F to the tip,
+        // which a Locked grapple joint would otherwise transmit to the
+        // target as full-velocity impulse (target a = F / m_target,
+        // unbounded for a low-mass barbell dummy). Heavier tip absorbs
+        // the impulse first — its own velocity gain caps the throughput
+        // before the constraint solver pushes the target. Restored on
+        // Release.
+        private const float GrappledTipMass = 25f;
+        private float _origTipMass = 0.5f;
+        private bool _origTipMassSaved;
+
         // Tuning. Per PHYSICS_PLAN §1.5 these are NOT Tweakables (they
         // affect gameplay outcomes — whether the hook detaches under a
         // given pull, how often a swung hook can re-grapple). They live
@@ -166,11 +194,44 @@ namespace Robogame.Movement
         // Grapple lifecycle
         // -----------------------------------------------------------------
 
+        /// <summary>
+        /// Hook intentionally suppresses contact damage. The hook's
+        /// purpose is to grapple — its KE damage path was killing the
+        /// target block on first contact, leaving the joint with
+        /// nothing to anchor to. The base class still plays the
+        /// TipImpact "thonk" sound and runs the per-pair cooldown;
+        /// only the TakeDamage call is skipped. The mace remains the
+        /// dedicated contact-damage tip.
+        /// </summary>
+        protected override float DamagePerKj => 0f;
+
         public override void AttachToHost(Rigidbody hostRb, Rigidbody ownerChassisRb)
         {
             base.AttachToHost(hostRb, ownerChassisRb);
             // Reset release time so a fresh adoption can grapple immediately.
             _releaseTime = -999f;
+            // Cache the chassis↔tip joint that RopeBlock added to our
+            // host Rigidbody. There is exactly one at this point — the
+            // grapple joint hasn't been added yet. Distinguishing later
+            // by connectedBody works too but caching now is cheaper and
+            // unambiguous.
+            CacheChassisTipJoint();
+        }
+
+        private void CacheChassisTipJoint()
+        {
+            _chassisTipJoint = null;
+            _origChassisSpringSaved = false;
+            if (_hostRb == null) return;
+            ConfigurableJoint[] joints = _hostRb.GetComponents<ConfigurableJoint>();
+            for (int i = 0; i < joints.Length; i++)
+            {
+                if (joints[i] == null) continue;
+                _chassisTipJoint = joints[i];
+                _origChassisSpring = joints[i].linearLimitSpring;
+                _origChassisSpringSaved = true;
+                break;
+            }
         }
 
         public override void DetachFromHost()
@@ -181,6 +242,23 @@ namespace Robogame.Movement
             // happen on tweakable changes etc.).
             Release();
             base.DetachFromHost();
+        }
+
+        // Hook GameObject is being destroyed — typically via combat
+        // damage on its BlockBehaviour (collision splash on impact, mace
+        // contact, etc). The grapple joint we created in Attach lives
+        // on the rope's tip-body GameObject, NOT on us, so without an
+        // explicit teardown here it survives our destruction and keeps
+        // pulling the chassis toward the (now-stale) grapple target.
+        // Symptom in session 35 follow-up: "hook disappears, rope
+        // remains, plane is yanked back as though attached to nothing."
+        // Release also restores the tip body's mass, kinematic state,
+        // and the chassis-tip joint's spring — the same teardown a
+        // normal R-key release does — so the rope returns to a clean
+        // dangling state that a later RepairPad regen can re-adopt.
+        private void OnDestroy()
+        {
+            Release();
         }
 
         protected internal override void HandleCollision(Collision collision)
@@ -258,6 +336,36 @@ namespace Robogame.Movement
 
             _grappleJoint  = joint;
             _grappleTarget = targetRb;
+
+            // Soften the chassis-tip joint while grappled. Two
+            // locked-distance constraints (chassis-tip + grapple) on
+            // a low-mass tip body compound: the chassis-tip spring
+            // (8000 N/m default) applies large restoring forces in
+            // a single FixedUpdate step, the grapple joint
+            // transmits them as impulses to the target before the
+            // grapple's own breakForce check trips, and a low-mass
+            // target gets catapulted toward the chassis. Lowering
+            // the spring + bumping the damper smears the restoring
+            // force over more frames so the system stays inside
+            // PhysX's normal force envelope.
+            if (_chassisTipJoint != null)
+            {
+                _chassisTipJoint.linearLimitSpring = new SoftJointLimitSpring
+                {
+                    spring = GrappledChassisSpring,
+                    damper = GrappledChassisDamper,
+                };
+            }
+
+            // Temporarily fatten the tip Rigidbody so its inertia
+            // absorbs the chassis-tip joint impulse before the locked
+            // grapple joint transmits it to the target. Without this,
+            // even with the soft spring above, a 0.5 kg tip rigidly
+            // coupled to a 1–5 kg target chassis launches that target
+            // before forces reach steady state.
+            _origTipMass = _hostRb.mass;
+            _origTipMassSaved = true;
+            _hostRb.mass = GrappledTipMass;
         }
 
         /// <summary>
@@ -273,6 +381,18 @@ namespace Robogame.Movement
                 if (Application.isPlaying) Destroy(_grappleJoint);
                 else                       DestroyImmediate(_grappleJoint);
                 _grappleJoint = null;
+            }
+            // Restore the chassis-tip joint's original spring/damper —
+            // we softened it in Attach to prevent grapple resonance.
+            if (_chassisTipJoint != null && _origChassisSpringSaved)
+            {
+                _chassisTipJoint.linearLimitSpring = _origChassisSpring;
+            }
+            // Restore the tip Rigidbody's original mass.
+            if (_hostRb != null && _origTipMassSaved)
+            {
+                _hostRb.mass = _origTipMass;
+                _origTipMassSaved = false;
             }
             // Restore kinematic mode so the simulator owns the body again
             // (matches the inverse of Attach above; see RopeBlock comment
@@ -294,8 +414,18 @@ namespace Robogame.Movement
                 if (_hostRb != null && !_hostRb.isKinematic)
                 {
                     // Path: PhysX broke the joint; nobody called Release.
-                    // Reverse Attach's state changes here.
+                    // Reverse Attach's state changes here — kinematic
+                    // mode, chassis-tip spring, and tip mass.
                     _hostRb.isKinematic = true;
+                    if (_chassisTipJoint != null && _origChassisSpringSaved)
+                    {
+                        _chassisTipJoint.linearLimitSpring = _origChassisSpring;
+                    }
+                    if (_origTipMassSaved)
+                    {
+                        _hostRb.mass = _origTipMass;
+                        _origTipMassSaved = false;
+                    }
                     _grappleTarget = null;
                     _releaseTime = Time.time;
                 }

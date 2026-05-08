@@ -1,46 +1,22 @@
-using System.Collections.Generic;
 using Robogame.Core;
 using Robogame.Input;
 using Robogame.Robots;
 using UnityEngine;
-using UnityEngine.Pool;
 
 namespace Robogame.Combat
 {
     /// <summary>
-    /// SMG-style pellet weapon. Reads from an <see cref="IInputSource"/> on
-    /// (or above) this GameObject and spawns pooled <see cref="Projectile"/>
-    /// bullets while fire is held. Replaces the old <c>HitscanGun</c> —
-    /// no weapon in this game is hitscan, by design.
+    /// SMG-style pellet weapon. Reads from an <see cref="IInputSource"/>
+    /// on (or above) this GameObject and asks <see cref="ProjectileWorld"/>
+    /// to spawn pooled, custom-stepped pellets while fire is held.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Why projectiles, not hitscan?</b> Hitscan flattens combat: there's
-    /// no aim lead, no cover-by-corner, no countering with speed. Robocraft's
-    /// best weapons all had projectile travel time you could read, react to,
-    /// and exploit. Even our "laser SMG" gets a visible tracer pellet so a
-    /// fast hover can drift a target out of a burst.
-    /// </para>
-    /// <para>
-    /// <b>Best-practice checklist applied here.</b>
-    /// <list type="bullet">
-    /// <item>Pool projectiles via <see cref="UnityEngine.Pool.ObjectPool{T}"/>
-    ///       so a sustained burst doesn't churn GC.</item>
-    /// <item>Damage is applied in <see cref="Projectile.FixedUpdate"/> via
-    ///       <see cref="Physics.RaycastNonAlloc"/>, never via Rigidbody
-    ///       collision callbacks — deterministic and server-auth-ready.</item>
-    /// <item>Fire rate / muzzle speed / spread / damage / recoil read from
-    ///       a per-weapon <see cref="WeaponDefinition"/> on the block's
-    ///       <see cref="Robogame.Block.BlockDefinition"/>. PHYSICS_PLAN
-    ///       § 5: gameplay-observable stats MUST live in server-
-    ///       authoritative blueprint data, not in per-machine Tweakables.</item>
-    /// <item>Fire is suppressed when the cursor is over UI (handled by
-    ///       <c>PlayerInputHandler.FireHeld</c>), so HUD clicks don't
-    ///       trigger bursts.</item>
-    /// <item>Statics that hold pooled GameObjects survive domain reload but
-    ///       the GameObjects don't — reset them at
-    ///       <see cref="RuntimeInitializeLoadType.SubsystemRegistration"/>.</item>
-    /// </list>
+    /// As of session 32, every projectile (SMG, bomb, cannon) flies
+    /// through a single shared integrator. This component is just the
+    /// fire trigger + spec builder. Recoil + muzzle flash + audio
+    /// remain here because they're chassis-side effects at the moment
+    /// of fire, not flight or impact concerns.
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
@@ -67,7 +43,7 @@ namespace Robogame.Combat
         [SerializeField] private float[] _splashRings = { 25f, 8f, 2f };
 
         [Header("Range")]
-        [Tooltip("Maximum projectile travel distance. Bullets self-despawn after this many metres OR Projectile.MaxLifetimeSeconds, whichever comes first.")]
+        [Tooltip("Maximum projectile travel distance. Bullets self-despawn after lifetime computed from this and muzzle speed.")]
         [SerializeField, Min(5f)] private float _range = 220f;
 
         [Header("Layers")]
@@ -87,20 +63,8 @@ namespace Robogame.Combat
         private Robogame.Block.BlockBehaviour _block;
         private float _nextFireTime;
 
-        // One pool shared by every gun in the scene. Projectiles are
-        // identical across guns (same procedural prefab), so pooling
-        // per-gun would just fragment the cache.
-        private static IObjectPool<Projectile> s_pool;
-        private static Material s_trailMaterial;
-        private static readonly List<Projectile> s_active = new(64);
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics()
-        {
-            s_pool = null;
-            s_trailMaterial = null;
-            s_active.Clear();
-        }
+        // Tracer tint for the trail. Warm cream → tracer feel.
+        private static readonly Color s_tracerHead = new Color(1f, 0.85f, 0.35f, 1f);
 
         private void Awake()
         {
@@ -147,14 +111,10 @@ namespace Robogame.Combat
 
         private void Fire()
         {
-            EnsurePool();
-            Projectile p = s_pool.Get();
-
-            // Resolve per-shot stats from the WeaponDefinition. Splash
-            // falloff (index 1+) keeps its inspector-default ratios so
-            // tuning the headline number doesn't accidentally rebalance
-            // splash propagation.
             float headline = ResolveDamage();
+            // Index 0 of the splash profile is the direct-hit damage —
+            // overwrite each fire so a tweaked WeaponDefinition damage
+            // value doesn't drift the splash falloff ratios.
             if (_splashRings.Length > 0) _splashRings[0] = headline;
 
             float speed = ResolveMuzzleSpeed();
@@ -163,35 +123,42 @@ namespace Robogame.Combat
             Vector3 origin = _muzzle.position;
             Vector3 dir = ApplySpread(_muzzle.forward, _muzzle.right, _muzzle.up, spreadDeg);
 
-            // Range is enforced by gating the projectile lifetime — at
-            // 80 m/s and 220 m range that's ~2.75 s of flight, well
-            // under Projectile.MaxLifetimeSeconds (4 s). If max range
-            // ever exceeds that wall we'd cap it on the projectile.
+            ProjectileSpec spec = new ProjectileSpec
+            {
+                Kind = ProjectileKind.SmgPellet,
+                Origin = origin,
+                InitialVelocity = dir * speed,
+                GravityWorld = Vector3.zero,           // SMG is flat-shooting
+                MaxLifetime = Mathf.Max(0.1f, _range / Mathf.Max(1f, speed)),
+                CastRadius = 0f,                       // ray cast — pellet sized
+                Damage = headline,
+                SplashRings = _splashRings,
+                SplashRadius = 0f,
+                HitMask = _hitMask,
+                Owner = _ownerRobot,
+                ShowTrail = true,
+                ShowMesh = false,
+                VisualTint = s_tracerHead,
+                VisualMeshDiameter = 0f,
+                ImpactAudioOverride = AudioCue.ProjectileImpact,
+            };
+            ProjectileWorld.Spawn(in spec);
 
-            p.transform.position = origin;
-            p.transform.forward = dir;
-            p.Launch(
-                origin: origin,
-                velocity: dir * speed,
-                gravity: 0f, // SMG pellets are flat-shooting; switch to >0 for ballistic weapons
-                splashRings: _splashRings,
-                hitMask: _hitMask,
-                owner: _ownerRobot,
-                onDespawn: ReleaseProjectile);
-            s_active.Add(p);
-
-            // Recoil: equal-and-opposite impulse at the muzzle. Applied at
-            // the muzzle position (not COM) so the moment arm gives a small
-            // pitch/yaw kick matching where the shot left the chassis. Uses
-            // ForceMode.Impulse so the value reads in N·s regardless of
-            // FixedUpdate dt. Skipped if 0 or if there's no chassis Rigidbody
-            // (free-floating editor weapons during scaffold).
+            // Recoil — equal-and-opposite impulse at the muzzle. Stays
+            // here (not in ProjectileWorld) because it's a chassis-side
+            // effect at the moment of fire, not a flight concern.
             float recoil = ResolveRecoilImpulse();
             if (recoil > 0f && _ownerRobot != null && _ownerRobot.Rigidbody != null)
             {
-                _ownerRobot.Rigidbody.AddForceAtPosition(
-                    -dir * recoil, origin, ForceMode.Impulse);
+                _ownerRobot.Rigidbody.AddForceAtPosition(-dir * recoil, origin, ForceMode.Impulse);
             }
+
+            // Muzzle flash + audio. Cone shape emits along +Z so we
+            // orient by shot direction. Scale tracks recoil weight so
+            // a future cannon SMG would ship a heavier flash.
+            float flashScale = Mathf.Lerp(0.6f, 1.4f, Mathf.InverseLerp(2f, 25f, recoil));
+            VfxSpawner.Spawn(VfxKind.MuzzleFlash, origin, dir, flashScale);
+            AudioRouter.PlayOneShot(AudioCue.WeaponFire, origin);
         }
 
         /// <summary>
@@ -207,64 +174,6 @@ namespace Robogame.Combat
             float r = Mathf.Tan(spreadDeg * Mathf.Deg2Rad);
             Vector2 disk = Random.insideUnitCircle * r;
             return (forward + right * disk.x + up * disk.y).normalized;
-        }
-
-        private static void ReleaseProjectile(Projectile p)
-        {
-            s_active.Remove(p);
-            // Pool may have been wiped by domain reload while the
-            // projectile was in flight; in that case just destroy.
-            if (s_pool == null || p == null) { if (p != null) Destroy(p.gameObject); return; }
-            s_pool.Release(p);
-        }
-
-        // -----------------------------------------------------------------
-        // Pool / prefab construction
-        // -----------------------------------------------------------------
-
-        private static void EnsurePool()
-        {
-            if (s_pool != null) return;
-
-            s_pool = new ObjectPool<Projectile>(
-                createFunc: CreateProjectile,
-                actionOnGet: p => p.gameObject.SetActive(true),
-                actionOnRelease: p => p.gameObject.SetActive(false),
-                actionOnDestroy: p => { if (p != null) Destroy(p.gameObject); },
-                collectionCheck: false,
-                defaultCapacity: 32,
-                maxSize: 256);
-        }
-
-        /// <summary>
-        /// Build a procedural projectile GameObject — no collider (the
-        /// projectile sweep-tests itself), single TrailRenderer for the
-        /// visible streak. We don't ship a prefab asset because the
-        /// scaffolder pipeline can't reliably author one without the
-        /// editor-only AssetDatabase, and we want runtime equality
-        /// between editor and standalone builds.
-        /// </summary>
-        private static Projectile CreateProjectile()
-        {
-            var go = new GameObject("Projectile");
-            DontDestroyOnLoad(go);
-            go.SetActive(false);
-
-            var trail = go.AddComponent<TrailRenderer>();
-            trail.time = 0.06f;
-            trail.startWidth = 0.12f;
-            trail.endWidth = 0.0f;
-            trail.minVertexDistance = 0.05f;
-            trail.numCapVertices = 2;
-            trail.startColor = new Color(1f, 0.85f, 0.35f, 1f); // warm tracer head
-            trail.endColor   = new Color(1f, 0.45f, 0.10f, 0f); // fades to transparent
-            trail.emitting = false;
-
-            if (s_trailMaterial == null)
-                s_trailMaterial = new Material(Shader.Find("Sprites/Default"));
-            trail.sharedMaterial = s_trailMaterial;
-
-            return go.AddComponent<Projectile>();
         }
     }
 }

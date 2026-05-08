@@ -28,7 +28,7 @@ namespace Robogame.Player
         [SerializeField, Min(80f)] private float _panelWidth = 220f;
 
         [Tooltip("Panel height in pixels.")]
-        [SerializeField, Min(40f)] private float _panelHeight = 92f;
+        [SerializeField, Min(40f)] private float _panelHeight = 122f;
 
         [Header("Look")]
         [SerializeField] private Color _bgColor = new Color(0f, 0f, 0f, 0.45f);
@@ -116,23 +116,26 @@ namespace Robogame.Player
             GUI.DrawTexture(bg, Texture2D.whiteTexture);
             GUI.color = prev;
 
-            float rowH = _panelHeight / 3f;
+            float rowH = _panelHeight / 4f;
             float altitude = _target.position.y;
             int blocks = _robot != null ? _robot.BlockCount : 0;
+            int scrap  = _robot != null ? _robot.ScrapHeld : 0;
             // Color the BLOCKS row red once integrity drops — quick visual
             // tell that you've taken damage without a full health bar.
             bool damaged = _maxBlockCount > 0 && blocks < _maxBlockCount;
             GUIStyle blockStyle = damaged ? _damageLabelStyle : _labelStyle;
 
-            Rect speedRect  = new Rect(x + 12f, y + 2f,            _panelWidth - 24f, rowH);
-            Rect altRect    = new Rect(x + 12f, y + rowH,          _panelWidth - 24f, rowH);
+            Rect speedRect  = new Rect(x + 12f, y + 2f,             _panelWidth - 24f, rowH);
+            Rect altRect    = new Rect(x + 12f, y + rowH,           _panelWidth - 24f, rowH);
             Rect blocksRect = new Rect(x + 12f, y + rowH * 2f - 2f, _panelWidth - 24f, rowH);
+            Rect scrapRect  = new Rect(x + 12f, y + rowH * 3f - 4f, _panelWidth - 24f, rowH);
             GUI.Label(speedRect,  $"SPD  {_displaySpeed:F1} m/s", _labelStyle);
             GUI.Label(altRect,    $"ALT  {altitude:F1} m",         _labelStyle);
             string blocksText = _maxBlockCount > 0
                 ? $"BLK  {blocks} / {_maxBlockCount}"
                 : $"BLK  {blocks}";
             GUI.Label(blocksRect, blocksText, blockStyle);
+            GUI.Label(scrapRect,  $"SCR  {scrap}",                _labelStyle);
         }
     }
 }

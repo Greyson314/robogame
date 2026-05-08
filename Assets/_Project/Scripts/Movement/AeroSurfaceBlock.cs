@@ -135,6 +135,13 @@ namespace Robogame.Movement
 
         private void OnEnable()
         {
+            // Defensive: re-run rig setup so a foil placed at runtime
+            // (e.g. RepairPad regen) is visually correct even if Awake's
+            // pass somehow didn't take. EnsureRig is idempotent — early-
+            // returns when _wingMesh is already set, so this is a free
+            // safety net.
+            EnsureRig();
+
             // Subscribe to BlockBehaviour.DimsChanged so a runtime SetDims
             // call (build-mode editing of an already-placed foil; tests)
             // re-applies the visual immediately.

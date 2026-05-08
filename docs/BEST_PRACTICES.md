@@ -262,27 +262,44 @@ relative to the chassis: turret yaw, rotor spin, opening hatches.
 ### 5.1 The damage flow
 
 ```
-Projectile.OnTriggerEnter / Raycast hit
-    → IDamageable on the hit collider's GameObject
-    → BlockBehaviour.TakeDamage(amount, hitPoint, normal)
-    → if HP <= 0:  queue destruction in Robot._pendingDeaths (HashSet<BlockBehaviour>)
-                   schedule a single FlushDeaths() at end-of-frame
+ProjectileWorld swept-cast hit  (or MomentumImpactHandler contact, or rope-tip hit)
+    → IDamageable on the hit collider's parent hierarchy
+    → BlockBehaviour.TakeDamage(amount)  → fires DamageDealt event
+    → if HP <= 0:  block destruction queued; connectivity flood-fill
+                   from CPU runs once at end-of-frame (Robot.cs)
 ```
 
-Don't destroy from inside the projectile callback. Always queue,
-flush once. This is the only way the connectivity flood-fill stays
-cheap and deterministic.
+Don't destroy from inside the hit callback. Always let
+`BlockBehaviour.TakeDamage` route through the established path. This
+is the only way the connectivity flood-fill stays cheap and
+deterministic.
 
-### 5.2 Hitscan vs. projectile
+### 5.2 Projectile architecture: one custom-stepped integrator
 
-- **Hitscan**: `Physics.Raycast` once per shot. Use a dedicated
-  `LayerMask` (e.g. `Layer_Damageable`) — never `Physics.RaycastAll`
-  unless you have a specific reason. Bake `QueryTriggerInteraction.Ignore`
-  into the call so triggers don't show up.
-- **Projectile**: pooled (§ 8), uses `CollisionDetectionMode.ContinuousDynamic`
-  if it's fast (>30 m/s). Below that, plain `Discrete` is fine.
-  Don't put rigidbodies on slow projectiles you can simulate
-  yourself with a script; PhysX overhead per object is non-trivial.
+Every projectile in the project — SMG pellet, gravity bomb, cannon
+shell — flows through a single `ProjectileWorld` service. **No
+projectile owns a Rigidbody or a PhysX collider.** The world
+integrates ballistic state in `FixedUpdate` (semi-implicit Euler)
+and per-step sweeps a `Physics.RaycastNonAlloc` (CastRadius=0) or
+`Physics.SphereCastNonAlloc` (CastRadius>0) for hit detection.
+Owner-collider self-filter is a `HashSet<Collider>` lookup at the
+cast layer.
+
+This is the textbook PvP-shooter pattern (Overwatch, Valorant,
+Apex, Crossout, World of Tanks all converge on it). Rationale and
+runner-up architectures: see [docs/changes/32-projectile-unification.md](changes/32-projectile-unification.md).
+
+**Rigidbody projectiles are forbidden going forward** — they
+re-introduce the entire failure surface that motivated the
+unification (PhysX non-determinism across machines, contact storms
+through `MomentumImpactHandler`, spawn-overlap edge cases at the
+muzzle, tunnelling at speed, can't lag-compensate). New weapon
+kinds add a `ProjectileKind` enum value and build a
+`ProjectileSpec` at fire time. That's it.
+
+Hitscan stays available for free as `CastRadius=0, MaxLifetime=tiny`
+in the same world — but you generally don't want it for this game's
+combat (Robocraft's depth comes from leadable shots).
 
 ### 5.3 Debris lifetime
 
@@ -398,8 +415,8 @@ Use **`UnityEngine.Pool.ObjectPool<T>`** (built-in since Unity 2021).
 Don't roll your own.
 
 ```csharp
-private readonly ObjectPool<Projectile> _projectiles = new(
-    createFunc:        () => Instantiate(_projectilePrefab),
+private readonly ObjectPool<MyEffect> _pool = new(
+    createFunc:        () => Instantiate(_prefab),
     actionOnGet:       p => p.gameObject.SetActive(true),
     actionOnRelease:   p => p.gameObject.SetActive(false),
     actionOnDestroy:   p => Destroy(p.gameObject),
@@ -410,12 +427,17 @@ private readonly ObjectPool<Projectile> _projectiles = new(
 
 Things to pool now:
 
-- Projectiles, muzzle flashes, hit-effect particles
-- Damage number popups
-- Debris-block prefabs (after detachment)
-- Coroutines that fire often (use Awaitable / UniTask instead)
+- Muzzle-flash and hit-spark particle systems (handled by `VfxSpawner`).
+- One-shot audio voices (handled by `AudioRouter`).
+- Visual proxies for projectiles (handled internally by
+  `ProjectileWorld`'s trail/mesh pools — projectiles themselves are
+  pure data inside the world's flat array, not GameObjects).
+- Damage-number floaters (handled by `FloatingDamageOverlay`'s
+  per-target accumulator pool).
+- Debris-block prefabs (after detachment) — open follow-up.
+- Coroutines that fire often (use Awaitable / UniTask instead).
 - Stack/HashSet/List buffers for the connectivity flood-fill
-  (`UnityEngine.Pool.ListPool<T>`, `HashSetPool<T>`, `StackPool<T>`)
+  (`UnityEngine.Pool.ListPool<T>`, `HashSetPool<T>`, `StackPool<T>`).
 
 Things **not** to pool:
 

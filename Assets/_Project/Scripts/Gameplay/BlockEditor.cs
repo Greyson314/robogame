@@ -437,7 +437,17 @@ namespace Robogame.Gameplay
             // block defaults.
             Vector3 dims = _variantPanel != null ? _variantPanel.GetDimsForBlock(id) : Vector3.zero;
             if (_grid.PlaceBlock(def, _targetPlaceCell, Vector3Int.up, dims) != null)
+            {
                 SyncBlueprintFromGrid();
+                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.BlockPlace);
+            }
+            else
+            {
+                // Placement rejected by the grid (collision / off-grid /
+                // unauthorised cell). Surface the buzzer so the user
+                // hears the same "no" they see.
+                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
+            }
         }
 
         private void TryRemove()
@@ -448,6 +458,7 @@ namespace Robogame.Gameplay
             if (block.Definition != null && block.Definition.Category == BlockCategory.Cpu)
             {
                 Debug.Log("[Robogame] BlockEditor: CPU cannot be removed in build mode.");
+                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
                 return;
             }
 
@@ -455,11 +466,15 @@ namespace Robogame.Gameplay
             if (WouldOrphanIfRemoved(_targetHitCell, out int orphanCount))
             {
                 Debug.Log($"[Robogame] BlockEditor: removal blocked — would orphan {orphanCount} block(s).");
+                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
                 return;
             }
 
             if (_grid.RemoveBlock(_targetHitCell))
+            {
                 SyncBlueprintFromGrid();
+                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.BlockRemove);
+            }
         }
 
         /// <summary>

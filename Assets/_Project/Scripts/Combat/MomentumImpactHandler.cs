@@ -141,6 +141,17 @@ namespace Robogame.Combat
             // handler will run independently and bill its own bookkeeping.
             ApplyDamageAtContact(_robot, contact.thisCollider, contact.point, s_ringScratch);
 
+            // Ram-spark VFX scaled by impact energy. Hard scrapes (low kJ)
+            // get a small flash; serious crashes get a fragment puff.
+            // Only spawn once per logical impact — pair-cooldown above
+            // already dedupes across the multiple OnCollisionEnter calls
+            // PhysX can fire for the same touch.
+            float sparkScale = Mathf.Clamp(0.6f + 0.04f * energyKj, 0.6f, 2.0f);
+            VfxSpawner.Spawn(VfxKind.RamSpark, contact.point, contact.normal, sparkScale);
+            // Audio mirrors the same dedup — one ram clang per logical
+            // collision pair. 3D-positional, attenuates by distance.
+            AudioRouter.PlayOneShot(AudioCue.ChassisRam, contact.point);
+
             // Bodies without their own handler still need to take damage
             // (destructible props, IDamageable widgets that aren't wired
             // through ChassisFactory). Detect by absence of handler on

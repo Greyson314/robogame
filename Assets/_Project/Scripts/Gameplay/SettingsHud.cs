@@ -72,6 +72,17 @@ namespace Robogame.Gameplay
             EnsureEventSystem();
             BuildPanel();
             SetOpen(false);
+            // Re-apply the time-scale gate when the user toggles the
+            // QoL.PauseOnSettings flag while the panel is open.
+            Tweakables.Changed += ApplyPause;
+        }
+
+        private void OnDestroy()
+        {
+            Tweakables.Changed -= ApplyPause;
+            // Restore time scale on teardown so a scene reload while
+            // the panel was open doesn't leave the next scene paused.
+            Time.timeScale = 1f;
         }
 
         private void Update()
@@ -115,6 +126,23 @@ namespace Robogame.Gameplay
                 Cursor.lockState = CursorLockMode.None;
                 if (_searchField != null) _searchField.text = string.Empty;
             }
+            ApplyPause();
+        }
+
+        // Time-scale gate driven by the QoL.PauseOnSettings tweakable.
+        // Disambiguates "settings is open AND user wants pause" from
+        // "settings is open AND user wants live tuning". When the tween
+        // tweakable flips while the panel is open (rare — only by
+        // navigating to it, toggling, and looking at gameplay live),
+        // ApplyPause re-fires via Tweakables.Changed.
+        private void ApplyPause()
+        {
+            bool pauseOn = Tweakables.GetBool(Tweakables.SettingsPause);
+            // Use unscaledTime everywhere we set timeScale so paused-
+            // ness doesn't break the audio expire-sweep, the kill-
+            // banner fade, or the floating-damage animations. Project
+            // already migrated those paths.
+            Time.timeScale = (_open && pauseOn) ? 0f : 1f;
         }
 
         /// <summary>True while the settings panel is currently visible.</summary>
@@ -786,6 +814,7 @@ namespace Robogame.Gameplay
             AddKeybindRow(g, "Camera zoom (orbit)",      "Mouse wheel");
             AddKeybindRow(g, "Release grapples",         "R");
             AddKeybindRow(g, "Respawn player",           "K");
+            AddKeybindRow(g, "Begin combat (warmup → live)", "`  (backtick)");
             AddKeybindRow(g, "Toggle settings",          "Esc");
             AddKeybindRow(g, "Toggle dev HUD",           "F1");
 
@@ -967,6 +996,10 @@ namespace Robogame.Gameplay
             img.color = new Color(0.18f, 0.22f, 0.28f, 1f);
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
+            // Audio cue on every Settings button. Method-group listener
+            // so we don't capture a closure per button. Caller adds
+            // their gameplay listener separately.
+            btn.onClick.AddListener(PlayUiClick);
             ColorBlock cols = btn.colors;
             cols.highlightedColor = new Color(0.95f, 0.55f, 0.10f, 1f);
             cols.pressedColor = new Color(0.7f, 0.4f, 0.05f, 1f);
@@ -987,6 +1020,12 @@ namespace Robogame.Gameplay
             t.alignment = TextAnchor.MiddleCenter;
             return btn;
         }
+
+        // Method-group hook so AddListener doesn't allocate a closure
+        // per button. Static so the AddButton helper (also static) can
+        // bind it without a captured `this`.
+        private static void PlayUiClick()
+            => Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.UiClick);
 
         private static void AddTabPill(Transform parent, string label, Vector2 anchoredPos)
         {

@@ -246,6 +246,19 @@ namespace Robogame.Movement
 
             // RaycastNonAlloc + skip self so the cursor doesn't latch onto our chassis.
             int count = Physics.RaycastNonAlloc(ray, s_aimHits, _aimRange, _aimMask, QueryTriggerInteraction.Ignore);
+            // Two-tier resolution: prefer damageable targets (chassis,
+            // dummies, destructibles) over inert geometry (ground,
+            // arena walls). Without this, a ground-vs-ground aim from
+            // an above-chassis camera tilts the screen-centre ray
+            // through the ground BEFORE reaching the enemy — every
+            // shot lands at the player's feet, and the only way to
+            // hit is to tilt the camera below the horizon. Walking
+            // hits twice keeps the priority logic explicit while
+            // staying allocation-free (s_aimHits is a static buffer).
+            float bestDamageableDist = float.MaxValue;
+            Vector3 bestDamageable = Vector3.zero;
+            bool foundDamageable = false;
+
             float bestDist = float.MaxValue;
             Vector3 best = ray.origin + ray.direction * _aimRange;
             // Cache the chassis grid for the in-loop self-check.
@@ -272,13 +285,28 @@ namespace Robogame.Movement
                         continue;
                     }
                 }
-                if (s_aimHits[i].distance < bestDist)
+                float d = s_aimHits[i].distance;
+                // Damageable check: any IDamageable in the parent
+                // hierarchy. GetComponentInParent walks up; allocation-
+                // free for interfaces in modern Unity.
+                if (hitCol.GetComponentInParent<Robogame.Core.IDamageable>() != null
+                    && d < bestDamageableDist)
                 {
-                    bestDist = s_aimHits[i].distance;
+                    bestDamageableDist = d;
+                    bestDamageable = s_aimHits[i].point;
+                    foundDamageable = true;
+                }
+                if (d < bestDist)
+                {
+                    bestDist = d;
                     best = s_aimHits[i].point;
                 }
             }
-            return best;
+            // Damageable wins if found, regardless of whether ground
+            // sat in front of it. Falls through to the closest non-
+            // self hit (or the ray's endpoint) when nothing damageable
+            // is in view.
+            return foundDamageable ? bestDamageable : best;
         }
     }
 }

@@ -14,7 +14,6 @@ Material:
   m_ValidKeywords: []
   m_InvalidKeywords:
   - _CastShadows
-  - _CastShadowsEnabled
   - _FinsEnabled
   - _ReceiveAmbientLightingEnabled
   - _ReceiveDirectLightingEnabled
@@ -28,7 +27,8 @@ Material:
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
   stringTagMap: {}
-  disabledShaderPasses: []
+  disabledShaderPasses:
+  - SHADOWCASTER
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3

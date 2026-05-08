@@ -5,7 +5,8 @@ namespace Robogame.Combat
     /// <summary>
     /// Per-bomb-bay-block payload + drop tuning. Same role as
     /// <see cref="WeaponDefinition"/> but for the gravity-bomb path
-    /// (<see cref="BombBayBlock"/> / <see cref="Bomb"/>).
+    /// (<see cref="BombBayBlock"/> → <see cref="ProjectileWorld"/>'s
+    /// area-splash dispatch).
     /// </summary>
     /// <remarks>
     /// Splits the four bomb knobs out of the <c>Tweakables</c> registry

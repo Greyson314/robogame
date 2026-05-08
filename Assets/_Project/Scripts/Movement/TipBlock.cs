@@ -43,6 +43,14 @@ namespace Robogame.Movement
                  "tune this in their inspector for per-tip balance.")]
         [SerializeField, Min(0f)] private float _damagePerKj = 2.0f;
 
+        /// <summary>
+        /// Effective HP-per-kJ used by the damage path. Defaults to the
+        /// SerializeField above; subclasses (e.g. <see cref="HookBlock"/>)
+        /// can override to suppress contact damage entirely while
+        /// keeping the audio + cooldown plumbing.
+        /// </summary>
+        protected virtual float DamagePerKj => _damagePerKj;
+
         [Tooltip("Relative-velocity floor below which contacts deal no damage. " +
                  "Stops idle rope-bumps from chip-damaging blocks.")]
         [SerializeField, Min(0f)] private float _minSpeedForDamage = 4.0f;
@@ -140,11 +148,27 @@ namespace Robogame.Movement
                 return;
             _cooldownByOther[key] = now;
 
-            // Speed gate.
+            // Speed gate. Below this we treat the contact as a soft
+            // bump — no audio, no damage, no cooldown bookkeeping cost.
             float minSpeed = Mathf.Max(0f, _minSpeedForDamage);
             Vector3 vRel = collision.relativeVelocity;
             float speed = vRel.magnitude;
             if (speed < minSpeed) return;
+
+            // Audio: play the impact "thonk" before the damage branch so
+            // a damage-suppressed tip (HookBlock returns 0) still gets
+            // the contact sound. Position from the first contact point
+            // so the cue spatialises at where the swing actually landed.
+            Vector3 contactPoint = collision.contactCount > 0
+                ? collision.GetContact(0).point
+                : transform.position;
+            AudioRouter.PlayOneShot(AudioCue.TipImpact, contactPoint);
+
+            // Damage. Subclasses can suppress contact damage by
+            // overriding DamagePerKj to return 0 — the audio + cooldown
+            // paths above still run so the swing reads as a hit.
+            float dmgPerKj = Mathf.Max(0f, DamagePerKj);
+            if (dmgPerKj <= 0f) return;
 
             // Reduced mass. Static / kinematic targets collapse μ → m_self
             // since they don't share kinetic energy on impact.
@@ -153,7 +177,6 @@ namespace Robogame.Movement
             float mu = float.IsPositiveInfinity(mOther) ? mSelf : mSelf * mOther / (mSelf + mOther);
             float energyJ = 0.5f * mu * speed * speed;
             float energyKj = energyJ * 0.001f;
-            float dmgPerKj = Mathf.Max(0f, _damagePerKj);
             float damage = energyKj * dmgPerKj;
             if (damage <= 0f) return;
 

@@ -111,6 +111,24 @@ namespace Robogame.Block
             return dealt;
         }
 
+        /// <summary>
+        /// Restore HP back up toward <see cref="BlockDefinition.MaxHealth"/>.
+        /// Returns the actual amount healed (clamped to the room remaining
+        /// below max). No-op on a destroyed (zero-HP) block — those are
+        /// removed from the grid by the time HP would matter, and bringing
+        /// them back is the repair pad's job, not this method's.
+        /// </summary>
+        public float Heal(float amount)
+        {
+            if (!IsAlive || amount <= 0f || _definition == null) return 0f;
+            float room = Mathf.Max(0f, _definition.MaxHealth - _currentHealth);
+            if (room <= 0f) return 0f;
+            float applied = Mathf.Min(amount, room);
+            _currentHealth += applied;
+            UpdateDamageVisual();
+            return applied;
+        }
+
         // -----------------------------------------------------------------
         // Visuals
         // -----------------------------------------------------------------

@@ -49,6 +49,54 @@ namespace Robogame.Robots
 
         public bool IsDestroyed { get; private set; }
 
+        /// <summary>
+        /// Scrap currency held by this chassis. Incremented by
+        /// <see cref="AwardScrap"/> when a <c>ScrapPickup</c> is collected;
+        /// the foundation for future systems (match score integration,
+        /// build-mode purchasing, persistent currency).
+        /// </summary>
+        public int ScrapHeld { get; private set; }
+
+        /// <summary>
+        /// Raised after <see cref="ScrapHeld"/> changes. Args: this Robot,
+        /// the delta that was just applied. Subscribers (HUD, match score,
+        /// future systems) read the totals off the Robot directly.
+        /// </summary>
+        public event Action<Robot, int> ScrapAwarded;
+
+        /// <summary>
+        /// Add <paramref name="amount"/> scrap to <see cref="ScrapHeld"/>.
+        /// Called by <c>ScrapPickup</c> on collection. Negative values are
+        /// rejected — spend paths should add a separate <c>SpendScrap</c>
+        /// when they exist so audit / rollback is explicit.
+        /// </summary>
+        public void AwardScrap(int amount)
+        {
+            if (amount <= 0) return;
+            ScrapHeld += amount;
+            ScrapAwarded?.Invoke(this, amount);
+        }
+
+        /// <summary>
+        /// The blueprint this chassis was built from, stashed by
+        /// <c>ChassisFactory.Build</c> at spawn time. Consumed by repair-style
+        /// systems (e.g. <c>RepairPad</c>) that need to know which cells are
+        /// "supposed to be there" so they can re-place destroyed blocks.
+        /// </summary>
+        /// <remarks>
+        /// Reference, not a copy: the same ScriptableObject the player edited
+        /// in the garage. Repair callers must not mutate it. Null on chassis
+        /// built outside the factory pipeline (legacy editor scaffolds, tests).
+        /// </remarks>
+        public Block.ChassisBlueprint Blueprint { get; set; }
+
+        /// <summary>
+        /// The block definition library that paired with <see cref="Blueprint"/>
+        /// at spawn. Repair systems need this to resolve a blueprint entry's
+        /// <c>BlockId</c> back to a definition for re-placement.
+        /// </summary>
+        public Block.BlockDefinitionLibrary Library { get; set; }
+
         /// <summary>Raised exactly once when the robot transitions to destroyed.</summary>
         public event Action<Robot> Destroyed;
 
@@ -187,6 +235,22 @@ namespace Robogame.Robots
         {
             Movement.RobotDrive drive = GetComponent<Movement.RobotDrive>();
             return drive != null ? drive.GetCenterOfMassOffset() : Vector3.zero;
+        }
+
+        /// <summary>
+        /// Re-baseline <see cref="InitialBlockMass"/> and
+        /// <see cref="InitialBlockCount"/> against the current grid state.
+        /// Called by the repair pad after a successful gradual rebuild so
+        /// the mass-loss destroy threshold doesn't fire on the next chip
+        /// of damage. <see cref="CpuBlock"/> is also re-resolved in case
+        /// the original CPU was lost and the rebuild dropped a fresh one.
+        /// </summary>
+        public void ResetInitialAggregates()
+        {
+            RecalculateAggregates();
+            InitialBlockMass = TotalBlockMass;
+            InitialBlockCount = BlockCount;
+            CpuBlock = FindCpuBlock();
         }
 
         /// <summary>Recompute mass, CPU, count, COM, and inertia tensor from the grid; sync to the rigidbody.</summary>
@@ -374,6 +438,25 @@ namespace Robogame.Robots
             Vector3 worldPos = t.position;
             Quaternion worldRot = t.rotation;
             Vector3 worldScale = t.lossyScale;
+
+            // Dust puff at the detach point. Single one-shot per block
+            // detached; the spawner caps the concurrent count so a wreck
+            // that sheds 30 blocks in one frame doesn't turn into a
+            // particle storm.
+            Robogame.Core.VfxSpawner.Spawn(
+                Robogame.Core.VfxKind.DebrisDust,
+                worldPos,
+                Quaternion.identity);
+
+            // Audio: same per-block cadence as the dust puff. The
+            // AudioRouter's voice pool caps simultaneous voices at 24,
+            // so a chassis shedding 30 blocks in one frame gets ~24
+            // crunches and the rest are dropped — acceptable for a
+            // crackling collapse, intentionally not a single big boom
+            // (the chassis-destroyed boom can come in a future cue).
+            Robogame.Core.AudioRouter.PlayOneShot(
+                Robogame.Core.AudioCue.BlockDestroyed,
+                worldPos);
 
             t.SetParent(null, worldPositionStays: true);
             t.position = worldPos;

@@ -312,6 +312,7 @@ namespace Robogame.Gameplay
             cols.fadeDuration     = 0.10f;
             btn.colors = cols;
             btn.onClick.AddListener(() => onClick?.Invoke());
+            btn.onClick.AddListener(PlayUiClick);
 
             // Left side accent bar — shows orange on hover via a sibling
             // image whose alpha fades with selection state. Cheap polish.
@@ -339,5 +340,11 @@ namespace Robogame.Gameplay
             t.color = s_textColor;
             t.alignment = TextAnchor.MiddleCenter;
         }
+
+        // Method-group hook so per-button AddListener doesn't allocate a
+        // closure. Static for the same reason it lives in SettingsHud /
+        // SceneTransitionHud.
+        private static void PlayUiClick()
+            => Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.UiClick);
     }
 }

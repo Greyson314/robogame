@@ -93,5 +93,33 @@ namespace Robogame.Core
         /// <summary>Single projectile's swept-ray ballistic step.</summary>
         public static readonly ProfilerMarker ProjectileFixedUpdate
             = new ProfilerMarker("Robogame.Projectile.FixedUpdate");
+
+        // -----------------------------------------------------------------
+        // Match / AI loop
+        // -----------------------------------------------------------------
+
+        /// <summary>Per-frame match state-machine tick (timer + win-condition checks).</summary>
+        public static readonly ProfilerMarker MatchControllerUpdate
+            = new ProfilerMarker("Robogame.Match.Update");
+
+        /// <summary>Per-bot AI brain tick (target select, steering, fire decisions).</summary>
+        public static readonly ProfilerMarker BotInputUpdate
+            = new ProfilerMarker("Robogame.Bot.InputUpdate");
+
+        // -----------------------------------------------------------------
+        // Repair / one-shot rebuilds
+        // -----------------------------------------------------------------
+
+        /// <summary>One step of a RepairPad gradual rebuild — heal-one-block or place-one-block. Tagged so a slow heal cadence is visible against frame budget.</summary>
+        public static readonly ProfilerMarker RepairPadStep
+            = new ProfilerMarker("Robogame.RepairPad.Step");
+
+        // -----------------------------------------------------------------
+        // VFX
+        // -----------------------------------------------------------------
+
+        /// <summary>VfxSpawner.Update — sweeps live instances and returns expired ones to the pool.</summary>
+        public static readonly ProfilerMarker VfxSpawnerUpdate
+            = new ProfilerMarker("Robogame.Vfx.SpawnerUpdate");
     }
 }

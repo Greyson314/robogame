@@ -45,6 +45,13 @@ namespace Robogame.Combat
                 bay.Bind(_mount);
                 return;
             }
+            if (id == BlockIds.Cannon)
+            {
+                CannonBlock cannon = block.GetComponent<CannonBlock>();
+                if (cannon == null) cannon = block.gameObject.AddComponent<CannonBlock>();
+                cannon.Bind(_mount);
+                return;
+            }
 
             WeaponBlock weapon = block.GetComponent<WeaponBlock>();
             if (weapon == null) weapon = block.gameObject.AddComponent<WeaponBlock>();

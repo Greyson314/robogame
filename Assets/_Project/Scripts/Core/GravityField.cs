@@ -2,19 +2,20 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Robogame.Gameplay
+namespace Robogame.Core
 {
     /// <summary>
     /// Anything in the scene that can pull rigidbodies toward it. The
-    /// canonical implementation is <see cref="PlanetBody"/>; future
-    /// designs (gravity wells, anti-grav volumes) implement the same
+    /// canonical implementation is <c>PlanetBody</c> (in Robogame.Gameplay);
+    /// future designs (gravity wells, anti-grav volumes) implement the same
     /// interface and register with <see cref="GravityField"/>.
     /// </summary>
     /// <remarks>
-    /// Lives in <c>Robogame.Gameplay</c> rather than <c>Robogame.Core</c>
-    /// for v1 — see [docs/SPHERICAL_ARENAS.md](../../../../../docs/SPHERICAL_ARENAS.md)
-    /// §6 "New Components". Promote to Core once flat arenas also need
-    /// to query it (i.e. once the substitution work in Phase A starts).
+    /// Promoted to <c>Robogame.Core</c> in session 34 — the original v1
+    /// home was <c>Robogame.Gameplay</c>, but chassis-level systems
+    /// (FlipController et al.) live in lower asmdef tiers and need to
+    /// sample gravity. See [docs/SPHERICAL_ARENAS.md](../../../../../docs/SPHERICAL_ARENAS.md)
+    /// §6 "New Components" — this is the move that doc anticipated.
     /// </remarks>
     public interface IGravitySource
     {
@@ -38,19 +39,10 @@ namespace Robogame.Gameplay
     /// one in v1 that registers a source.
     /// </para>
     /// <para>
-    /// This is a v1 sketch — the full design (with summing across
-    /// multiple sources, dominant-source queries, and core-namespace
-    /// hosting) lives in
-    /// [docs/SPHERICAL_ARENAS.md](../../../../../docs/SPHERICAL_ARENAS.md)
-    /// §3 and §6 and is enacted by the Phase A rollout.
-    /// </para>
-    /// <para>
-    /// <b>File layout note:</b> only the interface and this static
-    /// registry live here. <see cref="PlanetBody"/> and
-    /// <see cref="PlanetGravityBody"/> sit in their own files because
-    /// Unity won't serialize a MonoBehaviour whose filename doesn't
-    /// match the class name — the script GUID lookup fails silently
-    /// and the component is dropped on save.
+    /// Statics survive domain reload but registered MonoBehaviour-backed
+    /// sources do not — the registry is reset by
+    /// <see cref="ResetStatics"/> on <c>SubsystemRegistration</c> so the
+    /// list never carries stale entries from a prior play session.
     /// </para>
     /// </remarks>
     public static class GravityField
@@ -59,6 +51,14 @@ namespace Robogame.Gameplay
 
         public static event Action<IGravitySource> SourceAdded;
         public static event Action<IGravitySource> SourceRemoved;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            s_sources.Clear();
+            SourceAdded = null;
+            SourceRemoved = null;
+        }
 
         public static void Register(IGravitySource source)
         {

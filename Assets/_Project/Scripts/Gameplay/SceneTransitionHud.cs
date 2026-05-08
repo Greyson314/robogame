@@ -168,6 +168,7 @@ namespace Robogame.Gameplay
             lrt.offsetMax = Vector2.zero;
 
             _button.onClick.AddListener(HandleClick);
+            _button.onClick.AddListener(PlayUiClick);
 
             BuildPresetDropdown(canvasGO.transform);
             _newButton    = BuildSmallButton(canvasGO.transform, "NewRobotButton",    "+ New Robot",  row: 1, HandleNewClicked);
@@ -226,8 +227,15 @@ namespace Robogame.Gameplay
             lrt.offsetMax = Vector2.zero;
 
             btn.onClick.AddListener(onClick);
+            btn.onClick.AddListener(PlayUiClick);
             return btn;
         }
+
+        // Method group hook so AddListener doesn't capture a closure.
+        // Static so it can be added even before the controller is fully
+        // initialised (during BuildHud's initial wiring).
+        private static void PlayUiClick()
+            => Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.UiClick);
 
         private void BuildPresetDropdown(Transform canvas)
         {
