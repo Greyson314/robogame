@@ -321,6 +321,30 @@ namespace Robogame.Movement
         // builds, hence the param.
         private void OnDestroy()
         {
+            // If we hid the mechanism cube's mesh during play, restore
+            // it so a player who removes this rotor in build mode sees
+            // the cube again instead of a permanent gap. Harmless on
+            // chassis-teardown destroy paths — the cube's GameObject is
+            // also being destroyed and SetHostMeshVisible is a cheap
+            // bool toggle.
+            if (_mechanismCellMeshHidden)
+            {
+                BlockGrid grid = GetComponentInParent<BlockGrid>();
+                if (grid != null)
+                {
+                    Vector3 spinAxisGrid = (transform.localRotation * _spinAxisLocal).normalized;
+                    Vector3Int spinAxisGridInt = Vector3Int.RoundToInt(spinAxisGrid);
+                    BlockBehaviour rotorBlock = GetComponent<BlockBehaviour>();
+                    if (rotorBlock != null)
+                    {
+                        Vector3Int mechanismCell = rotorBlock.GridPosition + spinAxisGridInt;
+                        if (grid.TryGetBlock(mechanismCell, out BlockBehaviour neighbor) && neighbor != null)
+                        {
+                            BlockVisuals.SetHostMeshVisible(neighbor.gameObject, true);
+                        }
+                    }
+                }
+            }
             DestroyLiftRig(reparentFoils: false);
             _audioLoop?.Stop();
             _audioLoop = null;

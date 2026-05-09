@@ -480,6 +480,7 @@ namespace Robogame.Gameplay
             bool placed = _grid.PlaceBlock(def, _targetPlaceCell, placeUp, dims, pitch) != null;
             if (placed)
             {
+                AutoPlaceCompanionsOf(def, _targetPlaceCell, placeUp);
                 TryMirrorPlace(def, _targetPlaceCell, placeUp, dims, pitch);
                 SyncBlueprintFromGrid();
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.BlockPlace);
@@ -505,8 +506,19 @@ namespace Robogame.Gameplay
                 return;
             }
 
-            // Connectivity: would removing this orphan any other block?
-            if (BlockGraph.WouldOrphanIfRemoved(_grid, _targetHitCell, _bfsBuffers, out int orphanCount))
+            // Rotor cascade: removing a rotor co-removes its auto-placed
+            // mechanism cube IF the cube is otherwise dependent on the
+            // rotor. Without this, the orphan check would block every
+            // rotor removal — the cube was placed for the rotor and has
+            // no other neighbours initially.
+            Vector3Int? cascadeCell = ResolveRotorCascadeCell(block, _targetHitCell);
+
+            int orphanCount;
+            bool wouldOrphan = cascadeCell.HasValue
+                ? BlockGraph.WouldOrphanIfRemoved(_grid, _targetHitCell, cascadeCell.Value, _bfsBuffers, out orphanCount)
+                : BlockGraph.WouldOrphanIfRemoved(_grid, _targetHitCell, _bfsBuffers, out orphanCount);
+
+            if (wouldOrphan)
             {
                 Debug.Log($"[Robogame] BlockEditor: removal blocked — would orphan {orphanCount} block(s).");
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
@@ -515,10 +527,54 @@ namespace Robogame.Gameplay
 
             if (_grid.RemoveBlock(_targetHitCell))
             {
+                if (cascadeCell.HasValue) _grid.RemoveBlock(cascadeCell.Value);
                 TryMirrorRemove(_targetHitCell);
                 SyncBlueprintFromGrid();
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.BlockRemove);
             }
+        }
+
+        /// <summary>
+        /// If <paramref name="block"/> is a rotor whose mechanism cube
+        /// would be orphaned by its removal, return the mechanism cell
+        /// so the caller can cascade-remove both. Returns null when the
+        /// rotor has dependents on the cube (blades, chained structure)
+        /// — in that case the orphan check on the rotor alone correctly
+        /// blocks the removal until the dependents go first.
+        /// </summary>
+        private Vector3Int? ResolveRotorCascadeCell(BlockBehaviour block, Vector3Int blockCell)
+        {
+            if (_grid == null || block == null || block.Definition == null) return null;
+            if (block.Definition.Id != BlockIds.Rotor) return null;
+            Vector3Int spinAxis = block.Up == Vector3Int.zero ? Vector3Int.up : block.Up;
+            Vector3Int mechCell = blockCell + spinAxis;
+            if (!_grid.TryGetBlock(mechCell, out BlockBehaviour mech) || mech == null) return null;
+            if (mech.Definition == null || mech.Definition.Id != BlockIds.Cube) return null;
+            // Only cascade when the cube has no neighbours other than
+            // this rotor — otherwise blades or chained structure are at
+            // stake, and the user should be the one to clear them.
+            if (CountAdjacentBlocksExcluding(mechCell, blockCell) > 0) return null;
+            return mechCell;
+        }
+
+        private static readonly Vector3Int[] s_cascadeFaces =
+        {
+            new Vector3Int( 1, 0, 0), new Vector3Int(-1, 0, 0),
+            new Vector3Int( 0, 1, 0), new Vector3Int( 0,-1, 0),
+            new Vector3Int( 0, 0, 1), new Vector3Int( 0, 0,-1),
+        };
+
+        private int CountAdjacentBlocksExcluding(Vector3Int cell, Vector3Int excluded)
+        {
+            if (_grid == null) return 0;
+            int count = 0;
+            for (int i = 0; i < s_cascadeFaces.Length; i++)
+            {
+                Vector3Int n = cell + s_cascadeFaces[i];
+                if (n == excluded) continue;
+                if (_grid.HasBlock(n)) count++;
+            }
+            return count;
         }
 
         // -----------------------------------------------------------------
@@ -530,6 +586,38 @@ namespace Robogame.Gameplay
         private bool MirrorActive =>
             _mirrorMode != null && _mirrorMode.Enabled;
 
+        /// <summary>
+        /// Auto-place the structural companions a primary block needs to
+        /// be usable. Called once per successful placement (primary side
+        /// + once per mirror side), best-effort — silent if any
+        /// companion fails its own placement (cell occupied, etc.).
+        /// </summary>
+        /// <remarks>
+        /// <b>Rotor.</b> A rotor's only connective face is its spin
+        /// axis (per <see cref="BlockConnectivity.IsConnectiveFace"/>),
+        /// so a from-scratch rotor is unusable until a structural cube
+        /// goes on that face — that's the cell where the rotor's disc +
+        /// crossbars actually live, and the cube hosts the four blades.
+        /// The default-helicopter preset does this implicitly via
+        /// <see cref="BlueprintBuilder.RotorWithFoils"/>; the build-mode
+        /// editor mirrors that behaviour so a placed rotor immediately
+        /// behaves like the preset's.
+        /// </remarks>
+        private void AutoPlaceCompanionsOf(BlockDefinition def, Vector3Int cell, Vector3Int up)
+        {
+            if (def == null || _grid == null) return;
+            if (def.Id == BlockIds.Rotor)
+            {
+                GameStateController state = GameStateController.Instance;
+                if (state == null || state.Library == null) return;
+                BlockDefinition cubeDef = state.Library.Get(BlockIds.Cube);
+                if (cubeDef == null) return;
+                Vector3Int mechanismCell = cell + up;
+                if (_grid.HasBlock(mechanismCell)) return;
+                _grid.PlaceBlock(cubeDef, mechanismCell, up, Vector3.zero, 0f);
+            }
+        }
+
         private void TryMirrorPlace(BlockDefinition def, Vector3Int cell, Vector3Int up, Vector3 dims, float pitchDeg)
         {
             if (!MirrorActive) return;
@@ -540,7 +628,8 @@ namespace Robogame.Gameplay
             float mPitch     = BlockMirror.MirrorPitch(pitchDeg, up, axis);
             if (mCell == cell) return;
             if (!IsValidPlacement(mCell, mUp)) return;
-            _grid.PlaceBlock(def, mCell, mUp, dims, mPitch);
+            BlockBehaviour mPlaced = _grid.PlaceBlock(def, mCell, mUp, dims, mPitch);
+            if (mPlaced != null) AutoPlaceCompanionsOf(def, mCell, mUp);
         }
 
         private void TryMirrorRemove(Vector3Int cell)
@@ -552,8 +641,19 @@ namespace Robogame.Gameplay
             if (mCell == cell) return;
             if (!_grid.Blocks.TryGetValue(mCell, out BlockBehaviour mBlock) || mBlock == null) return;
             if (mBlock.Definition != null && mBlock.Definition.Category == BlockCategory.Cpu) return;
-            if (BlockGraph.WouldOrphanIfRemoved(_grid, mCell, _bfsBuffers, out _)) return;
+
+            // Mirror cascade: same rotor → cube logic as the primary
+            // path so a mirrored rotor + cube pair removes cleanly when
+            // the user right-clicks one rotor in mirror mode.
+            Vector3Int? cascadeCell = ResolveRotorCascadeCell(mBlock, mCell);
+
+            bool wouldOrphan = cascadeCell.HasValue
+                ? BlockGraph.WouldOrphanIfRemoved(_grid, mCell, cascadeCell.Value, _bfsBuffers, out _)
+                : BlockGraph.WouldOrphanIfRemoved(_grid, mCell, _bfsBuffers, out _);
+            if (wouldOrphan) return;
+
             _grid.RemoveBlock(mCell);
+            if (cascadeCell.HasValue) _grid.RemoveBlock(cascadeCell.Value);
         }
 
         /// <summary>

@@ -172,5 +172,51 @@ namespace Robogame.Block
             orphanCount = total - buffers.Visited.Count;
             return orphanCount > 0;
         }
+
+        /// <summary>
+        /// Two-cell variant of <see cref="WouldOrphanIfRemoved(BlockGrid,Vector3Int,Buffers,out int)"/>.
+        /// Used by cascade-removal paths (e.g. removing a rotor + its
+        /// auto-placed mechanism cube together so the orphan check
+        /// doesn't false-positive on the cube that was the rotor's only
+        /// dependent).
+        /// </summary>
+        public static bool WouldOrphanIfRemoved(BlockGrid grid, Vector3Int cellA, Vector3Int cellB, Buffers buffers, out int orphanCount)
+        {
+            orphanCount = 0;
+            if (grid == null || buffers == null) return false;
+            Vector3Int? cpu = FindCpuCell(grid);
+            if (!cpu.HasValue) return false;
+            if (cpu.Value == cellA || cpu.Value == cellB) return false;
+
+            BfsFromIgnoreTwo(grid, cpu.Value, cellA, cellB, buffers);
+            int total = grid.Count - 2; // pretend both are gone
+            orphanCount = total - buffers.Visited.Count;
+            return orphanCount > 0;
+        }
+
+        private static void BfsFromIgnoreTwo(BlockGrid grid, Vector3Int root, Vector3Int ignA, Vector3Int ignB, Buffers buffers)
+        {
+            if (buffers == null) return;
+            buffers.Clear();
+            if (grid == null) return;
+            if (!grid.HasBlock(root)) return;
+            if (root == ignA || root == ignB) return;
+
+            buffers.Visited.Add(root);
+            buffers.Frontier.Enqueue(root);
+            while (buffers.Frontier.Count > 0)
+            {
+                Vector3Int c = buffers.Frontier.Dequeue();
+                for (int i = 0; i < s_face.Length; i++)
+                {
+                    Vector3Int n = c + s_face[i];
+                    if (n == ignA || n == ignB) continue;
+                    if (buffers.Visited.Contains(n)) continue;
+                    if (!grid.HasBlock(n)) continue;
+                    buffers.Visited.Add(n);
+                    buffers.Frontier.Enqueue(n);
+                }
+            }
+        }
     }
 }

@@ -98,22 +98,22 @@ MonoBehaviour:
     Pitch: 0
   - BlockId: block.movement.aero
     Position: {x: 0, y: -1, z: 5}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: 0, y: -1, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.movement.aero
     Position: {x: -1, y: 0, z: 5}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: -1, y: 0, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: 5}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: 0, y: 0, z: 1}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.movement.aero
     Position: {x: 1, y: 0, z: 5}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: 1, y: 0, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.movement.aero
