@@ -103,20 +103,25 @@ namespace Robogame.Gameplay
             // 2. Re-enable player input.
             if (_playerInput != null) _playerInput.enabled = true;
 
-            // Note: chassis stays parked — GarageController owns that state
-            // and Respawn() below will rebuild + re-park anyway.
-
+            // Note: chassis stays parked — GarageController owns that
+            // state and its Exited subscriber will rebuild + re-park if
+            // requestRespawn is asked for. Build-mode lifecycle no
+            // longer reaches into GarageController via FindAnyObjectByType,
+            // so this controller can drive a non-garage scene (network
+            // preflight, spectator builder) without changes.
+            ExitRequestedRespawn = requestRespawn;
             Exited?.Invoke();
-
-            // 3. Rebuild the chassis from the (possibly edited) blueprint
-            //    so subsystem composition (drive subsystems, weapon binders)
-            //    reflects the final block list.
-            if (requestRespawn)
-            {
-                GarageController garage = FindAnyObjectByType<GarageController>();
-                if (garage != null) garage.Respawn();
-            }
         }
+
+        /// <summary>
+        /// Hint the most recent <see cref="Exit"/> caller's
+        /// <c>requestRespawn</c> argument. Subscribers to
+        /// <see cref="Exited"/> read this to decide whether to
+        /// trigger a chassis respawn. Defaults to <c>true</c> so
+        /// any callers that set the field via <see cref="Exit()"/>
+        /// without checking get the historical behaviour.
+        /// </summary>
+        public bool ExitRequestedRespawn { get; private set; } = true;
 
         /// <summary>Toggle convenience for hotkey hookups.</summary>
         public void Toggle()

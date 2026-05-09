@@ -38,7 +38,8 @@ namespace Robogame.Gameplay
         /// will configure on the placed block.
         /// </summary>
         public static GameObject Build(BlockDefinition def, Material initialMat,
-            Vector3 dims = default, Vector3Int targetCell = default, Vector3Int up = default)
+            Vector3 dims = default, Vector3Int targetCell = default, Vector3Int up = default,
+            float pitchDeg = 0f)
         {
             var root = new GameObject("BlockGhost");
             // Parent will set position/rotation; root scale stays 1 so the
@@ -55,7 +56,7 @@ namespace Robogame.Gameplay
                     break;
                 case BlockIds.Aero:
                 case BlockIds.AeroFin:
-                    BuildWing(root.transform, dims: dims, cellPos: targetCell);
+                    BuildWing(root.transform, dims: dims, cellPos: targetCell, pitchDeg: pitchDeg);
                     break;
                 case BlockIds.Rudder:
                     BuildRudder(root.transform);
@@ -137,15 +138,19 @@ namespace Robogame.Gameplay
                 Quaternion.Euler(90f, 0f, 0f), new Vector3(0.5f, 0.4f, 0.5f));
         }
 
-        private static void BuildWing(Transform parent, Vector3 dims, Vector3Int cellPos)
+        private static void BuildWing(Transform parent, Vector3 dims, Vector3Int cellPos, float pitchDeg)
         {
             // Single source of truth — the same helpers the placed
             // AeroSurfaceBlock uses for its mesh. Build-mode placement
             // is never rotor-adopted at hover time, so rotorMode=false.
+            // Pitch rotates the visual around foil-local +Z (chord axis),
+            // matching AeroSurfaceBlock.ApplyOrientationToVisual so the
+            // ghost mirrors what the placed block will look like.
             AeroSurfaceBlock.ResolveDims(dims, out float span, out float thickness, out float chord);
             Vector3 size = AeroSurfaceBlock.ComputeFoilMeshScale(span, thickness, chord, rotorMode: false);
             Vector3 shift = AeroSurfaceBlock.ComputeWingShift(cellPos, span, rotorMode: false);
-            Spawn(parent, PrimitiveType.Cube, shift, Quaternion.identity, size);
+            Quaternion pitchRot = Quaternion.AngleAxis(pitchDeg, Vector3.forward);
+            Spawn(parent, PrimitiveType.Cube, shift, pitchRot, size);
         }
 
         private static void BuildWeapon(Transform parent)

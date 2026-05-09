@@ -16,13 +16,6 @@ namespace Robogame.Block
     /// </remarks>
     public static class BlueprintValidator
     {
-        private static readonly Vector3Int[] s_faceOffsets = new[]
-        {
-            new Vector3Int( 1, 0, 0), new Vector3Int(-1, 0, 0),
-            new Vector3Int( 0, 1, 0), new Vector3Int( 0,-1, 0),
-            new Vector3Int( 0, 0, 1), new Vector3Int( 0, 0,-1),
-        };
-
         public static BlueprintValidationResult Validate(BlueprintPlan plan, BlockDefinitionLibrary library = null)
         {
             BlueprintValidationResult r = new BlueprintValidationResult();
@@ -55,32 +48,73 @@ namespace Robogame.Block
                 }
             }
 
-            // 3. CPU connectivity via face-adjacency BFS. Mirrors the
-            //    runtime BlockGrid.FindDisconnectedFrom flood-fill.
+            // 3. CPU connectivity via face-adjacency BFS. Same primitive
+            //    the runtime placement/removal paths use; one
+            //    implementation in BlockGraph.
             if (cpuCount >= 1)
             {
                 HashSet<Vector3Int> positions = new HashSet<Vector3Int>(plan.Entries.Length);
                 foreach (ChassisBlueprint.Entry e in plan.Entries) positions.Add(e.Position);
-                HashSet<Vector3Int> visited = new HashSet<Vector3Int> { cpuPos };
-                Queue<Vector3Int> q = new Queue<Vector3Int>();
-                q.Enqueue(cpuPos);
-                while (q.Count > 0)
-                {
-                    Vector3Int cur = q.Dequeue();
-                    for (int i = 0; i < s_faceOffsets.Length; i++)
-                    {
-                        Vector3Int next = cur + s_faceOffsets[i];
-                        if (positions.Contains(next) && visited.Add(next)) q.Enqueue(next);
-                    }
-                }
+                BlockGraph.Buffers buffers = new BlockGraph.Buffers();
+                BlockGraph.BfsFrom(positions, cpuPos, buffers);
                 foreach (ChassisBlueprint.Entry e in plan.Entries)
                 {
-                    if (!visited.Contains(e.Position))
+                    if (!buffers.Visited.Contains(e.Position))
                         r.AddError($"Cell {e.Position} ({e.BlockId}) is not connected to the CPU via face-adjacency.");
                 }
             }
 
-            // 4. Swept-volume overlap. Default-dim blocks are unit cubes that
+            // 4. Per-entry placement rules: host-exists, host-is-not-leaf,
+            //    side-mount face. These are the same rules
+            //    BlockEditor.IsValidPlacement enforces at click time, so a
+            //    blueprint loaded from disk that violates any of them
+            //    can't quietly slip past the editor's "what's a legal
+            //    placement" gate. Library is required to look up
+            //    definitions (we need IsLeaf / RequiresSideMount).
+            if (library != null)
+            {
+                Dictionary<Vector3Int, ChassisBlueprint.Entry> byCell = new Dictionary<Vector3Int, ChassisBlueprint.Entry>(plan.Entries.Length);
+                foreach (ChassisBlueprint.Entry e in plan.Entries)
+                {
+                    // SetEntries' canonical sort guarantees stable iteration;
+                    // duplicate-cell entries are already an error from rule 1
+                    // so the last-write-wins behaviour here is harmless.
+                    byCell[e.Position] = e;
+                }
+                foreach (ChassisBlueprint.Entry e in plan.Entries)
+                {
+                    if (e.BlockId == BlockIds.Cpu) continue; // CPU has no host
+                    BlockDefinition def = library.Get(e.BlockId);
+                    if (def == null) continue;             // covered by rule 2
+
+                    // Mount-face: side-mount-only blocks (wheels) reject ±Y up.
+                    if (!BlockConnectivity.IsValidMountFace(def, e.EffectiveUp))
+                    {
+                        r.AddError(
+                            $"Cell {e.Position} ({e.BlockId}) has invalid mount face " +
+                            $"up={e.EffectiveUp} for a side-mount-only block.");
+                    }
+
+                    // Host-exists + host-is-non-leaf. Cells whose host is
+                    // outside the blueprint are caught by rule 3
+                    // (connectivity), but we also flag them here for a
+                    // more specific message. Treat the CPU as a non-leaf
+                    // host implicitly.
+                    Vector3Int hostCell = e.Position - e.EffectiveUp;
+                    if (byCell.TryGetValue(hostCell, out ChassisBlueprint.Entry hostEntry))
+                    {
+                        if (BlockConnectivity.IsLeafId(hostEntry.BlockId))
+                        {
+                            r.AddError(
+                                $"Cell {e.Position} ({e.BlockId}) is hosted on cell " +
+                                $"{hostCell} ({hostEntry.BlockId}) which is a leaf — " +
+                                $"nothing can mount on a leaf block's faces.");
+                        }
+                    }
+                }
+            }
+
+            // 5. Swept-volume overlap. Default-dim blocks are unit cubes that
             //    fit their cell, so this only matters for scalable parts
             //    (foils today, more in later phases) whose extent depends on
             //    Dims. Cell size of 1.0 because overlap is scale-invariant —
@@ -108,7 +142,7 @@ namespace Robogame.Block
                 }
             }
 
-            // 5. Pitch range. Soft warning past ±18° (stall margin per
+            // 6. Pitch range. Soft warning past ±18° (stall margin per
             //    AeroSurfaceBlock._stallAoA = 0.35 rad ≈ 20°), hard error
             //    past ±20° so blueprints can't author pitches that the
             //    physics will silently clamp anyway.

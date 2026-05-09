@@ -39,11 +39,15 @@ namespace Robogame.Gameplay
         [SerializeField] private BuildHotbar _hotbar;
         [SerializeField] private BuildModeController _buildMode;
 
-        // Per-block "next placement" caches. Defaults are zero meaning
-        // "use the block's authored defaults" — the consuming block
-        // resolves accordingly.
-        private readonly Dictionary<string, Vector3> _dimsByBlockId = new();
-        private readonly Dictionary<string, float> _pitchByBlockId = new();
+        // Per-block "next placement" caches live on the BuildSession
+        // (the plain-C# build-mode model). The panel reads/writes through
+        // the session so editor + variant + ghost agree on one answer.
+        private BuildSession _session;
+        public BuildSession Session
+        {
+            get => _session;
+            set => _session = value;
+        }
 
         // ----- UGUI -----
         private GameObject _root;
@@ -116,11 +120,7 @@ namespace Robogame.Gameplay
         /// it that way and let the consuming block decide.
         /// </summary>
         public Vector3 GetDimsForBlock(string blockId)
-        {
-            if (string.IsNullOrEmpty(blockId)) return Vector3.zero;
-            _dimsByBlockId.TryGetValue(blockId, out Vector3 v);
-            return v;
-        }
+            => _session != null ? _session.GetVariantDims(blockId) : Vector3.zero;
 
         /// <summary>
         /// Read the cached "next placement" pitch for <paramref name="blockId"/>
@@ -128,17 +128,15 @@ namespace Robogame.Gameplay
         /// back to the SO collective).
         /// </summary>
         public float GetPitchForBlock(string blockId)
-        {
-            if (string.IsNullOrEmpty(blockId)) return 0f;
-            _pitchByBlockId.TryGetValue(blockId, out float v);
-            return v;
-        }
+            => _session != null ? _session.GetVariantPitch(blockId) : 0f;
 
-        /// <summary>True when the block id participates in the variant config UI.</summary>
-        public static bool IsVariableBlock(string id)
-            => id == BlockIds.Aero || id == BlockIds.AeroFin
-            || id == BlockIds.Rope
-            || id == BlockIds.Rotor;
+        /// <summary>
+        /// True when the block id participates in the variant config UI.
+        /// Delegates to <see cref="BlockVariants.HasVariantConfigId"/>
+        /// so the hotbar 'VAR' badge, the panel visibility, and any
+        /// future schema-side reader stay aligned on a single answer.
+        /// </summary>
+        public static bool IsVariableBlock(string id) => BlockVariants.HasVariantConfigId(id);
 
         // -----------------------------------------------------------------
         // Lifecycle
@@ -176,8 +174,7 @@ namespace Robogame.Gameplay
         {
             // Fresh edit session starts from block defaults — see file
             // remarks on why we don't persist across sessions.
-            _dimsByBlockId.Clear();
-            _pitchByBlockId.Clear();
+            if (_session != null) _session.ResetVariantCaches();
             if (_hotbar != null) HandleSelectedBlockChanged(_hotbar.SelectedBlockId);
         }
 
@@ -282,7 +279,7 @@ namespace Robogame.Gameplay
             _suppressCallbacks = true;
             _foilPitchPrimary.value = snapped;
             _suppressCallbacks = false;
-            _pitchByBlockId[id] = snapped;
+            _session?.SetVariantPitch(id, snapped);
             UpdateFoilPitchValue(snapped);
             UpdateFoilReadout();
         }
@@ -298,7 +295,7 @@ namespace Robogame.Gameplay
             if (string.IsNullOrEmpty(id)) return;
             Vector3 dims = GetDimsForBlock(id);
             dims.x = rounded;
-            _dimsByBlockId[id] = dims;
+            _session?.SetVariantDims(id, dims);
             UpdateValueText(_ropeSegmentValue, rounded, "F0");
         }
 
@@ -311,7 +308,7 @@ namespace Robogame.Gameplay
             _suppressCallbacks = true;
             _rotorCollectiveSlider.value = snapped;
             _suppressCallbacks = false;
-            _pitchByBlockId[id] = snapped;
+            _session?.SetVariantPitch(id, snapped);
             UpdateValueText(_rotorCollectiveValue, snapped, "F0");
             UpdateRotorReadout();
         }
@@ -328,7 +325,7 @@ namespace Robogame.Gameplay
             if (axis == 0) dims.x = snapped;
             else if (axis == 1) dims.y = snapped;
             else dims.z = snapped;
-            _dimsByBlockId[id] = dims;
+            _session?.SetVariantDims(id, dims);
             UpdateValueText(valueText, snapped, fmt);
             UpdateFoilReadout();
         }
@@ -444,17 +441,17 @@ namespace Robogame.Gameplay
         private void ApplyFoilPreset(float span, float thickness, float chord, float pitchDeg)
         {
             string id = _activeBlockId;
-            if (string.IsNullOrEmpty(id)) return;
-            _dimsByBlockId[id] = new Vector3(span, thickness, chord);
-            _pitchByBlockId[id] = pitchDeg;
+            if (string.IsNullOrEmpty(id) || _session == null) return;
+            _session.SetVariantDims(id, new Vector3(span, thickness, chord));
+            _session.SetVariantPitch(id, pitchDeg);
             HandleSelectedBlockChanged(id); // re-syncs sliders
         }
 
         private void ApplyRotorPreset(float collective)
         {
             string id = _activeBlockId;
-            if (string.IsNullOrEmpty(id)) return;
-            _pitchByBlockId[id] = collective;
+            if (string.IsNullOrEmpty(id) || _session == null) return;
+            _session.SetVariantPitch(id, collective);
             HandleSelectedBlockChanged(id);
         }
 

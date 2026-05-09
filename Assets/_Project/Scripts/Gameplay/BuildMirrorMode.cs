@@ -29,8 +29,24 @@ namespace Robogame.Gameplay
         [Tooltip("Hotkey that cycles mirror axis (X → Z → X) while build mode is active.")]
         [SerializeField] private Key _cycleAxisKey = Key.B;
 
-        public bool Enabled { get; private set; }
-        public MirrorAxis Axis { get; private set; } = MirrorAxis.X;
+        // Mirror state lives on the BuildSession so editor + ghost
+        // factory + variant panel all see the same answer. This
+        // component is now a thin hotkey + HUD adapter over the model.
+        private BuildSession _session;
+        public BuildSession Session
+        {
+            get => _session;
+            set
+            {
+                if (_session != null) _session.MirrorChanged -= HandleSessionChanged;
+                _session = value;
+                if (_session != null) _session.MirrorChanged += HandleSessionChanged;
+                UpdateHudText();
+            }
+        }
+
+        public bool Enabled => _session != null ? _session.MirrorEnabled : false;
+        public MirrorAxis Axis => _session != null ? _session.MirrorAxis : MirrorAxis.X;
 
         /// <summary>Raised whenever Enabled or Axis changes — ghost preview rebuilds on this.</summary>
         public event Action Changed;
@@ -51,12 +67,23 @@ namespace Robogame.Gameplay
             }
         }
 
-        public void Toggle() { Enabled = !Enabled; UpdateHudText(); Changed?.Invoke(); }
+        public void Toggle()
+        {
+            if (_session == null) return;
+            _session.ToggleMirror();
+        }
 
         public void SetAxis(MirrorAxis axis)
         {
-            if (Axis == axis) return;
-            Axis = axis;
+            if (_session == null) return;
+            _session.SetMirrorAxis(axis);
+        }
+
+        // BuildSession.MirrorChanged → re-fire as our own Changed event
+        // for back-compat with existing subscribers (the editor's ghost
+        // rebuild trigger). Keeps the migration cheap.
+        private void HandleSessionChanged()
+        {
             UpdateHudText();
             Changed?.Invoke();
         }
@@ -72,6 +99,7 @@ namespace Robogame.Gameplay
         private void OnDestroy()
         {
             Unsubscribe();
+            if (_session != null) _session.MirrorChanged -= HandleSessionChanged;
         }
 
         private void Subscribe()

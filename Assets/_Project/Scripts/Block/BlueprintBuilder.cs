@@ -144,46 +144,26 @@ namespace Robogame.Block
         /// duplicated. The mount-up vector is mirrored too: a block with
         /// up=(1,0,0) on the +X side becomes up=(-1,0,0) on the -X side.
         /// </summary>
-        public BlueprintBuilder MirrorX(Action<BlueprintBuilder> action)
-        {
-            int countBefore = _entries.Count;
-            action(this);
-            int countAfter = _entries.Count;
-            for (int i = countBefore; i < countAfter; i++)
-            {
-                ChassisBlueprint.Entry e = _entries[i];
-                if (e.Position.x == 0) continue;
-                // Dims is scalar (span/thickness/chord) so it copies as-is —
-                // the mirrored wing must keep the same span as the original
-                // or it lands as a default-span stub on the other side.
-                // Pitch is also preserved — a mirrored tail elevator at -1°
-                // pitches the same way on both sides for symmetric trim.
-                _entries.Add(new ChassisBlueprint.Entry(
-                    e.BlockId,
-                    new Vector3Int(-e.Position.x, e.Position.y, e.Position.z),
-                    new Vector3Int(-e.EffectiveUp.x, e.EffectiveUp.y, e.EffectiveUp.z),
-                    e.Dims,
-                    e.Pitch));
-            }
-            return this;
-        }
+        public BlueprintBuilder MirrorX(Action<BlueprintBuilder> action) => Mirror(MirrorAxis.X, action);
 
         /// <summary>Same as <see cref="MirrorX"/> but across the Z=0 plane.</summary>
-        public BlueprintBuilder MirrorZ(Action<BlueprintBuilder> action)
+        public BlueprintBuilder MirrorZ(Action<BlueprintBuilder> action) => Mirror(MirrorAxis.Z, action);
+
+        // Single mirror implementation, composed over the
+        // IBlueprintEntryTransform contract. Adding a new field to
+        // ChassisBlueprint.Entry forces MirrorTransform to handle it
+        // explicitly — no more silent drops on the mirrored side.
+        private BlueprintBuilder Mirror(MirrorAxis axis, Action<BlueprintBuilder> action)
         {
             int countBefore = _entries.Count;
             action(this);
             int countAfter = _entries.Count;
+            MirrorTransform transform = new MirrorTransform(axis);
             for (int i = countBefore; i < countAfter; i++)
             {
                 ChassisBlueprint.Entry e = _entries[i];
-                if (e.Position.z == 0) continue;
-                _entries.Add(new ChassisBlueprint.Entry(
-                    e.BlockId,
-                    new Vector3Int(e.Position.x, e.Position.y, -e.Position.z),
-                    new Vector3Int(e.EffectiveUp.x, e.EffectiveUp.y, -e.EffectiveUp.z),
-                    e.Dims,
-                    e.Pitch));
+                if (BlockMirror.IsOnPlane(e.Position, axis)) continue;
+                _entries.Add(BlueprintEntryTransform.Apply(transform, e));
             }
             return this;
         }

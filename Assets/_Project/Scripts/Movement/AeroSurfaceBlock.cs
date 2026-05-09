@@ -78,16 +78,21 @@ namespace Robogame.Movement
         // Dims means "use the block defaults below" so legacy blueprints
         // without per-block sizing render correctly.
 
+        // Foil shape constants are aliases of the authoritative values
+        // in Block.FoilDefaults so the build-mode swept bounds, the
+        // ghost factory, and the placed-mesh geometry can't drift.
+        // Keep these aliases for source-compat with shipped consumers
+        // (tests, VariantConfigPanel) until they migrate directly.
         /// <summary>Block-default span (m) when the entry's Dims is Vector3.zero.</summary>
-        public const float DefaultSpan      = 1.00f;
+        public const float DefaultSpan      = FoilDefaults.DefaultSpan;
         /// <summary>Block-default thickness (m) when the entry's Dims is Vector3.zero.</summary>
-        public const float DefaultThickness = 0.08f;
+        public const float DefaultThickness = FoilDefaults.DefaultThickness;
         /// <summary>Block-default chord (m) when the entry's Dims is Vector3.zero.</summary>
-        public const float DefaultChord     = 0.90f;
+        public const float DefaultChord     = FoilDefaults.DefaultChord;
         /// <summary>Min/max for the build-mode variant config sliders.</summary>
-        public const float MinSpan = 0.30f, MaxSpan = 3.00f;
-        public const float MinThickness = 0.02f, MaxThickness = 0.40f;
-        public const float MinChord = 0.20f, MaxChord = 2.50f;
+        public const float MinSpan = FoilDefaults.MinSpan, MaxSpan = FoilDefaults.MaxSpan;
+        public const float MinThickness = FoilDefaults.MinThickness, MaxThickness = FoilDefaults.MaxThickness;
+        public const float MinChord = FoilDefaults.MinChord, MaxChord = FoilDefaults.MaxChord;
 
         // Velocity reference: the IMMEDIATE parent Rigidbody. On a
         // plane wing this is the chassis. On a rotor blade this is the

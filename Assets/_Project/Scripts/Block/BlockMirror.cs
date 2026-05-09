@@ -63,5 +63,46 @@ namespace Robogame.Block
                 default:           return false;
             }
         }
+
+        /// <summary>
+        /// Reflect a per-block pitch (incidence in degrees) under
+        /// <paramref name="axis"/>. Centralised here so the mirror rule
+        /// for pitch lives next to the rules for cell + up — a future
+        /// schema addition that changes "pitch is scalar" can be revisited
+        /// in one place rather than chased through every consumer.
+        /// </summary>
+        /// <remarks>
+        /// Pitch is rotation about the foil's local +Z (chord) axis.
+        /// <see cref="BlockGrid.OrientationFromUp"/> derives the foil's
+        /// local frame from its mount-up; for both
+        /// <see cref="MirrorAxis.X"/> and <see cref="MirrorAxis.Z"/> the
+        /// chord axis lands at the same chassis-world direction on both
+        /// sides of the mirror, so pitch passes through unchanged.
+        /// Symmetric main wings rely on this: a +2° pitch on each wing
+        /// produces lift in the same chassis-world sense on both sides.
+        /// </remarks>
+        public static float MirrorPitch(float pitchDeg, MirrorAxis axis) => pitchDeg;
+    }
+
+    /// <summary>
+    /// <see cref="IBlueprintEntryTransform"/> that reflects an entry
+    /// across the chosen mirror plane. The build-mode mirror tool and
+    /// the <see cref="BlueprintBuilder.MirrorX"/> /
+    /// <see cref="BlueprintBuilder.MirrorZ"/> authoring helpers compose
+    /// over this so reflection logic lives in one place. Cheap to mint —
+    /// allocate one per mirror call, no caching needed.
+    /// </summary>
+    public sealed class MirrorTransform : IBlueprintEntryTransform
+    {
+        public MirrorAxis Axis { get; set; }
+
+        public MirrorTransform(MirrorAxis axis) { Axis = axis; }
+
+        public string TransformBlockId(string id) => id;
+        public Vector3Int TransformPosition(Vector3Int p) => BlockMirror.MirrorCell(p, Axis);
+        public Vector3Int TransformUp(Vector3Int u) => BlockMirror.MirrorUp(u, Axis);
+        // Dims is scalar (span / thickness / chord); no axis flip applies.
+        public Vector3 TransformDims(Vector3 d) => d;
+        public float TransformPitch(float p) => BlockMirror.MirrorPitch(p, Axis);
     }
 }

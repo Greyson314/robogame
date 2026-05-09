@@ -380,32 +380,25 @@ namespace Robogame.Block
         // Connectivity
         // -----------------------------------------------------------------
 
+        // Reusable BFS scratch — Robot.RunConnectivityNextFrame fires once
+        // per damage frame, but using BlockGraph's reusable buffers keeps
+        // GetReachableFrom and FindDisconnectedFrom on the same hot path
+        // every other system uses (placement validation, orphan check,
+        // pre-instantiation validator). One implementation, one set of
+        // buffers, one source of truth.
+        private readonly BlockGraph.Buffers _bfsBuffers = new BlockGraph.Buffers();
+
         /// <summary>
         /// Return all grid positions reachable from <paramref name="root"/> by
-        /// walking through existing blocks on the six axes.
+        /// walking through existing blocks on the six axes. Allocates a
+        /// fresh <see cref="HashSet{T}"/> every call — for hot-path
+        /// callers, prefer <see cref="BlockGraph.BfsFrom(BlockGrid,Vector3Int,BlockGraph.Buffers,System.Nullable{Vector3Int})"/>
+        /// directly with reusable buffers.
         /// </summary>
         public HashSet<Vector3Int> GetReachableFrom(Vector3Int root)
         {
-            var reachable = new HashSet<Vector3Int>();
-            if (!_blocks.ContainsKey(root)) return reachable;
-
-            var stack = new Stack<Vector3Int>();
-            stack.Push(root);
-            reachable.Add(root);
-
-            while (stack.Count > 0)
-            {
-                Vector3Int p = stack.Pop();
-                foreach (Vector3Int offset in s_neighborOffsets)
-                {
-                    Vector3Int n = p + offset;
-                    if (_blocks.ContainsKey(n) && reachable.Add(n))
-                    {
-                        stack.Push(n);
-                    }
-                }
-            }
-            return reachable;
+            BlockGraph.BfsFrom(this, root, _bfsBuffers);
+            return new HashSet<Vector3Int>(_bfsBuffers.Visited);
         }
 
         /// <summary>
@@ -414,11 +407,11 @@ namespace Robogame.Block
         /// </summary>
         public List<BlockBehaviour> FindDisconnectedFrom(Vector3Int root)
         {
-            var reachable = GetReachableFrom(root);
+            BlockGraph.BfsFrom(this, root, _bfsBuffers);
             var orphans = new List<BlockBehaviour>();
             foreach (var kvp in _blocks)
             {
-                if (!reachable.Contains(kvp.Key)) orphans.Add(kvp.Value);
+                if (!_bfsBuffers.Visited.Contains(kvp.Key)) orphans.Add(kvp.Value);
             }
             return orphans;
         }

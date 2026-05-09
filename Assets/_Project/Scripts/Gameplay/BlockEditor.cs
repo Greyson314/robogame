@@ -41,6 +41,17 @@ namespace Robogame.Gameplay
                  "is duplicated across the chosen chassis-local plane.")]
         [SerializeField] private BuildMirrorMode _mirrorMode;
 
+        // The plain-C# build-mode model — placement evaluation, variant
+        // cache, mirror state, blueprint sync. The editor consults the
+        // session for variant data and routes mutations back through
+        // the session so editor / panel / mirror agree on one answer.
+        private BuildSession _session;
+        public BuildSession Session
+        {
+            get => _session;
+            set => _session = value;
+        }
+
         public VariantConfigPanel VariantPanel { get => _variantPanel; set => _variantPanel = value; }
         public BuildMirrorMode MirrorMode
         {
@@ -150,6 +161,7 @@ namespace Robogame.Gameplay
         private Vector3 _ghostBuiltForDims;
         private Vector3Int _ghostBuiltForCell;
         private Vector3Int _ghostBuiltForUp;
+        private float _ghostBuiltForPitch;
         private bool _ghostShowingValid;
         // Mirror ghost — built only when mirror mode is active and the
         // current placement isn't on the mirror plane. State mirrors
@@ -169,12 +181,17 @@ namespace Robogame.Gameplay
 
         private bool _subscribed;
 
-        private static readonly Vector3Int[] s_neighbors =
-        {
-            new Vector3Int( 1, 0, 0), new Vector3Int(-1, 0, 0),
-            new Vector3Int( 0, 1, 0), new Vector3Int( 0,-1, 0),
-            new Vector3Int( 0, 0, 1), new Vector3Int( 0, 0,-1),
-        };
+        // Reusable BFS scratch — IsValidPlacement runs every frame and
+        // BlockGraph.WouldOrphanIfRemoved fires on every right-click.
+        // Holding the buffers as fields keeps the hot path
+        // allocation-free per CLAUDE.md invariant 6. BlockGraph is the
+        // shared primitive every other connectivity consumer uses.
+        private readonly BlockGraph.Buffers _bfsBuffers = new BlockGraph.Buffers();
+        // RefreshCpuReachable mirrors the BFS visited set into this
+        // dedicated collection so a downstream WouldOrphanIfRemoved call
+        // (also BFS-driven) doesn't stomp the reachability snapshot.
+        private readonly HashSet<Vector3Int> _cpuReachable = new HashSet<Vector3Int>(64);
+        private bool _cpuReachableValid;
 
         private void OnEnable()
         {
@@ -307,69 +324,32 @@ namespace Robogame.Gameplay
 
         private bool IsValidPlacement(Vector3Int cell, Vector3Int up)
         {
-            if (_grid == null) return false;
-            if (_grid.Blocks.ContainsKey(cell)) return false;
+            return EvaluatePlacement(cell, up) == PlacementRules.PlacementError.None;
+        }
 
-            // Strict-host connectivity (Robocraft 2-way street). The new
-            // block's mating face is the one toward (cell - up); the
-            // block on that side IS the host. The host must:
-            //   1. exist (no floating placements),
-            //   2. be CPU-reachable through non-leaf bridges,
-            //   3. be non-leaf (its face that we're mating to is connective).
-            //
-            // Without rule #3 the player could aim at a wing's side face
-            // and still get a valid placement because some other neighbour
-            // happened to be a non-leaf cube — the new block would visually
-            // attach to the wing while actually being hosted off-axis.
-            // The strict check makes the player's aim authoritative.
-            Vector3Int hostCell = cell - up;
-            bool hostExists = _grid.Blocks.TryGetValue(hostCell, out BlockBehaviour host);
-            HashSet<Vector3Int> reachable = BuildCpuReachableSet();
-
-            if (reachable != null)
-            {
-                if (!hostExists || host == null) return false;
-                if (!reachable.Contains(hostCell)) return false;
-                if (BlockConnectivity.IsLeaf(host.Definition)) return false;
-            }
-            else
-            {
-                // No CPU yet: empty grid permits the first CPU drop. If
-                // any blocks exist, still require a non-leaf host so the
-                // player can't snake a CPU-less chain through wings.
-                if (_grid.Blocks.Count > 0)
-                {
-                    if (!hostExists || host == null) return false;
-                    if (BlockConnectivity.IsLeaf(host.Definition)) return false;
-                }
-            }
-
-            // CPU policy: we *track* total cost via GetCpuUsage / the
-            // BuildHotbar readout, but we no longer reject placements that
-            // exceed the cap. The 2nd-CPU rule below is a structural
-            // constraint (chassis logic assumes one CPU), not a cost limit.
+        /// <summary>
+        /// Evaluate a candidate placement and return the specific reason
+        /// it was rejected (or <see cref="PlacementRules.PlacementError.None"/>
+        /// when valid). Single shared rule library — the validator runs
+        /// the same checks at blueprint-load time per
+        /// <see cref="BlueprintValidator.Validate"/>, so editor and
+        /// validator can't diverge on what "legal" means.
+        /// </summary>
+        private PlacementRules.PlacementError EvaluatePlacement(Vector3Int cell, Vector3Int up)
+        {
+            if (_grid == null) return PlacementRules.PlacementError.None;
             BlockDefinition selected = GetSelectedDefinition();
-            if (selected != null)
-            {
-                if (selected.Category == BlockCategory.Cpu && HasAnyCpu()) return false;
-
-                // Mount-face constraint: wheels (and any future block that
-                // declares SideMountOnly) reject ±Y placements. Stem is
-                // horizontal — a top mount would point it straight up.
-                if (!BlockConnectivity.IsValidMountFace(selected, up)) return false;
-
-                // Swept-volume check: scalable blocks (e.g. wings with
-                // span > 1) extend beyond their host cell. Reject a
-                // placement whose visible extent would interpenetrate an
-                // existing block. Caller supplies the mount-up so mirror
-                // placements check against their reflected face direction.
-                Vector3 candidateDims = _variantPanel != null
-                    ? _variantPanel.GetDimsForBlock(selected.Id)
-                    : Vector3.zero;
-                if (BlockOccupancy.WouldOverlapInGrid(_grid, selected.Id, cell, up, candidateDims))
-                    return false;
-            }
-            return true;
+            Vector3 candidateDims = (_variantPanel != null && selected != null)
+                ? _variantPanel.GetDimsForBlock(selected.Id)
+                : Vector3.zero;
+            float candidatePitch = (_variantPanel != null && selected != null)
+                ? _variantPanel.GetPitchForBlock(selected.Id)
+                : 0f;
+            var candidate = new PlacementRules.Candidate(selected, cell, up, candidateDims, candidatePitch);
+            RefreshCpuReachable();
+            return PlacementRules.EvaluatePlacement(
+                _grid, in candidate,
+                _cpuReachableValid ? _cpuReachable : null);
         }
 
         private BlockDefinition GetSelectedDefinition()
@@ -392,10 +372,11 @@ namespace Robogame.Gameplay
             string targetId = _hotbar != null ? _hotbar.SelectedBlockId : BlockIds.Cube;
             // Variant dims drive the foil/rope ghost shape; target cell
             // drives the outward-shift direction; mount-up (face normal)
-            // drives the foil horizontal-vs-vertical geometry choice.
-            // Rebuild whenever any of those change so the preview tracks
-            // the live config.
+            // drives the foil horizontal-vs-vertical geometry choice;
+            // pitch tilts the foil leading edge so the ghost matches the
+            // placed visual. Rebuild whenever any change.
             Vector3 targetDims = _variantPanel != null ? _variantPanel.GetDimsForBlock(targetId) : Vector3.zero;
+            float targetPitch = _variantPanel != null ? _variantPanel.GetPitchForBlock(targetId) : 0f;
             Vector3Int targetCell = _hasTarget ? _targetPlaceCell : Vector3Int.zero;
             Vector3Int targetUp = _hasTarget ? (_targetPlaceCell - _targetHitCell) : Vector3Int.up;
             if (targetUp == Vector3Int.zero) targetUp = Vector3Int.up;
@@ -403,18 +384,20 @@ namespace Robogame.Gameplay
                 && _ghostBuiltForId == targetId
                 && _ghostBuiltForDims == targetDims
                 && _ghostBuiltForCell == targetCell
-                && _ghostBuiltForUp == targetUp) return;
+                && _ghostBuiltForUp == targetUp
+                && Mathf.Approximately(_ghostBuiltForPitch, targetPitch)) return;
 
             if (_ghost != null) Object.Destroy(_ghost);
             if (_mirrorGhost != null) Object.Destroy(_mirrorGhost);
 
             BlockDefinition def = GetSelectedDefinition();
-            _ghost = BlockGhostFactory.Build(def, _ghostMatValid, targetDims, targetCell, targetUp);
+            _ghost = BlockGhostFactory.Build(def, _ghostMatValid, targetDims, targetCell, targetUp, targetPitch);
             _ghost.SetActive(false);
             _ghostBuiltForId = targetId;
             _ghostBuiltForDims = targetDims;
             _ghostBuiltForCell = targetCell;
             _ghostBuiltForUp = targetUp;
+            _ghostBuiltForPitch = targetPitch;
             _ghostShowingValid = true;
 
             // Mirror ghost — only built when mirror mode is active, the
@@ -430,7 +413,8 @@ namespace Robogame.Gameplay
                 {
                     Vector3Int mCell = BlockMirror.MirrorCell(targetCell, axis);
                     Vector3Int mUp   = BlockMirror.MirrorUp(targetUp, axis);
-                    _mirrorGhost = BlockGhostFactory.Build(def, _ghostMatValid, targetDims, mCell, mUp);
+                    float mPitch     = BlockMirror.MirrorPitch(targetPitch, axis);
+                    _mirrorGhost = BlockGhostFactory.Build(def, _ghostMatValid, targetDims, mCell, mUp, mPitch);
                     _mirrorGhost.SetActive(false);
                     _mirrorGhostCell = mCell;
                     _mirrorGhostUp = mUp;
@@ -605,7 +589,7 @@ namespace Robogame.Gameplay
             }
 
             // Connectivity: would removing this orphan any other block?
-            if (WouldOrphanIfRemoved(_targetHitCell, out int orphanCount))
+            if (BlockGraph.WouldOrphanIfRemoved(_grid, _targetHitCell, _bfsBuffers, out int orphanCount))
             {
                 Debug.Log($"[Robogame] BlockEditor: removal blocked — would orphan {orphanCount} block(s).");
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
@@ -636,11 +620,10 @@ namespace Robogame.Gameplay
             if (BlockMirror.IsOnPlane(cell, axis)) return;
             Vector3Int mCell = BlockMirror.MirrorCell(cell, axis);
             Vector3Int mUp   = BlockMirror.MirrorUp(up, axis);
+            float mPitch     = BlockMirror.MirrorPitch(pitchDeg, axis);
             if (mCell == cell) return;
             if (!IsValidPlacement(mCell, mUp)) return;
-            // Pitch is scalar — passes through to the mirrored side
-            // unchanged. Symmetric foil trim depends on it.
-            _grid.PlaceBlock(def, mCell, mUp, dims, pitchDeg);
+            _grid.PlaceBlock(def, mCell, mUp, dims, mPitch);
         }
 
         private void TryMirrorRemove(Vector3Int cell)
@@ -652,102 +635,40 @@ namespace Robogame.Gameplay
             if (mCell == cell) return;
             if (!_grid.Blocks.TryGetValue(mCell, out BlockBehaviour mBlock) || mBlock == null) return;
             if (mBlock.Definition != null && mBlock.Definition.Category == BlockCategory.Cpu) return;
-            if (WouldOrphanIfRemoved(mCell, out _)) return;
+            if (BlockGraph.WouldOrphanIfRemoved(_grid, mCell, _bfsBuffers, out _)) return;
             _grid.RemoveBlock(mCell);
         }
 
         /// <summary>
-        /// Simulate removing <paramref name="cell"/> and BFS from the CPU. If any
-        /// remaining block isn't reachable, the removal would orphan it.
+        /// Re-run BFS from the CPU and cache the reachable-cell set into
+        /// <see cref="_cpuReachable"/>. Sets <see cref="_cpuReachableValid"/>
+        /// to false when the chassis has no CPU; the caller treats that as
+        /// "empty-grid bootstrap mode" so the first CPU placement is
+        /// allowed.
         /// </summary>
-        private bool WouldOrphanIfRemoved(Vector3Int cell, out int orphanCount)
+        /// <remarks>
+        /// Plain physical-adjacency BFS. Earlier sessions skipped leaves
+        /// as bridges here as a "no building past a wing" defense-in-depth
+        /// measure, but the strict-host check (<c>IsLeaf(host) → reject</c>)
+        /// in <see cref="IsValidPlacement(Vector3Int,Vector3Int)"/> already
+        /// covers that intent. Skipping leaves here ALSO blocked
+        /// legitimate placements downstream of authored leaf chains — e.g.
+        /// the helicopter's mechanism cube is only reachable through the
+        /// rotor (a leaf), so the player couldn't extend the rotor area at
+        /// all. Drop the skip and let the strict-host check do the gating.
+        /// </remarks>
+        private void RefreshCpuReachable()
         {
-            orphanCount = 0;
-            if (_grid == null) return false;
-
-            // Locate the CPU. If no CPU (shouldn't happen — we forbid removing it),
-            // fall back to letting the removal through.
-            Vector3Int? cpuCell = null;
-            foreach (var kvp in _grid.Blocks)
-            {
-                BlockBehaviour b = kvp.Value;
-                if (b != null && b.Definition != null && b.Definition.Category == BlockCategory.Cpu)
-                { cpuCell = kvp.Key; break; }
-            }
-            if (cpuCell == null) return false;
-            if (cpuCell.Value == cell) return false; // protected elsewhere
-
-            // BFS from CPU over the live grid, treating `cell` as removed.
-            var visited = new HashSet<Vector3Int> { cpuCell.Value };
-            var queue = new Queue<Vector3Int>();
-            queue.Enqueue(cpuCell.Value);
-            while (queue.Count > 0)
-            {
-                Vector3Int c = queue.Dequeue();
-                for (int i = 0; i < s_neighbors.Length; i++)
-                {
-                    Vector3Int n = c + s_neighbors[i];
-                    if (n == cell) continue;                     // pretend it's gone
-                    if (visited.Contains(n)) continue;
-                    if (!_grid.Blocks.ContainsKey(n)) continue;
-                    visited.Add(n);
-                    queue.Enqueue(n);
-                }
-            }
-
-            // Count any blocks not reached (excluding the cell-to-remove itself).
-            int total = _grid.Blocks.Count - 1; // minus the one we're removing
-            orphanCount = total - visited.Count;
-            return orphanCount > 0;
-        }
-
-        /// <summary>
-        /// BFS from the CPU over the live grid via 6-axis adjacency.
-        /// Returns the set of CPU-reachable cells, or <c>null</c> if no CPU
-        /// is present. Used by placement validation so new blocks must
-        /// attach to the CPU's connected component (defends against loading
-        /// a disconnected blueprint), and shareable with any other system
-        /// that needs the same answer.
-        /// </summary>
-        private HashSet<Vector3Int> BuildCpuReachableSet()
-        {
-            if (_grid == null) return null;
-
-            Vector3Int? cpuCell = null;
-            foreach (var kvp in _grid.Blocks)
-            {
-                BlockBehaviour b = kvp.Value;
-                if (b != null && b.Definition != null && b.Definition.Category == BlockCategory.Cpu)
-                { cpuCell = kvp.Key; break; }
-            }
-            if (cpuCell == null) return null;
-
-            var visited = new HashSet<Vector3Int> { cpuCell.Value };
-            var queue = new Queue<Vector3Int>();
-            queue.Enqueue(cpuCell.Value);
-            while (queue.Count > 0)
-            {
-                Vector3Int c = queue.Dequeue();
-                // Plain physical-adjacency BFS. Earlier sessions skipped
-                // leaves as bridges here as a "no building past a wing"
-                // defense-in-depth measure, but the strict-host check
-                // (`IsLeaf(host) → reject`) in IsValidPlacement already
-                // covers that intent. Skipping leaves here ALSO blocked
-                // legitimate placements downstream of authored leaf
-                // chains — e.g. the helicopter's mechanism cube is only
-                // reachable through the rotor (a leaf), so the player
-                // couldn't extend the rotor area at all. Drop the skip
-                // and let the strict-host check do the gating.
-                for (int i = 0; i < s_neighbors.Length; i++)
-                {
-                    Vector3Int n = c + s_neighbors[i];
-                    if (visited.Contains(n)) continue;
-                    if (!_grid.Blocks.ContainsKey(n)) continue;
-                    visited.Add(n);
-                    queue.Enqueue(n);
-                }
-            }
-            return visited;
+            _cpuReachableValid = false;
+            _cpuReachable.Clear();
+            if (_grid == null) return;
+            Vector3Int? cpu = BlockGraph.FindCpuCell(_grid);
+            if (!cpu.HasValue) return;
+            BlockGraph.BfsFrom(_grid, cpu.Value, _bfsBuffers);
+            // Snapshot into our dedicated set so a downstream WouldOrphan
+            // call (also on _bfsBuffers) doesn't stomp it mid-frame.
+            foreach (Vector3Int v in _bfsBuffers.Visited) _cpuReachable.Add(v);
+            _cpuReachableValid = true;
         }
 
         private bool HasAnyCpu()
@@ -767,6 +688,14 @@ namespace Robogame.Gameplay
 
         private void SyncBlueprintFromGrid()
         {
+            // Route through the session so canonical-sort + on-disk
+            // shape happen in one place. Falls back to direct sync if
+            // no session is bound (legacy scenes / standalone editor).
+            if (_session != null && _session.Blueprint != null)
+            {
+                _session.SyncBlueprint();
+                return;
+            }
             GameStateController state = GameStateController.Instance;
             if (state == null || state.CurrentBlueprint == null || _grid == null) return;
 

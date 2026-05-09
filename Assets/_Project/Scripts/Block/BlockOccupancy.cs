@@ -16,13 +16,11 @@ namespace Robogame.Block
     /// inline math (currently aerofoils only).
     /// </para>
     /// <para>
-    /// Foil constants are duplicated here from
-    /// <c>Robogame.Movement.AeroSurfaceBlock</c> deliberately:
-    /// <c>Robogame.Block</c> cannot reference <c>Robogame.Movement</c>
-    /// (asmdef circular dep). The
-    /// <c>FoilDefaults_StayInSyncWithAeroSurfaceBlock</c> test asserts
-    /// the two values match — if you change one, the test will fail
-    /// until you change the other.
+    /// Foil constants are read from <see cref="FoilDefaults"/> — the
+    /// authoritative single-source-of-truth for foil shape constants
+    /// in <see cref="Robogame.Block"/>. <c>Robogame.Movement.AeroSurfaceBlock</c>
+    /// reads from the same place; the per-side aliases here exist only
+    /// for source-compat with shipped tests / call sites.
     /// </para>
     /// <para>
     /// The bounds are in chassis-local space, scaled by <c>cellSize</c>.
@@ -38,10 +36,12 @@ namespace Robogame.Block
     /// </remarks>
     public static class BlockOccupancy
     {
-        // Mirrors of AeroSurfaceBlock.Default* — kept in sync via test.
-        public const float FoilDefaultSpan      = 1.00f;
-        public const float FoilDefaultThickness = 0.08f;
-        public const float FoilDefaultChord     = 0.90f;
+        // Aliases of the authoritative FoilDefaults constants, kept here
+        // for backwards compatibility with shipped tests / call sites.
+        // The single source of truth is Block.FoilDefaults.
+        public const float FoilDefaultSpan      = FoilDefaults.DefaultSpan;
+        public const float FoilDefaultThickness = FoilDefaults.DefaultThickness;
+        public const float FoilDefaultChord     = FoilDefaults.DefaultChord;
 
         /// <summary>
         /// Swept-volume AABB in chassis-local space for the given block.
@@ -102,16 +102,17 @@ namespace Robogame.Block
         // -----------------------------------------------------------------
         // Foil-specific helpers — mirrors the geometry contract in
         // AeroSurfaceBlock (ComputeFoilMeshScale + ComputeWingShift).
-        // Duplicated rather than referenced because Block can't see
-        // Movement; the FoilDefaults_StayInSyncWithAeroSurfaceBlock test
-        // pins the constants together.
+        // The constants are shared via FoilDefaults; the math itself
+        // is duplicated because Block can't reference Movement and the
+        // formula is short. If the formula grows, push it onto a
+        // FoilBlockData ScriptableObject sidecar (per §3.5).
         // -----------------------------------------------------------------
 
         private static void ResolveFoilDims(Vector3 raw, out float span, out float thickness, out float chord)
         {
-            span      = raw.x > 0f ? raw.x : FoilDefaultSpan;
-            thickness = raw.y > 0f ? raw.y : FoilDefaultThickness;
-            chord     = raw.z > 0f ? raw.z : FoilDefaultChord;
+            span      = raw.x > 0f ? raw.x : FoilDefaults.DefaultSpan;
+            thickness = raw.y > 0f ? raw.y : FoilDefaults.DefaultThickness;
+            chord     = raw.z > 0f ? raw.z : FoilDefaults.DefaultChord;
         }
 
         private static Bounds ComputeFoilSweptBoundsLocal(

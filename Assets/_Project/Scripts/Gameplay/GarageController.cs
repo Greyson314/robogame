@@ -52,9 +52,17 @@ namespace Robogame.Gameplay
         private BuildHotbar _hotbar;
         private VariantConfigPanel _variantPanel;
         private BuildMirrorMode _mirrorMode;
+        // Plain-C# build-mode model. Owns the variant cache + mirror
+        // state + place/remove verbs so the MonoBehaviour drivers stay
+        // thin and EditMode tests can drive build-mode logic without
+        // a scene. Lifetime is the Garage's — survives respawns.
+        private BuildSession _buildSession;
 
         /// <summary>The build-mode controller hosted on this object. Lazily created.</summary>
         public BuildModeController BuildMode => _buildMode;
+
+        /// <summary>The plain-C# build-mode model shared by every driver component.</summary>
+        public BuildSession BuildSession => _buildSession;
 
         private void OnEnable()
         {
@@ -66,6 +74,10 @@ namespace Robogame.Gameplay
         {
             GameStateController state = GameStateController.Instance;
             if (state != null) state.PresetChanged -= HandlePresetChanged;
+            // BuildModeController is on the same GameObject so we'd
+            // ordinarily die together; explicit unsubscribe is for hot-
+            // reload safety and component-replacement scenarios.
+            if (_buildMode != null) _buildMode.Exited -= HandleBuildModeExited;
         }
 
         private void HandlePresetChanged(int index)
@@ -73,6 +85,15 @@ namespace Robogame.Gameplay
             // The state controller has already swapped CurrentBlueprint; just
             // tear down the old chassis and rebuild from the new one.
             Respawn();
+        }
+
+        // Build-mode → garage lifecycle seam. Replaces the prior
+        // BuildModeController.Exit's FindAnyObjectByType<GarageController>
+        // back-reference.
+        private void HandleBuildModeExited()
+        {
+            if (_buildMode == null) return;
+            if (_buildMode.ExitRequestedRespawn) Respawn();
         }
 
         /// <summary>Destroy the current chassis (if any) and rebuild from <see cref="GameStateController.CurrentBlueprint"/>.</summary>
@@ -210,11 +231,31 @@ namespace Robogame.Gameplay
         /// <summary>Lazily creates the build-mode trio (controller + editor + hotbar) and rebinds them to the live chassis.</summary>
         private void EnsureBuildModeWired()
         {
-            if (_buildMode == null) _buildMode = gameObject.AddComponent<BuildModeController>();
+            // BuildSession is plain C# — survive respawns by recreating
+            // only when null. Its bindings re-point at the new grid /
+            // blueprint each time the chassis spawns.
+            if (_buildSession == null) _buildSession = new BuildSession();
+            BlockGrid grid = Chassis != null ? Chassis.GetComponent<BlockGrid>() : null;
+            GameStateController state = GameStateController.Instance;
+            ChassisBlueprint blueprint = state != null ? state.CurrentBlueprint : null;
+            BlockDefinitionLibrary library = state != null ? state.Library : null;
+            _buildSession.Bind(grid, blueprint, library);
+
+            if (_buildMode == null)
+            {
+                _buildMode = gameObject.AddComponent<BuildModeController>();
+                // Build-mode no longer reaches into the garage via
+                // FindAnyObjectByType — the lifecycle event is the seam.
+                // Subscribe once; the build mode controller owns the
+                // session lifecycle and we re-spawn from the saved
+                // blueprint when it tells us it's done.
+                _buildMode.Exited += HandleBuildModeExited;
+            }
             _buildMode.SetChassis(Chassis != null ? Chassis.transform : null);
 
             if (_editor == null) _editor = gameObject.AddComponent<BlockEditor>();
             _editor.BuildMode = _buildMode;
+            _editor.Session = _buildSession;
 
             if (_hotbar == null) _hotbar = gameObject.AddComponent<BuildHotbar>();
             _hotbar.BuildMode = _buildMode;
@@ -227,12 +268,14 @@ namespace Robogame.Gameplay
             if (_variantPanel == null) _variantPanel = gameObject.AddComponent<VariantConfigPanel>();
             _variantPanel.BuildMode = _buildMode;
             _variantPanel.Hotbar = _hotbar;
+            _variantPanel.Session = _buildSession;
             _editor.VariantPanel = _variantPanel;
 
             // Mirror-mode toggle — hotkey + HUD banner. The editor
             // consults it for symmetric place / remove and ghost preview.
             if (_mirrorMode == null) _mirrorMode = gameObject.AddComponent<BuildMirrorMode>();
             _mirrorMode.BuildMode = _buildMode;
+            _mirrorMode.Session = _buildSession;
             _editor.MirrorMode = _mirrorMode;
         }
 

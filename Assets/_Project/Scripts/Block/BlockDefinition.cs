@@ -73,6 +73,14 @@ namespace Robogame.Block
                  "assets behave correctly without re-authoring the SO.")]
         [SerializeField] private bool _sideMountOnly = false;
 
+        [Tooltip("If true, this block exposes per-instance variant config (foil " +
+                 "span/thickness/chord/pitch, rope segment count, rotor collective). " +
+                 "The build-mode variant panel renders sliders only for variable " +
+                 "blocks; the hotbar marks them with a 'VAR' badge. BlockVariants has " +
+                 "a hardcoded fallback list so shipped assets without the flag still " +
+                 "behave correctly.")]
+        [SerializeField] private bool _hasVariantConfig = false;
+
         [Header("Visuals")]
         [Tooltip("Prefab spawned when this block is placed. Must contain a BlockBehaviour at the root.")]
         [SerializeField] private GameObject _prefab;
@@ -110,6 +118,11 @@ namespace Robogame.Block
         /// <summary>Raw flag from the asset; consumers should call
         /// <see cref="BlockConnectivity.RequiresSideMount"/>.</summary>
         public bool SideMountOnlyRaw => _sideMountOnly;
+
+        /// <summary>Raw flag from the asset; consumers should call
+        /// <see cref="BlockVariants.HasVariantConfig"/> which also
+        /// applies the hardcoded fallback list for shipped assets.</summary>
+        public bool HasVariantConfigRaw => _hasVariantConfig;
         public GameObject Prefab => _prefab;
         public Color TintColor => _tintColor;
         public Material Material => _material;

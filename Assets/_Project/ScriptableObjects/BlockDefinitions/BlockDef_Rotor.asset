@@ -20,6 +20,7 @@ MonoBehaviour:
   _cpuCost: 10
   _isLeafBlock: 0
   _sideMountOnly: 0
+  _hasVariantConfig: 0
   _prefab: {fileID: 0}
   _tintColor: {r: 1, g: 1, b: 1, a: 1}
   _material: {fileID: 2100000, guid: 218632f03b0754c44819a193b77ab8c3, type: 2}

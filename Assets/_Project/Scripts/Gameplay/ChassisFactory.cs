@@ -1,8 +1,4 @@
 using Robogame.Block;
-using Robogame.Combat;
-using Robogame.Input;
-using Robogame.Movement;
-using Robogame.Player;
 using Robogame.Robots;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -10,34 +6,22 @@ using UnityEngine.InputSystem;
 namespace Robogame.Gameplay
 {
     /// <summary>
-    /// Runtime equivalent of the editor's <c>RobotLayouts</c>: turns a
-    /// <see cref="ChassisBlueprint"/> into a fully wired playable chassis
-    /// at runtime.
+    /// Backwards-compatible facade over <see cref="ChassisAssembler"/>.
+    /// Existing call sites (arena controllers, garage, water/planet
+    /// arenas, scaffolders) keep their <c>ChassisFactory.Build</c> /
+    /// <c>BuildTarget</c> imports; new code should call
+    /// <see cref="ChassisAssembler.Assemble"/> directly so the
+    /// <see cref="ChassisHandle"/> return value flows through.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Adds the always-needed components (<see cref="Rigidbody"/>,
-    /// <see cref="BlockGrid"/>, <see cref="Robot"/>, <see cref="RobotDrive"/>,
-    /// <see cref="PlayerInputHandler"/>, <see cref="PlayerController"/>),
-    /// plus the optional ones implied by the blueprint contents (wheels →
-    /// <see cref="GroundDriveSubsystem"/> + <see cref="RobotWheelBinder"/>;
-    /// aero → <see cref="PlaneControlSubsystem"/> + <see cref="RobotAeroBinder"/>;
-    /// any weapon → <see cref="WeaponMount"/> + <see cref="RobotWeaponBinder"/>).
-    /// </para>
-    /// <para>
-    /// Tuning <see cref="ScriptableObject"/> assets are NOT auto-assigned at
-    /// runtime — the inline default values on each subsystem are used. The
-    /// editor scaffolder remains the place to wire curated tuning profiles
-    /// onto a saved scene. This is fine for Pass A: chassis built in-game
-    /// drive and fly using sane defaults.
-    /// </para>
-    /// </remarks>
     public static class ChassisFactory
     {
         /// <summary>
-        /// Build a chassis under <paramref name="root"/> from <paramref name="blueprint"/>.
-        /// Wipes any prior blocks on the root's <see cref="BlockGrid"/>. Returns the
-        /// configured <see cref="Robot"/>.
+        /// Build a chassis under <paramref name="root"/> from
+        /// <paramref name="blueprint"/>. Wipes any prior blocks on the
+        /// root's <see cref="BlockGrid"/>. Returns the configured
+        /// <see cref="Robot"/>; new callers should prefer
+        /// <see cref="ChassisAssembler.Assemble"/> for the
+        /// <see cref="ChassisHandle"/> bundle.
         /// </summary>
         public static Robot Build(
             GameObject root,
@@ -46,223 +30,18 @@ namespace Robogame.Gameplay
             InputActionAsset inputActions = null,
             bool addPlayerInputs = true)
         {
-            using var _scope = Robogame.Core.PerfMarkers.ChassisFactoryBuild.Auto();
-            if (root == null)
-            {
-                Debug.LogError("[Robogame] ChassisFactory.Build: root is null.");
-                return null;
-            }
-            if (blueprint == null)
-            {
-                Debug.LogError("[Robogame] ChassisFactory.Build: blueprint is null.", root);
-                return null;
-            }
-            if (library == null)
-            {
-                Debug.LogError("[Robogame] ChassisFactory.Build: library is null.", root);
-                return null;
-            }
-
-            // --- Always-on components ---
-            // Build with the root deactivated so OnEnable on the spawned
-            // components runs ONCE, after we've finished wiring serialised
-            // references via reflection. PlayerInputHandler in particular
-            // looks up its action map in OnEnable and bails if _actions is
-            // null at that point.
-            bool wasActive = root.activeSelf;
-            root.SetActive(false);
-            try
-            {
-                Rigidbody rb = EnsureComponent<Rigidbody>(root);
-                rb.useGravity = true;
-                rb.interpolation = RigidbodyInterpolation.Interpolate;
-
-                BlockGrid grid = EnsureComponent<BlockGrid>(root);
-                Robot robot = EnsureComponent<Robot>(root);
-                // Stash the blueprint + library on the Robot so repair-style
-                // systems (RepairPad) can re-place destroyed blocks without
-                // having to re-walk the GameStateController. Reference, not
-                // a copy — see Robot.Blueprint docs.
-                robot.Blueprint = blueprint;
-                robot.Library = library;
-                RobotDrive drive = EnsureComponent<RobotDrive>(root);
-                // Per-chassis wind loop. Plays the WindLoop cue at a
-                // speed-driven volume + pitch. Auto-no-op if the cue
-                // library is missing the entry. Bot chassis get one
-                // too; the cue's 2D blend means each chassis's wind
-                // sits in its own mix slot, with overall presence
-                // controlled by SFX bus volume.
-                EnsureComponent<Movement.ChassisWindAudio>(root);
-
-                // Input: handler reads from an InputActionAsset; if none is
-                // supplied the chassis will simply have no inputs (useful for
-                // bots/dummies later). When addPlayerInputs is false the
-                // caller is responsible for attaching its own IInputSource
-                // (e.g. DummyAiInputSource) on the root before SetActive.
-                if (addPlayerInputs)
-                {
-                    PlayerInputHandler inputHandler = EnsureComponent<PlayerInputHandler>(root);
-                    if (inputActions != null)
-                    {
-                        AssignSerializedReference(inputHandler, "_actions", inputActions);
-                    }
-                }
-                EnsureComponent<PlayerController>(root);
-
-                // --- Subsystems implied by the blueprint contents ---
-                bool hasWheels = false, hasAero = false, hasThruster = false, hasRudder = false, hasWeapon = false;
-                foreach (ChassisBlueprint.Entry e in blueprint.Entries)
-                {
-                    if (e.BlockId == BlockIds.Wheel || e.BlockId == BlockIds.WheelSteer) hasWheels = true;
-                    if (e.BlockId == BlockIds.Aero || e.BlockId == BlockIds.AeroFin) hasAero = true;
-                    if (e.BlockId == BlockIds.Thruster) hasThruster = true;
-                    if (e.BlockId == BlockIds.Rudder) hasRudder = true;
-                    // Match any weapon-category block by id, so new weapon
-                    // variants (BombBay, Cannon, future rocket pods, …)
-                    // trigger the weapon-mount + binder path. Adding a new
-                    // weapon block requires a new id case here OR the
-                    // binder simply never sees the block and the chassis
-                    // ships without firing logic.
-                    if (e.BlockId == BlockIds.Weapon
-                        || e.BlockId == BlockIds.BombBay
-                        || e.BlockId == BlockIds.Cannon) hasWeapon = true;
-                }
-
-                if (hasWheels)
-                {
-                    EnsureComponent<GroundDriveSubsystem>(root);
-                    EnsureComponent<RobotWheelBinder>(root);
-                }
-
-                // Aero binder is unconditional, same reasoning as the
-                // rope / rotor / tip-block binders below: build-mode
-                // players drag wings / thrusters / rudders onto an
-                // existing chassis (e.g. add wings to a buggy) and
-                // expect them to work without re-spawning. The binder
-                // is a BlockPlaced subscriber — zero per-frame cost
-                // when none of those blocks are present, and avoids
-                // the "I added a wing and it stayed a cube" trap
-                // when the blueprint started without aero.
-                EnsureComponent<RobotAeroBinder>(root);
-
-                // PlaneControlSubsystem owns pitch/roll/yaw authority and
-                // only makes sense on aircraft. Skip it on a thruster-only
-                // ground/boat chassis so we don't fight gravity with control
-                // surfaces that aren't there.
-                if (hasAero || blueprint.Kind == ChassisKind.Plane)
-                {
-                    EnsureComponent<PlaneControlSubsystem>(root);
-                }
-
-                if (hasWeapon)
-                {
-                    EnsureWeaponMountAndBinder(root);
-                }
-
-                // ORDER MATTERS: tip-block binder MUST be added before the
-                // rope binder. Both binders' OnEnable runs when the
-                // chassis SetActive(true) cascade fires; component
-                // OnEnable order on a single GameObject follows AddComponent
-                // order. RopeBlock.OnEnable → Build → TryAdoptTipBlock looks
-                // for HookBlock / MaceBlock components on the rope's
-                // grid-neighbour. If RobotRopeBinder ran first, those
-                // components don't exist yet and adoption silently fails
-                // — the hook stays at its grid cell on the chassis and
-                // the rope spawns the default sphere-collider tip.
-
-                // Tip-block binder (Hook / Mace). Attaches the per-tip
-                // MonoBehaviour at placement; adoption onto an adjacent
-                // rope's chain happens in RopeBlock.Build at game-start.
-                // Zero cost when no tip blocks are placed.
-                EnsureComponent<RobotTipBlockBinder>(root);
-
-                // Rope binder is unconditional: ropes are commonly added
-                // mid-build (player drags one onto an existing plane), and
-                // the binder is just a BlockPlaced subscriber — zero cost
-                // when no rope blocks are present, and avoids an "I added
-                // a rope and nothing happened" trap when the blueprint
-                // didn't originally contain one.
-                EnsureComponent<RobotRopeBinder>(root);
-
-                // Rotor binder — same reasoning as the rope binder. Rotors
-                // are Cosmetic-tab build-mode blocks; players drop them
-                // onto an existing chassis and expect them to start
-                // spinning. Zero per-frame cost when no rotor blocks are
-                // present (the binder is just a BlockPlaced subscriber).
-                EnsureComponent<RobotRotorBinder>(root);
-
-                // Hook release hotkey (R). Walks the grid each Update
-                // and releases any grappled HookBlocks. Player-only —
-                // BuildTarget doesn't add this since target chassis
-                // can't grapple anything. AI bots also skip it.
-                if (addPlayerInputs)
-                {
-                    EnsureComponent<RobotHookReleaseInput>(root);
-
-                    // Self-righting flip hotkey (H). Polls the keyboard
-                    // each Update and snap-rotates the chassis so its
-                    // local +Y aligns with gravity-up. Player-only — bots
-                    // don't need a "get unstuck" button. Cooldown-gated.
-                    EnsureComponent<FlipController>(root);
-                }
-
-                // Ramming damage (kinetic-energy based). Lives on every
-                // player chassis so plane-vs-dummy / plane-vs-plane
-                // collisions both deal mutual damage scaled by reduced
-                // mass and relative speed.
-                EnsureComponent<Robogame.Combat.MomentumImpactHandler>(root);
-
-                // Scrap drop on death. Subscribes to Robot.Destroyed and
-                // scatters a handful of ScrapPickup instances around the
-                // chassis centre. Lives on every chassis (player + bot)
-                // so any side's death yields collectible scrap.
-                EnsureComponent<ScrapDropper>(root);
-
-                // --- Place the blocks. Subsystems / binders subscribed above
-                //     receive BlockPlaced events and self-attach correctly. ---
-                grid.Clear();
-                foreach (ChassisBlueprint.Entry entry in blueprint.Entries)
-                {
-                    BlockDefinition def = library.Get(entry.BlockId);
-                    if (def == null)
-                    {
-                        Debug.LogWarning(
-                            $"[Robogame] ChassisFactory: blueprint references unknown block id '{entry.BlockId}' — skipping.",
-                            root);
-                        continue;
-                    }
-                    grid.PlaceBlock(def, entry.Position, entry.EffectiveUp, entry.Dims, entry.Pitch);
-                }
-
-                robot.RecalculateAggregates();
-
-                return robot;
-            }
-            finally
-            {
-                root.SetActive(wasActive);
-
-                // Per-blueprint opt-in: helicopters flip their cosmetic
-                // rotors into lift mode (kinematic hub + ring of aerofoil
-                // blades). MUST run AFTER SetActive(true) — the
-                // RobotRotorBinder only attaches RotorBlock components
-                // during its OnEnable re-bind pass, so before activation
-                // there are no RotorBlocks to find. See
-                // RotorBlock.GeneratesLift and docs/PHYSICS_PLAN.md §2.
-                if (wasActive && blueprint.RotorsGenerateLift)
-                {
-                    foreach (Robogame.Movement.RotorBlock rotor in root.GetComponentsInChildren<Robogame.Movement.RotorBlock>(true))
-                    {
-                        rotor.GeneratesLift = true;
-                    }
-                }
-            }
+            AssemblyOptions options = addPlayerInputs
+                ? AssemblyOptions.Player(inputActions)
+                : AssemblyOptions.Bot();
+            ChassisHandle handle = ChassisAssembler.Assemble(root, blueprint, library, options);
+            return handle?.Robot;
         }
 
         /// <summary>
-        /// Build a non-player target chassis from a blueprint: <see cref="BlockGrid"/>
-        /// and <see cref="Robot"/> only, with a frozen-rotation kinematic-friendly
-        /// rigidbody. Used for combat dummies and (later) AI targets.
+        /// Build a non-player target chassis: <see cref="BlockGrid"/>
+        /// and <see cref="Robot"/> only, with a frozen-rotation
+        /// kinematic-friendly rigidbody. Used for combat dummies and
+        /// (later) AI targets.
         /// </summary>
         public static Robot BuildTarget(
             GameObject root,
@@ -270,115 +49,9 @@ namespace Robogame.Gameplay
             BlockDefinitionLibrary library,
             bool freezeRotation = true)
         {
-            if (root == null || blueprint == null || library == null)
-            {
-                Debug.LogError("[Robogame] ChassisFactory.BuildTarget: missing argument(s).");
-                return null;
-            }
-
-            Rigidbody rb = EnsureComponent<Rigidbody>(root);
-            rb.useGravity = true;
-            // freezeRotation = true keeps standing dummies upright when
-            // shot / rammed (the historical default). Pass false for
-            // physics-test targets that the player is meant to grapple
-            // and lift around — e.g. the dumbbell, which becomes a real
-            // swinging mass when the helicopter hooks it.
-            rb.constraints = freezeRotation
-                ? RigidbodyConstraints.FreezeRotation
-                : RigidbodyConstraints.None;
-
-            BlockGrid grid = EnsureComponent<BlockGrid>(root);
-            Robot robot = EnsureComponent<Robot>(root);
-
-            // Target chassis is non-player but still a valid ramming
-            // victim — a plane crashing into the dummy must do (and
-            // receive) damage exactly as it would against another
-            // player. Lives on the same root Rigidbody.
-            EnsureComponent<Robogame.Combat.MomentumImpactHandler>(root);
-
-            // Scrap drop on death — same as Build(). A combat dummy
-            // killed by the player should still yield scrap.
-            EnsureComponent<ScrapDropper>(root);
-
-            // Passive targets (CombatDummy, StressRotorTower, future AI)
-            // must mirror the player's per-block attach hooks: BlockGrid
-            // raises BlockPlaced as cells are added, and these binders
-            // are what actually attach the RopeBlock / RotorBlock
-            // MonoBehaviours that build the visual rig + dynamic
-            // segments. Without them, blueprint-authored rope/rotor
-            // cells appear as bare host cubes — exactly the StressRotor
-            // tower symptom in v0.5.
-            // Same ORDER MATTERS rule as Build(): tip-binder must come
-            // before rope-binder so RopeBlock.OnEnable's adoption pass
-            // finds the HookBlock / MaceBlock components.
-            EnsureComponent<Robogame.Movement.RobotTipBlockBinder>(root);
-            EnsureComponent<Robogame.Movement.RobotRopeBinder>(root);
-            EnsureComponent<Robogame.Movement.RobotRotorBinder>(root);
-
-            grid.Clear();
-            foreach (ChassisBlueprint.Entry entry in blueprint.Entries)
-            {
-                BlockDefinition def = library.Get(entry.BlockId);
-                if (def == null) continue;
-                grid.PlaceBlock(def, entry.Position, entry.EffectiveUp, entry.Dims, entry.Pitch);
-            }
-
-            robot.RecalculateAggregates();
-            return robot;
-        }
-
-        // -----------------------------------------------------------------
-        // Helpers (mirror the editor ScaffoldHelpers, but runtime-safe)
-        // -----------------------------------------------------------------
-
-        private static T EnsureComponent<T>(GameObject go) where T : Component
-        {
-            T existing = go.GetComponent<T>();
-            return existing != null ? existing : go.AddComponent<T>();
-        }
-
-        /// <summary>
-        /// Set a private serialized reference field via reflection. Avoids
-        /// pulling in <c>SerializedObject</c> (editor-only) just to assign
-        /// one field at runtime.
-        /// </summary>
-        private static void AssignSerializedReference(Object target, string fieldName, Object value)
-        {
-            if (target == null) return;
-            System.Type t = target.GetType();
-            System.Reflection.FieldInfo f = null;
-            while (t != null && f == null)
-            {
-                f = t.GetField(fieldName,
-                    System.Reflection.BindingFlags.Instance |
-                    System.Reflection.BindingFlags.NonPublic |
-                    System.Reflection.BindingFlags.Public);
-                t = t.BaseType;
-            }
-            if (f != null) f.SetValue(target, value);
-        }
-
-        private static void EnsureWeaponMountAndBinder(GameObject robotGO)
-        {
-            Transform mountT = robotGO.transform.Find("WeaponMount");
-            GameObject mountGO;
-            if (mountT != null)
-            {
-                mountGO = mountT.gameObject;
-            }
-            else
-            {
-                mountGO = new GameObject("WeaponMount");
-                mountGO.transform.SetParent(robotGO.transform, worldPositionStays: false);
-                mountGO.transform.localPosition = new Vector3(0f, 1.5f, 0f);
-                mountGO.transform.localRotation = Quaternion.identity;
-            }
-            WeaponMount mount = mountGO.GetComponent<WeaponMount>();
-            if (mount == null) mount = mountGO.AddComponent<WeaponMount>();
-
-            RobotWeaponBinder binder = robotGO.GetComponent<RobotWeaponBinder>();
-            if (binder == null) binder = robotGO.AddComponent<RobotWeaponBinder>();
-            AssignSerializedReference(binder, "_mount", mount);
+            ChassisHandle handle = ChassisAssembler.Assemble(
+                root, blueprint, library, AssemblyOptions.Target(freezeRotation));
+            return handle?.Robot;
         }
     }
 }

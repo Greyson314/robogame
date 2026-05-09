@@ -48,12 +48,11 @@ namespace Robogame.Gameplay
     /// <b>Block-index ordering.</b> Repair iterates
     /// <c>blueprint.Entries</c> in the same order
     /// <c>ChassisFactory.Build</c> used at original spawn (same
-    /// blueprint reference). Block indices in the rebuilt grid match the
-    /// at-spawn ordering — the netcode contract on
-    /// <c>BlockHitEvent.blockIndex</c> stability is preserved without
-    /// any explicit sort here. (CLAUDE.md flags a pre-existing concern
-    /// that the serializer doesn't enforce a Vector3Int sort; that's
-    /// upstream of this feature and is left alone — see TODO below.)
+    /// blueprint reference). Both go through
+    /// <see cref="ChassisBlueprint.SetEntries"/>, which canonical-sorts
+    /// via <see cref="BlockEntries.SortCanonical"/>, so block indices in
+    /// the rebuilt grid match the at-spawn ordering on every machine —
+    /// the netcode contract on <c>BlockHitEvent.blockIndex</c> stability.
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]

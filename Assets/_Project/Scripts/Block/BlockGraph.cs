@@ -1,0 +1,176 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace Robogame.Block
+{
+    /// <summary>
+    /// Allocation-free graph queries over a chassis: face-adjacency BFS
+    /// from a root cell, "would removing X orphan anything", "where's the
+    /// CPU". One implementation, four-plus consumers — placement
+    /// validation, removal validation, blueprint validation, damage
+    /// detachment all share the same primitive.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Allocation contract.</b> Every method takes a caller-owned
+    /// <see cref="Buffers"/> instance and reuses its internal collections.
+    /// Per-frame callers (<see cref="Robogame.Gameplay.BlockEditor"/>)
+    /// hold one <see cref="Buffers"/> as an instance field; one-shot
+    /// callers (<see cref="BlueprintValidator"/>) can mint a local one.
+    /// No method allocates per call past the buffers' initial capacity.
+    /// </para>
+    /// <para>
+    /// <b>Two grid models.</b> Runtime callers operate on a live
+    /// <see cref="BlockGrid"/> (Dictionary&lt;Vector3Int, BlockBehaviour&gt;);
+    /// pre-instantiation validators operate on a HashSet&lt;Vector3Int&gt;
+    /// of positions only. Both shapes have an overload — the BFS body is
+    /// identical except for the "does cell exist" check.
+    /// </para>
+    /// </remarks>
+    public static class BlockGraph
+    {
+        /// <summary>
+        /// Reusable scratch buffers for one BFS query. Hold one as an
+        /// instance field on a per-frame caller and pass it in. The
+        /// <see cref="Visited"/> set IS the result of the most recent
+        /// call — read it after BfsFrom returns.
+        /// </summary>
+        public sealed class Buffers
+        {
+            /// <summary>Cells reachable from the BFS root, including the root itself.</summary>
+            public readonly HashSet<Vector3Int> Visited = new HashSet<Vector3Int>(64);
+
+            /// <summary>Frontier queue; empty after BfsFrom returns.</summary>
+            public readonly Queue<Vector3Int> Frontier = new Queue<Vector3Int>(64);
+
+            /// <summary>Reset both collections to empty without releasing capacity.</summary>
+            public void Clear()
+            {
+                Visited.Clear();
+                Frontier.Clear();
+            }
+        }
+
+        // The six axis-aligned face neighbours. Static so callers don't
+        // need to allocate a stepper array every frame.
+        private static readonly Vector3Int[] s_face =
+        {
+            new Vector3Int( 1,  0,  0), new Vector3Int(-1,  0,  0),
+            new Vector3Int( 0,  1,  0), new Vector3Int( 0, -1,  0),
+            new Vector3Int( 0,  0,  1), new Vector3Int( 0,  0, -1),
+        };
+
+        // -----------------------------------------------------------------
+        // BFS
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Face-adjacency BFS from <paramref name="root"/> over the live
+        /// blocks in <paramref name="grid"/>. Result is in
+        /// <c>buffers.Visited</c> when the call returns. Pass an
+        /// <paramref name="ignoreCell"/> to simulate "what if this cell
+        /// were gone" (used by the orphan check). No-op if the root cell
+        /// isn't in the grid.
+        /// </summary>
+        public static void BfsFrom(BlockGrid grid, Vector3Int root, Buffers buffers, Vector3Int? ignoreCell = null)
+        {
+            if (buffers == null) return;
+            buffers.Clear();
+            if (grid == null) return;
+            if (!grid.HasBlock(root)) return;
+
+            buffers.Visited.Add(root);
+            buffers.Frontier.Enqueue(root);
+            while (buffers.Frontier.Count > 0)
+            {
+                Vector3Int c = buffers.Frontier.Dequeue();
+                for (int i = 0; i < s_face.Length; i++)
+                {
+                    Vector3Int n = c + s_face[i];
+                    if (ignoreCell.HasValue && n == ignoreCell.Value) continue;
+                    if (buffers.Visited.Contains(n)) continue;
+                    if (!grid.HasBlock(n)) continue;
+                    buffers.Visited.Add(n);
+                    buffers.Frontier.Enqueue(n);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Face-adjacency BFS from <paramref name="root"/> over a set of
+        /// positions. Used by the blueprint validator and any other
+        /// pre-instantiation reachability check that doesn't have a live
+        /// grid. Result is in <c>buffers.Visited</c>.
+        /// </summary>
+        public static void BfsFrom(HashSet<Vector3Int> positions, Vector3Int root, Buffers buffers, Vector3Int? ignoreCell = null)
+        {
+            if (buffers == null) return;
+            buffers.Clear();
+            if (positions == null) return;
+            if (!positions.Contains(root)) return;
+
+            buffers.Visited.Add(root);
+            buffers.Frontier.Enqueue(root);
+            while (buffers.Frontier.Count > 0)
+            {
+                Vector3Int c = buffers.Frontier.Dequeue();
+                for (int i = 0; i < s_face.Length; i++)
+                {
+                    Vector3Int n = c + s_face[i];
+                    if (ignoreCell.HasValue && n == ignoreCell.Value) continue;
+                    if (buffers.Visited.Contains(n)) continue;
+                    if (!positions.Contains(n)) continue;
+                    buffers.Visited.Add(n);
+                    buffers.Frontier.Enqueue(n);
+                }
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // CPU + connectivity helpers
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Locate the first cell whose definition is a
+        /// <see cref="BlockCategory.Cpu"/> on <paramref name="grid"/>.
+        /// Iteration order is dictionary order — when more than one CPU
+        /// is present (an authoring error caught by the validator), this
+        /// picks an arbitrary-but-stable one.
+        /// </summary>
+        public static Vector3Int? FindCpuCell(BlockGrid grid)
+        {
+            if (grid == null) return null;
+            foreach (var kvp in grid.Blocks)
+            {
+                BlockBehaviour b = kvp.Value;
+                if (b == null || b.Definition == null) continue;
+                if (b.Definition.Category == BlockCategory.Cpu) return kvp.Key;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// True if any non-CPU block survives, but won't be reachable from
+        /// the CPU once <paramref name="cell"/> is removed.
+        /// <paramref name="orphanCount"/> is populated either way.
+        /// </summary>
+        /// <remarks>
+        /// Returns false when there's no CPU on the grid (the caller's
+        /// "CPU is sacred" rule is what actually protects the structure
+        /// in that edge case) or when <paramref name="cell"/> IS the CPU
+        /// cell (also protected upstream).
+        /// </remarks>
+        public static bool WouldOrphanIfRemoved(BlockGrid grid, Vector3Int cell, Buffers buffers, out int orphanCount)
+        {
+            orphanCount = 0;
+            if (grid == null || buffers == null) return false;
+            Vector3Int? cpu = FindCpuCell(grid);
+            if (!cpu.HasValue || cpu.Value == cell) return false;
+
+            BfsFrom(grid, cpu.Value, buffers, ignoreCell: cell);
+            int total = grid.Count - 1; // pretend `cell` is gone
+            orphanCount = total - buffers.Visited.Count;
+            return orphanCount > 0;
+        }
+    }
+}

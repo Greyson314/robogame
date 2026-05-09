@@ -157,7 +157,22 @@ namespace Robogame.Block
 
         public Entry[] Entries => _entries;
 
-        /// <summary>Replace the entries array. Used by the editor wizard and the in-game garage.</summary>
-        public void SetEntries(Entry[] entries) => _entries = entries ?? Array.Empty<Entry>();
+        /// <summary>
+        /// Replace the entries array. Used by the editor wizard and the
+        /// in-game garage. The chokepoint that enforces canonical ordering:
+        /// every path that mutates the entry list goes through here so the
+        /// stored array is always sorted by <see cref="BlockEntries.Compare"/>.
+        /// That ordering is the netcode contract — see
+        /// <c>docs/NETCODE_PLAN.md</c> §6.
+        /// </summary>
+        /// <remarks>
+        /// Sorts <paramref name="entries"/> in place. Callers that need to
+        /// preserve a specific authoring order should pass a copy.
+        /// </remarks>
+        public void SetEntries(Entry[] entries)
+        {
+            _entries = entries ?? Array.Empty<Entry>();
+            BlockEntries.SortCanonical(_entries);
+        }
     }
 }

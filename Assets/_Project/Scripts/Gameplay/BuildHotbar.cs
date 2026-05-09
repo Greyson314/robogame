@@ -536,8 +536,9 @@ namespace Robogame.Gameplay
                 // "VAR" badge for blocks whose dimensions are configurable
                 // via the VariantConfigPanel (foils + ropes today). Visual
                 // cue so the player knows the slider panel will appear when
-                // they select this slot.
-                if (VariantConfigPanel.IsVariableBlock(def.Id))
+                // they select this slot. Reads the schema flag so a new
+                // scalable block can opt in by setting one bit on its SO.
+                if (BlockVariants.HasVariantConfig(def))
                 {
                     var badgeGO = new GameObject("VarBadge");
                     badgeGO.transform.SetParent(slotGO.transform, worldPositionStays: false);
