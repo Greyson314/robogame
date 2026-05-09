@@ -107,12 +107,16 @@ namespace Robogame.Gameplay
             // stem axis (the cell's "outward" direction toward the wheel
             // hub); host face is at block-local -Y.
             //
-            // Stem: thin cylinder from host face to cell centre.
+            // Ghost shows the placement state (no suspension drop), so the
+            // stem is the static half-cell from host face to cell centre.
+            // The placed block dynamically extends the stem to follow the
+            // wheel as suspension compresses; the ghost intentionally
+            // approximates the rest position.
             Spawn(parent, PrimitiveType.Cylinder, new Vector3(0f, -0.25f, 0f),
                 Quaternion.identity, new Vector3(0.18f, 0.25f, 0.18f));
 
             // Tyre: full-radius disc, thin along the axle (block-local Y).
-            const float radius = 0.35f; // matches WheelBlock._radius default
+            const float radius = 0.5f; // matches WheelBlock._radius default
             float d = radius * 2f;
             Spawn(parent, PrimitiveType.Cylinder, Vector3.zero,
                 Quaternion.identity, new Vector3(d, 0.09f, d));

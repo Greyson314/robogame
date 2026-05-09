@@ -21,7 +21,14 @@ namespace Robogame.Gameplay
         [Tooltip("Where the chassis spawns inside the garage. The Y is the " +
                  "*pivot* origin; the actual chassis is then offset so the " +
                  "lowest block sits at HoverHeight above the floor.")]
-        [SerializeField] private Vector3 _spawnPosition = new Vector3(0f, 1.5f, 0f);
+        // Sized so a default 0.5-radius wheel on a floor cube has a
+        // half-cell suspension drop and rests on the ground (Y=0): cube
+        // centre at Y=1, cube bottom at Y=0.5, wheel hub at Y=0.5,
+        // wheel bottom at Y=0. Was Y=1.5 — the old 0.35-radius wheels
+        // needed a 1.15 m suspension hang, which left a visible gap
+        // between the wheel cell and the tyre once the stem became
+        // visible in session 41.
+        [SerializeField] private Vector3 _spawnPosition = new Vector3(0f, 1f, 0f);
 
         [Tooltip("Initial chassis facing.")]
         [SerializeField] private Vector3 _spawnEuler = Vector3.zero;

@@ -40,8 +40,9 @@ namespace Robogame.Movement
         [SerializeField, Range(0f, 30f)] private float _steerSpeed = 14f;
 
         [Header("Spin")]
-        [Tooltip("Wheel radius in metres (for rolling visualisation).")]
-        [SerializeField, Min(0.05f)] private float _radius = 0.35f;
+        [Tooltip("Wheel radius in metres (for rolling visualisation). Default 0.5 = 1 m diameter, " +
+                 "the same size as one chassis cell — a Robocraft-sized wheel.")]
+        [SerializeField, Min(0.05f)] private float _radius = 0.5f;
 
         [Header("Suspension")]
         [Tooltip("Distance from block centre to wheel centre at full extension (no contact). " +
@@ -139,6 +140,7 @@ namespace Robogame.Movement
             UpdateSteering();
             UpdateSpin();
             UpdateSuspensionVisual();
+            UpdateStemVisual();
         }
 
         private void FixedUpdate()
@@ -204,6 +206,37 @@ namespace Robogame.Movement
             Vector3 worldDrop = Vector3.down * _suspensionExtension;
             Vector3 localDrop = transform.InverseTransformDirection(worldDrop);
             _hub.localPosition = localDrop;
+        }
+
+        // Span the stem from the host face (block-local -Y * 0.5, in world)
+        // to the wheel hub (which has just been dropped by the suspension).
+        // Recomputed every LateUpdate so the stem visually follows the wheel
+        // — looks like a swing-arm suspension. Without this the stem stays
+        // static at half-cell length and the wheel hangs disconnected
+        // below it.
+        private void UpdateStemVisual()
+        {
+            if (_stem == null || _hub == null) return;
+            Vector3 hostFaceWorld = transform.TransformPoint(new Vector3(0f, -0.5f, 0f));
+            Vector3 hubWorld = _hub.position;
+            Vector3 delta = hubWorld - hostFaceWorld;
+            float length = delta.magnitude;
+            if (length < 1e-3f)
+            {
+                // Degenerate (host face overlaps hub) — collapse the stem so
+                // a stale long cylinder doesn't poke through other geometry.
+                _stem.localScale = new Vector3(0.18f, 0f, 0.18f);
+                return;
+            }
+
+            // Position the stem at the midpoint, oriented along the host-to-hub
+            // delta. Default cylinder long axis = +Y, so FromToRotation maps
+            // it onto our delta direction.
+            _stem.position = (hostFaceWorld + hubWorld) * 0.5f;
+            _stem.rotation = Quaternion.FromToRotation(Vector3.up, delta / length);
+            // Cylinder default = 2 m tall along Y; scale.y = length / 2 gives
+            // a stem of length `length` in world units (parent block scale = 1).
+            _stem.localScale = new Vector3(0.18f, length * 0.5f, 0.18f);
         }
 
         private static readonly RaycastHit[] s_hitBuffer = new RaycastHit[8];

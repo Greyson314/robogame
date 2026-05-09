@@ -26,7 +26,13 @@ namespace Robogame.Tools.Editor
         {
             BlockDefinitionWizard.CreateTestDefinitions();
 
-            robotGO.transform.position = new Vector3(0f, 1.5f, 0f);
+            // Spawn just high enough that a ½-cell wheel (radius 0.5) on a
+            // floor cube reaches the ground with a small suspension drop.
+            // Y=1 → cube bottom at world 0.5 (½-cell ground clearance);
+            // wheel hub rests at world 0.5 with extension 0.5, wheel
+            // touches ground at Y=0. Was Y=1.5 (sized for the older
+            // 0.35-radius wheels with a 1.15 m suspension hang).
+            robotGO.transform.position = new Vector3(0f, 1f, 0f);
             robotGO.transform.rotation = Quaternion.identity;
 
             ScaffoldHelpers.EnsureComponent<Rigidbody>(robotGO);
