@@ -91,6 +91,27 @@ namespace Robogame.Tests.EditMode.Blueprints
             Assert.AreEqual(new Vector3Int(-1, 0, 0), negSide.Up);
         }
 
+        [Test]
+        public void MirrorX_PreservesDims()
+        {
+            // Regression: MirrorX used to drop Dims when reconstructing the
+            // mirrored entry, so a span-4 wing on +X mirrored to a span-1
+            // (default) stub on -X. Plane wings ended up lopsided.
+            Vector3 wingDims = new Vector3(4f, 0.08f, 0.9f);
+            BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
+                .MirrorX(b => b.Block(BlockIds.Aero,
+                    new Vector3Int(1, 0, 0),
+                    new Vector3Int(1, 0, 0),
+                    wingDims))
+                .Build();
+            Assert.AreEqual(2, plan.Entries.Length);
+            ChassisBlueprint.Entry posSide = Array.Find(plan.Entries, e => e.Position.x == 1);
+            ChassisBlueprint.Entry negSide = Array.Find(plan.Entries, e => e.Position.x == -1);
+            Assert.AreEqual(wingDims, posSide.Dims);
+            Assert.AreEqual(wingDims, negSide.Dims,
+                "Mirrored wing must keep the source's Dims — otherwise it lands as a default-span stub.");
+        }
+
         // -----------------------------------------------------------------
         // RotorWithFoils
         // -----------------------------------------------------------------

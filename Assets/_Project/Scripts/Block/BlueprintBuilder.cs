@@ -141,10 +141,14 @@ namespace Robogame.Block
             {
                 ChassisBlueprint.Entry e = _entries[i];
                 if (e.Position.x == 0) continue;
+                // Dims is scalar (span/thickness/chord) so it copies as-is —
+                // the mirrored wing must keep the same span as the original
+                // or it lands as a default-span stub on the other side.
                 _entries.Add(new ChassisBlueprint.Entry(
                     e.BlockId,
                     new Vector3Int(-e.Position.x, e.Position.y, e.Position.z),
-                    new Vector3Int(-e.EffectiveUp.x, e.EffectiveUp.y, e.EffectiveUp.z)));
+                    new Vector3Int(-e.EffectiveUp.x, e.EffectiveUp.y, e.EffectiveUp.z),
+                    e.Dims));
             }
             return this;
         }
@@ -162,7 +166,8 @@ namespace Robogame.Block
                 _entries.Add(new ChassisBlueprint.Entry(
                     e.BlockId,
                     new Vector3Int(e.Position.x, e.Position.y, -e.Position.z),
-                    new Vector3Int(e.EffectiveUp.x, e.EffectiveUp.y, -e.EffectiveUp.z)));
+                    new Vector3Int(e.EffectiveUp.x, e.EffectiveUp.y, -e.EffectiveUp.z),
+                    e.Dims));
             }
             return this;
         }
