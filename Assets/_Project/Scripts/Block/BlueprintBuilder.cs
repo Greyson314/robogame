@@ -184,21 +184,25 @@ namespace Robogame.Block
         public BlueprintBuilder RotorWithFoils(Vector3Int cell, Vector3Int spinAxis = default)
         {
             if (spinAxis == default) spinAxis = Vector3Int.up;
+            // Rotor's up = its spin axis. The mechanism cube mounts on
+            // the rotor's spin-axis face (BlockConnectivity.IsConnectiveFace
+            // exempts that face from the leaf rule), so its up matches
+            // the spin axis too.
             Block(BlockIds.Rotor, cell, spinAxis);
             Vector3Int mechanism = cell + spinAxis;
-            // Mechanism cap: invisible cube. Provides connectivity for the
-            // four foil cells; rotor's BuildBlockVisual hides the host
-            // mesh at this cell so the rotor's mast + disc + bars read
-            // as the single "rotor head" silhouette.
-            Block(BlockIds.Cube, mechanism);
+            Block(BlockIds.Cube, mechanism, spinAxis);
             // Four foils ringed around the mechanism cell, perpendicular
-            // to the spin axis.
+            // to the spin axis. Each foil's mount-up = its outward
+            // direction from the mechanism cube — gives the placement
+            // rules a real face-adjacent host (the cube) and lets the
+            // build-mode editor reproduce the same layout from scratch
+            // without auto-helpers.
             Vector3Int a, b;
             LateralAxes(spinAxis, out a, out b);
-            Block(BlockIds.Aero, mechanism + a);
-            Block(BlockIds.Aero, mechanism - a);
-            Block(BlockIds.Aero, mechanism + b);
-            Block(BlockIds.Aero, mechanism - b);
+            Block(BlockIds.Aero, mechanism + a, a);
+            Block(BlockIds.Aero, mechanism - a, -a);
+            Block(BlockIds.Aero, mechanism + b, b);
+            Block(BlockIds.Aero, mechanism - b, -b);
             return this;
         }
 

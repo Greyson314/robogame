@@ -95,20 +95,23 @@ namespace Robogame.Block
                             $"up={e.EffectiveUp} for a side-mount-only block.");
                     }
 
-                    // Host-exists + host-is-non-leaf. Cells whose host is
-                    // outside the blueprint are caught by rule 3
+                    // Host-exists + host-face-is-connective. Cells whose
+                    // host is outside the blueprint are caught by rule 3
                     // (connectivity), but we also flag them here for a
-                    // more specific message. Treat the CPU as a non-leaf
-                    // host implicitly.
+                    // more specific message. Per-face check via
+                    // IsConnectiveFace so the rotor's spin-axis face
+                    // (legitimate mechanism-cube mount point) doesn't
+                    // false-positive as a leaf rejection.
                     Vector3Int hostCell = e.Position - e.EffectiveUp;
                     if (byCell.TryGetValue(hostCell, out ChassisBlueprint.Entry hostEntry))
                     {
-                        if (BlockConnectivity.IsLeafId(hostEntry.BlockId))
+                        BlockDefinition hostDef = library.Get(hostEntry.BlockId);
+                        if (hostDef != null && !BlockConnectivity.IsConnectiveFace(hostDef, hostEntry.EffectiveUp, e.EffectiveUp))
                         {
                             r.AddError(
                                 $"Cell {e.Position} ({e.BlockId}) is hosted on cell " +
-                                $"{hostCell} ({hostEntry.BlockId}) which is a leaf — " +
-                                $"nothing can mount on a leaf block's faces.");
+                                $"{hostCell} ({hostEntry.BlockId}) which doesn't accept " +
+                                $"a mount on that face — leaf block, or non-spin-axis face on a rotor.");
                         }
                     }
                 }

@@ -60,6 +60,37 @@ namespace Robogame.Block
         /// </summary>
         public static bool IsLeafId(string blockId) => s_hardcodedLeafIds.Contains(blockId);
 
+        /// <summary>
+        /// Per-face connectivity: would the host accept a new block
+        /// mounting on the face whose normal points along
+        /// <paramref name="placementUp"/>?
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Default rule: non-leaves accept any face; leaves accept none.
+        /// Per-block exceptions live in this method so the placement
+        /// rules engine has one entry point for the question.
+        /// </para>
+        /// <para>
+        /// <b>Rotor exception.</b> The rotor is a "leaf" for its lateral
+        /// faces (you can't mount a wing on a rotor's side — that's not
+        /// what a rotor is for) but its spin-axis face IS the natural
+        /// host for a structural mechanism cube. Without this exception
+        /// the player can place a rotor from scratch but can't extend
+        /// it — the rotor is unusable in build mode.
+        /// </para>
+        /// </remarks>
+        public static bool IsConnectiveFace(BlockDefinition hostDef, Vector3Int hostUp, Vector3Int placementUp)
+        {
+            if (!IsLeaf(hostDef)) return true;
+            if (hostDef != null && hostDef.Id == BlockIds.Rotor)
+            {
+                Vector3Int spinAxis = hostUp == Vector3Int.zero ? Vector3Int.up : hostUp;
+                return placementUp == spinAxis;
+            }
+            return false;
+        }
+
         // -----------------------------------------------------------------
         // Mount-face constraints
         // -----------------------------------------------------------------

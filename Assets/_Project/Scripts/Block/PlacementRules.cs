@@ -103,7 +103,12 @@ namespace Robogame.Block
             Vector3Int hostCell = c.Cell - c.Up;
             if (!grid.TryGetBlock(hostCell, out BlockBehaviour host) || host == null)
                 return PlacementError.None; // covered by CheckHostExists
-            return BlockConnectivity.IsLeaf(host.Definition) ? PlacementError.HostIsLeaf : PlacementError.None;
+            // Per-face check — rotors accept their spin-axis face but
+            // reject lateral mounts; everything else uses the global
+            // leaf flag.
+            return BlockConnectivity.IsConnectiveFace(host.Definition, host.Up, c.Up)
+                ? PlacementError.None
+                : PlacementError.HostIsLeaf;
         }
 
         /// <summary>

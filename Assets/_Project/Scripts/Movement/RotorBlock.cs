@@ -229,14 +229,13 @@ namespace Robogame.Movement
 
         private void Update()
         {
-            // Cheap: only re-evaluate when the chassis kinematic state
-            // actually changed. In an arena (non-kinematic) and a
-            // garage (kinematic) the steady-state cost is one Rigidbody
-            // null-check + bool compare per rotor per frame.
-            Rigidbody chassis = _chassisRbCacheValid ? _chassisRbCached : GetComponentInParent<Rigidbody>();
-            if (chassis == null) return;
-            bool desiredHidden = !chassis.isKinematic;
-            if (_mechanismCellMeshAppliedOnce && desiredHidden == _mechanismCellMeshHidden) return;
+            // The mechanism-cube mesh is always-hidden now (see
+            // RefreshMechanismCellMeshVisibility's remarks). The first
+            // call from Start may run before the mechanism cell has
+            // been placed (BlockPlaced binders + chassis activation
+            // ordering). Retry until the visibility flag is applied,
+            // then this becomes a single bool check per frame.
+            if (_mechanismCellMeshAppliedOnce) return;
             RefreshMechanismCellMeshVisibility();
         }
 
@@ -758,23 +757,24 @@ namespace Robogame.Movement
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Toggle the mesh on the cube at the mechanism cell (one step
-        /// along the spin axis) based on whether the chassis is currently
-        /// non-kinematic. In flight (non-kinematic chassis) the cube is
-        /// hidden so the rotor reads as one continuous "mast + head"
-        /// silhouette without the cube clipping through the disc and
-        /// bars. In the kinematic garage the cube stays visible so a
-        /// player who places a rotor under an existing block doesn't
-        /// see that block apparently "destroyed" — the cube is still in
-        /// the grid (collider intact, damage routes normally), it just
-        /// looks gone if its mesh is hidden during static inspection.
+        /// Hide the mesh on the cube at the mechanism cell (one step
+        /// along the spin axis) so the rotor reads as one continuous
+        /// "mast + head" silhouette without the cube clipping through
+        /// the disc and bars. The cube stays in the grid (collider +
+        /// damage + connectivity intact) — only its visual is suppressed.
         /// </summary>
         /// <remarks>
-        /// Called from <see cref="Start"/> for the initial pass and
-        /// re-checked every <see cref="Update"/> so the garage's
-        /// spawn → park transition flips the mesh back to visible the
-        /// frame after Start. Idempotent: only writes when the desired
-        /// state differs from the last applied state.
+        /// Hidden in both garage and arena. Earlier sessions kept it
+        /// visible while parked-kinematic to avoid the "my cube
+        /// disappeared!" surprise when a player slid a rotor under an
+        /// existing structure, but the cost was the mechanism cube's
+        /// mesh visually clipping the rotor disc + crossbars at the
+        /// blade ring's height — a much louder UX problem than the
+        /// rare "rotor swallowed my cube" case. Future enhancement:
+        /// distinguish auto-placed mechanism cubes (always hide) from
+        /// user-placed blocks at the mechanism cell (show them).
+        /// Idempotent: only writes when the desired state differs from
+        /// the last applied state.
         /// </remarks>
         private void RefreshMechanismCellMeshVisibility()
         {
@@ -788,12 +788,7 @@ namespace Robogame.Movement
             if (!grid.TryGetBlock(mechanismCell, out BlockBehaviour neighbor)) return;
             if (neighbor == null) return;
 
-            Rigidbody chassis = _chassisRbCacheValid ? _chassisRbCached : GetComponentInParent<Rigidbody>();
-            // Kinematic = parked / build-mode = show the cube. Non-
-            // kinematic = in-flight = hide so the rotor head silhouette
-            // is clean. Empty mechanism cell (bare rotor) is handled
-            // above by the early-return.
-            bool desiredHidden = chassis != null && !chassis.isKinematic;
+            const bool desiredHidden = true;
             if (_mechanismCellMeshAppliedOnce && desiredHidden == _mechanismCellMeshHidden) return;
             BlockVisuals.SetHostMeshVisible(neighbor.gameObject, !desiredHidden);
             _mechanismCellMeshHidden = desiredHidden;

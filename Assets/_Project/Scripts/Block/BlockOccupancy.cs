@@ -60,18 +60,37 @@ namespace Robogame.Block
         public static Bounds DefaultUnitCellBoundsLocal(Vector3Int gridPos, float cellSize)
             => new Bounds((Vector3)gridPos * cellSize, Vector3.one * cellSize);
 
+        // Tolerance for "is this overlap real, or a quaternion-rotation
+        // FP rounding artefact?" The chassisHalfExtents abs-sum in
+        // ComputeFoilSweptBoundsLocal accumulates ~1e-7 epsilons through
+        // the quaternion-vector multiplications for non-identity Q (any
+        // up other than +Y). A span=1 foil that exactly edge-touches a
+        // unit cube ends up with a bounds.min that's 0.5 - 1e-7 instead
+        // of 0.5, and the tight `<` in StrictOverlap flags spurious
+        // overlap. 1e-3 is generous: real interpenetration crosses a
+        // boundary by orders of magnitude more.
+        public const float OverlapEpsilon = 1e-3f;
+
         /// <summary>
         /// Strict AABB overlap: returns true only when the bounds
         /// interpenetrate. Edge-touching does NOT count, so two unit
         /// cubes at adjacent integer cells correctly report no overlap.
         /// </summary>
+        /// <remarks>
+        /// Uses <see cref="OverlapEpsilon"/> on each axis to absorb the
+        /// floating-point error from rotated-bounds computations
+        /// (<see cref="ComputeFoilSweptBoundsLocal"/>'s abs-sum of
+        /// quaternion-rotated half-extents). Without the epsilon, a
+        /// default-span foil placed on a non-+Y face reports spurious
+        /// overlap with its host's neighbour cubes.
+        /// </remarks>
         public static bool StrictOverlap(in Bounds a, in Bounds b)
         {
             Vector3 amin = a.min, amax = a.max;
             Vector3 bmin = b.min, bmax = b.max;
-            return amin.x < bmax.x && amax.x > bmin.x
-                && amin.y < bmax.y && amax.y > bmin.y
-                && amin.z < bmax.z && amax.z > bmin.z;
+            return amin.x + OverlapEpsilon < bmax.x && amax.x > bmin.x + OverlapEpsilon
+                && amin.y + OverlapEpsilon < bmax.y && amax.y > bmin.y + OverlapEpsilon
+                && amin.z + OverlapEpsilon < bmax.z && amax.z > bmin.z + OverlapEpsilon;
         }
 
         /// <summary>
