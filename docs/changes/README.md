@@ -120,6 +120,17 @@ These are real items the next session should be aware of. None block
 shipping the current branch; flagged so they don't decay into
 "why is this broken".
 
+- **Foil pitch arc (sessions 42–44) — implementation still needs
+  work.** The data model + adopt-pass + UI + live readouts all
+  landed, but several items are explicitly deferred. Source of truth
+  for what's left is [`docs/FOIL_ROTATION_PLAN.md`](../FOIL_ROTATION_PLAN.md)
+  § 10 *Carry-forward*. Headline items: live mid-edit collective
+  propagation to existing blades (slider feels inert until the rotor
+  is re-placed), select-and-retune UX for already-placed blocks (a
+  persistent Phase 1.b carry from session 38), pitch ghost-preview
+  tilt, and a tuning playtest pass against the shipped helicopter +
+  plane.
+
 - **Helicopter session-21 fixes need in-game verification.** The new
   PlayMode test passes analytically; the user reported the chassis
   still spinning before the second (collider-sweep) fix landed but
