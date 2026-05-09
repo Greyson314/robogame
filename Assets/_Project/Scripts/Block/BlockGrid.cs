@@ -103,10 +103,13 @@ namespace Robogame.Block
         /// or the definition is invalid.
         /// </summary>
         public BlockBehaviour PlaceBlock(BlockDefinition definition, Vector3Int gridPos)
-            => PlaceBlock(definition, gridPos, Vector3Int.up, Vector3.zero);
+            => PlaceBlock(definition, gridPos, Vector3Int.up, Vector3.zero, 0f);
 
         public BlockBehaviour PlaceBlock(BlockDefinition definition, Vector3Int gridPos, Vector3Int up)
-            => PlaceBlock(definition, gridPos, up, Vector3.zero);
+            => PlaceBlock(definition, gridPos, up, Vector3.zero, 0f);
+
+        public BlockBehaviour PlaceBlock(BlockDefinition definition, Vector3Int gridPos, Vector3Int up, Vector3 dims)
+            => PlaceBlock(definition, gridPos, up, dims, 0f);
 
         /// <summary>
         /// Spawn a block at <paramref name="gridPos"/> oriented so its local
@@ -118,8 +121,11 @@ namespace Robogame.Block
         /// <paramref name="dims"/> is per-block "variable part" data
         /// (see <see cref="ChassisBlueprint.Entry.Dims"/>); pass
         /// <see cref="Vector3.zero"/> to use block defaults.
+        /// <paramref name="pitchDeg"/> is per-block pitch / incidence
+        /// (foils: AoA offset; rotors: collective). Pass 0 for the
+        /// block's authored default.
         /// </summary>
-        public BlockBehaviour PlaceBlock(BlockDefinition definition, Vector3Int gridPos, Vector3Int up, Vector3 dims)
+        public BlockBehaviour PlaceBlock(BlockDefinition definition, Vector3Int gridPos, Vector3Int up, Vector3 dims, float pitchDeg)
         {
             if (definition == null)
             {
@@ -162,7 +168,7 @@ namespace Robogame.Block
 
             BlockBehaviour block = go.GetComponent<BlockBehaviour>();
             if (block == null) block = go.AddComponent<BlockBehaviour>();
-            block.Initialize(definition, gridPos, dims, up);
+            block.Initialize(definition, gridPos, dims, up, pitchDeg);
 
             // CPU is the instakill cell — give it an unmistakable beacon so
             // the player (and future AI targeters) can spot it at a glance.

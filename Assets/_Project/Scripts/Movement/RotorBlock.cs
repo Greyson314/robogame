@@ -69,8 +69,28 @@ namespace Robogame.Movement
         [SerializeField] private Vector3 _spinAxisLocal = Vector3.up;
 
         [Header("Lift mode (opt-in)")]
-        [Tooltip("Collective pitch baked into each adopted aerofoil's mounting rotation, degrees. Acts as the rotor's fixed AoA — produces lift via the standard AeroSurfaceBlock math when the hub spins. Real helicopters use ~6° at hover.")]
-        [SerializeField, Range(0f, 20f)] private float _collectivePitchDeg = 6f;
+        [Tooltip("Default collective pitch applied to every adopted aerofoil, degrees. Per-instance overrides come from the rotor's blueprint Entry.PitchDeg (non-zero overrides this default). Real helicopters use ~6–8° at hover.")]
+        [SerializeField, Range(0f, 20f)] private float _collectivePitchDeg = 8f;
+
+        /// <summary>
+        /// Collective pitch actually applied at adopt time. Reads the
+        /// rotor's per-instance <see cref="BlockBehaviour.PitchDeg"/>
+        /// when non-zero, falls back to <see cref="_collectivePitchDeg"/>
+        /// for shipped assets / blueprints that don't carry a pitch.
+        /// 0 from the blueprint means "use the SO default", so a player
+        /// who genuinely wants 0° collective should set a small non-zero
+        /// value (a UX-friendlier "off" toggle is a future polish).
+        /// </summary>
+        public float EffectiveCollectivePitchDeg
+        {
+            get
+            {
+                BlockBehaviour bb = GetComponent<BlockBehaviour>();
+                if (bb == null) return _collectivePitchDeg;
+                float entryPitch = bb.PitchDeg;
+                return Mathf.Approximately(entryPitch, 0f) ? _collectivePitchDeg : entryPitch;
+            }
+        }
 
         /// <summary>
         /// Per-instance RPM override (rev/min). When &gt;= 0, used in place
@@ -542,22 +562,29 @@ namespace Robogame.Movement
 
                 // Build the world-space rotation for this blade: forward =
                 // spin tangent (chord into the wind), up = spin axis
-                // (lift direction), then tilt the leading edge up by
-                // _collectivePitchDeg around the world-space radial axis.
-                // The radial-axis pitch is the physically correct
-                // collective formulation: each blade tilts about its own
-                // radial line, regardless of which side of the rotor it
-                // sits on. The previous local-+X formulation only matched
-                // this for blades aligned with world +X.
+                // (lift direction). No tilt baked into transform.rotation
+                // any more — pitch lives on the foil's BlockBehaviour as
+                // a per-instance value (session 42), and AeroSurfaceBlock's
+                // FixedUpdate reads it as an additive AoA offset. That
+                // keeps the visual and the physics fed from one source
+                // (BlockBehaviour.PitchDeg) and lets the build-mode UI
+                // re-tilt blades live without fighting transform-rotation.
                 Vector3 spinAxisWorld = transform.TransformDirection(_spinAxisLocal).normalized;
                 Vector3 radialWorld   = foilWorldPos - _hub.transform.position;
                 radialWorld -= Vector3.Project(radialWorld, spinAxisWorld);
                 if (radialWorld.sqrMagnitude < 1e-6f) continue;
                 radialWorld.Normalize();
                 Vector3 tangentWorld = Vector3.Cross(spinAxisWorld, radialWorld).normalized;
-                Quaternion worldRot = Quaternion.LookRotation(tangentWorld, spinAxisWorld);
-                Quaternion pitchRot = Quaternion.AngleAxis(_collectivePitchDeg, radialWorld);
-                aero.transform.rotation = pitchRot * worldRot;
+                aero.transform.rotation = Quaternion.LookRotation(tangentWorld, spinAxisWorld);
+
+                // Write the rotor's collective pitch onto each adopted
+                // blade. The foil's own stored pitch is overridden by the
+                // rotor — symmetric-rotor invariant from FOIL_ROTATION_PLAN
+                // §3.2 / §5.5. v1 has no per-blade override toggle; if a
+                // tinkerer asks for asymmetric rotors later, gate this
+                // behind a per-foil override bool.
+                BlockBehaviour aeroBb = aero.GetComponent<BlockBehaviour>();
+                if (aeroBb != null) aeroBb.SetPitch(EffectiveCollectivePitchDeg);
 
                 // Switch into rotor mode: sample velocity from the
                 // kinematic hub (so PhysX's GetPointVelocity returns
@@ -566,9 +593,9 @@ namespace Robogame.Movement
                 // Pass the rotor's transform + local spin axis so the
                 // foil applies lift along the rotor's axis (not its
                 // tilted transform.up). With collective pitch the
-                // pitched transform.up has a tangential component; left
-                // unchecked the four blades' lift sums to a yaw torque
-                // on the chassis at full rotor power. See
+                // pitched lift axis would have a tangential component;
+                // left unchecked the four blades' lift sums to a yaw
+                // torque on the chassis at full rotor power. See
                 // AeroSurfaceBlock.ConfigureRotorMode docstring.
                 aero.ConfigureRotorMode(
                     hub: _hub,

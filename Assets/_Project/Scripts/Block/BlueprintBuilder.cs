@@ -77,6 +77,18 @@ namespace Robogame.Block
             return this;
         }
 
+        /// <summary>
+        /// Place a single block with explicit mount up, dims, and pitch
+        /// (foil incidence / rotor collective in degrees). Used by the
+        /// new-paradigm plane / heli blueprints that need built-in foil
+        /// pitch without hand-tilting the mount.
+        /// </summary>
+        public BlueprintBuilder Block(string blockId, Vector3Int position, Vector3Int up, Vector3 dims, float pitchDeg)
+        {
+            _entries.Add(new ChassisBlueprint.Entry(blockId, position, up, dims, pitchDeg));
+            return this;
+        }
+
         // -----------------------------------------------------------------
         // Linear and rectangular fills
         // -----------------------------------------------------------------
@@ -144,11 +156,14 @@ namespace Robogame.Block
                 // Dims is scalar (span/thickness/chord) so it copies as-is —
                 // the mirrored wing must keep the same span as the original
                 // or it lands as a default-span stub on the other side.
+                // Pitch is also preserved — a mirrored tail elevator at -1°
+                // pitches the same way on both sides for symmetric trim.
                 _entries.Add(new ChassisBlueprint.Entry(
                     e.BlockId,
                     new Vector3Int(-e.Position.x, e.Position.y, e.Position.z),
                     new Vector3Int(-e.EffectiveUp.x, e.EffectiveUp.y, e.EffectiveUp.z),
-                    e.Dims));
+                    e.Dims,
+                    e.Pitch));
             }
             return this;
         }
@@ -167,7 +182,8 @@ namespace Robogame.Block
                     e.BlockId,
                     new Vector3Int(e.Position.x, e.Position.y, -e.Position.z),
                     new Vector3Int(e.EffectiveUp.x, e.EffectiveUp.y, -e.EffectiveUp.z),
-                    e.Dims));
+                    e.Dims,
+                    e.Pitch));
             }
             return this;
         }

@@ -384,7 +384,7 @@ namespace Robogame.Gameplay
                     BlockDefinition def = lib.Get(entry.BlockId);
                     if (def == null) return;
 
-                    BlockBehaviour placed = grid.PlaceBlock(def, entry.Position, entry.EffectiveUp, entry.Dims);
+                    BlockBehaviour placed = grid.PlaceBlock(def, entry.Position, entry.EffectiveUp, entry.Dims, entry.Pitch);
                     if (placed != null)
                     {
                         VfxSpawner.Spawn(VfxKind.BlockRespawn, placed.transform.position, Quaternion.identity, 1f);

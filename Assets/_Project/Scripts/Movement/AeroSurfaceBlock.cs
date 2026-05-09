@@ -119,6 +119,10 @@ namespace Robogame.Movement
         // preserved; equals N for an N× larger wing. Recomputed on
         // OnEnable + DimsChanged, never per-frame.
         private float _liftAreaScale = 1f;
+        // Cached pitch in radians (per-instance AoA offset). Refreshed on
+        // OnEnable + PitchChanged. Added to airflow-derived AoA in
+        // FixedUpdate, no per-frame conversion.
+        private float _pitchRad;
 
         /// <summary>True for tail fins / rudders. Set this BEFORE the first FixedUpdate (e.g. from a binder right after AddComponent).</summary>
         public bool Vertical
@@ -148,11 +152,17 @@ namespace Robogame.Movement
             // safety net.
             EnsureRig();
 
-            // Subscribe to BlockBehaviour.DimsChanged so a runtime SetDims
-            // call (build-mode editing of an already-placed foil; tests)
-            // re-applies the visual immediately.
+            // Subscribe to BlockBehaviour.DimsChanged + PitchChanged so a
+            // runtime SetDims / SetPitch call (build-mode editing, rotor
+            // adopt-pass, tests) re-applies the visual + cached state
+            // immediately.
             _block = GetComponent<BlockBehaviour>();
-            if (_block != null) _block.DimsChanged += OnDimsChanged;
+            if (_block != null)
+            {
+                _block.DimsChanged += OnDimsChanged;
+                _block.PitchChanged += OnPitchChanged;
+            }
+            RecomputePitch();
             ApplyOrientationToVisual();
             RecomputeAreaScale();
 
@@ -167,13 +177,23 @@ namespace Robogame.Movement
 
         private void OnDisable()
         {
-            if (_block != null) _block.DimsChanged -= OnDimsChanged;
+            if (_block != null)
+            {
+                _block.DimsChanged -= OnDimsChanged;
+                _block.PitchChanged -= OnPitchChanged;
+            }
         }
 
         private void OnDimsChanged(BlockBehaviour _)
         {
             ApplyOrientationToVisual();
             RecomputeAreaScale();
+        }
+
+        private void OnPitchChanged(BlockBehaviour _)
+        {
+            RecomputePitch();
+            ApplyOrientationToVisual();
         }
 
         // Lift now scales with planform area (span × chord) so a 2× wing
@@ -185,6 +205,15 @@ namespace Robogame.Movement
             Vector3 dims = _block != null ? _block.Dims : Vector3.zero;
             ResolveDims(dims, out float span, out _, out float chord);
             _liftAreaScale = (span * chord) / (DefaultSpan * DefaultChord);
+        }
+
+        // Cache pitch in radians so FixedUpdate's lift hot path avoids the
+        // Mathf.Deg2Rad multiply every step. Refreshed only when pitch
+        // actually changes (PitchChanged event).
+        private void RecomputePitch()
+        {
+            float pitchDeg = _block != null ? _block.PitchDeg : 0f;
+            _pitchRad = pitchDeg * Mathf.Deg2Rad;
         }
 
         /// <summary>
@@ -312,7 +341,15 @@ namespace Robogame.Movement
             // produces collective-pitch lift on spin-up. For plane
             // wings this changes nothing — they sit way above 0.5
             // even on the runway, so the gate was always vestigial.
-            float aoa = forward > 0.05f ? Mathf.Atan2(-crossVel, forward) : 0f;
+            //
+            // _pitchRad adds the per-instance pitch / incidence (foil
+            // role-default + player tuning, or rotor collective written
+            // by the adopt-pass). At zero airspeed it produces zero lift
+            // anyway via speedSqr; once the wing starts moving it gives
+            // the foil a built-in AoA without the player having to fake
+            // it via mounting tilt.
+            float airflowAoa = forward > 0.05f ? Mathf.Atan2(-crossVel, forward) : 0f;
+            float aoa = airflowAoa + _pitchRad;
             float aoaClamped = Mathf.Clamp(aoa, -_stallAoA, _stallAoA);
             // Soft stall: past the stall angle, retain only postStallLift × cap.
             float stallFalloff = Mathf.Abs(aoa) > _stallAoA
@@ -442,9 +479,14 @@ namespace Robogame.Movement
 
         /// <summary>
         /// Build the wing mesh's transform from the foil's per-instance
-        /// dims. Reads <c>bb.Dims</c> with default fallbacks; uses
-        /// <see cref="ComputeFoilMeshScale"/> + <see cref="ComputeWingShift"/>
-        /// so the placed-block geometry matches the build-mode ghost.
+        /// dims + pitch. Reads <c>bb.Dims</c> and <c>bb.PitchDeg</c> with
+        /// default fallbacks; uses <see cref="ComputeFoilMeshScale"/> +
+        /// <see cref="ComputeWingShift"/> so the placed-block geometry
+        /// matches the build-mode ghost. Pitch is applied as a localRotation
+        /// around foil-local +Z (the chord axis) so the wing's leading edge
+        /// tilts up/down by <c>PitchDeg</c>; this is purely visual — the
+        /// lift formula reads pitch directly from <see cref="_pitchRad"/>
+        /// rather than transform.rotation.
         /// </summary>
         private void ApplyOrientationToVisual()
         {
@@ -455,6 +497,8 @@ namespace Robogame.Movement
             _wingMesh.localScale = ComputeFoilMeshScale(span, thickness, chord, _rotorMode);
             Vector3Int gridPos = bb != null ? bb.GridPosition : Vector3Int.zero;
             _wingMesh.localPosition = ComputeWingShift(gridPos, span, _rotorMode);
+            float pitchDeg = bb != null ? bb.PitchDeg : 0f;
+            _wingMesh.localRotation = Quaternion.AngleAxis(pitchDeg, Vector3.forward);
         }
     }
 }

@@ -63,6 +63,15 @@ namespace Robogame.Block
                      "a wing-tuned plane stays a wing-tuned plane after a reload.")]
             public Vector3 Dims;
 
+            [Tooltip("Per-block pitch / incidence in degrees. Interpretation depends on the block kind:\n" +
+                     "  • AeroSurfaceBlock (Aero / AeroFin): geometric angle of attack offset. " +
+                     "Adds to the airflow-derived AoA in the lift formula. Visual mesh tilts " +
+                     "by this amount around the chord axis. ±18° soft limit before stall warning.\n" +
+                     "  • RotorBlock: collective pitch baked into adopted blades at adopt time. " +
+                     "0 = use rotor's authored default.\n" +
+                     "  • All other blocks: ignored.")]
+            public float Pitch;
+
             /// <summary>Returns <see cref="Up"/> with the legacy zero → +Y fallback applied.</summary>
             public Vector3Int EffectiveUp => Up == Vector3Int.zero ? Vector3Int.up : Up;
 
@@ -72,6 +81,7 @@ namespace Robogame.Block
                 Position = position;
                 Up = Vector3Int.up;
                 Dims = Vector3.zero;
+                Pitch = 0f;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up)
@@ -80,6 +90,7 @@ namespace Robogame.Block
                 Position = position;
                 Up = up;
                 Dims = Vector3.zero;
+                Pitch = 0f;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims)
@@ -88,6 +99,16 @@ namespace Robogame.Block
                 Position = position;
                 Up = up;
                 Dims = dims;
+                Pitch = 0f;
+            }
+
+            public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims, float pitch)
+            {
+                BlockId = blockId;
+                Position = position;
+                Up = up;
+                Dims = dims;
+                Pitch = pitch;
             }
         }
 

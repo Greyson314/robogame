@@ -231,7 +231,7 @@ namespace Robogame.Gameplay
                             root);
                         continue;
                     }
-                    grid.PlaceBlock(def, entry.Position, entry.EffectiveUp, entry.Dims);
+                    grid.PlaceBlock(def, entry.Position, entry.EffectiveUp, entry.Dims, entry.Pitch);
                 }
 
                 robot.RecalculateAggregates();
@@ -320,7 +320,7 @@ namespace Robogame.Gameplay
             {
                 BlockDefinition def = library.Get(entry.BlockId);
                 if (def == null) continue;
-                grid.PlaceBlock(def, entry.Position, entry.EffectiveUp, entry.Dims);
+                grid.PlaceBlock(def, entry.Position, entry.EffectiveUp, entry.Dims, entry.Pitch);
             }
 
             robot.RecalculateAggregates();

@@ -112,6 +112,27 @@ namespace Robogame.Tests.EditMode.Blueprints
                 "Mirrored wing must keep the source's Dims — otherwise it lands as a default-span stub.");
         }
 
+        [Test]
+        public void MirrorX_PreservesPitch()
+        {
+            // Pitch (incidence) must mirror with the wing — a +2° main wing
+            // pitches +2° on both sides for symmetric trim.
+            Vector3 wingDims = new Vector3(4f, 0.08f, 0.9f);
+            BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
+                .MirrorX(b => b.Block(BlockIds.Aero,
+                    new Vector3Int(1, 0, 0),
+                    new Vector3Int(1, 0, 0),
+                    wingDims,
+                    pitchDeg: 2f))
+                .Build();
+            Assert.AreEqual(2, plan.Entries.Length);
+            ChassisBlueprint.Entry posSide = Array.Find(plan.Entries, e => e.Position.x == 1);
+            ChassisBlueprint.Entry negSide = Array.Find(plan.Entries, e => e.Position.x == -1);
+            Assert.AreEqual(2f, posSide.Pitch, 1e-4f);
+            Assert.AreEqual(2f, negSide.Pitch, 1e-4f,
+                "Mirrored wing must keep the source's Pitch — symmetric trim depends on it.");
+        }
+
         // -----------------------------------------------------------------
         // RotorWithFoils
         // -----------------------------------------------------------------

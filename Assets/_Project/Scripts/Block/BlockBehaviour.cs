@@ -21,6 +21,7 @@ namespace Robogame.Block
         [SerializeField] private Vector3Int _up = Vector3Int.up;
         [SerializeField] private float _currentHealth;
         [SerializeField] private Vector3 _dims;
+        [SerializeField] private float _pitchDeg;
 
         [Tooltip("Brightness at 0 HP, relative to the block's authored colour.")]
         [SerializeField, Range(0f, 1f)] private float _minDamageBrightness = 0.2f;
@@ -73,6 +74,30 @@ namespace Robogame.Block
         /// <summary>Fired after <see cref="SetDims"/> mutates <see cref="Dims"/>.</summary>
         public event Action<BlockBehaviour> DimsChanged;
 
+        /// <summary>
+        /// Per-instance pitch / incidence in degrees. For aerofoils, this
+        /// is the geometric AoA offset added to the airflow-derived AoA in
+        /// the lift formula. For rotors, this is the collective pitch
+        /// applied to adopted blades. 0 = use block-default behaviour.
+        /// </summary>
+        public float PitchDeg => _pitchDeg;
+
+        /// <summary>
+        /// Replace this block's pitch at runtime. Used by the rotor
+        /// adopt-pass (writes its collective onto blade foils) and by
+        /// the build-mode pitch slider. Consumers can subscribe to
+        /// <see cref="PitchChanged"/> to re-apply visuals + cached state.
+        /// </summary>
+        public void SetPitch(float pitchDeg)
+        {
+            if (Mathf.Approximately(_pitchDeg, pitchDeg)) return;
+            _pitchDeg = pitchDeg;
+            PitchChanged?.Invoke(this);
+        }
+
+        /// <summary>Fired after <see cref="SetPitch"/> mutates <see cref="PitchDeg"/>.</summary>
+        public event Action<BlockBehaviour> PitchChanged;
+
         public float HealthFraction =>
             (_definition != null && _definition.MaxHealth > 0f)
                 ? Mathf.Clamp01(_currentHealth / _definition.MaxHealth)
@@ -87,12 +112,13 @@ namespace Robogame.Block
         private MaterialPropertyBlock _mpb;
 
         /// <summary>Internal initializer called by <see cref="BlockGrid"/> at placement time.</summary>
-        internal void Initialize(BlockDefinition definition, Vector3Int gridPosition, Vector3 dims = default, Vector3Int up = default)
+        internal void Initialize(BlockDefinition definition, Vector3Int gridPosition, Vector3 dims = default, Vector3Int up = default, float pitchDeg = 0f)
         {
             _definition = definition;
             _gridPosition = gridPosition;
             _dims = dims;
             _up = up == Vector3Int.zero ? Vector3Int.up : up;
+            _pitchDeg = pitchDeg;
             _currentHealth = definition != null ? definition.MaxHealth : 1f;
             CacheRenderers();
             UpdateDamageVisual();

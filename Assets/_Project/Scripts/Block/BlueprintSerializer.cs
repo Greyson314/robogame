@@ -31,7 +31,7 @@ namespace Robogame.Block
     /// </code>
     /// </para>
     /// <para>
-    /// v2 schema (current). Adds:
+    /// v2 schema. Adds:
     /// <list type="bullet">
     /// <item><c>rotorsGenerateLift</c> at the top level so helicopter saves
     /// reload as helicopters (was silently dropped on save in v1).</item>
@@ -41,13 +41,22 @@ namespace Robogame.Block
     /// foil span/thickness/chord, rope segment count. Vector3.zero means
     /// "use block defaults". See <see cref="ChassisBlueprint.Entry.Dims"/>.</item>
     /// </list>
-    /// v1 saves load fine: missing fields default (up = +Y, dims = zero,
-    /// rotorsGenerateLift = false).
+    /// </para>
+    /// <para>
+    /// v3 schema (current). Adds <c>pitch</c> per entry — foil incidence
+    /// in degrees (additive AoA offset), or rotor collective pitch in
+    /// degrees. Defaults to 0 for v1/v2 entries, which keeps free-wing
+    /// behaviour unchanged and falls rotors back to their SO-default
+    /// collective.
+    /// </para>
+    /// <para>
+    /// v1/v2 saves load fine: missing fields default (up = +Y, dims = zero,
+    /// pitch = 0, rotorsGenerateLift = false).
     /// </para>
     /// </remarks>
     public static class BlueprintSerializer
     {
-        public const int CurrentSchemaVersion = 2;
+        public const int CurrentSchemaVersion = 3;
 
         // -----------------------------------------------------------------
         // DTOs (private — JsonUtility needs concrete [Serializable] types)
@@ -80,6 +89,9 @@ namespace Robogame.Block
             public float dx;
             public float dy;
             public float dz;
+            // v3 addition. Per-entry pitch / incidence in degrees.
+            // Foils: AoA offset. Rotors: collective. 0 = use block default.
+            public float pitch;
         }
 
         // -----------------------------------------------------------------
@@ -112,6 +124,7 @@ namespace Robogame.Block
                     dx = dims.x,
                     dy = dims.y,
                     dz = dims.z,
+                    pitch = src[i].Pitch,
                 };
             }
 
@@ -194,7 +207,7 @@ namespace Robogame.Block
                 // v1 entries hit Entry.EffectiveUp's zero → +Y fallback;
                 // v2 entries with real (0,0,0) up are invalid by definition.
                 Vector3 dims = new Vector3(e.dx, e.dy, e.dz);
-                copy.Add(new ChassisBlueprint.Entry(e.id, new Vector3Int(e.x, e.y, e.z), up, dims));
+                copy.Add(new ChassisBlueprint.Entry(e.id, new Vector3Int(e.x, e.y, e.z), up, dims, e.pitch));
             }
 
             ChassisBlueprint bp = ScriptableObject.CreateInstance<ChassisBlueprint>();

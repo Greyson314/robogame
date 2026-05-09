@@ -108,8 +108,33 @@ namespace Robogame.Block
                 }
             }
 
+            // 5. Pitch range. Soft warning past ±18° (stall margin per
+            //    AeroSurfaceBlock._stallAoA = 0.35 rad ≈ 20°), hard error
+            //    past ±20° so blueprints can't author pitches that the
+            //    physics will silently clamp anyway.
+            for (int i = 0; i < n; i++)
+            {
+                float p = entries[i].Pitch;
+                float absP = Mathf.Abs(p);
+                if (absP > PitchHardLimitDeg)
+                {
+                    r.AddError(
+                        $"Cell {entries[i].Position} ({entries[i].BlockId}) has pitch " +
+                        $"{p:F1}° beyond the ±{PitchHardLimitDeg:F0}° hard limit.");
+                }
+                else if (absP > PitchSoftLimitDeg)
+                {
+                    r.AddWarning(
+                        $"Cell {entries[i].Position} ({entries[i].BlockId}) has pitch " +
+                        $"{p:F1}° in the stall margin (±{PitchSoftLimitDeg:F0}° soft limit).");
+                }
+            }
+
             return r;
         }
+
+        public const float PitchSoftLimitDeg = 18f;
+        public const float PitchHardLimitDeg = 20f;
     }
 
     /// <summary>

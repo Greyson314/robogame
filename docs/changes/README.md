@@ -63,6 +63,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 42 | [Foil pitch Phase 0+1+2+5: per-instance pitch / incidence on every aerofoil + rotor adopt-pass + visual mesh tilt](42-foil-pitch-audit.md) |
 | 41 | [Wheels: Robocraft-style side-mount stem + tyre rig; default Tank/Buggy/starter rebuilt](41-wheels-side-mount.md) |
 | 40 | [Garage features: mirror toggle (M) + leaf-block connectivity (no building on wings)](40-garage-mirror-and-connectivity.md) |
 | 39 | [Scalable parts Phase 1.5: lift scales with planform area (2× wing → 2× lift; default chassis preserved)](39-scalable-parts-phase1.5-lift-scaling.md) |

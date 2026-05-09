@@ -16,6 +16,10 @@ MonoBehaviour:
   _kind: 1
   _rotorsGenerateLift: 0
   _entries:
+  - BlockId: block.cpu.standard
+    Position: {x: 0, y: 0, z: 0}
+    Up: {x: 0, y: 1, z: 0}
+    Dims: {x: 0, y: 0, z: 0}
   - BlockId: block.movement.thruster
     Position: {x: 0, y: 0, z: -3}
     Up: {x: 0, y: 1, z: 0}
@@ -26,10 +30,6 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: -1}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
-  - BlockId: block.cpu.standard
-    Position: {x: 0, y: 0, z: 0}
     Up: {x: 0, y: 1, z: 0}
     Dims: {x: 0, y: 0, z: 0}
   - BlockId: block.structure.cube
@@ -50,73 +50,33 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
   - BlockId: block.movement.aero
     Position: {x: 1, y: 0, z: 0}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
-  - BlockId: block.movement.aero
-    Position: {x: -1, y: 0, z: 0}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
-  - BlockId: block.movement.aero
-    Position: {x: 2, y: 0, z: 0}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
-  - BlockId: block.movement.aero
-    Position: {x: -2, y: 0, z: 0}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
-  - BlockId: block.movement.aero
-    Position: {x: 3, y: 0, z: 0}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
-  - BlockId: block.movement.aero
-    Position: {x: -3, y: 0, z: 0}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
-  - BlockId: block.movement.aero
-    Position: {x: 4, y: 0, z: 0}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
-  - BlockId: block.movement.aero
-    Position: {x: -4, y: 0, z: 0}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
+    Up: {x: 1, y: 0, z: 0}
+    Dims: {x: 5, y: 0.08, z: 1}
   - BlockId: block.movement.aero
     Position: {x: 1, y: 0, z: 1}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
+    Up: {x: 1, y: 0, z: 0}
+    Dims: {x: 2, y: 0.08, z: 0.7}
+  - BlockId: block.movement.aero
+    Position: {x: 1, y: 0, z: -2}
+    Up: {x: 1, y: 0, z: 0}
+    Dims: {x: 2, y: 0.08, z: 0.7}
+  - BlockId: block.movement.aero
+    Position: {x: -1, y: 0, z: 0}
+    Up: {x: -1, y: 0, z: 0}
+    Dims: {x: 5, y: 0.08, z: 1}
   - BlockId: block.movement.aero
     Position: {x: -1, y: 0, z: 1}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
+    Up: {x: -1, y: 0, z: 0}
+    Dims: {x: 2, y: 0.08, z: 0.7}
   - BlockId: block.movement.aero
-    Position: {x: 2, y: 0, z: 1}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
-  - BlockId: block.movement.aero
-    Position: {x: -2, y: 0, z: 1}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
-  - BlockId: block.movement.aero
-    Position: {x: 1, y: 0, z: -3}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
-  - BlockId: block.movement.aero
-    Position: {x: -1, y: 0, z: -3}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
-  - BlockId: block.movement.aero
-    Position: {x: 2, y: 0, z: -3}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
-  - BlockId: block.movement.aero
-    Position: {x: -2, y: 0, z: -3}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
+    Position: {x: -1, y: 0, z: -2}
+    Up: {x: -1, y: 0, z: 0}
+    Dims: {x: 2, y: 0.08, z: 0.7}
   - BlockId: block.structure.cube
-    Position: {x: 0, y: 1, z: -3}
+    Position: {x: 0, y: 1, z: -2}
     Up: {x: 0, y: 1, z: 0}
     Dims: {x: 0, y: 0, z: 0}
   - BlockId: block.movement.aero.fin
-    Position: {x: 0, y: 2, z: -3}
+    Position: {x: 0, y: 2, z: -2}
     Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
+    Dims: {x: 2, y: 0.08, z: 0.9}

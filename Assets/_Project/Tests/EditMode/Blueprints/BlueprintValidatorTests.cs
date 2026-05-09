@@ -136,5 +136,71 @@ namespace Robogame.Tests.EditMode.Blueprints
             BlueprintValidationResult r = BlueprintValidator.Validate(plan);
             Assert.IsTrue(r.IsValid, r.ToString());
         }
+
+        // -----------------------------------------------------------------
+        // Pitch range
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void PitchInsideSoftLimit_PassesValidation()
+        {
+            BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
+                .Block(BlockIds.Cpu, 0, 0, 0)
+                .Block(BlockIds.Aero,
+                    new Vector3Int(1, 0, 0), new Vector3Int(1, 0, 0),
+                    Vector3.zero, pitchDeg: 8f)
+                .Build();
+            BlueprintValidationResult r = BlueprintValidator.Validate(plan);
+            Assert.IsTrue(r.IsValid, r.ToString());
+            Assert.IsEmpty(r.Warnings);
+        }
+
+        [Test]
+        public void PitchPastSoftLimit_WarnsButValid()
+        {
+            BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
+                .Block(BlockIds.Cpu, 0, 0, 0)
+                .Block(BlockIds.Aero,
+                    new Vector3Int(1, 0, 0), new Vector3Int(1, 0, 0),
+                    Vector3.zero, pitchDeg: 19f)
+                .Build();
+            BlueprintValidationResult r = BlueprintValidator.Validate(plan);
+            Assert.IsTrue(r.IsValid, r.ToString());
+            Assert.That(r.Warnings, Has.Some.Contains("stall margin"));
+        }
+
+        [Test]
+        public void PitchPastHardLimit_FailsValidation()
+        {
+            BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
+                .Block(BlockIds.Cpu, 0, 0, 0)
+                .Block(BlockIds.Aero,
+                    new Vector3Int(1, 0, 0), new Vector3Int(1, 0, 0),
+                    Vector3.zero, pitchDeg: 25f)
+                .Build();
+            BlueprintValidationResult r = BlueprintValidator.Validate(plan);
+            Assert.IsFalse(r.IsValid);
+            Assert.That(r.Errors, Has.Some.Contains("hard limit"));
+        }
+
+        [Test]
+        public void NegativePitch_SymmetricLimit()
+        {
+            // Tail elevators want -1° — should pass with no warning.
+            // -19° is in the warning range. -25° is over the hard limit.
+            BlueprintPlan ok = BlueprintBuilder.Create("X", ChassisKind.Ground)
+                .Block(BlockIds.Cpu, 0, 0, 0)
+                .Block(BlockIds.Aero, new Vector3Int(1, 0, 0), new Vector3Int(1, 0, 0),
+                    Vector3.zero, pitchDeg: -1f)
+                .Build();
+            Assert.IsTrue(BlueprintValidator.Validate(ok).IsValid);
+
+            BlueprintPlan over = BlueprintBuilder.Create("X", ChassisKind.Ground)
+                .Block(BlockIds.Cpu, 0, 0, 0)
+                .Block(BlockIds.Aero, new Vector3Int(1, 0, 0), new Vector3Int(1, 0, 0),
+                    Vector3.zero, pitchDeg: -25f)
+                .Build();
+            Assert.IsFalse(BlueprintValidator.Validate(over).IsValid);
+        }
     }
 }

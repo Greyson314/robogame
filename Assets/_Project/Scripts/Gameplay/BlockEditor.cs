@@ -761,7 +761,7 @@ namespace Robogame.Gameplay
             {
                 BlockBehaviour b = kvp.Value;
                 if (b == null || b.Definition == null) continue;
-                list.Add(new ChassisBlueprint.Entry(b.Definition.Id, kvp.Key, b.Up, b.Dims));
+                list.Add(new ChassisBlueprint.Entry(b.Definition.Id, kvp.Key, b.Up, b.Dims, b.PitchDeg));
             }
             state.CurrentBlueprint.SetEntries(list.ToArray());
         }
