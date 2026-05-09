@@ -63,6 +63,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 40 | [Garage features: mirror toggle (M) + leaf-block connectivity (no building on wings)](40-garage-mirror-and-connectivity.md) |
 | 39 | [Scalable parts Phase 1.5: lift scales with planform area (2× wing → 2× lift; default chassis preserved)](39-scalable-parts-phase1.5-lift-scaling.md) |
 | 38 | [Scalable parts Phase 1: swept-volume occupancy check (block placements that interpenetrate are now rejected)](38-scalable-parts-phase1-occupancy.md) |
 | 37 | [Scalable parts: Phase 0 audit (no code; lift-vs-dims gap surfaced)](37-scalable-parts-audit.md) |
