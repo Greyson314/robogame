@@ -66,22 +66,32 @@ namespace Robogame.Block
 
         /// <summary>
         /// Reflect a per-block pitch (incidence in degrees) under
-        /// <paramref name="axis"/>. Centralised here so the mirror rule
-        /// for pitch lives next to the rules for cell + up — a future
-        /// schema addition that changes "pitch is scalar" can be revisited
-        /// in one place rather than chased through every consumer.
+        /// <paramref name="axis"/>, given the source entry's
+        /// <paramref name="sourceUp"/>. Negates pitch iff the mirror
+        /// flips the wing's mount-up direction; preserves it otherwise.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// Pitch is rotation about the foil's local +Z (chord) axis.
         /// <see cref="BlockGrid.OrientationFromUp"/> derives the foil's
-        /// local frame from its mount-up; for both
-        /// <see cref="MirrorAxis.X"/> and <see cref="MirrorAxis.Z"/> the
-        /// chord axis lands at the same chassis-world direction on both
-        /// sides of the mirror, so pitch passes through unchanged.
-        /// Symmetric main wings rely on this: a +2° pitch on each wing
-        /// produces lift in the same chassis-world sense on both sides.
+        /// local frame from its mount-up. For a side-mounted wing
+        /// (up=±X) under <see cref="MirrorAxis.X"/>, the up flips, the
+        /// span direction flips with it, and the same pitch tilts the
+        /// tip the OPPOSITE way on the mirrored side — that's the
+        /// asymmetry users hit on heli blade rings + plane wings. To
+        /// produce visually-symmetric tilt the mirrored pitch must be
+        /// negated.
+        /// </para>
+        /// <para>
+        /// For mounts whose up has no component on the mirror axis
+        /// (e.g. a top-mounted wing with up=+Y under
+        /// <see cref="MirrorAxis.X"/>), the up doesn't change and the
+        /// chord-axis rotation lands on the same world direction on
+        /// both sides — preserving pitch is correct there.
+        /// </para>
         /// </remarks>
-        public static float MirrorPitch(float pitchDeg, MirrorAxis axis) => pitchDeg;
+        public static float MirrorPitch(float pitchDeg, Vector3Int sourceUp, MirrorAxis axis)
+            => MirrorUp(sourceUp, axis) == sourceUp ? pitchDeg : -pitchDeg;
     }
 
     /// <summary>
@@ -98,11 +108,14 @@ namespace Robogame.Block
 
         public MirrorTransform(MirrorAxis axis) { Axis = axis; }
 
-        public string TransformBlockId(string id) => id;
-        public Vector3Int TransformPosition(Vector3Int p) => BlockMirror.MirrorCell(p, Axis);
-        public Vector3Int TransformUp(Vector3Int u) => BlockMirror.MirrorUp(u, Axis);
+        public string TransformBlockId(in ChassisBlueprint.Entry source) => source.BlockId;
+        public Vector3Int TransformPosition(in ChassisBlueprint.Entry source) => BlockMirror.MirrorCell(source.Position, Axis);
+        public Vector3Int TransformUp(in ChassisBlueprint.Entry source) => BlockMirror.MirrorUp(source.EffectiveUp, Axis);
         // Dims is scalar (span / thickness / chord); no axis flip applies.
-        public Vector3 TransformDims(Vector3 d) => d;
-        public float TransformPitch(float p) => BlockMirror.MirrorPitch(p, Axis);
+        public Vector3 TransformDims(in ChassisBlueprint.Entry source) => source.Dims;
+        // Pitch sign depends on whether the source's up flips under the
+        // mirror — read it directly from the source entry rather than
+        // capturing state across calls.
+        public float TransformPitch(in ChassisBlueprint.Entry source) => BlockMirror.MirrorPitch(source.Pitch, source.EffectiveUp, Axis);
     }
 }

@@ -18,7 +18,7 @@ namespace Robogame.Tests.EditMode.Blueprints
         // -----------------------------------------------------------------
 
         [Test]
-        public void MirrorTransform_X_FlipsCellAndUpButPreservesDimsAndPitch()
+        public void MirrorTransform_X_FlipsCellUpAndPitch_WhenUpHasXComponent()
         {
             var t = new MirrorTransform(MirrorAxis.X);
             ChassisBlueprint.Entry source = new ChassisBlueprint.Entry(
@@ -34,12 +34,12 @@ namespace Robogame.Tests.EditMode.Blueprints
             Assert.AreEqual(new Vector3Int(-2, 1, 3), mirrored.Position);
             Assert.AreEqual(new Vector3Int(-1, 0, 0), mirrored.Up);
             Assert.AreEqual(source.Dims, mirrored.Dims, "Dims is scalar — mirror is identity.");
-            Assert.AreEqual(5f, mirrored.Pitch, 1e-4f,
-                "Pitch passes through unchanged under MirrorAxis.X — symmetric trim depends on it.");
+            Assert.AreEqual(-5f, mirrored.Pitch, 1e-4f,
+                "Side-mount wing pitch must negate under X-mirror — chord-axis rotation lands on same world axis on both sides.");
         }
 
         [Test]
-        public void MirrorTransform_Z_FlipsZAxisOnly()
+        public void MirrorTransform_Z_FlipsZAxisAndNegatesPitch_WhenUpHasZComponent()
         {
             var t = new MirrorTransform(MirrorAxis.Z);
             ChassisBlueprint.Entry source = new ChassisBlueprint.Entry(
@@ -53,7 +53,26 @@ namespace Robogame.Tests.EditMode.Blueprints
 
             Assert.AreEqual(new Vector3Int(2, 1, -3), mirrored.Position);
             Assert.AreEqual(new Vector3Int(0, 0, -1), mirrored.Up);
-            Assert.AreEqual(-2f, mirrored.Pitch, 1e-4f);
+            Assert.AreEqual(2f, mirrored.Pitch, 1e-4f,
+                "Front-mount wing pitch must negate under Z-mirror.");
+        }
+
+        [Test]
+        public void MirrorTransform_PreservesPitch_WhenUpDoesNotFlipUnderAxis()
+        {
+            // Top-mounted wing (up=+Y) under X-mirror: up is unchanged,
+            // pitch is preserved. Same for under Z-mirror.
+            var tX = new MirrorTransform(MirrorAxis.X);
+            ChassisBlueprint.Entry source = new ChassisBlueprint.Entry(
+                BlockIds.Aero,
+                position: new Vector3Int(2, 1, 0),
+                up: new Vector3Int(0, 1, 0),
+                dims: Vector3.zero,
+                pitch: 4f);
+            ChassisBlueprint.Entry mirrored = BlueprintEntryTransform.Apply(tX, source);
+            Assert.AreEqual(new Vector3Int(0, 1, 0), mirrored.Up);
+            Assert.AreEqual(4f, mirrored.Pitch, 1e-4f,
+                "Top-mount wing pitch is preserved under X-mirror — up doesn't flip.");
         }
 
         [Test]
@@ -75,15 +94,23 @@ namespace Robogame.Tests.EditMode.Blueprints
         // -----------------------------------------------------------------
 
         [Test]
-        public void MirrorPitch_PreservesUnderBothAxes()
+        public void MirrorPitch_NegatesWhenUpFlipsAcrossAxis()
         {
-            // Today's rule: pitch is preserved across both supported
-            // mirror axes because OrientationFromUp lands the chord axis
-            // at the same world direction on both sides. If a future
-            // axis (free plane) breaks this, the rule lives in BlockMirror.
-            Assert.AreEqual( 18f, BlockMirror.MirrorPitch( 18f, MirrorAxis.X), 1e-4f);
-            Assert.AreEqual( 18f, BlockMirror.MirrorPitch( 18f, MirrorAxis.Z), 1e-4f);
-            Assert.AreEqual(-3f,  BlockMirror.MirrorPitch(-3f,  MirrorAxis.X), 1e-4f);
+            // up=+X under MirrorAxis.X → up flips to -X → pitch negates.
+            Assert.AreEqual(-18f, BlockMirror.MirrorPitch(18f, new Vector3Int(1, 0, 0), MirrorAxis.X), 1e-4f);
+            // up=+Z under MirrorAxis.Z → up flips to -Z → pitch negates.
+            Assert.AreEqual(  3f, BlockMirror.MirrorPitch(-3f, new Vector3Int(0, 0, 1), MirrorAxis.Z), 1e-4f);
+        }
+
+        [Test]
+        public void MirrorPitch_PreservesWhenUpStaysSameUnderAxis()
+        {
+            // up=+Y under MirrorAxis.X → up unchanged → pitch preserved.
+            Assert.AreEqual(18f, BlockMirror.MirrorPitch(18f, new Vector3Int(0, 1, 0), MirrorAxis.X), 1e-4f);
+            // up=+Y under MirrorAxis.Z → up unchanged → pitch preserved.
+            Assert.AreEqual(18f, BlockMirror.MirrorPitch(18f, new Vector3Int(0, 1, 0), MirrorAxis.Z), 1e-4f);
+            // up=+Z under MirrorAxis.X → up unchanged (z-component, not x) → preserved.
+            Assert.AreEqual(5f,  BlockMirror.MirrorPitch(5f,  new Vector3Int(0, 0, 1), MirrorAxis.X), 1e-4f);
         }
     }
 }

@@ -222,7 +222,7 @@ namespace Robogame.Gameplay
             {
                 Vector3Int mCell = BlockMirror.MirrorCell(cell, MirrorAxis);
                 Vector3Int mUp   = BlockMirror.MirrorUp(up, MirrorAxis);
-                float mPitch     = BlockMirror.MirrorPitch(pitch, MirrorAxis);
+                float mPitch     = BlockMirror.MirrorPitch(pitch, up, MirrorAxis);
                 if (mCell != cell)
                 {
                     mirrorAttempted = true;

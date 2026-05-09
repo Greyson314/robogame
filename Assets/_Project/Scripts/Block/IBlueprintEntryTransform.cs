@@ -29,19 +29,24 @@ namespace Robogame.Block
     public interface IBlueprintEntryTransform
     {
         /// <summary>Rewrite the entry's stable block id.</summary>
-        string TransformBlockId(string id);
+        string TransformBlockId(in ChassisBlueprint.Entry source);
 
         /// <summary>Rewrite the entry's grid cell.</summary>
-        Vector3Int TransformPosition(Vector3Int position);
+        Vector3Int TransformPosition(in ChassisBlueprint.Entry source);
 
         /// <summary>Rewrite the entry's mount-up vector.</summary>
-        Vector3Int TransformUp(Vector3Int up);
+        Vector3Int TransformUp(in ChassisBlueprint.Entry source);
 
         /// <summary>Rewrite the entry's per-instance dimensions vector.</summary>
-        Vector3 TransformDims(Vector3 dims);
+        Vector3 TransformDims(in ChassisBlueprint.Entry source);
 
-        /// <summary>Rewrite the entry's pitch / incidence in degrees.</summary>
-        float TransformPitch(float pitchDeg);
+        /// <summary>
+        /// Rewrite the entry's pitch / incidence in degrees. Receives the
+        /// full source so transforms whose pitch rule depends on other
+        /// fields (e.g. mirror, where pitch sign depends on whether the
+        /// mount-up gets reflected) have the data they need.
+        /// </summary>
+        float TransformPitch(in ChassisBlueprint.Entry source);
     }
 
     /// <summary>
@@ -54,15 +59,13 @@ namespace Robogame.Block
         /// <summary>
         /// Apply <paramref name="t"/>'s per-field transforms to every
         /// field of <paramref name="source"/>, returning a new Entry.
-        /// Reads <see cref="ChassisBlueprint.Entry.EffectiveUp"/> so
-        /// legacy entries with Up=zero still mirror as upright.
         /// </summary>
         public static ChassisBlueprint.Entry Apply(IBlueprintEntryTransform t, in ChassisBlueprint.Entry source)
             => new ChassisBlueprint.Entry(
-                t.TransformBlockId(source.BlockId),
-                t.TransformPosition(source.Position),
-                t.TransformUp(source.EffectiveUp),
-                t.TransformDims(source.Dims),
-                t.TransformPitch(source.Pitch));
+                t.TransformBlockId(in source),
+                t.TransformPosition(in source),
+                t.TransformUp(in source),
+                t.TransformDims(in source),
+                t.TransformPitch(in source));
     }
 }

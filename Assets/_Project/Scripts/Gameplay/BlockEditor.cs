@@ -66,8 +66,11 @@ namespace Robogame.Gameplay
 
         private void HandleMirrorChanged()
         {
-            // Mirror toggle / axis change → next ghost frame must rebuild.
-            _ghostBuiltForId = null;
+            // No-op: BlockGhostRenderer detects input changes on its
+            // own (showMirror flag in GhostRequest changes when this
+            // event fires). The signature stays so subscribers keep
+            // working — kept for callers that want to react to mirror
+            // toggles for non-rendering reasons.
         }
 
         [Tooltip("Layer mask used by the targeting raycast. Default: everything.")]
@@ -152,32 +155,28 @@ namespace Robogame.Gameplay
             return new ChassisStats(used, cpus * _cpuBudgetPerCpu, count, mass);
         }
 
+        // Visual feedback components — own ghost lifecycle + error
+        // overlay. The editor just feeds them per-frame data.
+        private BlockGhostRenderer _ghostRenderer;
+        private PlacementFeedbackHud _feedbackHud;
+
+        public BlockGhostRenderer GhostRenderer { get => _ghostRenderer; set => _ghostRenderer = value; }
+        public PlacementFeedbackHud FeedbackHud { get => _feedbackHud; set => _feedbackHud = value; }
+
         // Targeting state -------------------------------------------------
         private BlockGrid _grid;
-        private GameObject _ghost;
-        private Material _ghostMatValid;
-        private Material _ghostMatInvalid;
-        private string _ghostBuiltForId;
-        private Vector3 _ghostBuiltForDims;
-        private Vector3Int _ghostBuiltForCell;
-        private Vector3Int _ghostBuiltForUp;
-        private float _ghostBuiltForPitch;
-        private bool _ghostShowingValid;
-        // Mirror ghost — built only when mirror mode is active and the
-        // current placement isn't on the mirror plane. State mirrors
-        // (heh) the original ghost so EnsureGhost can rebuild both
-        // when any input changes.
-        private GameObject _mirrorGhost;
-        private bool _mirrorGhostShowingValid;
-        private bool _mirrorGhostValid;
-        private Vector3Int _mirrorGhostCell;
-        private Vector3Int _mirrorGhostUp;
-        private bool _mirrorGhostBuilt; // tracks whether _mirrorGhost is meaningful for UpdateGhost
-
         private bool _hasTarget;
         private Vector3Int _targetPlaceCell;
         private Vector3Int _targetHitCell;
         private bool _validPlacement;
+        private PlacementRules.PlacementError _lastPlacementError;
+        // Mirror ghost validity is tracked independently because the
+        // mirror placement may fail (overlap, leaf neighbour) even when
+        // the original is fine. The renderer does the visual side; the
+        // editor tracks the bool so TryPlace knows whether to fire the
+        // mirror placement.
+        private bool _mirrorGhostValid;
+        private bool _mirrorGhostShown;
 
         private bool _subscribed;
 
@@ -203,7 +202,8 @@ namespace Robogame.Gameplay
         private void OnDisable()
         {
             Unsubscribe();
-            DestroyGhost();
+            if (_ghostRenderer != null) _ghostRenderer.Clear();
+            if (_feedbackHud != null) _feedbackHud.Hide();
         }
 
         private void Subscribe()
@@ -226,13 +226,13 @@ namespace Robogame.Gameplay
         {
             // Re-resolve grid in case the chassis was respawned.
             _grid = _buildMode.Chassis != null ? _buildMode.Chassis.GetComponent<BlockGrid>() : null;
-            EnsureGhost();
         }
 
         private void HandleExited()
         {
             _grid = null;
-            DestroyGhost();
+            if (_ghostRenderer != null) _ghostRenderer.Clear();
+            if (_feedbackHud != null) _feedbackHud.Hide();
         }
 
         private void Update()
@@ -250,11 +250,11 @@ namespace Robogame.Gameplay
                 if (_grid == null) return;
             }
             UpdateTarget();
-            // EnsureGhost runs AFTER UpdateTarget so cell-driven rebuilds
-            // (foil shift direction depends on _targetPlaceCell.x sign)
-            // see the freshly picked cell.
-            EnsureGhost();
-            UpdateGhost();
+            // Drive the ghost renderer + feedback HUD with the freshly
+            // picked target. The renderer figures out whether to rebuild
+            // meshes itself.
+            DriveGhostRenderer();
+            DriveFeedbackHud();
             HandleClicks();
         }
 
@@ -299,7 +299,14 @@ namespace Robogame.Gameplay
             _targetPlaceCell = block.GridPosition + RoundToAxis(localN);
 
             _hasTarget = true;
-            _validPlacement = IsValidPlacement(_targetPlaceCell);
+            // EvaluatePlacement returns the specific failure reason so
+            // the feedback HUD can render "Host is leaf at (1,1,0)" and
+            // similar diagnostics. _validPlacement stays the bool fast
+            // path the click handler reads.
+            Vector3Int placeUp = _targetPlaceCell - _targetHitCell;
+            if (placeUp == Vector3Int.zero) placeUp = Vector3Int.up;
+            _lastPlacementError = EvaluatePlacement(_targetPlaceCell, placeUp);
+            _validPlacement = _lastPlacementError == PlacementRules.PlacementError.None;
         }
 
         private static Vector3Int RoundToAxis(Vector3 dir)
@@ -311,17 +318,10 @@ namespace Robogame.Gameplay
             return                            new Vector3Int(0, 0, dir.z >= 0f ? 1 : -1);
         }
 
-        // Existing entry point: derives mount-up from the targeting state
-        // (place-cell − hit-cell) so callers in the existing flow don't
-        // change. Mirror placement uses the parameterized overload below
-        // with an explicit mirrored up.
-        private bool IsValidPlacement(Vector3Int cell)
-        {
-            Vector3Int up = cell - _targetHitCell;
-            if (up == Vector3Int.zero) up = Vector3Int.up;
-            return IsValidPlacement(cell, up);
-        }
-
+        // Mirror placement and ghost rendering ask "would this specific
+        // (cell, up) tuple pass the placement rules?" — separate from
+        // the targeting-derived primary check that fills _validPlacement
+        // / _lastPlacementError.
         private bool IsValidPlacement(Vector3Int cell, Vector3Int up)
         {
             return EvaluatePlacement(cell, up) == PlacementRules.PlacementError.None;
@@ -360,157 +360,74 @@ namespace Robogame.Gameplay
         }
 
         // -----------------------------------------------------------------
-        // Ghost preview
+        // Ghost / feedback HUD orchestration. Visual rendering lives on
+        // BlockGhostRenderer + PlacementFeedbackHud; the editor just
+        // marshals state into a per-frame request.
         // -----------------------------------------------------------------
 
-        private void EnsureGhost()
+        private void DriveGhostRenderer()
         {
-            // Materials are reused across rebuilds; only the shape changes.
-            if (_ghostMatValid == null)   _ghostMatValid   = MakeGhostMat(new Color(0.30f, 0.95f, 0.30f, 0.45f));
-            if (_ghostMatInvalid == null) _ghostMatInvalid = MakeGhostMat(new Color(0.95f, 0.25f, 0.20f, 0.45f));
+            if (_ghostRenderer == null) return;
 
-            string targetId = _hotbar != null ? _hotbar.SelectedBlockId : BlockIds.Cube;
-            // Variant dims drive the foil/rope ghost shape; target cell
-            // drives the outward-shift direction; mount-up (face normal)
-            // drives the foil horizontal-vs-vertical geometry choice;
-            // pitch tilts the foil leading edge so the ghost matches the
-            // placed visual. Rebuild whenever any change.
+            BlockDefinition def = GetSelectedDefinition();
+            string targetId = def != null ? def.Id : BlockIds.Cube;
             Vector3 targetDims = _variantPanel != null ? _variantPanel.GetDimsForBlock(targetId) : Vector3.zero;
             float targetPitch = _variantPanel != null ? _variantPanel.GetPitchForBlock(targetId) : 0f;
             Vector3Int targetCell = _hasTarget ? _targetPlaceCell : Vector3Int.zero;
             Vector3Int targetUp = _hasTarget ? (_targetPlaceCell - _targetHitCell) : Vector3Int.up;
             if (targetUp == Vector3Int.zero) targetUp = Vector3Int.up;
-            if (_ghost != null
-                && _ghostBuiltForId == targetId
-                && _ghostBuiltForDims == targetDims
-                && _ghostBuiltForCell == targetCell
-                && _ghostBuiltForUp == targetUp
-                && Mathf.Approximately(_ghostBuiltForPitch, targetPitch)) return;
 
-            if (_ghost != null) Object.Destroy(_ghost);
-            if (_mirrorGhost != null) Object.Destroy(_mirrorGhost);
-
-            BlockDefinition def = GetSelectedDefinition();
-            _ghost = BlockGhostFactory.Build(def, _ghostMatValid, targetDims, targetCell, targetUp, targetPitch);
-            _ghost.SetActive(false);
-            _ghostBuiltForId = targetId;
-            _ghostBuiltForDims = targetDims;
-            _ghostBuiltForCell = targetCell;
-            _ghostBuiltForUp = targetUp;
-            _ghostBuiltForPitch = targetPitch;
-            _ghostShowingValid = true;
-
-            // Mirror ghost — only built when mirror mode is active, the
-            // player has aimed at a real cell, and the cell isn't on the
-            // mirror plane (mirroring an on-plane cell to itself would
-            // double-show the same ghost).
-            _mirrorGhostBuilt = false;
-            _mirrorGhost = null;
+            bool showMirror = false;
+            Vector3Int mCell = default, mUp = default;
+            float mPitch = 0f;
+            bool mValid = false;
             if (_hasTarget && _mirrorMode != null && _mirrorMode.Enabled)
             {
                 MirrorAxis axis = _mirrorMode.Axis;
                 if (!BlockMirror.IsOnPlane(targetCell, axis))
                 {
-                    Vector3Int mCell = BlockMirror.MirrorCell(targetCell, axis);
-                    Vector3Int mUp   = BlockMirror.MirrorUp(targetUp, axis);
-                    float mPitch     = BlockMirror.MirrorPitch(targetPitch, axis);
-                    _mirrorGhost = BlockGhostFactory.Build(def, _ghostMatValid, targetDims, mCell, mUp, mPitch);
-                    _mirrorGhost.SetActive(false);
-                    _mirrorGhostCell = mCell;
-                    _mirrorGhostUp = mUp;
-                    _mirrorGhostBuilt = true;
-                    _mirrorGhostShowingValid = true;
+                    mCell = BlockMirror.MirrorCell(targetCell, axis);
+                    mUp = BlockMirror.MirrorUp(targetUp, axis);
+                    // Pitch needs the SOURCE up to decide negation —
+                    // same rule the mirror place path uses.
+                    mPitch = BlockMirror.MirrorPitch(targetPitch, targetUp, axis);
+                    mValid = IsValidPlacement(mCell, mUp);
+                    showMirror = true;
                 }
             }
+            _mirrorGhostValid = mValid;
+            _mirrorGhostShown = showMirror;
+
+            var request = new GhostRequest(
+                hasTarget: _hasTarget,
+                definition: def,
+                dims: targetDims,
+                pitchDeg: targetPitch,
+                cell: targetCell,
+                up: targetUp,
+                valid: _validPlacement,
+                showMirror: showMirror,
+                mirrorCell: mCell,
+                mirrorUp: mUp,
+                mirrorPitchDeg: mPitch,
+                mirrorValid: mValid,
+                chassisRoot: _buildMode != null ? _buildMode.Chassis : null,
+                grid: _grid);
+            _ghostRenderer.Render(in request);
         }
 
-        private static Material MakeGhostMat(Color c)
+        private void DriveFeedbackHud()
         {
-            // URP/Unlit if available, else built-in Unlit. Both support _BaseColor / _Color.
-            Shader sh = Shader.Find("Universal Render Pipeline/Unlit");
-            if (sh == null) sh = Shader.Find("Unlit/Color");
-            if (sh == null) sh = Shader.Find("Standard");
-            var m = new Material(sh) { name = "Mat_BlockGhost" };
-
-            // Make it transparent. URP/Unlit uses _Surface=1 + _Blend=0 for alpha blend.
-            if (m.HasProperty("_Surface")) m.SetFloat("_Surface", 1f); // 1 = Transparent
-            if (m.HasProperty("_Blend"))   m.SetFloat("_Blend",   0f); // 0 = Alpha
-            if (m.HasProperty("_ZWrite"))  m.SetFloat("_ZWrite",  0f);
-            m.renderQueue = 3000;
-            m.SetOverrideTag("RenderType", "Transparent");
-            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
-            if (m.HasProperty("_Color"))     m.SetColor("_Color", c);
-            return m;
-        }
-
-        private void DestroyGhost()
-        {
-            if (_ghost != null) Object.Destroy(_ghost);
-            if (_mirrorGhost != null) Object.Destroy(_mirrorGhost);
-            if (_ghostMatValid != null) Object.Destroy(_ghostMatValid);
-            if (_ghostMatInvalid != null) Object.Destroy(_ghostMatInvalid);
-            _ghost = null;
-            _mirrorGhost = null;
-            _mirrorGhostBuilt = false;
-            _ghostBuiltForId = null;
-            _ghostMatValid = _ghostMatInvalid = null;
-        }
-
-        private void UpdateGhost()
-        {
-            if (_ghost == null) return;
-            if (!_hasTarget)
+            if (_feedbackHud == null) return;
+            if (!_hasTarget || _validPlacement)
             {
-                _ghost.SetActive(false);
+                _feedbackHud.Hide();
                 return;
             }
-            _ghost.SetActive(true);
-            _ghost.transform.position = _grid.GridToWorld(_targetPlaceCell);
-            // Apply the per-cell rotation the placed block would get
-            // (BlockGrid.OrientationFromUp), then the chassis world
-            // rotation. Without this, the ghost stays axis-aligned and a
-            // foil/rotor preview wouldn't reflect the mount face.
-            _ghost.transform.rotation = _buildMode.Chassis.rotation
-                * BlockGrid.OrientationFromUp(_ghostBuiltForUp);
-            // The ghost factory authored shapes at unit-cell scale, so we
-            // just multiply by the grid's cell size (with a tiny inflation
-            // so the ghost doesn't z-fight neighbouring solid blocks).
-            _ghost.transform.localScale = Vector3.one * (_grid.CellSize * 1.01f);
-
-            // Only swap materials when the validity actually flips — keeps
-            // SRP batching happy on the ghost's renderers.
-            if (_validPlacement != _ghostShowingValid)
-            {
-                BlockGhostFactory.ApplyMaterial(_ghost,
-                    _validPlacement ? _ghostMatValid : _ghostMatInvalid);
-                _ghostShowingValid = _validPlacement;
-            }
-
-            // Mirror ghost mirrors (sigh) the original's lifecycle, but
-            // its valid/invalid state is computed independently — the
-            // mirror placement could fail (overlap, leaf neighbour) even
-            // when the original is fine. Player gets per-side feedback.
-            if (_mirrorGhostBuilt && _mirrorGhost != null)
-            {
-                _mirrorGhost.SetActive(true);
-                _mirrorGhost.transform.position = _grid.GridToWorld(_mirrorGhostCell);
-                _mirrorGhost.transform.rotation = _buildMode.Chassis.rotation
-                    * BlockGrid.OrientationFromUp(_mirrorGhostUp);
-                _mirrorGhost.transform.localScale = Vector3.one * (_grid.CellSize * 1.01f);
-                bool mirrorValid = IsValidPlacement(_mirrorGhostCell, _mirrorGhostUp);
-                if (mirrorValid != _mirrorGhostShowingValid)
-                {
-                    BlockGhostFactory.ApplyMaterial(_mirrorGhost,
-                        mirrorValid ? _ghostMatValid : _ghostMatInvalid);
-                    _mirrorGhostShowingValid = mirrorValid;
-                }
-                _mirrorGhostValid = mirrorValid;
-            }
-            else if (_mirrorGhost != null)
-            {
-                _mirrorGhost.SetActive(false);
-            }
+            Vector3Int up = _targetPlaceCell - _targetHitCell;
+            if (up == Vector3Int.zero) up = Vector3Int.up;
+            Vector3Int hostCell = _targetPlaceCell - up;
+            _feedbackHud.Show(_lastPlacementError, _targetPlaceCell, hostCell);
         }
 
         // -----------------------------------------------------------------
@@ -620,7 +537,7 @@ namespace Robogame.Gameplay
             if (BlockMirror.IsOnPlane(cell, axis)) return;
             Vector3Int mCell = BlockMirror.MirrorCell(cell, axis);
             Vector3Int mUp   = BlockMirror.MirrorUp(up, axis);
-            float mPitch     = BlockMirror.MirrorPitch(pitchDeg, axis);
+            float mPitch     = BlockMirror.MirrorPitch(pitchDeg, up, axis);
             if (mCell == cell) return;
             if (!IsValidPlacement(mCell, mUp)) return;
             _grid.PlaceBlock(def, mCell, mUp, dims, mPitch);

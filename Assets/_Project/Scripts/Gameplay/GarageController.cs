@@ -52,6 +52,8 @@ namespace Robogame.Gameplay
         private BuildHotbar _hotbar;
         private VariantConfigPanel _variantPanel;
         private BuildMirrorMode _mirrorMode;
+        private BlockGhostRenderer _ghostRenderer;
+        private PlacementFeedbackHud _feedbackHud;
         // Plain-C# build-mode model. Owns the variant cache + mirror
         // state + place/remove verbs so the MonoBehaviour drivers stay
         // thin and EditMode tests can drive build-mode logic without
@@ -277,6 +279,15 @@ namespace Robogame.Gameplay
             _mirrorMode.BuildMode = _buildMode;
             _mirrorMode.Session = _buildSession;
             _editor.MirrorMode = _mirrorMode;
+
+            // Ghost preview + placement-error feedback are split out of
+            // the editor so the editor's MonoBehaviour stays a thin
+            // input/state driver. Both lifecycle-tied to the build-mode
+            // GameObject.
+            if (_ghostRenderer == null) _ghostRenderer = gameObject.AddComponent<BlockGhostRenderer>();
+            _editor.GhostRenderer = _ghostRenderer;
+            if (_feedbackHud == null) _feedbackHud = gameObject.AddComponent<PlacementFeedbackHud>();
+            _editor.FeedbackHud = _feedbackHud;
         }
 
         /// <summary>Toggle build mode. Forwarded by HUD button + hotkey.</summary>

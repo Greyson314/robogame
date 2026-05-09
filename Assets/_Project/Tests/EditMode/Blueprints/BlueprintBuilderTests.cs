@@ -113,10 +113,14 @@ namespace Robogame.Tests.EditMode.Blueprints
         }
 
         [Test]
-        public void MirrorX_PreservesPitch()
+        public void MirrorX_NegatesPitch_WhenUpFlipsAcrossAxis()
         {
-            // Pitch (incidence) must mirror with the wing — a +2° main wing
-            // pitches +2° on both sides for symmetric trim.
+            // For a side-mounted wing (up=±X), MirrorAxis.X flips the
+            // span direction. The chord-axis pitch rotation lands on
+            // the same chassis-world direction on both sides, so the
+            // SAME pitch sign tilts the tip OPPOSITE ways relative to
+            // the chassis. To produce visually-symmetric tilt the
+            // mirrored pitch must be negated.
             Vector3 wingDims = new Vector3(4f, 0.08f, 0.9f);
             BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
                 .MirrorX(b => b.Block(BlockIds.Aero,
@@ -129,8 +133,30 @@ namespace Robogame.Tests.EditMode.Blueprints
             ChassisBlueprint.Entry posSide = Array.Find(plan.Entries, e => e.Position.x == 1);
             ChassisBlueprint.Entry negSide = Array.Find(plan.Entries, e => e.Position.x == -1);
             Assert.AreEqual(2f, posSide.Pitch, 1e-4f);
-            Assert.AreEqual(2f, negSide.Pitch, 1e-4f,
-                "Mirrored wing must keep the source's Pitch — symmetric trim depends on it.");
+            Assert.AreEqual(-2f, negSide.Pitch, 1e-4f,
+                "Mirrored side-mount wing must negate Pitch for symmetric tip-tilt.");
+        }
+
+        [Test]
+        public void MirrorX_PreservesPitch_WhenUpHasNoXComponent()
+        {
+            // Top-mounted wing (up=+Y) under MirrorAxis.X: the up
+            // doesn't flip, so the chord-axis pitch rotation lands on
+            // the same chassis-world axis on both sides. Pitch is
+            // preserved.
+            BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
+                .MirrorX(b => b.Block(BlockIds.Aero,
+                    new Vector3Int(1, 0, 0),
+                    new Vector3Int(0, 1, 0),
+                    Vector3.zero,
+                    pitchDeg: 3f))
+                .Build();
+            Assert.AreEqual(2, plan.Entries.Length);
+            ChassisBlueprint.Entry posSide = Array.Find(plan.Entries, e => e.Position.x ==  1);
+            ChassisBlueprint.Entry negSide = Array.Find(plan.Entries, e => e.Position.x == -1);
+            Assert.AreEqual(3f, posSide.Pitch, 1e-4f);
+            Assert.AreEqual(3f, negSide.Pitch, 1e-4f,
+                "Mirrored top-mount wing must preserve Pitch — up doesn't flip under X-mirror.");
         }
 
         // -----------------------------------------------------------------
