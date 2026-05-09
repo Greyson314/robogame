@@ -303,50 +303,40 @@ namespace Robogame.Gameplay
         {
             if (_grid == null) return false;
             if (_grid.Blocks.ContainsKey(cell)) return false;
-            // Adjacency + connectivity: the new cell must touch at least one
-            // block that is itself reachable from the CPU through the 6-axis
-            // adjacency graph. In normal play this is identical to the old
-            // "any neighbour" rule (every existing block is CPU-reachable by
-            // induction), but it's the watertight version: a hand-edited or
-            // corrupted blueprint that loaded with a disconnected island can't
-            // be extended — you can only build off the CPU's component.
+
+            // Strict-host connectivity (Robocraft 2-way street). The new
+            // block's mating face is the one toward (cell - up); the
+            // block on that side IS the host. The host must:
+            //   1. exist (no floating placements),
+            //   2. be CPU-reachable through non-leaf bridges,
+            //   3. be non-leaf (its face that we're mating to is connective).
+            //
+            // Without rule #3 the player could aim at a wing's side face
+            // and still get a valid placement because some other neighbour
+            // happened to be a non-leaf cube — the new block would visually
+            // attach to the wing while actually being hosted off-axis.
+            // The strict check makes the player's aim authoritative.
+            Vector3Int hostCell = cell - up;
+            bool hostExists = _grid.Blocks.TryGetValue(hostCell, out BlockBehaviour host);
             HashSet<Vector3Int> reachable = BuildCpuReachableSet();
-            bool adjacentToCpu = false;
+
             if (reachable != null)
             {
-                for (int i = 0; i < s_neighbors.Length; i++)
-                {
-                    Vector3Int nbr = cell + s_neighbors[i];
-                    if (!reachable.Contains(nbr)) continue;
-                    // Skip leaf neighbours — wings / thrusters / etc. can't
-                    // host a new block, even if they're CPU-reachable. Per
-                    // BlockConnectivity / Robocraft's "no building on wings".
-                    if (_grid.TryGetBlock(nbr, out BlockBehaviour nbrBlock)
-                        && BlockConnectivity.IsLeaf(nbrBlock.Definition)) continue;
-                    adjacentToCpu = true;
-                    break;
-                }
+                if (!hostExists || host == null) return false;
+                if (!reachable.Contains(hostCell)) return false;
+                if (BlockConnectivity.IsLeaf(host.Definition)) return false;
             }
             else
             {
-                // No CPU yet (we only allow placement during edit, and a
-                // chassis without a CPU is already broken — but be permissive
-                // so the very first CPU can be dropped onto an empty grid).
-                if (_grid.Blocks.Count == 0) adjacentToCpu = true;
-                else
+                // No CPU yet: empty grid permits the first CPU drop. If
+                // any blocks exist, still require a non-leaf host so the
+                // player can't snake a CPU-less chain through wings.
+                if (_grid.Blocks.Count > 0)
                 {
-                    for (int i = 0; i < s_neighbors.Length; i++)
-                    {
-                        Vector3Int nbr = cell + s_neighbors[i];
-                        if (!_grid.Blocks.ContainsKey(nbr)) continue;
-                        if (_grid.TryGetBlock(nbr, out BlockBehaviour nbrBlock)
-                            && BlockConnectivity.IsLeaf(nbrBlock.Definition)) continue;
-                        adjacentToCpu = true;
-                        break;
-                    }
+                    if (!hostExists || host == null) return false;
+                    if (BlockConnectivity.IsLeaf(host.Definition)) return false;
                 }
             }
-            if (!adjacentToCpu) return false;
 
             // CPU policy: we *track* total cost via GetCpuUsage / the
             // BuildHotbar readout, but we no longer reject placements that

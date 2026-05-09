@@ -31,15 +31,18 @@ Hook, Mace, Wheel, WheelSteer, Rope. Non-leaves: Cube, Cpu.
 [`Gameplay/BlockEditor.cs`](../../Assets/_Project/Scripts/Gameplay/BlockEditor.cs)
 applies the rule in two places:
 
-- **`IsValidPlacement`** — when scanning the candidate cell's
-  neighbours for a CPU-reachable host, skip any neighbour whose
-  definition is a leaf. So aiming at a wing's face produces a red
-  ghost (no valid host).
+- **`IsValidPlacement`** — strict-host check (post-feedback refinement,
+  2-way street): the placement's host is the specific cell at
+  `cell − up` (i.e. the block whose face the player aimed at). That
+  host must exist, be CPU-reachable, and be non-leaf. Aiming at a
+  wing's face is rejected even if some *other* neighbouring cell
+  happens to be a non-leaf cube — the player's aim is authoritative.
 - **`BuildCpuReachableSet`** — leaves are reached but don't bridge.
   The BFS visits a wing (so the wing itself is "reachable"), then
-  doesn't propagate further through it. Defends against authored
-  chassis where a non-leaf would only be connected through a leaf
-  bridge.
+  doesn't propagate further through it. Defence-in-depth: a chain
+  that snakes through a leaf isn't considered connected, so
+  blocks "downstream" of a leaf can't be used as a host even if
+  some other path to them exists.
 
 The validator (`BlueprintValidator`) is unchanged. Shipped helicopter /
 bomber / etc. all attach foils to a non-leaf cube cap, so they pass
