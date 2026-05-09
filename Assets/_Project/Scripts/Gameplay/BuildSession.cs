@@ -313,17 +313,29 @@ namespace Robogame.Gameplay
         /// a side effect, so block-index ordering remains the netcode
         /// contract on every save / load / mid-edit flush.
         /// </summary>
+        /// <remarks>
+        /// Also auto-derives <see cref="ChassisBlueprint.RotorsGenerateLift"/>
+        /// from the live grid contents: a chassis with one or more
+        /// <see cref="BlockIds.Rotor"/> cells flips the flag so the
+        /// next chassis spawn sets <c>RotorBlock.GeneratesLift = true</c>
+        /// and the rotor adopts adjacent foils. Per-rotor opt-in lands
+        /// when the blueprint format supports per-cell config; until
+        /// then, "this chassis has rotors" is the right granularity.
+        /// </remarks>
         public void SyncBlueprint()
         {
             if (Blueprint == null || Grid == null) return;
             var list = new List<ChassisBlueprint.Entry>(Grid.Blocks.Count);
+            bool hasRotor = false;
             foreach (var kvp in Grid.Blocks)
             {
                 BlockBehaviour b = kvp.Value;
                 if (b == null || b.Definition == null) continue;
                 list.Add(new ChassisBlueprint.Entry(b.Definition.Id, kvp.Key, b.Up, b.Dims, b.PitchDeg));
+                if (b.Definition.Id == BlockIds.Rotor) hasRotor = true;
             }
             Blueprint.SetEntries(list.ToArray());
+            if (hasRotor) Blueprint.RotorsGenerateLift = true;
         }
     }
 }

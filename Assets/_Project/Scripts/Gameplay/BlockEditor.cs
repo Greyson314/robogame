@@ -717,13 +717,19 @@ namespace Robogame.Gameplay
             if (state == null || state.CurrentBlueprint == null || _grid == null) return;
 
             var list = new List<ChassisBlueprint.Entry>(_grid.Blocks.Count);
+            bool hasRotor = false;
             foreach (var kvp in _grid.Blocks)
             {
                 BlockBehaviour b = kvp.Value;
                 if (b == null || b.Definition == null) continue;
                 list.Add(new ChassisBlueprint.Entry(b.Definition.Id, kvp.Key, b.Up, b.Dims, b.PitchDeg));
+                if (b.Definition.Id == BlockIds.Rotor) hasRotor = true;
             }
             state.CurrentBlueprint.SetEntries(list.ToArray());
+            // See BuildSession.SyncBlueprint for rationale: "this
+            // chassis has rotors" auto-derives RotorsGenerateLift
+            // until per-cell config lands.
+            if (hasRotor) state.CurrentBlueprint.RotorsGenerateLift = true;
         }
     }
 }
