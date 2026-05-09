@@ -378,64 +378,83 @@ namespace Robogame.Movement
         }
 
         /// <summary>
-        /// Compute the wing mesh's local-position offset so a span-N foil
-        /// extends N cells outward from its host face instead of straddling
-        /// the foil cell symmetrically. Outward = away from the chassis
-        /// origin, derived from the foil's chassis-local cell position.
-        /// Returns Vector3.zero in rotor mode (rotor blades must stay
-        /// centered for a balanced disc) or for a foil at chassis origin.
+        /// Foil mesh's local-scale (the wing primitive cube's
+        /// <c>localScale</c>) for a foil with the given dimensions and
+        /// rotor-or-not status. Single source of truth used by both
+        /// <see cref="ApplyOrientationToVisual"/> and the build-mode
+        /// ghost factory so the preview can never disagree with the
+        /// placed block's geometry.
         /// </summary>
-        public static Vector3 ComputeWingShift(Vector3Int cellPos, float span, bool vertical, bool rotorMode)
+        /// <remarks>
+        /// <para>
+        /// <b>Regular foil</b> — <c>span</c> goes along foil-local +Y
+        /// (the mount-up direction). After
+        /// <see cref="Robogame.Block.BlockGrid.OrientationFromUp"/> rotates
+        /// the foil into chassis frame, foil-local +Y points outward from
+        /// the host face. So a top-mounted foil extends straight up
+        /// (vertical stabiliser), a side-mounted foil extends sideways
+        /// (wing), a bottom-mounted foil extends down (rudder), etc.
+        /// One rule for every face.
+        /// </para>
+        /// <para>
+        /// <b>Rotor blade</b> — <c>span</c> goes along foil-local +X
+        /// (tangent to the rotor disc) so blades extend perpendicular
+        /// to the spin axis, the way real rotor blades do. Otherwise
+        /// blades would extend along the spin axis and look like
+        /// vertical knives.
+        /// </para>
+        /// </remarks>
+        public static Vector3 ComputeFoilMeshScale(float span, float thickness, float chord, bool rotorMode)
         {
-            if (rotorMode) return Vector3.zero;
-            // Half-span minus half-cell: a span-1 foil exactly fills its
-            // cell so no shift; span > 1 needs (span-1)/2 of outward offset.
-            float magnitude = Mathf.Max(0f, span * 0.5f - 0.5f);
-            if (vertical)
-            {
-                int signY = cellPos.y > 0 ? 1 : (cellPos.y < 0 ? -1 : 0);
-                return new Vector3(0f, signY * magnitude, 0f);
-            }
-            int signX = cellPos.x > 0 ? 1 : (cellPos.x < 0 ? -1 : 0);
-            return new Vector3(signX * magnitude, 0f, 0f);
+            return rotorMode
+                ? new Vector3(span, thickness, chord)
+                : new Vector3(thickness, span, chord);
         }
 
         /// <summary>
-        /// Apply the orientation flag to the visual mesh: horizontal uses
-        /// the configured wing size, vertical rotates 90° around forward
-        /// (so the cube becomes a tall fin) and swaps span/thickness.
+        /// Outward offset for the wing mesh inside its cell, so a
+        /// <c>span > 1</c> foil extends past its host's adjacent cells
+        /// instead of straddling its own cell symmetrically.
         /// </summary>
         /// <remarks>
-        /// Dimensions are read from the sibling <see cref="BlockBehaviour"/>'s
-        /// <see cref="BlockBehaviour.Dims"/> field (populated from the
-        /// blueprint entry that placed this foil). Vector3.zero falls back
-        /// to <see cref="DefaultSpan"/>/<see cref="DefaultThickness"/>/
-        /// <see cref="DefaultChord"/>. Per-block dims rather than global
-        /// tweakables means a wing-tuned plane and a thin-blade helicopter
-        /// can coexist in the same library without one stomping the other —
-        /// see PHYSICS_PLAN § 1.5.
+        /// Regular foils shift along foil-local +Y (the mount-up
+        /// direction); rotor blades shift along foil-local +X (the
+        /// blade tangent direction). Rotor blade direction is derived
+        /// from <paramref name="cellPos"/>.x sign so the blade extends
+        /// outward from the rotor hub.
         /// </remarks>
+        public static Vector3 ComputeWingShift(Vector3Int cellPos, float span, bool rotorMode)
+        {
+            // span-1 foil = unit cube, no shift; span > 1 shifts by
+            // (span-1)/2 so the inner edge stays at the cell's near face.
+            float magnitude = Mathf.Max(0f, span * 0.5f - 0.5f);
+            if (magnitude <= 0f) return Vector3.zero;
+            if (rotorMode)
+            {
+                int signX = cellPos.x > 0 ? 1 : (cellPos.x < 0 ? -1 : 0);
+                return new Vector3(signX * magnitude, 0f, 0f);
+            }
+            // Non-rotor foil: foil-local +Y always points away from the
+            // host (OrientationFromUp guarantees this). Shift positive Y
+            // = shift "outward" regardless of mount face.
+            return new Vector3(0f, magnitude, 0f);
+        }
+
+        /// <summary>
+        /// Build the wing mesh's transform from the foil's per-instance
+        /// dims. Reads <c>bb.Dims</c> with default fallbacks; uses
+        /// <see cref="ComputeFoilMeshScale"/> + <see cref="ComputeWingShift"/>
+        /// so the placed-block geometry matches the build-mode ghost.
+        /// </summary>
         private void ApplyOrientationToVisual()
         {
             if (_wingMesh == null) return;
             BlockBehaviour bb = GetComponent<BlockBehaviour>();
             Vector3 dims = bb != null ? bb.Dims : Vector3.zero;
             ResolveDims(dims, out float span, out float thickness, out float chord);
-            if (_vertical)
-            {
-                // Tall thin fin: swap X and Y so the long axis points up.
-                _wingMesh.localScale = new Vector3(thickness, span, chord);
-            }
-            else
-            {
-                _wingMesh.localScale = new Vector3(span, thickness, chord);
-            }
-
-            // Outward shift: extends a span-N wing N cells out from its
-            // host face instead of half-overlapping the host. Rotor mode
-            // bypasses this so the disc stays balanced.
+            _wingMesh.localScale = ComputeFoilMeshScale(span, thickness, chord, _rotorMode);
             Vector3Int gridPos = bb != null ? bb.GridPosition : Vector3Int.zero;
-            _wingMesh.localPosition = ComputeWingShift(gridPos, span, _vertical, _rotorMode);
+            _wingMesh.localPosition = ComputeWingShift(gridPos, span, _rotorMode);
         }
     }
 }

@@ -44,13 +44,6 @@ namespace Robogame.Gameplay
             // Parent will set position/rotation; root scale stays 1 so the
             // primitive child scales below behave like authored values.
 
-            // Mount-aware foil treatment: top/bottom mounts get the
-            // horizontal-wing geometry; any other face gets the vertical
-            // treatment so the wing extends OUTWARD from the mount face.
-            // Mirrors the Vertical = sideMount logic in RobotAeroBinder.
-            Vector3Int mountUp = up == Vector3Int.zero ? Vector3Int.up : up;
-            bool foilSideMount = mountUp != Vector3Int.up && mountUp != Vector3Int.down;
-
             switch (def != null ? def.Id : null)
             {
                 case BlockIds.Wheel:
@@ -61,10 +54,8 @@ namespace Robogame.Gameplay
                     BuildThruster(root.transform);
                     break;
                 case BlockIds.Aero:
-                    BuildWing(root.transform, vertical: foilSideMount, dims: dims, cellPos: targetCell);
-                    break;
                 case BlockIds.AeroFin:
-                    BuildWing(root.transform, vertical: true,  dims: dims, cellPos: targetCell);
+                    BuildWing(root.transform, dims: dims, cellPos: targetCell);
                     break;
                 case BlockIds.Rudder:
                     BuildRudder(root.transform);
@@ -126,17 +117,14 @@ namespace Robogame.Gameplay
                 Quaternion.Euler(90f, 0f, 0f), new Vector3(0.5f, 0.4f, 0.5f));
         }
 
-        private static void BuildWing(Transform parent, bool vertical, Vector3 dims, Vector3Int cellPos)
+        private static void BuildWing(Transform parent, Vector3 dims, Vector3Int cellPos)
         {
-            // Mirror AeroSurfaceBlock.ApplyOrientationToVisual: same scale +
-            // outward shift so the ghost is a faithful preview of what the
-            // placed foil will look like. _rotorMode is always false here
-            // (build-mode placement is never rotor-adopted at hover time).
+            // Single source of truth — the same helpers the placed
+            // AeroSurfaceBlock uses for its mesh. Build-mode placement
+            // is never rotor-adopted at hover time, so rotorMode=false.
             AeroSurfaceBlock.ResolveDims(dims, out float span, out float thickness, out float chord);
-            Vector3 size = vertical
-                ? new Vector3(thickness, span, chord)
-                : new Vector3(span,      thickness, chord);
-            Vector3 shift = AeroSurfaceBlock.ComputeWingShift(cellPos, span, vertical, rotorMode: false);
+            Vector3 size = AeroSurfaceBlock.ComputeFoilMeshScale(span, thickness, chord, rotorMode: false);
+            Vector3 shift = AeroSurfaceBlock.ComputeWingShift(cellPos, span, rotorMode: false);
             Spawn(parent, PrimitiveType.Cube, shift, Quaternion.identity, size);
         }
 

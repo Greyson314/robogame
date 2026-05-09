@@ -18,6 +18,7 @@ MonoBehaviour:
   _maxHealth: 50
   _mass: 0.5
   _cpuCost: 8
+  _isLeafBlock: 0
   _prefab: {fileID: 0}
   _tintColor: {r: 1, g: 1, b: 1, a: 1}
   _material: {fileID: 2100000, guid: cd1e7f359edcda8479a614bfb8ed4131, type: 2}

@@ -61,87 +61,111 @@ namespace Robogame.Tests.EditMode.Blueprints
         }
 
         // -----------------------------------------------------------------
-        // Aerofoil — horizontal
+        // Aerofoil — span always extends along mount-up (the face normal).
+        // Top mount → up. Side mount → sideways. Front mount → forward.
         // -----------------------------------------------------------------
 
         [Test]
-        public void HorizontalFoil_DefaultDims_FitsInsideHostCell()
+        public void Foil_DefaultDims_FitsInsideHostCell()
         {
             // span=1, thickness=0.08, chord=0.9 → all under 1, no shift.
+            // For up=+Y the foil-local frame matches chassis frame, so
+            // mesh axes (thickness, span, chord) → chassis (X, Y, Z).
             Bounds b = BlockOccupancy.ComputeSweptBoundsLocal(
                 BlockIds.Aero, new Vector3Int(2, 1, 0), Vector3Int.up, Vector3.zero, cellSize: 1f);
             Assert.That(b.center.x, Is.EqualTo(2f).Within(Eps));
             Assert.That(b.center.y, Is.EqualTo(1f).Within(Eps));
             Assert.That(b.center.z, Is.EqualTo(0f).Within(Eps));
-            Assert.That(b.size.x, Is.EqualTo(AeroSurfaceBlock.DefaultSpan).Within(Eps));
-            Assert.That(b.size.y, Is.EqualTo(AeroSurfaceBlock.DefaultThickness).Within(Eps));
+            Assert.That(b.size.x, Is.EqualTo(AeroSurfaceBlock.DefaultThickness).Within(Eps));
+            Assert.That(b.size.y, Is.EqualTo(AeroSurfaceBlock.DefaultSpan).Within(Eps));
             Assert.That(b.size.z, Is.EqualTo(AeroSurfaceBlock.DefaultChord).Within(Eps));
         }
 
         [Test]
-        public void HorizontalFoil_Span2_ExtendsOneCellOutwardOnPositiveX()
+        public void Foil_TopMount_Span2_ExtendsUpward()
         {
-            // gridPos.x > 0 → outward shift is +X by (span-1)/2 = 0.5.
-            // Final x range: cell 2 + shift 0.5 ± span/2 = 1.5 .. 3.5.
+            // up=+Y → span aligns with chassis +Y. Outward shift = 0.5.
+            // y-center: 1 + 0.5 = 1.5. y-range: [0.5, 2.5].
             Vector3 dims = new Vector3(2f, 0.08f, 0.9f);
             Bounds b = BlockOccupancy.ComputeSweptBoundsLocal(
-                BlockIds.Aero, new Vector3Int(2, 0, 0), Vector3Int.up, dims, cellSize: 1f);
-            Assert.That(b.min.x, Is.EqualTo(1.5f).Within(Eps));
-            Assert.That(b.max.x, Is.EqualTo(3.5f).Within(Eps));
-        }
-
-        [Test]
-        public void HorizontalFoil_Span2_ExtendsOneCellOutwardOnNegativeX()
-        {
-            Vector3 dims = new Vector3(2f, 0.08f, 0.9f);
-            Bounds b = BlockOccupancy.ComputeSweptBoundsLocal(
-                BlockIds.Aero, new Vector3Int(-2, 0, 0), Vector3Int.up, dims, cellSize: 1f);
-            Assert.That(b.min.x, Is.EqualTo(-3.5f).Within(Eps));
-            Assert.That(b.max.x, Is.EqualTo(-1.5f).Within(Eps));
-        }
-
-        [Test]
-        public void HorizontalFoil_Span2_ThinThickness_DoesNotPokeIntoYNeighbour()
-        {
-            // The foil's y extent is its thickness (0.08). A neighbor cube
-            // at y=1 (range 0.5..1.5) must NOT report overlap with the
-            // foil at y=0 (range -0.04..0.04).
-            Vector3 dims = new Vector3(2f, 0.08f, 0.9f);
-            Bounds foil = BlockOccupancy.ComputeSweptBoundsLocal(
-                BlockIds.Aero, new Vector3Int(2, 0, 0), Vector3Int.up, dims, cellSize: 1f);
-            Bounds neighbour = BlockOccupancy.DefaultUnitCellBoundsLocal(new Vector3Int(2, 1, 0), 1f);
-            Assert.IsFalse(BlockOccupancy.StrictOverlap(foil, neighbour));
-        }
-
-        [Test]
-        public void HorizontalFoil_Span2_OverlapsNeighbourInExtensionDirection()
-        {
-            // Span-2 foil at (1,0,0): x-range [0.5..2.5]. Neighbour cube at
-            // (2,0,0): x-range [1.5..2.5]. The foil pokes into the cube's
-            // cell — must report overlap.
-            Vector3 dims = new Vector3(2f, 0.08f, 0.9f);
-            Bounds foil = BlockOccupancy.ComputeSweptBoundsLocal(
-                BlockIds.Aero, new Vector3Int(1, 0, 0), Vector3Int.up, dims, cellSize: 1f);
-            Bounds neighbour = BlockOccupancy.DefaultUnitCellBoundsLocal(new Vector3Int(2, 0, 0), 1f);
-            Assert.IsTrue(BlockOccupancy.StrictOverlap(foil, neighbour));
-        }
-
-        // -----------------------------------------------------------------
-        // Aerofoil — vertical fin
-        // -----------------------------------------------------------------
-
-        [Test]
-        public void VerticalFin_Span2_ExtendsAlongY()
-        {
-            // Tail fin has its long axis along chassis-local Y.
-            Vector3 dims = new Vector3(2f, 0.08f, 0.9f);
-            Bounds b = BlockOccupancy.ComputeSweptBoundsLocal(
-                BlockIds.AeroFin, new Vector3Int(0, 1, -3), Vector3Int.up, dims, cellSize: 1f);
-            // y center shifts from 1 to 1.5 (signY=+1, magnitude 0.5).
+                BlockIds.Aero, new Vector3Int(0, 1, 0), Vector3Int.up, dims, cellSize: 1f);
             Assert.That(b.min.y, Is.EqualTo(0.5f).Within(Eps));
             Assert.That(b.max.y, Is.EqualTo(2.5f).Within(Eps));
-            // Thickness collapses x: range [-0.04..0.04].
-            Assert.That(b.size.x, Is.EqualTo(0.08f).Within(Eps));
+        }
+
+        [Test]
+        public void Foil_RightSideMount_Span2_ExtendsRightward()
+        {
+            // up=+X → span aligns with chassis +X.
+            Vector3 dims = new Vector3(2f, 0.08f, 0.9f);
+            Bounds b = BlockOccupancy.ComputeSweptBoundsLocal(
+                BlockIds.Aero, new Vector3Int(1, 0, 0), new Vector3Int(1, 0, 0), dims, cellSize: 1f);
+            Assert.That(b.min.x, Is.EqualTo(0.5f).Within(Eps));
+            Assert.That(b.max.x, Is.EqualTo(2.5f).Within(Eps));
+        }
+
+        [Test]
+        public void Foil_FrontMount_Span2_ExtendsForward()
+        {
+            // up=+Z → span aligns with chassis +Z.
+            Vector3 dims = new Vector3(2f, 0.08f, 0.9f);
+            Bounds b = BlockOccupancy.ComputeSweptBoundsLocal(
+                BlockIds.Aero, new Vector3Int(0, 0, 1), new Vector3Int(0, 0, 1), dims, cellSize: 1f);
+            Assert.That(b.min.z, Is.EqualTo(0.5f).Within(Eps));
+            Assert.That(b.max.z, Is.EqualTo(2.5f).Within(Eps));
+        }
+
+        [Test]
+        public void Foil_BottomMount_Span2_ExtendsDownward()
+        {
+            // up=-Y → span aligns with chassis -Y. Foil hangs down from host.
+            Vector3 dims = new Vector3(2f, 0.08f, 0.9f);
+            Bounds b = BlockOccupancy.ComputeSweptBoundsLocal(
+                BlockIds.Aero, new Vector3Int(0, -1, 0), new Vector3Int(0, -1, 0), dims, cellSize: 1f);
+            Assert.That(b.min.y, Is.EqualTo(-2.5f).Within(Eps));
+            Assert.That(b.max.y, Is.EqualTo(-0.5f).Within(Eps));
+        }
+
+        [Test]
+        public void Foil_TopMount_Span2_OverlapsCellDirectlyAbove()
+        {
+            // Span-2 top-mount foil at (0,1,0) extends y=[0.5..2.5];
+            // a cube at (0,2,0) sits in y=[1.5..2.5] — strict overlap.
+            Vector3 dims = new Vector3(2f, 0.08f, 0.9f);
+            Bounds foil = BlockOccupancy.ComputeSweptBoundsLocal(
+                BlockIds.Aero, new Vector3Int(0, 1, 0), Vector3Int.up, dims, cellSize: 1f);
+            Bounds neighbour = BlockOccupancy.DefaultUnitCellBoundsLocal(new Vector3Int(0, 2, 0), 1f);
+            Assert.IsTrue(BlockOccupancy.StrictOverlap(foil, neighbour),
+                "Span-2 foil pokes into the cell directly above; placement must reject.");
+        }
+
+        [Test]
+        public void Foil_TopMount_Span2_DoesNotPokeLaterally()
+        {
+            // Top-mount foil's lateral extent is just chord (0.9) wide along
+            // chassis +Z and thickness (0.08) along chassis +X. Sideways
+            // neighbours at (±1, 1, 0) etc. must NOT overlap.
+            Vector3 dims = new Vector3(2f, 0.08f, 0.9f);
+            Bounds foil = BlockOccupancy.ComputeSweptBoundsLocal(
+                BlockIds.Aero, new Vector3Int(0, 1, 0), Vector3Int.up, dims, cellSize: 1f);
+            Bounds lateral = BlockOccupancy.DefaultUnitCellBoundsLocal(new Vector3Int(1, 1, 0), 1f);
+            Assert.IsFalse(BlockOccupancy.StrictOverlap(foil, lateral),
+                "Thin top-mount foil must not bleed into lateral neighbours.");
+        }
+
+        [Test]
+        public void Foil_AeroAndAeroFin_HaveSameGeometry()
+        {
+            // Single-rule model: both Aero and AeroFin extend span along
+            // mount-up. The build-mode binder collapses them, so the
+            // dispatcher should too.
+            Vector3 dims = new Vector3(2f, 0.08f, 0.9f);
+            Bounds aero = BlockOccupancy.ComputeSweptBoundsLocal(
+                BlockIds.Aero, new Vector3Int(0, 1, 0), Vector3Int.up, dims, cellSize: 1f);
+            Bounds aeroFin = BlockOccupancy.ComputeSweptBoundsLocal(
+                BlockIds.AeroFin, new Vector3Int(0, 1, 0), Vector3Int.up, dims, cellSize: 1f);
+            Assert.That(aero.center, Is.EqualTo(aeroFin.center));
+            Assert.That(aero.size,   Is.EqualTo(aeroFin.size));
         }
 
         // -----------------------------------------------------------------
@@ -154,11 +178,11 @@ namespace Robogame.Tests.EditMode.Blueprints
             // Same overlap question, different cell sizes — answer must agree.
             Vector3 dims = new Vector3(2f, 0.08f, 0.9f);
             Bounds foil1 = BlockOccupancy.ComputeSweptBoundsLocal(
-                BlockIds.Aero, new Vector3Int(1, 0, 0), Vector3Int.up, dims, cellSize: 1f);
-            Bounds neigh1 = BlockOccupancy.DefaultUnitCellBoundsLocal(new Vector3Int(2, 0, 0), 1f);
+                BlockIds.Aero, new Vector3Int(0, 1, 0), Vector3Int.up, dims, cellSize: 1f);
+            Bounds neigh1 = BlockOccupancy.DefaultUnitCellBoundsLocal(new Vector3Int(0, 2, 0), 1f);
             Bounds foil2 = BlockOccupancy.ComputeSweptBoundsLocal(
-                BlockIds.Aero, new Vector3Int(1, 0, 0), Vector3Int.up, dims, cellSize: 4f);
-            Bounds neigh2 = BlockOccupancy.DefaultUnitCellBoundsLocal(new Vector3Int(2, 0, 0), 4f);
+                BlockIds.Aero, new Vector3Int(0, 1, 0), Vector3Int.up, dims, cellSize: 4f);
+            Bounds neigh2 = BlockOccupancy.DefaultUnitCellBoundsLocal(new Vector3Int(0, 2, 0), 4f);
             Assert.AreEqual(
                 BlockOccupancy.StrictOverlap(foil1, neigh1),
                 BlockOccupancy.StrictOverlap(foil2, neigh2));

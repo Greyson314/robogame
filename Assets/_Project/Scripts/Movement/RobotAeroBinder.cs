@@ -26,30 +26,19 @@ namespace Robogame.Movement
                         block.gameObject.AddComponent<ThrusterBlock>();
                     break;
                 case BlockIds.Aero:
+                case BlockIds.AeroFin:
                 {
                     AeroSurfaceBlock aero = block.GetComponent<AeroSurfaceBlock>();
                     if (aero == null) aero = block.gameObject.AddComponent<AeroSurfaceBlock>();
-                    // Mount-aware geometry: top/bottom mounts (up=±Y) get
-                    // the horizontal-wing treatment (span along chassis ±X);
-                    // side / front / back mounts get the vertical-fin
-                    // treatment so the wing visually extends OUTWARD along
-                    // the mount normal instead of degenerating into a
-                    // sideways-hanging sheet. Lift physics also flips to
-                    // the vertical-fin path for non-±Y mounts — that's a
-                    // visual-first fix; symmetric lift across faces is a
-                    // Phase 1.c follow-up. Default Plane / Helicopter
-                    // blueprints all author wings as up=+Y so they're
-                    // unaffected.
-                    Vector3Int mountUp = block.Up;
-                    bool sideMount = mountUp != Vector3Int.up && mountUp != Vector3Int.down;
-                    aero.Vertical = sideMount;
-                    break;
-                }
-                case BlockIds.AeroFin:
-                {
-                    AeroSurfaceBlock fin = block.GetComponent<AeroSurfaceBlock>();
-                    if (fin == null) fin = block.gameObject.AddComponent<AeroSurfaceBlock>();
-                    fin.Vertical = true;
+                    // Single rule for every mount face: span extends along
+                    // the mount normal (foil-local +Y), thickness along
+                    // foil-local +X, chord along foil-local +Z. Lift acts
+                    // along foil-local +X (the "right" axis) so it's
+                    // perpendicular to both span and chord — gives sensible
+                    // per-mount lift: side wing → vertical lift, top stab
+                    // → lateral yaw force, canard → pitch force, etc.
+                    // Vertical=true is what enables both behaviours.
+                    aero.Vertical = true;
                     break;
                 }
                 case BlockIds.Rudder:

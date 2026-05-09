@@ -51,10 +51,8 @@ namespace Robogame.Block
         public static Bounds ComputeSweptBoundsLocal(
             string blockId, Vector3Int gridPos, Vector3Int up, Vector3 dims, float cellSize)
         {
-            if (blockId == BlockIds.Aero)
-                return ComputeFoilSweptBoundsLocal(vertical: false, gridPos, up, dims, cellSize);
-            if (blockId == BlockIds.AeroFin)
-                return ComputeFoilSweptBoundsLocal(vertical: true, gridPos, up, dims, cellSize);
+            if (blockId == BlockIds.Aero || blockId == BlockIds.AeroFin)
+                return ComputeFoilSweptBoundsLocal(gridPos, up, dims, cellSize);
             return DefaultUnitCellBoundsLocal(gridPos, cellSize);
         }
 
@@ -102,12 +100,12 @@ namespace Robogame.Block
         }
 
         // -----------------------------------------------------------------
-        // Foil-specific helpers
+        // Foil-specific helpers — mirrors the geometry contract in
+        // AeroSurfaceBlock (ComputeFoilMeshScale + ComputeWingShift).
+        // Duplicated rather than referenced because Block can't see
+        // Movement; the FoilDefaults_StayInSyncWithAeroSurfaceBlock test
+        // pins the constants together.
         // -----------------------------------------------------------------
-        // Mirrors AeroSurfaceBlock.{ResolveDims, ComputeWingShift,
-        // ApplyOrientationToVisual}'s geometry. Duplicated rather than
-        // shared because Block can't reference Movement; sync test
-        // catches drift.
 
         private static void ResolveFoilDims(Vector3 raw, out float span, out float thickness, out float chord)
         {
@@ -116,31 +114,25 @@ namespace Robogame.Block
             chord     = raw.z > 0f ? raw.z : FoilDefaultChord;
         }
 
-        private static Vector3 ComputeFoilWingShift(Vector3Int cellPos, float span, bool vertical)
-        {
-            // A span-1 foil exactly fills its cell, so no shift; span > 1
-            // shifts outward by half the over-cell extent so the wing
-            // extends away from chassis origin instead of straddling.
-            float magnitude = Mathf.Max(0f, span * 0.5f - 0.5f);
-            if (vertical)
-            {
-                int signY = cellPos.y > 0 ? 1 : (cellPos.y < 0 ? -1 : 0);
-                return new Vector3(0f, signY * magnitude, 0f);
-            }
-            int signX = cellPos.x > 0 ? 1 : (cellPos.x < 0 ? -1 : 0);
-            return new Vector3(signX * magnitude, 0f, 0f);
-        }
-
         private static Bounds ComputeFoilSweptBoundsLocal(
-            bool vertical, Vector3Int gridPos, Vector3Int up, Vector3 dims, float cellSize)
+            Vector3Int gridPos, Vector3Int up, Vector3 dims, float cellSize)
         {
             ResolveFoilDims(dims, out float span, out float thickness, out float chord);
 
-            Vector3 halfExtentsLocal = vertical
-                ? new Vector3(thickness, span, chord) * 0.5f
-                : new Vector3(span, thickness, chord) * 0.5f;
+            // Build-mode foils use the "vertical-treatment" geometry:
+            // span along foil-local +Y (the mount-up direction so the
+            // wing extends OUT from the host face), thickness along
+            // foil-local +X, chord along foil-local +Z. Rotor blades
+            // use the alternate horizontal layout but they're never
+            // placed via the build editor — only the build path runs
+            // through this dispatcher.
+            Vector3 halfExtentsLocal = new Vector3(thickness, span, chord) * 0.5f;
 
-            Vector3 shiftLocal = ComputeFoilWingShift(gridPos, span, vertical);
+            // Outward shift along foil-local +Y (mount-normal direction)
+            // for span > 1. OrientationFromUp(up) rotates this to the
+            // chassis-local outward direction.
+            float magnitude = Mathf.Max(0f, span * 0.5f - 0.5f);
+            Vector3 shiftLocal = new Vector3(0f, magnitude, 0f);
 
             Quaternion rot = BlockGrid.OrientationFromUp(up);
 

@@ -199,18 +199,20 @@ namespace Robogame.Tests.PlayMode.Movement
         // -----------------------------------------------------------------------
 
         /// <summary>
-        /// Change C contract: setting <see cref="BlockBehaviour.Dims"/> via
-        /// <see cref="BlockBehaviour.SetDims"/> must immediately update
-        /// <c>_wingMesh.localScale</c> on every active foil. Horizontal foil:
-        /// span → scale.x, thickness → scale.y, chord → scale.z. Live updates
-        /// flow through the BlockBehaviour.DimsChanged event the
-        /// AeroSurfaceBlock subscribes to in OnEnable.
+        /// Foil mesh layout, post-session-41 unification: span ALWAYS goes
+        /// along foil-local +Y (regardless of <see cref="AeroSurfaceBlock.Vertical"/>),
+        /// thickness along +X, chord along +Z. The mount-face rotation
+        /// from <c>BlockGrid.OrientationFromUp</c> then turns "foil-local
+        /// +Y" into the chassis-outward direction, so a top-mounted foil
+        /// extends up, a side-mounted foil extends sideways, etc. — one
+        /// rule, every face. The exception is rotor blades (rotorMode=true)
+        /// which keep span along foil-local +X.
         /// </summary>
         [UnityTest]
         public IEnumerator WingMeshScale_TracksBlockDims_Live()
         {
-            // Use a standalone foil parented directly to the dynamic chassis
-            // (not the hub) so OnEnable resolves cleanly without rotor-mode.
+            // Standalone foil parented to the chassis (not a rotor hub),
+            // so it's not in rotor mode — exercises the regular foil path.
             GameObject foilGo = new GameObject("VisualFoil");
             foilGo.transform.SetParent(_chassisGo.transform, worldPositionStays: false);
             BlockBehaviour bb = foilGo.AddComponent<BlockBehaviour>();
@@ -221,42 +223,42 @@ namespace Robogame.Tests.PlayMode.Movement
             Transform mesh = GetWingMesh(foil);
             Assert.IsNotNull(mesh, "Precondition: _wingMesh must be non-null after Awake.");
 
-            // --- Span → scale.x ---
+            // --- Span → scale.y (foil-local +Y = mount-up direction) ---
             bb.SetDims(new Vector3(2.5f, AeroSurfaceBlock.DefaultThickness, AeroSurfaceBlock.DefaultChord));
             yield return null;
-            Assert.AreEqual(2.5f, mesh.localScale.x, 0.001f,
-                "scale.x should track Dims.x (horizontal foil span).");
+            Assert.AreEqual(2.5f, mesh.localScale.y, 0.001f,
+                "scale.y should track Dims.x (span). Span axis = foil-local +Y.");
 
             // --- Chord → scale.z ---
             bb.SetDims(new Vector3(2.5f, AeroSurfaceBlock.DefaultThickness, 1.8f));
             yield return null;
             Assert.AreEqual(1.8f, mesh.localScale.z, 0.001f,
-                "scale.z should track Dims.z (horizontal foil chord).");
+                "scale.z should track Dims.z (chord).");
 
-            // --- Thickness → scale.y ---
+            // --- Thickness → scale.x ---
             bb.SetDims(new Vector3(2.5f, 0.15f, 1.8f));
             yield return null;
-            Assert.AreEqual(0.15f, mesh.localScale.y, 0.001f,
-                "scale.y should track Dims.y (horizontal foil thickness).");
+            Assert.AreEqual(0.15f, mesh.localScale.x, 0.001f,
+                "scale.x should track Dims.y (thickness). Thickness axis = foil-local +X.");
         }
 
         /// <summary>
-        /// Change C contract (vertical fin): when <c>Vertical = true</c>,
-        /// <c>ApplyOrientationToVisual</c> swaps span and thickness so the long
-        /// axis points up. span → scale.y, thickness → scale.x.
+        /// Vertical = true used to swap mesh axes; post-session-41 the
+        /// mesh layout is the same as Vertical = false. The flag now only
+        /// affects lift/sideslip axis picking in FixedUpdate, not geometry.
         /// </summary>
         [UnityTest]
-        public IEnumerator VerticalFin_SwapsSpanAndThickness()
+        public IEnumerator VerticalFin_MeshLayoutMatchesRegularFoil()
         {
             GameObject foilGo = new GameObject("VerticalFoil");
             foilGo.transform.SetParent(_chassisGo.transform, worldPositionStays: false);
             foilGo.SetActive(false);
             BlockBehaviour bb = foilGo.AddComponent<BlockBehaviour>();
             AeroSurfaceBlock foil = foilGo.AddComponent<AeroSurfaceBlock>();
-            foil.Vertical = true; // set before first enable
+            foil.Vertical = true; // production default for player-placed foils
             foilGo.SetActive(true);
 
-            yield return null; // Awake/OnEnable fires with Vertical already true
+            yield return null;
 
             bb.SetDims(new Vector3(1.5f, 0.1f, AeroSurfaceBlock.DefaultChord));
             yield return null;
@@ -264,10 +266,10 @@ namespace Robogame.Tests.PlayMode.Movement
             Transform mesh = GetWingMesh(foil);
             Assert.IsNotNull(mesh, "Precondition: _wingMesh must be non-null after Awake.");
 
-            Assert.AreEqual(0.1f, mesh.localScale.x, 0.001f,
-                "Vertical fin: scale.x should be thickness (the narrow axis).");
-            Assert.AreEqual(1.5f, mesh.localScale.y, 0.001f,
-                "Vertical fin: scale.y should be span (the tall axis).");
+            Assert.AreEqual(0.1f, mesh.localScale.x, 0.001f, "scale.x should be thickness.");
+            Assert.AreEqual(1.5f, mesh.localScale.y, 0.001f, "scale.y should be span.");
+            Assert.AreEqual(AeroSurfaceBlock.DefaultChord, mesh.localScale.z, 0.001f,
+                "scale.z should be chord.");
         }
 
         /// <summary>
