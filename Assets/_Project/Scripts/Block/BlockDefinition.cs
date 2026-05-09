@@ -64,6 +64,15 @@ namespace Robogame.Block
                  "shipped assets without the flag still behave correctly.")]
         [SerializeField] private bool _isLeafBlock = false;
 
+        [Tooltip("If true, this block can only be placed on a side face of a host " +
+                 "(chassis ±X or ±Z); top / bottom (±Y) mounts are rejected at " +
+                 "placement time. Used for wheels: the stem is horizontal, so " +
+                 "mounting a wheel on the top of a cube would point the stem " +
+                 "straight up. Default false (block can mount on any of the 6 faces). " +
+                 "BlockConnectivity has a hardcoded fallback list — shipped wheel " +
+                 "assets behave correctly without re-authoring the SO.")]
+        [SerializeField] private bool _sideMountOnly = false;
+
         [Header("Visuals")]
         [Tooltip("Prefab spawned when this block is placed. Must contain a BlockBehaviour at the root.")]
         [SerializeField] private GameObject _prefab;
@@ -97,6 +106,10 @@ namespace Robogame.Block
         /// <see cref="BlockConnectivity.IsLeaf"/> instead, which also
         /// applies the hardcoded fallback list.</summary>
         public bool IsLeafBlockRaw => _isLeafBlock;
+
+        /// <summary>Raw flag from the asset; consumers should call
+        /// <see cref="BlockConnectivity.RequiresSideMount"/>.</summary>
+        public bool SideMountOnlyRaw => _sideMountOnly;
         public GameObject Prefab => _prefab;
         public Color TintColor => _tintColor;
         public Material Material => _material;

@@ -9,10 +9,11 @@ namespace Robogame.Block
     /// minimum — a sensible blank canvas for the player to edit.
     /// </summary>
     /// <remarks>
-    /// Mirrors the proven shape used by the default ground rover preset
-    /// (see <c>GameplayScaffolder.BuildDefaultGroundBlueprint</c>): 3×3
-    /// floor of cubes with a CPU at origin, a hitscan weapon on top, and
-    /// six wheels (two steering at the front).
+    /// Mirrors the shape used by the default ground rover preset (see
+    /// <c>GameplayScaffolder.BuildDefaultGroundBlueprint</c>): 3×3 floor
+    /// of cubes with a CPU at centre and a hitscan weapon on top, plus
+    /// six wheels on the side faces of the outermost cubes (two steering
+    /// at the front, two drive at the middle, two drive at the rear).
     /// </remarks>
     public static class StarterBlueprints
     {
@@ -30,16 +31,20 @@ namespace Robogame.Block
                     if (!(x == 0 && z == 0))
                         list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(x, 0, z)));
 
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu,        new Vector3Int(0, 0, 0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Weapon,     new Vector3Int(0, 1, 0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu,    new Vector3Int(0, 0, 0)));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Weapon, new Vector3Int(0, 1, 0)));
 
-            // Wheels: steering at front (zMax), driven at the rear and middle.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int(xMin, 0, zMax)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int(xMax, 0, zMax)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(xMin, 0, 0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(xMax, 0, 0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(xMin, 0, zMin)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(xMax, 0, zMin)));
+            // Wheels mount on the ±X faces of the outermost floor cubes;
+            // stem extends outward, tyre at the cell beyond. Steering at
+            // the front (zMax), drive everywhere else.
+            Vector3Int upRight = new Vector3Int( 1, 0, 0);
+            Vector3Int upLeft  = new Vector3Int(-1, 0, 0);
+            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int(xMin - 1, 0, zMax), upLeft));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int(xMax + 1, 0, zMax), upRight));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(xMin - 1, 0, 0),    upLeft));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(xMax + 1, 0, 0),    upRight));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(xMin - 1, 0, zMin), upLeft));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(xMax + 1, 0, zMin), upRight));
 
             ChassisBlueprint bp = ScriptableObject.CreateInstance<ChassisBlueprint>();
             bp.name = displayName + " (Runtime)";

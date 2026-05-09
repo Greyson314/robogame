@@ -125,26 +125,28 @@ namespace Robogame.Tools.Editor
 
         private static ChassisBlueprint.Entry[] BuildGroundEntries()
         {
-            // Mirrors RobotLayouts.PopulateTestRobot: 3×6 chassis with
-            // CPU centre, weapon on top, wheels at corners + mid.
+            // Mirrors RobotLayouts.PopulateTestRobot: 3×6 chassis (cubes
+            // fill every floor cell except the CPU), with 6 wheels mounted
+            // on the side faces of the outermost cubes — stem extends out
+            // from the chassis along ±X.
             var list = new List<ChassisBlueprint.Entry>();
             const int xMin = -1, xMax = 1, zMin = -2, zMax = 3;
             for (int x = xMin; x <= xMax; x++)
             for (int z = zMin; z <= zMax; z++)
             {
-                bool isCpu = (x == 0 && z == 0);
-                bool isWheel = (x == xMin || x == xMax) && (z == zMin || z == 0 || z == zMax);
-                if (isCpu || isWheel) continue;
+                if (x == 0 && z == 0) continue; // CPU
                 list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(x, 0, z)));
             }
             list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)));
             list.Add(new ChassisBlueprint.Entry(BlockIds.Weapon, new Vector3Int(0, 1, 0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int(xMin, 0, zMax)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int(xMax, 0, zMax)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel, new Vector3Int(xMin, 0, 0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel, new Vector3Int(xMax, 0, 0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel, new Vector3Int(xMin, 0, zMin)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel, new Vector3Int(xMax, 0, zMin)));
+            Vector3Int upRight = new Vector3Int( 1, 0, 0);
+            Vector3Int upLeft  = new Vector3Int(-1, 0, 0);
+            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int(xMin - 1, 0, zMax), upLeft));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int(xMax + 1, 0, zMax), upRight));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(xMin - 1, 0, 0),    upLeft));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(xMax + 1, 0, 0),    upRight));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(xMin - 1, 0, zMin), upLeft));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(xMax + 1, 0, zMin), upRight));
             return list.ToArray();
         }
 
@@ -194,21 +196,24 @@ namespace Robogame.Tools.Editor
 
         private static ChassisBlueprint.Entry[] BuildBuggyEntries()
         {
-            // Compact 2-wide × 3-long × 2-tall buggy: smaller and lighter
-            // than the tank, no top armour. CPU at centre, weapon mounted
-            // up top, steering wheels at the front, drive wheels at the rear.
+            // Compact 3-wide × 3-long buggy chassis (a solid 3×3 floor of
+            // cubes with the CPU at centre) and 4 wheels mounted on the
+            // ±X faces of the front and rear corner cubes.
             var list = new List<ChassisBlueprint.Entry>();
+            for (int x = -1; x <= 1; x++)
+            for (int z = -1; z <= 1; z++)
+            {
+                if (x == 0 && z == 0) continue; // CPU
+                list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(x, 0, z)));
+            }
             list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(-1, 0, 0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(1, 0, 0)));
-            // Front: steering wheels and a nose block.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(0, 0, 1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int(-1, 0, 1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int(1, 0, 1)));
-            // Rear: drive wheels and a tail block.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(0, 0, -1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel, new Vector3Int(-1, 0, -1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel, new Vector3Int(1, 0, -1)));
+            // Wheels: stem outward from corner cubes. Steering at front (z=+1).
+            Vector3Int upRight = new Vector3Int( 1, 0, 0);
+            Vector3Int upLeft  = new Vector3Int(-1, 0, 0);
+            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int(-2, 0,  1), upLeft));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int( 2, 0,  1), upRight));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(-2, 0, -1), upLeft));
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int( 2, 0, -1), upRight));
             // Roll cage / weapon mount.
             list.Add(new ChassisBlueprint.Entry(BlockIds.Weapon, new Vector3Int(0, 1, 0)));
             return list.ToArray();

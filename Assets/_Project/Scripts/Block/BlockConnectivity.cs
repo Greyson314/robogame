@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Robogame.Block
 {
@@ -58,5 +59,48 @@ namespace Robogame.Block
         /// at hand — e.g. validating a blueprint plan pre-instantiation).
         /// </summary>
         public static bool IsLeafId(string blockId) => s_hardcodedLeafIds.Contains(blockId);
+
+        // -----------------------------------------------------------------
+        // Mount-face constraints
+        // -----------------------------------------------------------------
+
+        // Block ids that must mount on a side face (chassis ±X or ±Z).
+        // Used for wheels: the stem is horizontal, so a top / bottom mount
+        // would point the stem straight up or down. Hardcoded fallback so
+        // shipped wheel assets work without re-authoring the SO.
+        private static readonly HashSet<string> s_hardcodedSideMountOnlyIds = new()
+        {
+            BlockIds.Wheel,
+            BlockIds.WheelSteer,
+        };
+
+        /// <summary>
+        /// True if this block can only mount on side faces of a host
+        /// (chassis ±X / ±Z, never ±Y). Caller is responsible for
+        /// rejecting placements with up=±Y when this returns true.
+        /// </summary>
+        public static bool RequiresSideMount(BlockDefinition def)
+        {
+            if (def == null) return false;
+            if (def.SideMountOnlyRaw) return true;
+            return s_hardcodedSideMountOnlyIds.Contains(def.Id);
+        }
+
+        /// <summary>True if <paramref name="up"/> is a side-face direction (±X or ±Z, not ±Y).</summary>
+        public static bool IsSideMountFace(Vector3Int up)
+        {
+            return up.y == 0 && (up.x != 0 || up.z != 0);
+        }
+
+        /// <summary>
+        /// Combined check: would placing this block with this mount-up
+        /// satisfy the block's mount-face constraint? Returns true if
+        /// the block has no constraint OR the up is a valid side face.
+        /// </summary>
+        public static bool IsValidMountFace(BlockDefinition def, Vector3Int up)
+        {
+            if (!RequiresSideMount(def)) return true;
+            return IsSideMountFace(up);
+        }
     }
 }

@@ -102,10 +102,26 @@ namespace Robogame.Gameplay
 
         private static void BuildWheel(Transform parent)
         {
-            // Cylinder default long axis is Y; rotate 90° around Z so it
-            // lies on its side like an actual wheel.
+            // Mirror WheelBlock.EnsureRig's stem + hub + tyre layout so the
+            // ghost matches what gets spawned. Block-local +Y = mount-up =
+            // stem axis (the cell's "outward" direction toward the wheel
+            // hub); host face is at block-local -Y.
+            //
+            // Stem: thin cylinder from host face to cell centre.
+            Spawn(parent, PrimitiveType.Cylinder, new Vector3(0f, -0.25f, 0f),
+                Quaternion.identity, new Vector3(0.18f, 0.25f, 0.18f));
+
+            // Tyre: full-radius disc, thin along the axle (block-local Y).
+            const float radius = 0.35f; // matches WheelBlock._radius default
+            float d = radius * 2f;
             Spawn(parent, PrimitiveType.Cylinder, Vector3.zero,
-                Quaternion.Euler(0f, 0f, 90f), new Vector3(0.6f, 0.45f, 0.6f));
+                Quaternion.identity, new Vector3(d, 0.09f, d));
+
+            // Hub cap: small cylinder pushed slightly outboard so the ghost
+            // reads as "tyre + hub" rather than a plain dark disc.
+            float hubD = radius * 0.55f;
+            Spawn(parent, PrimitiveType.Cylinder, new Vector3(0f, 0.03f, 0f),
+                Quaternion.identity, new Vector3(hubD, 0.07f, hubD));
         }
 
         private static void BuildThruster(Transform parent)

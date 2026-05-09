@@ -78,9 +78,11 @@ namespace Robogame.Movement
         [SerializeField, Min(0f)] private float _friction = 1.6f;
 
         [Header("Visual rig (auto-built if blank)")]
-        [SerializeField] private Transform _hub;     // yaws for steering
-        [SerializeField] private Transform _spin;    // rotates around X for rolling
-        [SerializeField] private Transform _tyre;    // visible cylinder
+        [SerializeField] private Transform _stem;    // static stem from host face to hub centre
+        [SerializeField] private Transform _hub;     // yaws for steering, drops for suspension
+        [SerializeField] private Transform _spin;    // rotates around the axle for rolling
+        [SerializeField] private Transform _tyre;    // visible disc
+        [SerializeField] private Transform _hubCap;  // visible hub cap (contrasts the tyre)
 
         public WheelKind Kind
         {
@@ -196,11 +198,12 @@ namespace Robogame.Movement
         private void UpdateSuspensionVisual()
         {
             if (_hub == null) return;
-            // Hub Y in block-local space drops by the current extension so
-            // the tyre tracks the ground regardless of chassis bob.
-            Vector3 lp = _hub.localPosition;
-            lp.y = -_suspensionExtension;
-            _hub.localPosition = lp;
+            // Suspension acts along world-down (gravity), regardless of how
+            // the wheel block is mounted on the chassis. Convert the world
+            // drop into block-local space so localPosition tracks it.
+            Vector3 worldDrop = Vector3.down * _suspensionExtension;
+            Vector3 localDrop = transform.InverseTransformDirection(worldDrop);
+            _hub.localPosition = localDrop;
         }
 
         private static readonly RaycastHit[] s_hitBuffer = new RaycastHit[8];
@@ -238,10 +241,16 @@ namespace Robogame.Movement
                 targetYaw = Mathf.Clamp(_input.Move.x, -1f, 1f) * _maxSteerAngle;
             }
 
-            Quaternion target = Quaternion.Euler(0f, targetYaw, 0f);
+            // Steer around world-up so a side-mounted wheel turns its rolling
+            // direction in the chassis horizontal plane (not around its own
+            // axle). Compute the desired hub world rotation and convert to
+            // block-local for the slerp — keeps the smoothing math identical
+            // to the old behaviour.
+            Quaternion worldTarget = Quaternion.AngleAxis(targetYaw, Vector3.up) * transform.rotation;
+            Quaternion localTarget = Quaternion.Inverse(transform.rotation) * worldTarget;
             _hub.localRotation = _steerSpeed <= 0f
-                ? target
-                : Quaternion.Slerp(_hub.localRotation, target,
+                ? localTarget
+                : Quaternion.Slerp(_hub.localRotation, localTarget,
                     1f - Mathf.Exp(-_steerSpeed * Time.deltaTime));
         }
 
@@ -251,34 +260,98 @@ namespace Robogame.Movement
             bool drives = _kind == WheelKind.Drive || _kind == WheelKind.DriveAndSteer;
             if (!drives || _rb == null) return;
 
-            // Roll speed = forward component of robot velocity, in the wheel's
-            // hub-rotated frame so steering wheels visually roll along their
-            // current heading.
+            // Rolling direction = the steered hub's forward in world space.
+            // Spin axis = the steered hub's local +Y (the axle direction).
             Vector3 forward = _hub != null ? _hub.forward : transform.forward;
             float linearSpeed = Vector3.Dot(_rb.linearVelocity, forward);
             float angularDeg = (linearSpeed / Mathf.Max(_radius, 0.01f)) * Mathf.Rad2Deg;
             _spinAngle += angularDeg * Time.deltaTime;
-            _spin.localRotation = Quaternion.Euler(_spinAngle, 0f, 0f);
+            // Rotate around the spin transform's local Y (= the axle, =
+            // foil-local +Y after the OrientationFromUp(up) rotation).
+            _spin.localRotation = Quaternion.Euler(0f, _spinAngle, 0f);
         }
 
         // -----------------------------------------------------------------
         // Rig construction
         // -----------------------------------------------------------------
 
+        private static readonly Color s_tyreColour    = new Color(0.10f, 0.10f, 0.11f, 1f); // near-black
+        private static readonly Color s_hubCapColour  = new Color(0.85f, 0.85f, 0.88f, 1f); // brushed silver
+        private static readonly Color s_stemColour    = new Color(0.45f, 0.46f, 0.48f, 1f); // gunmetal
+
         private void EnsureRig()
         {
+            // Stem: thin static cylinder from host face (block-local -Y) to
+            // the cell centre, along block-local +Y (= mount-up = chassis
+            // outward from host face). Lives directly under the block
+            // transform so it doesn't move with steering or suspension.
+            if (_stem == null)
+            {
+                _stem = BlockVisuals.GetOrCreatePrimitiveChild(transform, "Stem", PrimitiveType.Cylinder);
+                _stem.localRotation = Quaternion.identity;
+                _stem.localPosition = new Vector3(0f, -0.25f, 0f); // centre between -0.5 and 0
+                // Cylinder default = 2 tall along Y, diameter 1. We want
+                // 0.5 long (so scale.y = 0.25) and ~0.18 wide.
+                _stem.localScale = new Vector3(0.18f, 0.25f, 0.18f);
+                TintRenderer(_stem, s_stemColour);
+            }
+
+            // Hub: yaws for steering, drops with suspension. Just an empty
+            // pivot — the visible wheel parts hang off it.
             if (_hub == null) _hub = BlockVisuals.GetOrCreateChild(transform, "Hub");
+
+            // Spin pivot: rotates around block-local +Y (= the axle).
             if (_spin == null) _spin = BlockVisuals.GetOrCreateChild(_hub, "Spin");
 
+            // Tyre: dark, thin disc. Cylinder default long axis = +Y, which
+            // here IS the axle, so no rotation needed; just scale.
             if (_tyre == null)
             {
                 _tyre = BlockVisuals.GetOrCreatePrimitiveChild(_spin, "Tyre", PrimitiveType.Cylinder);
-                // Cylinder default points +Y; rotate 90° on Z so its long
-                // axis lies along world X (wheel-axle direction).
-                _tyre.localRotation = Quaternion.Euler(0f, 0f, 90f);
+                _tyre.localRotation = Quaternion.identity;
+                _tyre.localPosition = Vector3.zero;
                 float d = _radius * 2f;
-                _tyre.localScale = new Vector3(d, 0.3f, d);
+                // Tyre is a flat-ish disc: 0.18 thick along the axle (Y
+                // before scaling = 2 units, * 0.09 = 0.18), full diameter
+                // perpendicular.
+                _tyre.localScale = new Vector3(d, 0.09f, d);
+                TintRenderer(_tyre, s_tyreColour);
             }
+
+            // Hub cap: small silver cylinder sitting just outboard of the
+            // tyre so the wheel reads as "tyre + hub" rather than a plain
+            // black disc. Fixed alongside the tyre so it spins with it.
+            if (_hubCap == null)
+            {
+                _hubCap = BlockVisuals.GetOrCreatePrimitiveChild(_spin, "HubCap", PrimitiveType.Cylinder);
+                _hubCap.localRotation = Quaternion.identity;
+                // Slightly outboard (positive Y in spin-local = away from
+                // the chassis) so it pokes out of the tyre.
+                _hubCap.localPosition = new Vector3(0f, 0.03f, 0f);
+                float hubD = _radius * 0.55f;
+                _hubCap.localScale = new Vector3(hubD, 0.07f, hubD);
+                TintRenderer(_hubCap, s_hubCapColour);
+            }
+        }
+
+        private static readonly int s_baseColorId   = Shader.PropertyToID("_BaseColor");
+        private static readonly int s_albedoColorId = Shader.PropertyToID("_AlbedoColor");
+        private static readonly int s_legacyColorId = Shader.PropertyToID("_Color");
+
+        // Apply a colour to a primitive's MeshRenderer via MaterialPropertyBlock
+        // so we don't churn per-instance materials and break batching. Mirrors
+        // the pattern in BlockGrid.ApplyTint.
+        private static void TintRenderer(Transform t, Color colour)
+        {
+            if (t == null) return;
+            MeshRenderer mr = t.GetComponent<MeshRenderer>();
+            if (mr == null) return;
+            MaterialPropertyBlock mpb = new MaterialPropertyBlock();
+            mr.GetPropertyBlock(mpb);
+            mpb.SetColor(s_baseColorId,   colour);
+            mpb.SetColor(s_albedoColorId, colour);
+            mpb.SetColor(s_legacyColorId, colour);
+            mr.SetPropertyBlock(mpb);
         }
     }
 }

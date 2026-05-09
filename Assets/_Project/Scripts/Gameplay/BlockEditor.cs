@@ -347,6 +347,11 @@ namespace Robogame.Gameplay
             {
                 if (selected.Category == BlockCategory.Cpu && HasAnyCpu()) return false;
 
+                // Mount-face constraint: wheels (and any future block that
+                // declares SideMountOnly) reject ±Y placements. Stem is
+                // horizontal — a top mount would point it straight up.
+                if (!BlockConnectivity.IsValidMountFace(selected, up)) return false;
+
                 // Swept-volume check: scalable blocks (e.g. wings with
                 // span > 1) extend beyond their host cell. Reject a
                 // placement whose visible extent would interpenetrate an

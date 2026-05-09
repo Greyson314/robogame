@@ -57,25 +57,31 @@ namespace Robogame.Tools.Editor
             ScaffoldHelpers.EnsureWeaponMountAndBinder(robotGO);
             ScaffoldHelpers.EnsureWheelBinder(robotGO);
 
-            // Chassis: 3 wide × 6 long. CPU centre, turret on top, wheels at corners + mid.
+            // Chassis: 3 wide × 6 long, CPU centre, turret on top. Floor
+            // is solid cubes; wheels mount on the side faces of the
+            // outermost cubes (Robocraft-style horizontal stem + tyre).
             const int xMin = -1, xMax = 1, zMin = -2, zMax = 3;
             for (int x = xMin; x <= xMax; x++)
             for (int z = zMin; z <= zMax; z++)
             {
-                bool isCpu = (x == 0 && z == 0);
-                bool isWheel = (x == xMin || x == xMax) && (z == zMin || z == 0 || z == zMax);
-                if (isCpu || isWheel) continue;
+                if (x == 0 && z == 0) continue; // CPU
                 grid.PlaceBlock(cube, new Vector3Int(x, 0, z));
             }
             grid.PlaceBlock(cpu, new Vector3Int(0, 0, 0));
             grid.PlaceBlock(weapon, new Vector3Int(0, 1, 0));
 
-            grid.PlaceBlock(wheelSteer, new Vector3Int(xMin, 0, zMax));
-            grid.PlaceBlock(wheelSteer, new Vector3Int(xMax, 0, zMax));
-            grid.PlaceBlock(wheel,      new Vector3Int(xMin, 0, 0));
-            grid.PlaceBlock(wheel,      new Vector3Int(xMax, 0, 0));
-            grid.PlaceBlock(wheel,      new Vector3Int(xMin, 0, zMin));
-            grid.PlaceBlock(wheel,      new Vector3Int(xMax, 0, zMin));
+            // Wheels live OUTSIDE the chassis, mounted on the ±X faces of
+            // the corresponding floor cubes. up=±X tells the wheel its
+            // stem extends outward from the chassis. zMax = front (steer),
+            // 0 = mid, zMin = rear (drive).
+            Vector3Int upRight = new Vector3Int( 1, 0, 0);
+            Vector3Int upLeft  = new Vector3Int(-1, 0, 0);
+            grid.PlaceBlock(wheelSteer, new Vector3Int(xMin - 1, 0, zMax), upLeft);
+            grid.PlaceBlock(wheelSteer, new Vector3Int(xMax + 1, 0, zMax), upRight);
+            grid.PlaceBlock(wheel,      new Vector3Int(xMin - 1, 0, 0),    upLeft);
+            grid.PlaceBlock(wheel,      new Vector3Int(xMax + 1, 0, 0),    upRight);
+            grid.PlaceBlock(wheel,      new Vector3Int(xMin - 1, 0, zMin), upLeft);
+            grid.PlaceBlock(wheel,      new Vector3Int(xMax + 1, 0, zMin), upRight);
 
             ScaffoldHelpers.RemoveLegacyRootGun(robotGO);
             ScaffoldHelpers.BindFollowCameraTo(robotGO.transform);
