@@ -558,21 +558,22 @@ namespace Robogame.Gameplay
                 return;
             }
 
-            // Per-block "variable part" dims come from the variant panel
-            // (foils: span/thickness/chord; ropes: segment count). Vector3.zero
-            // tells PlaceBlock + the consuming component to fall back to
-            // block defaults.
+            // Per-block "variable part" dims + pitch come from the variant
+            // panel (foils: span/thickness/chord/pitch; rotors: collective;
+            // ropes: segment count). Defaults (zero) tell PlaceBlock + the
+            // consuming component to fall back to block defaults.
             Vector3 dims = _variantPanel != null ? _variantPanel.GetDimsForBlock(id) : Vector3.zero;
+            float pitch = _variantPanel != null ? _variantPanel.GetPitchForBlock(id) : 0f;
             // Up = face normal of the cell we're attaching to. Without
             // this, every placement would orient as +Y and a wing on a
             // side-mount face would point along chassis +Y instead of
             // outward from the face.
             Vector3Int placeUp = _targetPlaceCell - _targetHitCell;
             if (placeUp == Vector3Int.zero) placeUp = Vector3Int.up;
-            bool placed = _grid.PlaceBlock(def, _targetPlaceCell, placeUp, dims) != null;
+            bool placed = _grid.PlaceBlock(def, _targetPlaceCell, placeUp, dims, pitch) != null;
             if (placed)
             {
-                TryMirrorPlace(def, _targetPlaceCell, placeUp, dims);
+                TryMirrorPlace(def, _targetPlaceCell, placeUp, dims, pitch);
                 SyncBlueprintFromGrid();
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.BlockPlace);
             }
@@ -622,7 +623,7 @@ namespace Robogame.Gameplay
         private bool MirrorActive =>
             _mirrorMode != null && _mirrorMode.Enabled;
 
-        private void TryMirrorPlace(BlockDefinition def, Vector3Int cell, Vector3Int up, Vector3 dims)
+        private void TryMirrorPlace(BlockDefinition def, Vector3Int cell, Vector3Int up, Vector3 dims, float pitchDeg)
         {
             if (!MirrorActive) return;
             MirrorAxis axis = _mirrorMode.Axis;
@@ -631,7 +632,9 @@ namespace Robogame.Gameplay
             Vector3Int mUp   = BlockMirror.MirrorUp(up, axis);
             if (mCell == cell) return;
             if (!IsValidPlacement(mCell, mUp)) return;
-            _grid.PlaceBlock(def, mCell, mUp, dims);
+            // Pitch is scalar — passes through to the mirrored side
+            // unchanged. Symmetric foil trim depends on it.
+            _grid.PlaceBlock(def, mCell, mUp, dims, pitchDeg);
         }
 
         private void TryMirrorRemove(Vector3Int cell)

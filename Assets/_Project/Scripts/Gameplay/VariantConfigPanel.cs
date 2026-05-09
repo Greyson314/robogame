@@ -7,25 +7,30 @@ using UnityEngine.UI;
 namespace Robogame.Gameplay
 {
     /// <summary>
-    /// Build-mode side panel that shows the "variable part" dimensions for
-    /// the currently-selected block in the <see cref="BuildHotbar"/>.
-    /// Aero / AeroFin: span / thickness / chord. Rope: segment count.
-    /// Anything else: panel hides.
+    /// Build-mode side panel that surfaces the per-instance "variable
+    /// part" config for the currently-selected hotbar block. Per
+    /// <c>FOIL_ROTATION_PLAN.md §3.4</c>, the layout is:
+    ///   1. Header (block name).
+    ///   2. Preset cards — 3-4 named buttons that snap dims + pitch
+    ///      to sensible defaults for the role.
+    ///   3. Primary slider — the single dominant parameter (foil =
+    ///      pitch / incidence; rotor = collective; rope = segment count).
+    ///   4. Advanced expander — explicit sliders for the rest (foil
+    ///      span / thickness / chord). Toggle to show/hide.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Per-block-id "next placement" dims are cached here so the player can
-    /// dial in a wing, place several, switch to a fin, dial that, and come
-    /// back to the wing without losing the original setting. The cache
-    /// resets each time build mode enters (see <see cref="HandleEntered"/>)
-    /// so a fresh edit session starts from block defaults.
+    /// Per-block-id "next placement" caches live here so the player can
+    /// dial in a wing, place several, switch to a fin, dial that, and
+    /// come back to the wing without losing the original setting. Caches
+    /// reset on build-mode entry so a fresh edit session starts from
+    /// block defaults.
     /// </para>
     /// <para>
-    /// <see cref="BlockEditor.TryPlace"/> reads the cached dims for the
-    /// current block id and passes them to <see cref="BlockGrid.PlaceBlock"/>,
-    /// which feeds them into <see cref="BlockBehaviour.Initialize"/>, which
-    /// the per-block component (e.g. <see cref="AeroSurfaceBlock"/>) reads at
-    /// rig setup. The blueprint serialiser carries them on save.
+    /// The cache is consumed by
+    /// <see cref="BlockEditor.TryPlace"/>, which feeds dims + pitch into
+    /// <see cref="BlockGrid.PlaceBlock(BlockDefinition, Vector3Int, Vector3Int, Vector3, float)"/>.
+    /// The blueprint serialiser carries both fields on save.
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
@@ -34,19 +39,43 @@ namespace Robogame.Gameplay
         [SerializeField] private BuildHotbar _hotbar;
         [SerializeField] private BuildModeController _buildMode;
 
-        // "Next placement" cache. Vector3.zero entry = use block defaults.
+        // Per-block "next placement" caches. Defaults are zero meaning
+        // "use the block's authored defaults" — the consuming block
+        // resolves accordingly.
         private readonly Dictionary<string, Vector3> _dimsByBlockId = new();
+        private readonly Dictionary<string, float> _pitchByBlockId = new();
 
-        // UGUI references (built in BuildCanvas / shown in OnSelected).
+        // ----- UGUI -----
         private GameObject _root;
-        private GameObject _foilSection;
-        private GameObject _ropeSection;
-        private Slider _spanSlider, _thicknessSlider, _chordSlider, _segmentSlider;
-        private Text _spanValue, _thicknessValue, _chordValue, _segmentValue;
         private Text _titleText;
+        private GameObject _foilSection, _ropeSection, _rotorSection;
+
+        // Foil controls
+        private Slider _foilPitchPrimary;
+        private Text _foilPitchValue;
+        private GameObject _foilAdvanced;
+        private Text _foilAdvancedToggleText;
+        private Slider _foilSpanSlider, _foilThicknessSlider, _foilChordSlider;
+        private Text _foilSpanValue, _foilThicknessValue, _foilChordValue;
+        // Rope controls
+        private Slider _ropeSegmentSlider;
+        private Text _ropeSegmentValue;
+        // Rotor controls
+        private Slider _rotorCollectiveSlider;
+        private Text _rotorCollectiveValue;
 
         private string _activeBlockId;
         private bool _suppressCallbacks;
+        private bool _foilAdvancedExpanded;
+
+        // Visual constants — Robogame orange used for active-state accents
+        // throughout the build HUD.
+        private static readonly Color s_accent = new Color(0.95f, 0.55f, 0.10f, 1f);
+        private static readonly Color s_dim    = new Color(1f, 1f, 1f, 0.6f);
+        private static readonly Color s_panelBg     = new Color(0.06f, 0.07f, 0.10f, 0.93f);
+        private static readonly Color s_btnIdle     = new Color(0.18f, 0.22f, 0.28f, 1f);
+        private static readonly Color s_btnHighlight = new Color(0.95f, 0.55f, 0.10f, 1f);
+        private static readonly Color s_btnPressed  = new Color(0.7f, 0.4f, 0.05f, 1f);
 
         public BuildHotbar Hotbar
         {
@@ -73,6 +102,7 @@ namespace Robogame.Gameplay
                 if (_buildMode != null)
                 {
                     _buildMode.Entered += HandleEntered;
+                    _buildMode.Exited -= HandleExited;
                     _buildMode.Exited += HandleExited;
                 }
             }
@@ -90,9 +120,27 @@ namespace Robogame.Gameplay
             return v;
         }
 
+        /// <summary>
+        /// Read the cached "next placement" pitch for <paramref name="blockId"/>
+        /// in degrees. 0 means "use block defaults" (foils flat, rotors fall
+        /// back to the SO collective).
+        /// </summary>
+        public float GetPitchForBlock(string blockId)
+        {
+            if (string.IsNullOrEmpty(blockId)) return 0f;
+            _pitchByBlockId.TryGetValue(blockId, out float v);
+            return v;
+        }
+
         /// <summary>True when the block id participates in the variant config UI.</summary>
         public static bool IsVariableBlock(string id)
-            => id == BlockIds.Aero || id == BlockIds.AeroFin || id == BlockIds.Rope;
+            => id == BlockIds.Aero || id == BlockIds.AeroFin
+            || id == BlockIds.Rope
+            || id == BlockIds.Rotor;
+
+        // -----------------------------------------------------------------
+        // Lifecycle
+        // -----------------------------------------------------------------
 
         private void Awake()
         {
@@ -124,10 +172,10 @@ namespace Robogame.Gameplay
 
         private void HandleEntered()
         {
-            // Fresh edit session starts from block defaults. Persist-across-
-            // session would be confusing — the user might wonder why every
-            // wing they place is suddenly thick.
+            // Fresh edit session starts from block defaults — see file
+            // remarks on why we don't persist across sessions.
             _dimsByBlockId.Clear();
+            _pitchByBlockId.Clear();
             if (_hotbar != null) HandleSelectedBlockChanged(_hotbar.SelectedBlockId);
         }
 
@@ -142,95 +190,200 @@ namespace Robogame.Gameplay
             _activeBlockId = blockId;
             bool foil = blockId == BlockIds.Aero || blockId == BlockIds.AeroFin;
             bool rope = blockId == BlockIds.Rope;
-            bool any = foil || rope;
+            bool rotor = blockId == BlockIds.Rotor;
+            bool any = foil || rope || rotor;
             SetVisible(any);
             if (!any) return;
 
             if (_titleText != null)
             {
-                _titleText.text = foil
-                    ? (blockId == BlockIds.AeroFin ? "VARIANT — TAIL FIN" : "VARIANT — AERO WING")
-                    : "VARIANT — ROPE";
+                if (foil) _titleText.text = blockId == BlockIds.AeroFin
+                    ? "VARIANT — TAIL FIN"
+                    : "VARIANT — AERO WING";
+                else if (rope) _titleText.text = "VARIANT — ROPE";
+                else _titleText.text = "VARIANT — ROTOR";
             }
             _foilSection.SetActive(foil);
             _ropeSection.SetActive(rope);
+            _rotorSection.SetActive(rotor);
 
-            Vector3 cached = GetDimsForBlock(blockId);
             _suppressCallbacks = true;
             if (foil)
             {
+                Vector3 cached = GetDimsForBlock(blockId);
+                float pitch = GetPitchForBlock(blockId);
                 float span      = cached.x > 0f ? cached.x : AeroSurfaceBlock.DefaultSpan;
                 float thickness = cached.y > 0f ? cached.y : AeroSurfaceBlock.DefaultThickness;
                 float chord     = cached.z > 0f ? cached.z : AeroSurfaceBlock.DefaultChord;
-                _spanSlider.value = span;
-                _thicknessSlider.value = thickness;
-                _chordSlider.value = chord;
-                UpdateValueText(_spanValue, span, "F2");
-                UpdateValueText(_thicknessValue, thickness, "F2");
-                UpdateValueText(_chordValue, chord, "F2");
+                _foilSpanSlider.value      = span;
+                _foilThicknessSlider.value = thickness;
+                _foilChordSlider.value     = chord;
+                _foilPitchPrimary.value    = pitch;
+                UpdateValueText(_foilSpanValue,      span,      "F2");
+                UpdateValueText(_foilThicknessValue, thickness, "F2");
+                UpdateValueText(_foilChordValue,     chord,     "F2");
+                UpdateFoilPitchValue(pitch);
             }
             else if (rope)
             {
+                Vector3 cached = GetDimsForBlock(blockId);
                 int count = cached.x > 0f ? Mathf.RoundToInt(cached.x) : RopeBlock.DefaultSegmentCount;
-                _segmentSlider.value = count;
-                UpdateValueText(_segmentValue, count, "F0");
+                _ropeSegmentSlider.value = count;
+                UpdateValueText(_ropeSegmentValue, count, "F0");
+            }
+            else if (rotor)
+            {
+                float pitch = GetPitchForBlock(blockId);
+                _rotorCollectiveSlider.value = pitch;
+                UpdateValueText(_rotorCollectiveValue, pitch, "F0");
             }
             _suppressCallbacks = false;
         }
 
         // -----------------------------------------------------------------
-        // Slider callbacks
+        // Slider callbacks — snap on commit
         // -----------------------------------------------------------------
 
-        private void OnSpanChanged(float v)        { if (!_suppressCallbacks) WriteFoilDim(0, v, _spanValue,      "F2"); }
-        private void OnThicknessChanged(float v)   { if (!_suppressCallbacks) WriteFoilDim(1, v, _thicknessValue, "F2"); }
-        private void OnChordChanged(float v)       { if (!_suppressCallbacks) WriteFoilDim(2, v, _chordValue,     "F2"); }
-        private void OnSegmentCountChanged(float v)
+        // Length dims snap to 0.25 m, pitch / segments to integers.
+        private static float SnapLength(float v) => Mathf.Round(v * 4f) * 0.25f;
+        private static float SnapInt(float v)    => Mathf.Round(v);
+
+        private void OnFoilSpanChanged(float v)
+        {
+            if (_suppressCallbacks) return;
+            float snapped = SnapLength(v);
+            ApplyFoilDim(0, snapped, _foilSpanSlider, _foilSpanValue, "F2");
+        }
+
+        private void OnFoilThicknessChanged(float v)
+        {
+            if (_suppressCallbacks) return;
+            float snapped = SnapLength(v);
+            ApplyFoilDim(1, snapped, _foilThicknessSlider, _foilThicknessValue, "F2");
+        }
+
+        private void OnFoilChordChanged(float v)
+        {
+            if (_suppressCallbacks) return;
+            float snapped = SnapLength(v);
+            ApplyFoilDim(2, snapped, _foilChordSlider, _foilChordValue, "F2");
+        }
+
+        private void OnFoilPitchChanged(float v)
+        {
+            if (_suppressCallbacks) return;
+            float snapped = SnapInt(v);
+            string id = _activeBlockId;
+            if (string.IsNullOrEmpty(id)) return;
+            _suppressCallbacks = true;
+            _foilPitchPrimary.value = snapped;
+            _suppressCallbacks = false;
+            _pitchByBlockId[id] = snapped;
+            UpdateFoilPitchValue(snapped);
+        }
+
+        private void OnRopeSegmentCountChanged(float v)
         {
             if (_suppressCallbacks) return;
             int rounded = Mathf.RoundToInt(v);
-            // Snap the slider to the integer value so the handle visibly
-            // jumps between counts; otherwise the player sees a fractional
-            // bar that doesn't reflect the actual stored value.
             _suppressCallbacks = true;
-            _segmentSlider.value = rounded;
+            _ropeSegmentSlider.value = rounded;
             _suppressCallbacks = false;
-
             string id = _activeBlockId;
             if (string.IsNullOrEmpty(id)) return;
             Vector3 dims = GetDimsForBlock(id);
             dims.x = rounded;
             _dimsByBlockId[id] = dims;
-            UpdateValueText(_segmentValue, rounded, "F0");
+            UpdateValueText(_ropeSegmentValue, rounded, "F0");
         }
 
-        private void WriteFoilDim(int axis, float value, Text valueText, string fmt)
+        private void OnRotorCollectiveChanged(float v)
+        {
+            if (_suppressCallbacks) return;
+            float snapped = SnapInt(v);
+            string id = _activeBlockId;
+            if (string.IsNullOrEmpty(id)) return;
+            _suppressCallbacks = true;
+            _rotorCollectiveSlider.value = snapped;
+            _suppressCallbacks = false;
+            _pitchByBlockId[id] = snapped;
+            UpdateValueText(_rotorCollectiveValue, snapped, "F0");
+        }
+
+        // Snap-and-cache helper for foil dim sliders (span/thickness/chord).
+        private void ApplyFoilDim(int axis, float snapped, Slider slider, Text valueText, string fmt)
         {
             string id = _activeBlockId;
             if (string.IsNullOrEmpty(id)) return;
+            _suppressCallbacks = true;
+            slider.value = snapped;
+            _suppressCallbacks = false;
             Vector3 dims = GetDimsForBlock(id);
-            if (axis == 0) dims.x = value;
-            else if (axis == 1) dims.y = value;
-            else dims.z = value;
+            if (axis == 0) dims.x = snapped;
+            else if (axis == 1) dims.y = snapped;
+            else dims.z = snapped;
             _dimsByBlockId[id] = dims;
-            UpdateValueText(valueText, value, fmt);
+            UpdateValueText(valueText, snapped, fmt);
         }
 
-        private static void UpdateValueText(Text t, float v, string fmt)
+        private void UpdateFoilPitchValue(float pitchDeg)
         {
-            if (t != null) t.text = v.ToString(fmt);
+            if (_foilPitchValue == null) return;
+            _foilPitchValue.text = $"{pitchDeg:F0}°";
+            // Stall warning past ±18° (BlueprintValidator soft limit).
+            bool stall = Mathf.Abs(pitchDeg) > BlueprintValidator.PitchSoftLimitDeg;
+            _foilPitchValue.color = stall ? new Color(1f, 0.3f, 0.3f, 1f) : s_accent;
         }
 
         // -----------------------------------------------------------------
-        // Presets (polish feature)
+        // Presets
         // -----------------------------------------------------------------
 
-        private void ApplyFoilPreset(float span, float thickness, float chord)
+        // Foil presets per FOIL_ROTATION_PLAN §3.5. (span, thickness, chord, pitchDeg).
+        private static readonly (string label, float span, float thickness, float chord, float pitch)[] s_foilPresets =
+        {
+            ("Heli Blade",  1.50f, 0.06f, 0.60f,  8f),
+            ("Plane Wing",  4.00f, 0.08f, 0.90f,  2f),
+            ("Tail Stab",   2.00f, 0.08f, 0.70f, -1f),
+            ("Vert Fin",    2.00f, 0.08f, 0.90f,  0f),
+        };
+
+        // Rotor presets — per FOIL_ROTATION_PLAN §3.4. v1 only writes
+        // collective; per-rotor RPM / direction are deferred.
+        private static readonly (string label, float collective)[] s_rotorPresets =
+        {
+            ("Heavy Lift", 12f),
+            ("Standard",    8f),
+            ("Light",       5f),
+        };
+
+        private void ApplyFoilPreset(float span, float thickness, float chord, float pitchDeg)
         {
             string id = _activeBlockId;
             if (string.IsNullOrEmpty(id)) return;
             _dimsByBlockId[id] = new Vector3(span, thickness, chord);
+            _pitchByBlockId[id] = pitchDeg;
+            HandleSelectedBlockChanged(id); // re-syncs sliders
+        }
+
+        private void ApplyRotorPreset(float collective)
+        {
+            string id = _activeBlockId;
+            if (string.IsNullOrEmpty(id)) return;
+            _pitchByBlockId[id] = collective;
             HandleSelectedBlockChanged(id);
+        }
+
+        // -----------------------------------------------------------------
+        // Advanced expander
+        // -----------------------------------------------------------------
+
+        private void ToggleFoilAdvanced()
+        {
+            _foilAdvancedExpanded = !_foilAdvancedExpanded;
+            if (_foilAdvanced != null) _foilAdvanced.SetActive(_foilAdvancedExpanded);
+            if (_foilAdvancedToggleText != null)
+                _foilAdvancedToggleText.text = _foilAdvancedExpanded ? "ADVANCED ▲" : "ADVANCED ▼";
         }
 
         // -----------------------------------------------------------------
@@ -249,69 +402,168 @@ namespace Robogame.Gameplay
             _root.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
             _root.AddComponent<GraphicRaycaster>();
 
-            // Panel — top-right, doesn't fight the bottom-centred hotbar.
+            // Top-right anchored panel, sized for the foil section's full
+            // expanded layout (the rope / rotor sections leave whitespace).
             var panel = NewChild("Panel", _root.transform);
             var prt = panel.GetComponent<RectTransform>();
             prt.anchorMin = new Vector2(1f, 1f);
             prt.anchorMax = new Vector2(1f, 1f);
             prt.pivot = new Vector2(1f, 1f);
-            prt.sizeDelta = new Vector2(340f, 320f);
+            prt.sizeDelta = new Vector2(340f, 460f);
             prt.anchoredPosition = new Vector2(-24f, -24f);
-            panel.AddComponent<Image>().color = new Color(0.06f, 0.07f, 0.10f, 0.93f);
+            panel.AddComponent<Image>().color = s_panelBg;
 
             _titleText = AddText(panel.transform, "VARIANT", new Vector2(12f, -12f), new Vector2(-12f, -36f),
                 anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
-                size: 18, style: FontStyle.Bold, anchor: TextAnchor.MiddleLeft,
-                color: new Color(0.95f, 0.55f, 0.10f, 1f));
+                size: 18, style: FontStyle.Bold, anchor: TextAnchor.MiddleLeft, color: s_accent);
 
-            // Foil section (Span / Thickness / Chord) + presets.
-            _foilSection = NewChild("Foil", panel.transform);
-            var fsRT = _foilSection.GetComponent<RectTransform>();
-            fsRT.anchorMin = new Vector2(0f, 0f);
-            fsRT.anchorMax = new Vector2(1f, 1f);
-            fsRT.offsetMin = new Vector2(12f, 12f);
-            fsRT.offsetMax = new Vector2(-12f, -40f);
-
-            _spanSlider      = BuildLabeledSlider(_foilSection.transform, "Span (m)",      0,
-                AeroSurfaceBlock.MinSpan, AeroSurfaceBlock.MaxSpan, AeroSurfaceBlock.DefaultSpan,
-                OnSpanChanged, out _spanValue);
-            _thicknessSlider = BuildLabeledSlider(_foilSection.transform, "Thickness (m)", 1,
-                AeroSurfaceBlock.MinThickness, AeroSurfaceBlock.MaxThickness, AeroSurfaceBlock.DefaultThickness,
-                OnThicknessChanged, out _thicknessValue);
-            _chordSlider     = BuildLabeledSlider(_foilSection.transform, "Chord (m)",     2,
-                AeroSurfaceBlock.MinChord, AeroSurfaceBlock.MaxChord, AeroSurfaceBlock.DefaultChord,
-                OnChordChanged, out _chordValue);
-
-            // Preset buttons row — one-click sizing for common profiles.
-            // POLISH FEATURE #1: Foil presets.
-            var presetRow = NewChild("Presets", _foilSection.transform);
-            var prRT = presetRow.GetComponent<RectTransform>();
-            prRT.anchorMin = new Vector2(0f, 0f);
-            prRT.anchorMax = new Vector2(1f, 0f);
-            prRT.pivot = new Vector2(0.5f, 0f);
-            prRT.sizeDelta = new Vector2(0f, 32f);
-            prRT.anchoredPosition = new Vector2(0f, 4f);
-
-            AddPresetButton(presetRow.transform, "Wing",       0,    () => ApplyFoilPreset(2.40f, 0.10f, 1.40f));
-            AddPresetButton(presetRow.transform, "Stabilizer", 1,    () => ApplyFoilPreset(1.20f, 0.08f, 0.80f));
-            AddPresetButton(presetRow.transform, "Blade",      2,    () => ApplyFoilPreset(1.00f, 0.06f, 0.45f));
-            AddPresetButton(presetRow.transform, "Default",    3,    () => ApplyFoilPreset(
-                AeroSurfaceBlock.DefaultSpan, AeroSurfaceBlock.DefaultThickness, AeroSurfaceBlock.DefaultChord));
-
-            // Rope section (segment count only).
-            _ropeSection = NewChild("Rope", panel.transform);
-            var rsRT = _ropeSection.GetComponent<RectTransform>();
-            rsRT.anchorMin = new Vector2(0f, 0f);
-            rsRT.anchorMax = new Vector2(1f, 1f);
-            rsRT.offsetMin = new Vector2(12f, 12f);
-            rsRT.offsetMax = new Vector2(-12f, -40f);
-
-            _segmentSlider = BuildLabeledSlider(_ropeSection.transform, "Segments", 0,
-                RopeBlock.MinSegmentCount, RopeBlock.MaxSegmentCount, RopeBlock.DefaultSegmentCount,
-                OnSegmentCountChanged, out _segmentValue);
+            _foilSection  = BuildFoilSection(panel.transform);
+            _ropeSection  = BuildRopeSection(panel.transform);
+            _rotorSection = BuildRotorSection(panel.transform);
 
             _foilSection.SetActive(false);
             _ropeSection.SetActive(false);
+            _rotorSection.SetActive(false);
+        }
+
+        private GameObject BuildFoilSection(Transform parent)
+        {
+            var section = NewChild("Foil", parent);
+            var rt = section.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.offsetMin = new Vector2(12f, 12f);
+            rt.offsetMax = new Vector2(-12f, -40f);
+
+            // Layout (top → bottom):
+            //   Preset row (4 buttons)  — slot 0
+            //   Primary pitch slider     — slot 1
+            //   Advanced toggle button   — slot 2
+            //   Advanced container       — slot 3+ (3 sliders)
+            BuildFoilPresetRow(section.transform, slot: 0);
+
+            _foilPitchPrimary = BuildLabeledSlider(section.transform, "Pitch", slot: 1,
+                min: -18f, max: 18f, def: 0f,
+                onChanged: OnFoilPitchChanged, out _foilPitchValue);
+            UpdateFoilPitchValue(0f);
+
+            // Advanced toggle: small button below the primary slider.
+            var toggleGo = NewChild("AdvancedToggle", section.transform);
+            var trt = toggleGo.GetComponent<RectTransform>();
+            trt.anchorMin = new Vector2(0f, 1f);
+            trt.anchorMax = new Vector2(1f, 1f);
+            trt.pivot = new Vector2(0.5f, 1f);
+            trt.sizeDelta = new Vector2(0f, 28f);
+            trt.anchoredPosition = new Vector2(0f, -1 * 56f - 50f - 4f);
+            var img = toggleGo.AddComponent<Image>();
+            img.color = new Color(0.10f, 0.13f, 0.18f, 1f);
+            var btn = toggleGo.AddComponent<Button>();
+            btn.targetGraphic = img;
+            btn.onClick.AddListener(ToggleFoilAdvanced);
+            _foilAdvancedToggleText = AddText(toggleGo.transform, "ADVANCED ▼",
+                Vector2.zero, Vector2.zero,
+                anchorMin: Vector2.zero, anchorMax: Vector2.one,
+                size: 12, style: FontStyle.Bold, anchor: TextAnchor.MiddleCenter, color: s_dim);
+
+            // Advanced container — the rest of the sliders live here. Built
+            // inactive; expander toggle shows it.
+            _foilAdvanced = NewChild("Advanced", section.transform);
+            var art = _foilAdvanced.GetComponent<RectTransform>();
+            art.anchorMin = new Vector2(0f, 1f);
+            art.anchorMax = new Vector2(1f, 1f);
+            art.pivot = new Vector2(0.5f, 1f);
+            art.sizeDelta = new Vector2(0f, 56f * 3 + 8f);
+            art.anchoredPosition = new Vector2(0f, -1 * 56f - 50f - 4f - 32f);
+
+            _foilSpanSlider      = BuildLabeledSlider(_foilAdvanced.transform, "Span (m)",      0,
+                AeroSurfaceBlock.MinSpan,      AeroSurfaceBlock.MaxSpan,      AeroSurfaceBlock.DefaultSpan,
+                OnFoilSpanChanged,      out _foilSpanValue);
+            _foilThicknessSlider = BuildLabeledSlider(_foilAdvanced.transform, "Thickness (m)", 1,
+                AeroSurfaceBlock.MinThickness, AeroSurfaceBlock.MaxThickness, AeroSurfaceBlock.DefaultThickness,
+                OnFoilThicknessChanged, out _foilThicknessValue);
+            _foilChordSlider     = BuildLabeledSlider(_foilAdvanced.transform, "Chord (m)",     2,
+                AeroSurfaceBlock.MinChord,     AeroSurfaceBlock.MaxChord,     AeroSurfaceBlock.DefaultChord,
+                OnFoilChordChanged,     out _foilChordValue);
+
+            _foilAdvanced.SetActive(false);
+            _foilAdvancedExpanded = false;
+
+            return section;
+        }
+
+        private GameObject BuildRopeSection(Transform parent)
+        {
+            var section = NewChild("Rope", parent);
+            var rt = section.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.offsetMin = new Vector2(12f, 12f);
+            rt.offsetMax = new Vector2(-12f, -40f);
+
+            _ropeSegmentSlider = BuildLabeledSlider(section.transform, "Segments", 0,
+                RopeBlock.MinSegmentCount, RopeBlock.MaxSegmentCount, RopeBlock.DefaultSegmentCount,
+                OnRopeSegmentCountChanged, out _ropeSegmentValue);
+
+            return section;
+        }
+
+        private GameObject BuildRotorSection(Transform parent)
+        {
+            var section = NewChild("Rotor", parent);
+            var rt = section.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.offsetMin = new Vector2(12f, 12f);
+            rt.offsetMax = new Vector2(-12f, -40f);
+
+            BuildRotorPresetRow(section.transform, slot: 0);
+
+            _rotorCollectiveSlider = BuildLabeledSlider(section.transform, "Collective", slot: 1,
+                min: 0f, max: 18f, def: 0f,
+                onChanged: OnRotorCollectiveChanged, out _rotorCollectiveValue);
+
+            return section;
+        }
+
+        private void BuildFoilPresetRow(Transform parent, int slot)
+        {
+            var row = NewChild("FoilPresets", parent);
+            var rt = row.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.sizeDelta = new Vector2(0f, 36f);
+            rt.anchoredPosition = new Vector2(0f, -slot * 56f);
+            for (int i = 0; i < s_foilPresets.Length; i++)
+            {
+                var p = s_foilPresets[i];
+                AddPresetButton(row.transform, p.label, i, () => ApplyFoilPreset(p.span, p.thickness, p.chord, p.pitch));
+            }
+        }
+
+        private void BuildRotorPresetRow(Transform parent, int slot)
+        {
+            var row = NewChild("RotorPresets", parent);
+            var rt = row.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.sizeDelta = new Vector2(0f, 36f);
+            rt.anchoredPosition = new Vector2(0f, -slot * 56f);
+            for (int i = 0; i < s_rotorPresets.Length; i++)
+            {
+                var p = s_rotorPresets[i];
+                AddPresetButton(row.transform, p.label, i, () => ApplyRotorPreset(p.collective));
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // UGUI primitives
+        // -----------------------------------------------------------------
+
+        private static void UpdateValueText(Text t, float v, string fmt)
+        {
+            if (t != null) t.text = v.ToString(fmt);
         }
 
         private void SetVisible(bool visible)
@@ -321,7 +573,7 @@ namespace Robogame.Gameplay
 
         // Labeled slider row at vertical slot `index` (0 = top of section,
         // grows downward at 56px steps).
-        private Slider BuildLabeledSlider(Transform parent, string label, int index,
+        private Slider BuildLabeledSlider(Transform parent, string label, int slot,
             float min, float max, float def, UnityEngine.Events.UnityAction<float> onChanged, out Text valueText)
         {
             var row = NewChild($"Row_{label}", parent);
@@ -330,7 +582,7 @@ namespace Robogame.Gameplay
             rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
             rt.sizeDelta = new Vector2(0f, 50f);
-            rt.anchoredPosition = new Vector2(0f, -index * 56f);
+            rt.anchoredPosition = new Vector2(0f, -slot * 56f);
 
             AddText(row.transform, label, new Vector2(0f, 0f), new Vector2(140f, 0f),
                 anchorMin: new Vector2(0f, 0f), anchorMax: new Vector2(0f, 1f),
@@ -338,15 +590,11 @@ namespace Robogame.Gameplay
 
             valueText = AddText(row.transform, def.ToString("F2"), new Vector2(-8f, 0f), new Vector2(-8f, 0f),
                 anchorMin: new Vector2(1f, 0f), anchorMax: new Vector2(1f, 1f),
-                size: 14, style: FontStyle.Bold, anchor: TextAnchor.MiddleRight,
-                color: new Color(0.95f, 0.55f, 0.10f, 1f));
-            // Manual width on the value text — anchor stretches need a sizeDelta override.
+                size: 14, style: FontStyle.Bold, anchor: TextAnchor.MiddleRight, color: s_accent);
             var vtRT = valueText.rectTransform;
             vtRT.sizeDelta = new Vector2(60f, 0f);
             vtRT.anchoredPosition = new Vector2(-8f, 0f);
 
-            // Slider inside its own host so we can stretch it horizontally
-            // between the label and the value readout.
             var sliderHost = NewChild("Slider", row.transform);
             var srt = sliderHost.GetComponent<RectTransform>();
             srt.anchorMin = new Vector2(0f, 0.5f);
@@ -375,7 +623,7 @@ namespace Robogame.Gameplay
             fillRT.anchorMax = Vector2.one;
             fillRT.offsetMin = Vector2.zero;
             fillRT.offsetMax = Vector2.zero;
-            fill.AddComponent<Image>().color = new Color(0.95f, 0.55f, 0.10f, 1f);
+            fill.AddComponent<Image>().color = s_accent;
 
             var handleArea = NewChild("Handle Slide Area", sliderHost.transform);
             var haRT = handleArea.GetComponent<RectTransform>();
@@ -403,18 +651,23 @@ namespace Robogame.Gameplay
 
         private void AddPresetButton(Transform parent, string label, int index, System.Action onClick)
         {
-            const float btnW = 70f;
-            const float btnGap = 6f;
-            const float startX = 0f;
-
+            // Buttons are evenly distributed across the row width using
+            // anchor stretching. Index drives anchorMin/Max.x so a row of
+            // N buttons divides the row into N equal slices.
+            int count = parent.childCount > 0 ? Mathf.Max(parent.childCount, index + 1) : index + 1;
+            // Re-anchor: each button gets 1/count of the row width, less a small gap.
+            // We don't know N at button-build time; use a fixed cell width based on the
+            // most common case (4 foil presets, 3 rotor presets) and rely on row sizing.
+            const float cellW = 76f;
+            const float cellGap = 4f;
             var go = NewChild($"Preset_{label}", parent);
             var img = go.AddComponent<Image>();
-            img.color = new Color(0.18f, 0.22f, 0.28f, 1f);
+            img.color = s_btnIdle;
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             ColorBlock cols = btn.colors;
-            cols.highlightedColor = new Color(0.95f, 0.55f, 0.10f, 1f);
-            cols.pressedColor = new Color(0.7f, 0.4f, 0.05f, 1f);
+            cols.highlightedColor = s_btnHighlight;
+            cols.pressedColor = s_btnPressed;
             btn.colors = cols;
             btn.onClick.AddListener(() => onClick?.Invoke());
 
@@ -422,17 +675,13 @@ namespace Robogame.Gameplay
             rt.anchorMin = new Vector2(0f, 0f);
             rt.anchorMax = new Vector2(0f, 1f);
             rt.pivot = new Vector2(0f, 0.5f);
-            rt.sizeDelta = new Vector2(btnW, 0f);
-            rt.anchoredPosition = new Vector2(startX + index * (btnW + btnGap), 0f);
+            rt.sizeDelta = new Vector2(cellW, 0f);
+            rt.anchoredPosition = new Vector2(index * (cellW + cellGap), 0f);
 
-            var t = AddText(go.transform, label, Vector2.zero, Vector2.zero,
+            AddText(go.transform, label, Vector2.zero, Vector2.zero,
                 anchorMin: Vector2.zero, anchorMax: Vector2.one,
-                size: 13, style: FontStyle.Bold, anchor: TextAnchor.MiddleCenter, color: Color.white);
+                size: 12, style: FontStyle.Bold, anchor: TextAnchor.MiddleCenter, color: Color.white);
         }
-
-        // -----------------------------------------------------------------
-        // UGUI primitives
-        // -----------------------------------------------------------------
 
         private static GameObject NewChild(string name, Transform parent)
         {
