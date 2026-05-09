@@ -44,6 +44,7 @@ namespace Robogame.Gameplay
         private BlockEditor _editor;
         private BuildHotbar _hotbar;
         private VariantConfigPanel _variantPanel;
+        private BuildMirrorMode _mirrorMode;
 
         /// <summary>The build-mode controller hosted on this object. Lazily created.</summary>
         public BuildModeController BuildMode => _buildMode;
@@ -220,6 +221,12 @@ namespace Robogame.Gameplay
             _variantPanel.BuildMode = _buildMode;
             _variantPanel.Hotbar = _hotbar;
             _editor.VariantPanel = _variantPanel;
+
+            // Mirror-mode toggle — hotkey + HUD banner. The editor
+            // consults it for symmetric place / remove and ghost preview.
+            if (_mirrorMode == null) _mirrorMode = gameObject.AddComponent<BuildMirrorMode>();
+            _mirrorMode.BuildMode = _buildMode;
+            _editor.MirrorMode = _mirrorMode;
         }
 
         /// <summary>Toggle build mode. Forwarded by HUD button + hotkey.</summary>

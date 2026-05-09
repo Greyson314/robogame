@@ -37,7 +37,27 @@ namespace Robogame.Gameplay
         [Tooltip("Optional variant config panel that supplies per-block dims (foil span/thickness/chord, rope segment count). Falls back to block defaults when null.")]
         [SerializeField] private VariantConfigPanel _variantPanel;
 
+        [Tooltip("Optional mirror-mode toggle. When enabled, every place / remove " +
+                 "is duplicated across the chosen chassis-local plane.")]
+        [SerializeField] private BuildMirrorMode _mirrorMode;
+
         public VariantConfigPanel VariantPanel { get => _variantPanel; set => _variantPanel = value; }
+        public BuildMirrorMode MirrorMode
+        {
+            get => _mirrorMode;
+            set
+            {
+                if (_mirrorMode != null) _mirrorMode.Changed -= HandleMirrorChanged;
+                _mirrorMode = value;
+                if (_mirrorMode != null) _mirrorMode.Changed += HandleMirrorChanged;
+            }
+        }
+
+        private void HandleMirrorChanged()
+        {
+            // Mirror toggle / axis change → next ghost frame must rebuild.
+            _ghostBuiltForId = null;
+        }
 
         [Tooltip("Layer mask used by the targeting raycast. Default: everything.")]
         [SerializeField] private LayerMask _raycastMask = ~0;
@@ -131,6 +151,16 @@ namespace Robogame.Gameplay
         private Vector3Int _ghostBuiltForCell;
         private Vector3Int _ghostBuiltForUp;
         private bool _ghostShowingValid;
+        // Mirror ghost — built only when mirror mode is active and the
+        // current placement isn't on the mirror plane. State mirrors
+        // (heh) the original ghost so EnsureGhost can rebuild both
+        // when any input changes.
+        private GameObject _mirrorGhost;
+        private bool _mirrorGhostShowingValid;
+        private bool _mirrorGhostValid;
+        private Vector3Int _mirrorGhostCell;
+        private Vector3Int _mirrorGhostUp;
+        private bool _mirrorGhostBuilt; // tracks whether _mirrorGhost is meaningful for UpdateGhost
 
         private bool _hasTarget;
         private Vector3Int _targetPlaceCell;
@@ -258,7 +288,18 @@ namespace Robogame.Gameplay
             return                            new Vector3Int(0, 0, dir.z >= 0f ? 1 : -1);
         }
 
+        // Existing entry point: derives mount-up from the targeting state
+        // (place-cell − hit-cell) so callers in the existing flow don't
+        // change. Mirror placement uses the parameterized overload below
+        // with an explicit mirrored up.
         private bool IsValidPlacement(Vector3Int cell)
+        {
+            Vector3Int up = cell - _targetHitCell;
+            if (up == Vector3Int.zero) up = Vector3Int.up;
+            return IsValidPlacement(cell, up);
+        }
+
+        private bool IsValidPlacement(Vector3Int cell, Vector3Int up)
         {
             if (_grid == null) return false;
             if (_grid.Blocks.ContainsKey(cell)) return false;
@@ -319,15 +360,12 @@ namespace Robogame.Gameplay
                 // Swept-volume check: scalable blocks (e.g. wings with
                 // span > 1) extend beyond their host cell. Reject a
                 // placement whose visible extent would interpenetrate an
-                // existing block. Up is the face normal we picked in
-                // UpdateTarget (recoverable as place-cell − hit-cell);
-                // candidate dims come from the variant panel.
-                Vector3Int candidateUp = cell - _targetHitCell;
-                if (candidateUp == Vector3Int.zero) candidateUp = Vector3Int.up;
+                // existing block. Caller supplies the mount-up so mirror
+                // placements check against their reflected face direction.
                 Vector3 candidateDims = _variantPanel != null
                     ? _variantPanel.GetDimsForBlock(selected.Id)
                     : Vector3.zero;
-                if (BlockOccupancy.WouldOverlapInGrid(_grid, selected.Id, cell, candidateUp, candidateDims))
+                if (BlockOccupancy.WouldOverlapInGrid(_grid, selected.Id, cell, up, candidateDims))
                     return false;
             }
             return true;
@@ -367,6 +405,7 @@ namespace Robogame.Gameplay
                 && _ghostBuiltForUp == targetUp) return;
 
             if (_ghost != null) Object.Destroy(_ghost);
+            if (_mirrorGhost != null) Object.Destroy(_mirrorGhost);
 
             BlockDefinition def = GetSelectedDefinition();
             _ghost = BlockGhostFactory.Build(def, _ghostMatValid, targetDims, targetCell, targetUp);
@@ -376,6 +415,28 @@ namespace Robogame.Gameplay
             _ghostBuiltForCell = targetCell;
             _ghostBuiltForUp = targetUp;
             _ghostShowingValid = true;
+
+            // Mirror ghost — only built when mirror mode is active, the
+            // player has aimed at a real cell, and the cell isn't on the
+            // mirror plane (mirroring an on-plane cell to itself would
+            // double-show the same ghost).
+            _mirrorGhostBuilt = false;
+            _mirrorGhost = null;
+            if (_hasTarget && _mirrorMode != null && _mirrorMode.Enabled)
+            {
+                MirrorAxis axis = _mirrorMode.Axis;
+                if (!BlockMirror.IsOnPlane(targetCell, axis))
+                {
+                    Vector3Int mCell = BlockMirror.MirrorCell(targetCell, axis);
+                    Vector3Int mUp   = BlockMirror.MirrorUp(targetUp, axis);
+                    _mirrorGhost = BlockGhostFactory.Build(def, _ghostMatValid, targetDims, mCell, mUp);
+                    _mirrorGhost.SetActive(false);
+                    _mirrorGhostCell = mCell;
+                    _mirrorGhostUp = mUp;
+                    _mirrorGhostBuilt = true;
+                    _mirrorGhostShowingValid = true;
+                }
+            }
         }
 
         private static Material MakeGhostMat(Color c)
@@ -401,9 +462,12 @@ namespace Robogame.Gameplay
         private void DestroyGhost()
         {
             if (_ghost != null) Object.Destroy(_ghost);
+            if (_mirrorGhost != null) Object.Destroy(_mirrorGhost);
             if (_ghostMatValid != null) Object.Destroy(_ghostMatValid);
             if (_ghostMatInvalid != null) Object.Destroy(_ghostMatInvalid);
             _ghost = null;
+            _mirrorGhost = null;
+            _mirrorGhostBuilt = false;
             _ghostBuiltForId = null;
             _ghostMatValid = _ghostMatInvalid = null;
         }
@@ -436,6 +500,31 @@ namespace Robogame.Gameplay
                 BlockGhostFactory.ApplyMaterial(_ghost,
                     _validPlacement ? _ghostMatValid : _ghostMatInvalid);
                 _ghostShowingValid = _validPlacement;
+            }
+
+            // Mirror ghost mirrors (sigh) the original's lifecycle, but
+            // its valid/invalid state is computed independently — the
+            // mirror placement could fail (overlap, leaf neighbour) even
+            // when the original is fine. Player gets per-side feedback.
+            if (_mirrorGhostBuilt && _mirrorGhost != null)
+            {
+                _mirrorGhost.SetActive(true);
+                _mirrorGhost.transform.position = _grid.GridToWorld(_mirrorGhostCell);
+                _mirrorGhost.transform.rotation = _buildMode.Chassis.rotation
+                    * BlockGrid.OrientationFromUp(_mirrorGhostUp);
+                _mirrorGhost.transform.localScale = Vector3.one * (_grid.CellSize * 1.01f);
+                bool mirrorValid = IsValidPlacement(_mirrorGhostCell, _mirrorGhostUp);
+                if (mirrorValid != _mirrorGhostShowingValid)
+                {
+                    BlockGhostFactory.ApplyMaterial(_mirrorGhost,
+                        mirrorValid ? _ghostMatValid : _ghostMatInvalid);
+                    _mirrorGhostShowingValid = mirrorValid;
+                }
+                _mirrorGhostValid = mirrorValid;
+            }
+            else if (_mirrorGhost != null)
+            {
+                _mirrorGhost.SetActive(false);
             }
         }
 
@@ -485,8 +574,10 @@ namespace Robogame.Gameplay
             // outward from the face.
             Vector3Int placeUp = _targetPlaceCell - _targetHitCell;
             if (placeUp == Vector3Int.zero) placeUp = Vector3Int.up;
-            if (_grid.PlaceBlock(def, _targetPlaceCell, placeUp, dims) != null)
+            bool placed = _grid.PlaceBlock(def, _targetPlaceCell, placeUp, dims) != null;
+            if (placed)
             {
+                TryMirrorPlace(def, _targetPlaceCell, placeUp, dims);
                 SyncBlueprintFromGrid();
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.BlockPlace);
             }
@@ -521,9 +612,44 @@ namespace Robogame.Gameplay
 
             if (_grid.RemoveBlock(_targetHitCell))
             {
+                TryMirrorRemove(_targetHitCell);
                 SyncBlueprintFromGrid();
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.BlockRemove);
             }
+        }
+
+        // -----------------------------------------------------------------
+        // Mirror mode — best-effort dual placement / removal. The original
+        // is the source of truth; the mirror is a soft attempt that skips
+        // (silently, no buzzer) if it would violate any placement rule.
+        // -----------------------------------------------------------------
+
+        private bool MirrorActive =>
+            _mirrorMode != null && _mirrorMode.Enabled;
+
+        private void TryMirrorPlace(BlockDefinition def, Vector3Int cell, Vector3Int up, Vector3 dims)
+        {
+            if (!MirrorActive) return;
+            MirrorAxis axis = _mirrorMode.Axis;
+            if (BlockMirror.IsOnPlane(cell, axis)) return;
+            Vector3Int mCell = BlockMirror.MirrorCell(cell, axis);
+            Vector3Int mUp   = BlockMirror.MirrorUp(up, axis);
+            if (mCell == cell) return;
+            if (!IsValidPlacement(mCell, mUp)) return;
+            _grid.PlaceBlock(def, mCell, mUp, dims);
+        }
+
+        private void TryMirrorRemove(Vector3Int cell)
+        {
+            if (!MirrorActive) return;
+            MirrorAxis axis = _mirrorMode.Axis;
+            if (BlockMirror.IsOnPlane(cell, axis)) return;
+            Vector3Int mCell = BlockMirror.MirrorCell(cell, axis);
+            if (mCell == cell) return;
+            if (!_grid.Blocks.TryGetValue(mCell, out BlockBehaviour mBlock) || mBlock == null) return;
+            if (mBlock.Definition != null && mBlock.Definition.Category == BlockCategory.Cpu) return;
+            if (WouldOrphanIfRemoved(mCell, out _)) return;
+            _grid.RemoveBlock(mCell);
         }
 
         /// <summary>
