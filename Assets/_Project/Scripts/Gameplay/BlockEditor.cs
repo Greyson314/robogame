@@ -262,12 +262,18 @@ namespace Robogame.Gameplay
                 return;
 
             // Only react to picks that land on blocks belonging to OUR chassis
-            // (not on the ground, walls, podium, etc.).
+            // (not on the ground, walls, podium, etc.). Use grid-membership
+            // rather than transform parenting because rotor-adopted foils
+            // get reparented to a kinematic hub at scene root — they're
+            // still in the chassis grid (and thus still legitimate edit
+            // targets) but their transform isn't a child of the chassis
+            // any more.
             BlockBehaviour block = hit.collider != null
                 ? hit.collider.GetComponentInParent<BlockBehaviour>()
                 : null;
             if (block == null) return;
-            if (_buildMode.Chassis == null || !block.transform.IsChildOf(_buildMode.Chassis)) return;
+            if (_grid == null) return;
+            if (!_grid.Blocks.TryGetValue(block.GridPosition, out BlockBehaviour gridEntry) || gridEntry != block) return;
 
             _targetHitCell = block.GridPosition;
 
@@ -722,11 +728,16 @@ namespace Robogame.Gameplay
             while (queue.Count > 0)
             {
                 Vector3Int c = queue.Dequeue();
-                // Leaves are reached but don't bridge — a wing's cells
-                // aren't a valid attach point AND nothing further out is
-                // considered connected through the wing.
-                if (_grid.TryGetBlock(c, out BlockBehaviour cBlock)
-                    && BlockConnectivity.IsLeaf(cBlock.Definition)) continue;
+                // Plain physical-adjacency BFS. Earlier sessions skipped
+                // leaves as bridges here as a "no building past a wing"
+                // defense-in-depth measure, but the strict-host check
+                // (`IsLeaf(host) → reject`) in IsValidPlacement already
+                // covers that intent. Skipping leaves here ALSO blocked
+                // legitimate placements downstream of authored leaf
+                // chains — e.g. the helicopter's mechanism cube is only
+                // reachable through the rotor (a leaf), so the player
+                // couldn't extend the rotor area at all. Drop the skip
+                // and let the strict-host check do the gating.
                 for (int i = 0; i < s_neighbors.Length; i++)
                 {
                     Vector3Int n = c + s_neighbors[i];

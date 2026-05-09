@@ -53,6 +53,7 @@ namespace Robogame.Gameplay
         // Foil controls
         private Slider _foilPitchPrimary;
         private Text _foilPitchValue;
+        private Text _foilReadout;
         private GameObject _foilAdvanced;
         private Text _foilAdvancedToggleText;
         private Slider _foilSpanSlider, _foilThicknessSlider, _foilChordSlider;
@@ -63,6 +64,7 @@ namespace Robogame.Gameplay
         // Rotor controls
         private Slider _rotorCollectiveSlider;
         private Text _rotorCollectiveValue;
+        private Text _rotorReadout;
 
         private string _activeBlockId;
         private bool _suppressCallbacks;
@@ -223,6 +225,7 @@ namespace Robogame.Gameplay
                 UpdateValueText(_foilThicknessValue, thickness, "F2");
                 UpdateValueText(_foilChordValue,     chord,     "F2");
                 UpdateFoilPitchValue(pitch);
+                UpdateFoilReadout();
             }
             else if (rope)
             {
@@ -236,6 +239,7 @@ namespace Robogame.Gameplay
                 float pitch = GetPitchForBlock(blockId);
                 _rotorCollectiveSlider.value = pitch;
                 UpdateValueText(_rotorCollectiveValue, pitch, "F0");
+                UpdateRotorReadout();
             }
             _suppressCallbacks = false;
         }
@@ -280,6 +284,7 @@ namespace Robogame.Gameplay
             _suppressCallbacks = false;
             _pitchByBlockId[id] = snapped;
             UpdateFoilPitchValue(snapped);
+            UpdateFoilReadout();
         }
 
         private void OnRopeSegmentCountChanged(float v)
@@ -308,6 +313,7 @@ namespace Robogame.Gameplay
             _suppressCallbacks = false;
             _pitchByBlockId[id] = snapped;
             UpdateValueText(_rotorCollectiveValue, snapped, "F0");
+            UpdateRotorReadout();
         }
 
         // Snap-and-cache helper for foil dim sliders (span/thickness/chord).
@@ -324,6 +330,7 @@ namespace Robogame.Gameplay
             else dims.z = snapped;
             _dimsByBlockId[id] = dims;
             UpdateValueText(valueText, snapped, fmt);
+            UpdateFoilReadout();
         }
 
         private void UpdateFoilPitchValue(float pitchDeg)
@@ -333,6 +340,83 @@ namespace Robogame.Gameplay
             // Stall warning past ±18° (BlueprintValidator soft limit).
             bool stall = Mathf.Abs(pitchDeg) > BlueprintValidator.PitchSoftLimitDeg;
             _foilPitchValue.color = stall ? new Color(1f, 0.3f, 0.3f, 1f) : s_accent;
+        }
+
+        // -----------------------------------------------------------------
+        // Live consequence readouts (Phase 4)
+        // -----------------------------------------------------------------
+        // Mirrors the AeroSurfaceBlock.FixedUpdate lift formula so the
+        // player can see the consequence of their tuning before they
+        // place anything. Reference values:
+        //   - Free-wing cruise: 30 m/s (typical plane forward speed).
+        //   - Rotor blade: ω×r at 240 RPM and 1 m radius — matches the
+        //     shipped helicopter's blade config. Disc lift assumes 4 default
+        //     blades; player-built rotors with bigger blades will lift more
+        //     than the readout suggests (it's a conservative estimate, not
+        //     a per-build calculation — that needs the live chassis).
+
+        private const float CruiseSpeedMs       = 30f;
+        private const float RotorRpmNominal     = 240f;
+        private const float RotorRadiusNominal  = 1f;
+        private const int   RotorBladeCount     = 4;
+        private const float LiftCoefDefault     = 0.95f;   // matches AeroSurfaceBlock._liftCoef
+        private const float StallAoaRad         = 0.35f;   // matches AeroSurfaceBlock._stallAoA
+        private const float PostStallLift       = 0.55f;   // matches AeroSurfaceBlock._postStallLift
+
+        // Static estimate of lift in newtons for one foil at the given
+        // dims and pitch, mirroring AeroSurfaceBlock.FixedUpdate's math.
+        // Vertical=true (i.e. how the binder configures every player-placed
+        // foil) means biasTerm=0 — at zero pitch you get zero estimated
+        // lift, which IS the correct result and the player education we
+        // want from this readout.
+        private static float EstimateFoilLift(float span, float chord, float pitchDeg, float airspeedMs)
+        {
+            float pitchRad = pitchDeg * Mathf.Deg2Rad;
+            float aoaClamped = Mathf.Clamp(pitchRad, -StallAoaRad, StallAoaRad);
+            float stallFalloff = Mathf.Abs(pitchRad) > StallAoaRad
+                ? Mathf.Lerp(1f, PostStallLift,
+                    Mathf.Clamp01((Mathf.Abs(pitchRad) - StallAoaRad) / StallAoaRad))
+                : 1f;
+            float liftFactor = aoaClamped * stallFalloff; // biasTerm=0 for vertical=true
+            float areaScale = (span * chord) / (AeroSurfaceBlock.DefaultSpan * AeroSurfaceBlock.DefaultChord);
+            return airspeedMs * airspeedMs * LiftCoefDefault * areaScale * liftFactor;
+        }
+
+        private void UpdateFoilReadout()
+        {
+            if (_foilReadout == null) return;
+            string id = _activeBlockId;
+            Vector3 cached = GetDimsForBlock(id);
+            float pitch = GetPitchForBlock(id);
+            float span  = cached.x > 0f ? cached.x : AeroSurfaceBlock.DefaultSpan;
+            float chord = cached.z > 0f ? cached.z : AeroSurfaceBlock.DefaultChord;
+            float lift = EstimateFoilLift(span, chord, pitch, CruiseSpeedMs);
+            bool stall = Mathf.Abs(pitch) > BlueprintValidator.PitchSoftLimitDeg;
+            _foilReadout.text = stall
+                ? $"≈ {lift:F0} N @ {CruiseSpeedMs:F0} m/s — STALL"
+                : $"≈ {lift:F0} N @ {CruiseSpeedMs:F0} m/s";
+            _foilReadout.color = stall ? new Color(1f, 0.3f, 0.3f, 1f) : s_dim;
+        }
+
+        private void UpdateRotorReadout()
+        {
+            if (_rotorReadout == null) return;
+            float collective = GetPitchForBlock(_activeBlockId);
+            // collective=0 in the cache means "use rotor's authored
+            // default" (RotorBlock._collectivePitchDeg, currently 8°).
+            // Mirror that for the readout so the player sees the actual
+            // post-place value.
+            float effectiveCollective = collective > 0f ? collective : 8f;
+            float omega = RotorRpmNominal * Mathf.PI * 2f / 60f;
+            float tipSpeed = omega * RotorRadiusNominal;
+            float perBlade = EstimateFoilLift(
+                AeroSurfaceBlock.DefaultSpan,
+                AeroSurfaceBlock.DefaultChord,
+                effectiveCollective,
+                tipSpeed);
+            float total = perBlade * RotorBladeCount;
+            _rotorReadout.text =
+                $"≈ {total:F0} N disc ({RotorBladeCount} default blades, {RotorRpmNominal:F0} RPM)";
         }
 
         // -----------------------------------------------------------------
@@ -436,25 +520,46 @@ namespace Robogame.Gameplay
             rt.offsetMax = new Vector2(-12f, -40f);
 
             // Layout (top → bottom):
-            //   Preset row (4 buttons)  — slot 0
-            //   Primary pitch slider     — slot 1
-            //   Advanced toggle button   — slot 2
-            //   Advanced container       — slot 3+ (3 sliders)
+            //   Preset row (4 buttons)             — slot 0
+            //   Primary: span / thickness / chord  — slots 1, 2, 3
+            //   Live lift readout text             — below slot 3
+            //   Advanced toggle button             — below readout
+            //   Advanced container: pitch slider   — below toggle (collapsed by default)
+            //
+            // Pitch is in Advanced because the dim sliders are what most
+            // players reach for (it's where the foil's GEOMETRY lives);
+            // pitch is the power-user knob.
             BuildFoilPresetRow(section.transform, slot: 0);
 
-            _foilPitchPrimary = BuildLabeledSlider(section.transform, "Pitch", slot: 1,
-                min: -18f, max: 18f, def: 0f,
-                onChanged: OnFoilPitchChanged, out _foilPitchValue);
-            UpdateFoilPitchValue(0f);
+            _foilSpanSlider      = BuildLabeledSlider(section.transform, "Span (m)",      slot: 1,
+                AeroSurfaceBlock.MinSpan,      AeroSurfaceBlock.MaxSpan,      AeroSurfaceBlock.DefaultSpan,
+                OnFoilSpanChanged,      out _foilSpanValue);
+            _foilThicknessSlider = BuildLabeledSlider(section.transform, "Thickness (m)", slot: 2,
+                AeroSurfaceBlock.MinThickness, AeroSurfaceBlock.MaxThickness, AeroSurfaceBlock.DefaultThickness,
+                OnFoilThicknessChanged, out _foilThicknessValue);
+            _foilChordSlider     = BuildLabeledSlider(section.transform, "Chord (m)",     slot: 3,
+                AeroSurfaceBlock.MinChord,     AeroSurfaceBlock.MaxChord,     AeroSurfaceBlock.DefaultChord,
+                OnFoilChordChanged,     out _foilChordValue);
 
-            // Advanced toggle: small button below the primary slider.
+            // Live lift readout — sits under the chord slider.
+            const float primaryBottom = 56f * 4f; // = 4 slots' worth of vertical
+            _foilReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
+                anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
+                size: 12, style: FontStyle.Italic, anchor: TextAnchor.MiddleCenter, color: s_dim);
+            var rrt = _foilReadout.rectTransform;
+            rrt.pivot = new Vector2(0.5f, 1f);
+            rrt.anchoredPosition = new Vector2(0f, -primaryBottom - 4f);
+            rrt.sizeDelta = new Vector2(0f, 22f);
+
+            // Advanced toggle: small button below the readout.
+            const float toggleY = -primaryBottom - 4f - 22f - 4f;
             var toggleGo = NewChild("AdvancedToggle", section.transform);
             var trt = toggleGo.GetComponent<RectTransform>();
             trt.anchorMin = new Vector2(0f, 1f);
             trt.anchorMax = new Vector2(1f, 1f);
             trt.pivot = new Vector2(0.5f, 1f);
             trt.sizeDelta = new Vector2(0f, 28f);
-            trt.anchoredPosition = new Vector2(0f, -1 * 56f - 50f - 4f);
+            trt.anchoredPosition = new Vector2(0f, toggleY);
             var img = toggleGo.AddComponent<Image>();
             img.color = new Color(0.10f, 0.13f, 0.18f, 1f);
             var btn = toggleGo.AddComponent<Button>();
@@ -465,25 +570,20 @@ namespace Robogame.Gameplay
                 anchorMin: Vector2.zero, anchorMax: Vector2.one,
                 size: 12, style: FontStyle.Bold, anchor: TextAnchor.MiddleCenter, color: s_dim);
 
-            // Advanced container — the rest of the sliders live here. Built
-            // inactive; expander toggle shows it.
+            // Advanced container — pitch slider lives here. Built inactive;
+            // expander toggle shows it.
             _foilAdvanced = NewChild("Advanced", section.transform);
             var art = _foilAdvanced.GetComponent<RectTransform>();
             art.anchorMin = new Vector2(0f, 1f);
             art.anchorMax = new Vector2(1f, 1f);
             art.pivot = new Vector2(0.5f, 1f);
-            art.sizeDelta = new Vector2(0f, 56f * 3 + 8f);
-            art.anchoredPosition = new Vector2(0f, -1 * 56f - 50f - 4f - 32f);
+            art.sizeDelta = new Vector2(0f, 56f);
+            art.anchoredPosition = new Vector2(0f, toggleY - 28f - 4f);
 
-            _foilSpanSlider      = BuildLabeledSlider(_foilAdvanced.transform, "Span (m)",      0,
-                AeroSurfaceBlock.MinSpan,      AeroSurfaceBlock.MaxSpan,      AeroSurfaceBlock.DefaultSpan,
-                OnFoilSpanChanged,      out _foilSpanValue);
-            _foilThicknessSlider = BuildLabeledSlider(_foilAdvanced.transform, "Thickness (m)", 1,
-                AeroSurfaceBlock.MinThickness, AeroSurfaceBlock.MaxThickness, AeroSurfaceBlock.DefaultThickness,
-                OnFoilThicknessChanged, out _foilThicknessValue);
-            _foilChordSlider     = BuildLabeledSlider(_foilAdvanced.transform, "Chord (m)",     2,
-                AeroSurfaceBlock.MinChord,     AeroSurfaceBlock.MaxChord,     AeroSurfaceBlock.DefaultChord,
-                OnFoilChordChanged,     out _foilChordValue);
+            _foilPitchPrimary = BuildLabeledSlider(_foilAdvanced.transform, "Pitch", slot: 0,
+                min: -18f, max: 18f, def: 0f,
+                onChanged: OnFoilPitchChanged, out _foilPitchValue);
+            UpdateFoilPitchValue(0f);
 
             _foilAdvanced.SetActive(false);
             _foilAdvancedExpanded = false;
@@ -521,6 +621,14 @@ namespace Robogame.Gameplay
             _rotorCollectiveSlider = BuildLabeledSlider(section.transform, "Collective", slot: 1,
                 min: 0f, max: 18f, def: 0f,
                 onChanged: OnRotorCollectiveChanged, out _rotorCollectiveValue);
+
+            _rotorReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
+                anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
+                size: 12, style: FontStyle.Italic, anchor: TextAnchor.MiddleCenter, color: s_dim);
+            var rrt = _rotorReadout.rectTransform;
+            rrt.pivot = new Vector2(0.5f, 1f);
+            rrt.anchoredPosition = new Vector2(0f, -56f * 2f - 4f);
+            rrt.sizeDelta = new Vector2(0f, 22f);
 
             return section;
         }
