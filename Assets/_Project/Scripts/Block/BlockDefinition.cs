@@ -56,6 +56,14 @@ namespace Robogame.Block
         [Tooltip("CPU / power cost. Sum across all blocks must not exceed the robot's CPU budget.")]
         [SerializeField, Min(0)] private int _cpuCost = 1;
 
+        [Tooltip("If true, no other block can attach to any of this block's faces. " +
+                 "Used by the build-mode placement check to enforce \"can't build on top " +
+                 "of a wing / weapon / thruster\" rules. Default false (block hosts on " +
+                 "all 6 faces). Specialty blocks should set this true; the placement " +
+                 "system also has a hardcoded fallback list (see BlockConnectivity) so " +
+                 "shipped assets without the flag still behave correctly.")]
+        [SerializeField] private bool _isLeafBlock = false;
+
         [Header("Visuals")]
         [Tooltip("Prefab spawned when this block is placed. Must contain a BlockBehaviour at the root.")]
         [SerializeField] private GameObject _prefab;
@@ -85,6 +93,10 @@ namespace Robogame.Block
         public float MaxHealth => _maxHealth;
         public float Mass => _mass;
         public int CpuCost => _cpuCost;
+        /// <summary>Raw flag from the asset; consumers should call
+        /// <see cref="BlockConnectivity.IsLeaf"/> instead, which also
+        /// applies the hardcoded fallback list.</summary>
+        public bool IsLeafBlockRaw => _isLeafBlock;
         public GameObject Prefab => _prefab;
         public Color TintColor => _tintColor;
         public Material Material => _material;

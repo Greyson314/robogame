@@ -274,7 +274,17 @@ namespace Robogame.Gameplay
             if (reachable != null)
             {
                 for (int i = 0; i < s_neighbors.Length; i++)
-                    if (reachable.Contains(cell + s_neighbors[i])) { adjacentToCpu = true; break; }
+                {
+                    Vector3Int nbr = cell + s_neighbors[i];
+                    if (!reachable.Contains(nbr)) continue;
+                    // Skip leaf neighbours — wings / thrusters / etc. can't
+                    // host a new block, even if they're CPU-reachable. Per
+                    // BlockConnectivity / Robocraft's "no building on wings".
+                    if (_grid.TryGetBlock(nbr, out BlockBehaviour nbrBlock)
+                        && BlockConnectivity.IsLeaf(nbrBlock.Definition)) continue;
+                    adjacentToCpu = true;
+                    break;
+                }
             }
             else
             {
@@ -285,7 +295,14 @@ namespace Robogame.Gameplay
                 else
                 {
                     for (int i = 0; i < s_neighbors.Length; i++)
-                        if (_grid.Blocks.ContainsKey(cell + s_neighbors[i])) { adjacentToCpu = true; break; }
+                    {
+                        Vector3Int nbr = cell + s_neighbors[i];
+                        if (!_grid.Blocks.ContainsKey(nbr)) continue;
+                        if (_grid.TryGetBlock(nbr, out BlockBehaviour nbrBlock)
+                            && BlockConnectivity.IsLeaf(nbrBlock.Definition)) continue;
+                        adjacentToCpu = true;
+                        break;
+                    }
                 }
             }
             if (!adjacentToCpu) return false;
@@ -581,6 +598,11 @@ namespace Robogame.Gameplay
             while (queue.Count > 0)
             {
                 Vector3Int c = queue.Dequeue();
+                // Leaves are reached but don't bridge — a wing's cells
+                // aren't a valid attach point AND nothing further out is
+                // considered connected through the wing.
+                if (_grid.TryGetBlock(c, out BlockBehaviour cBlock)
+                    && BlockConnectivity.IsLeaf(cBlock.Definition)) continue;
                 for (int i = 0; i < s_neighbors.Length; i++)
                 {
                     Vector3Int n = c + s_neighbors[i];

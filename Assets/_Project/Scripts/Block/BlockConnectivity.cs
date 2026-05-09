@@ -1,0 +1,62 @@
+using System.Collections.Generic;
+
+namespace Robogame.Block
+{
+    /// <summary>
+    /// Per-block connectivity rules: which blocks can host other blocks
+    /// on their faces, and which are "leaves" with no connective faces.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Robogame's build-mode rule (mirrors Robocraft): you cannot place
+    /// a block on top of a wing, weapon, thruster, or other specialty
+    /// block. Those blocks have one mount face (the one they themselves
+    /// use to attach to a host) and zero connective faces — nothing
+    /// builds on them.
+    /// </para>
+    /// <para>
+    /// The authoritative source is <see cref="BlockDefinition.IsLeafBlockRaw"/>
+    /// on the SO. The hardcoded id list below is a defensive fallback so
+    /// shipped assets without the flag still behave correctly — flagged
+    /// here rather than scattered through the placement code so future
+    /// scalable parts (Phase 2 wheels, Phase 4 panels, …) only need to
+    /// register here.
+    /// </para>
+    /// </remarks>
+    public static class BlockConnectivity
+    {
+        // Block ids that are leaves regardless of their SO flag. Lets us
+        // ship the rule without having to re-author every preset asset.
+        private static readonly HashSet<string> s_hardcodedLeafIds = new()
+        {
+            BlockIds.Aero,
+            BlockIds.AeroFin,
+            BlockIds.Thruster,
+            BlockIds.Rudder,
+            BlockIds.Rotor,
+            BlockIds.Weapon,
+            BlockIds.Cannon,
+            BlockIds.BombBay,
+            BlockIds.Hook,
+            BlockIds.Mace,
+            BlockIds.Wheel,
+            BlockIds.WheelSteer,
+            BlockIds.Rope,
+        };
+
+        /// <summary>True if the definition's faces are all non-connective —
+        /// i.e. nothing can be placed using this block as a host.</summary>
+        public static bool IsLeaf(BlockDefinition def)
+        {
+            if (def == null) return false;
+            if (def.IsLeafBlockRaw) return true;
+            return s_hardcodedLeafIds.Contains(def.Id);
+        }
+
+        /// <summary>
+        /// Lookup by stable id (when the BlockBehaviour reference isn't
+        /// at hand — e.g. validating a blueprint plan pre-instantiation).
+        /// </summary>
+        public static bool IsLeafId(string blockId) => s_hardcodedLeafIds.Contains(blockId);
+    }
+}
