@@ -152,46 +152,47 @@ namespace Robogame.Tools.Editor
 
         private static ChassisBlueprint.Entry[] BuildPlaneEntries()
         {
-            // Mirrors RobotLayouts.PopulateTestPlane: thruster-rear fuselage,
-            // 4-segment main wings, tailplane and vertical fin.
-            var list = new List<ChassisBlueprint.Entry>();
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Thruster, new Vector3Int(0, 0, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,     new Vector3Int(0, 0, -2)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,     new Vector3Int(0, 0, -1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu,      new Vector3Int(0, 0,  0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,     new Vector3Int(0, 0,  1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,     new Vector3Int(0, 0,  2)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,     new Vector3Int(0, 0,  3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Weapon,   new Vector3Int(0, 1,  3)));
-            for (int x = 1; x <= 4; x++)
-            {
-                list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( x, 0, 0)));
-                list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-x, 0, 0)));
-            }
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( 1, 0, 1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-1, 0, 1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( 2, 0, 1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-2, 0, 1)));
-            // Tailplane: all four are lifting surfaces. Wings far from COM
-            // no longer cause a constant pitching moment because
-            // AeroSurfaceBlock now scales lift with angle of attack, so the
-            // tail self-trims with the rest of the wing.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( 1, 0, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-1, 0, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( 2, 0, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-2, 0, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,    new Vector3Int( 0, 1, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.AeroFin, new Vector3Int( 0, 2, -3)));
-
-            // Single rope-with-tip hanging off the tail. 8 segments at
-            // 0.5 m each = 4 m of rope, dangling a hook below the
-            // thruster cell. Lets the user hot-test the rope-tip
-            // contact-damage path while the helicopter frame-stability
-            // bug is being diagnosed in parallel. Connectivity walks
-            // hook → rope → tail-boom cube → CPU.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int(0, -1, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Hook, new Vector3Int(0, -2, -3)));
-            return list.ToArray();
+            // Plane in the new "wing extends along mount-face normal"
+            // paradigm (session 41). Wings side-mount on the fuselage cubes
+            // so they extend laterally; vertical fin top-mounts on a tail
+            // riser so it extends straight up. Each wing is a single block
+            // with span set in Dims, replacing the old "row of unit foils"
+            // pattern.
+            //
+            // Layout (forward = +Z):
+            //   - Spine cubes z=-2..3 with thruster at z=-3 and CPU at z=0.
+            //   - Top weapon at the nose (0, 1, 3).
+            //   - Main wing pair: side-mounted on the CPU, span 4.
+            //   - Forward canards: side-mounted on (0,0,1), span 2.
+            //   - Tail stabilisers: side-mounted on (0,0,-2), span 2.
+            //   - Vertical fin: top-mounted on a riser above the tail, span 2.
+            //   - Tail rope-with-hook for hot-testing the contact-damage path.
+            Vector3 wingDims  = new Vector3(4f, 0.08f, 0.9f);
+            Vector3 stabDims  = new Vector3(2f, 0.08f, 0.7f);
+            Vector3 finDims   = new Vector3(2f, 0.08f, 0.9f);
+            Vector3Int upRight = new Vector3Int( 1, 0, 0);
+            Vector3Int upTop   = new Vector3Int( 0, 1, 0);
+            return BlueprintBuilder.Create("Plane", ChassisKind.Plane)
+                .Block(BlockIds.Cpu,      0, 0,  0)
+                .Block(BlockIds.Thruster, 0, 0, -3)
+                .Row(BlockIds.Cube, new Vector3Int(0, 0, -2), new Vector3Int(0, 0, -1))
+                .Row(BlockIds.Cube, new Vector3Int(0, 0,  1), new Vector3Int(0, 0,  3))
+                .Block(BlockIds.Weapon,   0, 1,  3)
+                // Main wings + forward canards + tail stabilisers — write
+                // the +X side, MirrorX produces the -X side with up flipped.
+                .MirrorX(b => b
+                    .Block(BlockIds.Aero, new Vector3Int(1, 0,  0), upRight, wingDims)
+                    .Block(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)
+                    .Block(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, stabDims))
+                // Vertical fin riser + the fin itself (top-mounted, extends up).
+                .Block(BlockIds.Cube, 0, 1, -2)
+                .Block(BlockIds.AeroFin, new Vector3Int(0, 2, -2), upTop, finDims)
+                // Hook on a rope hanging off the tail-boom cube. Connectivity
+                // walks hook → rope → cube at (0, 0, -2) → CPU.
+                .Block(BlockIds.Rope, 0, -1, -2)
+                .Block(BlockIds.Hook, 0, -2, -2)
+                .Build()
+                .Entries;
         }
 
         private static ChassisBlueprint.Entry[] BuildBuggyEntries()
@@ -264,103 +265,70 @@ namespace Robogame.Tools.Editor
 
         private static ChassisBlueprint.Entry[] BuildBomberEntries()
         {
-            // Plane variant with a bomb bay slung underneath the fuselage
-            // instead of a top-mounted hitscan gun. Slightly beefier
-            // structure and a wider wing for the extra bomb-bay mass; no
-            // forward weapon, so this thing is a true ground-attack
-            // platform — fly over targets and hold Fire to pickle bombs.
-            //
-            // Layout summary (forward = +Z):
-            //   - Thruster at z=-3.
-            //   - Fuselage cubes z=-2..+3 (one cube longer at the nose
-            //     than the standard plane to balance the bomb-bay weight).
-            //   - CPU at origin.
-            //   - Bomb bay at (0, -1, 0) — directly under the CPU.
-            //   - Main wings: 4 segments per side at z=0 + 2 inboard at
-            //     z=1 (matches the default plane).
-            //   - Tailplane + vertical fin identical to the plane.
-            var list = new List<ChassisBlueprint.Entry>();
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Thruster, new Vector3Int(0, 0, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,     new Vector3Int(0, 0, -2)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,     new Vector3Int(0, 0, -1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu,      new Vector3Int(0, 0,  0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,     new Vector3Int(0, 0,  1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,     new Vector3Int(0, 0,  2)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,     new Vector3Int(0, 0,  3)));
-
-            // Bomb bay underneath the CPU. Drops bombs straight down so a
-            // CPU-overhead release stays on top of the chassis silhouette.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.BombBay,  new Vector3Int(0, -1, 0)));
-
-            // Main wings.
-            for (int x = 1; x <= 4; x++)
-            {
-                list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( x, 0, 0)));
-                list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-x, 0, 0)));
-            }
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( 1, 0, 1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-1, 0, 1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( 2, 0, 1)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-2, 0, 1)));
-
-            // Tailplane + vertical fin.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( 1, 0, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-1, 0, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int( 2, 0, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Aero, new Vector3Int(-2, 0, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cube,    new Vector3Int( 0, 1, -3)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.AeroFin, new Vector3Int( 0, 2, -3)));
-            return list.ToArray();
+            // Bomber: same fuselage / wing skeleton as the plane (new
+            // side-mount paradigm), but the top weapon is replaced with a
+            // bomb bay slung under the CPU. Wider main wing (span 5) to
+            // carry the extra bomb-bay mass.
+            Vector3 wingDims = new Vector3(5f, 0.08f, 1.0f);
+            Vector3 stabDims = new Vector3(2f, 0.08f, 0.7f);
+            Vector3 finDims  = new Vector3(2f, 0.08f, 0.9f);
+            Vector3Int upRight = new Vector3Int( 1, 0, 0);
+            Vector3Int upTop   = new Vector3Int( 0, 1, 0);
+            return BlueprintBuilder.Create("Bomber", ChassisKind.Plane)
+                .Block(BlockIds.Cpu,      0, 0,  0)
+                .Block(BlockIds.Thruster, 0, 0, -3)
+                .Row(BlockIds.Cube, new Vector3Int(0, 0, -2), new Vector3Int(0, 0, -1))
+                .Row(BlockIds.Cube, new Vector3Int(0, 0,  1), new Vector3Int(0, 0,  3))
+                // Bomb bay underneath the CPU (drops bombs straight down).
+                .Block(BlockIds.BombBay, 0, -1, 0)
+                // Main wings + forward + tail stabilisers (mirrored).
+                .MirrorX(b => b
+                    .Block(BlockIds.Aero, new Vector3Int(1, 0,  0), upRight, wingDims)
+                    .Block(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)
+                    .Block(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, stabDims))
+                // Vertical fin.
+                .Block(BlockIds.Cube, 0, 1, -2)
+                .Block(BlockIds.AeroFin, new Vector3Int(0, 2, -2), upTop, finDims)
+                .Build()
+                .Entries;
         }
 
         private static ChassisBlueprint.Entry[] BuildPropPlaneEntries()
         {
-            // Same fuselage / wing / tail / canard skeleton as the standard
-            // plane preset, but the rear thruster is gone and the nose
-            // carries a forward-facing rotor: spinAxis = +Z, mechanism cell
-            // one step further forward, four propeller blades ringed around
-            // the mechanism. With RotorsGenerateLift = true the foil
-            // physics (lift-along-spin-axis, dissymmetry stripped — see
-            // session-25 dissymmetry fix) push the chassis along its local
-            // +Z, which is exactly forward thrust.
+            // Prop plane: same skeleton as the new-paradigm Plane but the
+            // rear thruster is gone and the nose carries a forward-facing
+            // rotor (spinAxis = +Z, four propeller blades ringed around
+            // the mechanism). With RotorsGenerateLift = true the foil
+            // physics push the chassis along chassis +Z — forward thrust.
             //
             // Layout (forward = +Z):
-            //   - Spine cubes: z=-3..3 (no thruster — replaced by nose rotor).
+            //   - Spine cubes z=-2..3 (no thruster).
             //   - CPU at origin.
-            //   - Top weapon at (0, 1, 0) — over the cockpit.
-            //   - Main wings: ±1..±4 at y=0, z=0.
-            //   - Forward stabilisers / canards: ±1..±2 at y=0, z=1.
-            //   - Tailplane: ±1..±2 at y=0, z=-3.
-            //   - Vertical fin on a 1-cell pylon at z=-3.
-            //   - Nose rotor: rotor (0,0,4), mech (0,0,5), 4 props around (0,0,5).
+            //   - Top weapon at (0, 1, 0).
+            //   - Main wings: side-mounted on CPU, span 4.
+            //   - Forward canards: side-mounted on (0,0,1), span 2.
+            //   - Tail stabilisers: side-mounted on (0,0,-2), span 2.
+            //   - Vertical fin on a 1-cell riser above the tail, span 2.
+            //   - Nose rotor at z=4 with the propeller ring at z=5.
+            Vector3 wingDims = new Vector3(4f, 0.08f, 0.9f);
+            Vector3 stabDims = new Vector3(2f, 0.08f, 0.7f);
+            Vector3 finDims  = new Vector3(2f, 0.08f, 0.9f);
+            Vector3Int upRight = new Vector3Int( 1, 0, 0);
+            Vector3Int upTop   = new Vector3Int( 0, 1, 0);
             return BlueprintBuilder.Create("Prop Plane", ChassisKind.Plane)
-                .Block(BlockIds.Cpu, 0, 0, 0)
-                .Row(BlockIds.Cube, new Vector3Int(0, 0, -3), new Vector3Int(0, 0, -1))
+                .Block(BlockIds.Cpu,    0, 0, 0)
+                .Row(BlockIds.Cube, new Vector3Int(0, 0, -2), new Vector3Int(0, 0, -1))
                 .Row(BlockIds.Cube, new Vector3Int(0, 0,  1), new Vector3Int(0, 0,  3))
                 .Block(BlockIds.Weapon, 0, 1, 0)
-                // Main wings — 4 segments per side. Default span (1) means
-                // each foil is a single block; the player can tune span up
-                // via the build-mode variant panel for a wider profile.
                 .MirrorX(b => b
-                    .Block(BlockIds.Aero, 1, 0, 0)
-                    .Block(BlockIds.Aero, 2, 0, 0)
-                    .Block(BlockIds.Aero, 3, 0, 0)
-                    .Block(BlockIds.Aero, 4, 0, 0))
-                // Forward stabilisers / canards — same idea closer to the nose.
-                .MirrorX(b => b
-                    .Block(BlockIds.Aero, 1, 0, 1)
-                    .Block(BlockIds.Aero, 2, 0, 1))
-                // Tailplane.
-                .MirrorX(b => b
-                    .Block(BlockIds.Aero, 1, 0, -3)
-                    .Block(BlockIds.Aero, 2, 0, -3))
-                // Tail fin pylon + vertical fin.
-                .Block(BlockIds.Cube,    0, 1, -3)
-                .Block(BlockIds.AeroFin, 0, 2, -3)
+                    .Block(BlockIds.Aero, new Vector3Int(1, 0,  0), upRight, wingDims)
+                    .Block(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)
+                    .Block(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, stabDims))
+                .Block(BlockIds.Cube, 0, 1, -2)
+                .Block(BlockIds.AeroFin, new Vector3Int(0, 2, -2), upTop, finDims)
                 // Nose-mounted propeller. spinAxis = +Z aligns the rotor's
                 // local +Y with chassis +Z, so the lateral axes ring
                 // (chassis ±X and ±Y) carries the four propeller blades.
-                // RotorWithFoils does the rotor + mech + 4 foils in one go.
                 .RotorWithFoils(new Vector3Int(0, 0, 4), new Vector3Int(0, 0, 1))
                 .Build()
                 .Entries;

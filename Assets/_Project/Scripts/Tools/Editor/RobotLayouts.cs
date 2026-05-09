@@ -153,24 +153,29 @@ namespace Robogame.Tools.Editor
             grid.PlaceBlock(cube,     new Vector3Int( 0, 0,  3));
             grid.PlaceBlock(weapon,   new Vector3Int( 0, 1,  3));
 
-            // Main wings: 4 segments each side at z = 0, plus inner segments at z=1.
-            for (int x = 1; x <= 4; x++)
-            {
-                grid.PlaceBlock(aero, new Vector3Int( x, 0, 0));
-                grid.PlaceBlock(aero, new Vector3Int(-x, 0, 0));
-            }
-            grid.PlaceBlock(aero, new Vector3Int( 1, 0,  1));
-            grid.PlaceBlock(aero, new Vector3Int(-1, 0,  1));
-            grid.PlaceBlock(aero, new Vector3Int( 2, 0,  1));
-            grid.PlaceBlock(aero, new Vector3Int(-2, 0,  1));
-
-            // Tail: horizontal stabilisers + vertical fin.
-            grid.PlaceBlock(aero, new Vector3Int( 1, 0, -3));
-            grid.PlaceBlock(aero, new Vector3Int(-1, 0, -3));
-            grid.PlaceBlock(aero, new Vector3Int( 2, 0, -3));
-            grid.PlaceBlock(aero, new Vector3Int(-2, 0, -3));
-            grid.PlaceBlock(cube,    new Vector3Int( 0, 1, -3));
-            grid.PlaceBlock(aeroFin, new Vector3Int( 0, 2, -3));
+            // New-paradigm foils: each wing is a SINGLE side-mounted block
+            // with its span dimension extending the wing outward from the
+            // fuselage. Replaces the old "row of 4 unit foils" pattern,
+            // which under session-41 geometry would extend straight up
+            // (vertical stab) instead of laterally.
+            Vector3Int upRight = new Vector3Int( 1, 0, 0);
+            Vector3Int upLeft  = new Vector3Int(-1, 0, 0);
+            Vector3Int upTop   = new Vector3Int( 0, 1, 0);
+            Vector3 wingDims = new Vector3(4f, 0.08f, 0.9f);
+            Vector3 stabDims = new Vector3(2f, 0.08f, 0.7f);
+            Vector3 finDims  = new Vector3(2f, 0.08f, 0.9f);
+            // Main wings — span 4 each side, mounted on the CPU.
+            grid.PlaceBlock(aero, new Vector3Int( 1, 0,  0), upRight, wingDims);
+            grid.PlaceBlock(aero, new Vector3Int(-1, 0,  0), upLeft,  wingDims);
+            // Forward canards on the (0,0,1) cube.
+            grid.PlaceBlock(aero, new Vector3Int( 1, 0,  1), upRight, stabDims);
+            grid.PlaceBlock(aero, new Vector3Int(-1, 0,  1), upLeft,  stabDims);
+            // Tail horizontal stabs on the (0,0,-2) cube.
+            grid.PlaceBlock(aero, new Vector3Int( 1, 0, -2), upRight, stabDims);
+            grid.PlaceBlock(aero, new Vector3Int(-1, 0, -2), upLeft,  stabDims);
+            // Vertical fin on a riser above the tail.
+            grid.PlaceBlock(cube,    new Vector3Int( 0, 1, -2));
+            grid.PlaceBlock(aeroFin, new Vector3Int( 0, 2, -2), upTop, finDims);
 
             // Apply thruster tuning to every thruster instance.
             ThrusterTuning thrusterTuning = TuningAssets.LoadOrCreate<ThrusterTuning>("ThrusterTuning_Default");
