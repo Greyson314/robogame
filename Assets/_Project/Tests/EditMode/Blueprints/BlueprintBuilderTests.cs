@@ -231,34 +231,39 @@ namespace Robogame.Tests.EditMode.Blueprints
         // -----------------------------------------------------------------
 
         [Test]
-        public void RopeWithHook_PlacesRopeAndHookBelow()
+        public void RopeWithHook_PlacesRopeAndHookAtFreeEnd()
         {
+            // Rope's chain extends along its mount-up direction; the
+            // hook lands at the chain's free end, one cell along
+            // mount-up from the rope cell. Default up=+Y → hook at
+            // ropeCell + (0,+1,0).
             BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
                 .RopeWithHook(new Vector3Int(0, 0, 0))
                 .Build();
             Assert.AreEqual(2, plan.Entries.Length);
             Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Rope && e.Position == new Vector3Int(0, 0, 0)));
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Hook && e.Position == new Vector3Int(0,-1, 0)));
+            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Hook && e.Position == new Vector3Int(0, 1, 0)));
         }
 
         [Test]
-        public void RopeWithMace_PlacesRopeAndMaceBelow()
+        public void RopeWithMace_PlacesRopeAndMaceAtFreeEnd()
         {
             BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
                 .RopeWithMace(new Vector3Int(0, 0, 0))
                 .Build();
             Assert.AreEqual(2, plan.Entries.Length);
             Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Rope && e.Position == new Vector3Int(0, 0, 0)));
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Mace && e.Position == new Vector3Int(0,-1, 0)));
+            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Mace && e.Position == new Vector3Int(0, 1, 0)));
         }
 
         [Test]
         public void Chassis_WithRopeWithHook_PassesValidation()
         {
-            // CPU + cube above, rope hanging off cube, hook on rope tip.
+            // CPU at origin; rope at +Y face of CPU; hook at chain's
+            // free end (one cell further along mount-up = +Y).
             BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
                 .Block(BlockIds.Cpu, 0, 0, 0)
-                .RopeWithHook(new Vector3Int(0, -1, 0))
+                .RopeWithHook(new Vector3Int(0, 1, 0))
                 .BuildValidated();
             Assert.AreEqual(3, plan.Entries.Length);
         }

@@ -230,20 +230,27 @@ namespace Robogame.Block
         /// </summary>
         public BlueprintBuilder RopeWithHook(Vector3Int ropeCell)
         {
+            // Both rope and hook default to up=+Y. The hook lands one
+            // cell along the rope's mount-up direction (i.e. the chain's
+            // free end), matching the new convention where the chain
+            // extends OUTWARD from the chassis face the rope was placed
+            // on. (Session 52 redesign — was Vector3Int.down which put
+            // the hook between rope and chassis.)
             Block(BlockIds.Rope, ropeCell);
-            Block(BlockIds.Hook, ropeCell + Vector3Int.down);
+            Block(BlockIds.Hook, ropeCell + Vector3Int.up);
             return this;
         }
 
         /// <summary>
         /// Place a rope at <paramref name="ropeCell"/> with a Mace block
-        /// directly below it. Heavier than a hook (default 2.0 kg vs 0.5
-        /// kg) so the chain swings with more momentum and hits harder.
+        /// at the chain's free end. Heavier than a hook (default 2.0 kg
+        /// vs 0.5 kg) so the chain swings with more momentum and hits
+        /// harder.
         /// </summary>
         public BlueprintBuilder RopeWithMace(Vector3Int ropeCell)
         {
             Block(BlockIds.Rope, ropeCell);
-            Block(BlockIds.Mace, ropeCell + Vector3Int.down);
+            Block(BlockIds.Mace, ropeCell + Vector3Int.up);
             return this;
         }
 

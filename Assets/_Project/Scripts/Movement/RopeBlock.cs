@@ -398,17 +398,22 @@ namespace Robogame.Movement
                 return;
             }
 
-            // Anchor at the TOP face of the host cell (matches the joint-
-            // chain behaviour pre-Verlet so existing builds visually behave
-            // the same).
-            Vector3 hubAnchorWorld = transform.position + transform.up * 0.5f;
+            // Anchor at the CHASSIS-side face of the host cell — the
+            // rope's mount-up points OUTWARD from the chassis face it
+            // was placed on, so the chassis-side face is at -mount-up
+            // from the rope cell's centre. Chain hangs off the chassis
+            // face, not off the outer face of the rope cell. (Session
+            // 52 redesign: ropes placed on a chassis -Y face hang DOWN
+            // instead of crossing back up through the chassis.)
+            Vector3 hubAnchorWorld = transform.position - transform.up * 0.5f;
             Vector3 hubAnchorLocal = _hubRb.transform.InverseTransformPoint(hubAnchorWorld);
 
-            // Spawn the tip-end Rigidbody at scene root. This is what
-            // hosts the adopted tip block + the collision forwarder.
-            // Default sphere collider; replaced when an adopted tip
-            // brings its own geometry.
-            Vector3 tipSpawnPos = hubAnchorWorld - transform.up * (segLen * (N - 1));
+            // Spawn the tip-end Rigidbody at the chain's FREE END —
+            // mount-up direction from the chassis anchor, by full
+            // chain length. In arena, gravity pulls the tip down
+            // regardless; the spawn position just sets the initial
+            // shape (taut, fully extended along mount-up).
+            Vector3 tipSpawnPos = hubAnchorWorld + transform.up * (segLen * (N - 1));
             _tipGo = new GameObject($"RopeTip_{name}");
             _tipGo.transform.position = tipSpawnPos;
             _tipRb = _tipGo.AddComponent<Rigidbody>();
@@ -518,16 +523,19 @@ namespace Robogame.Movement
                 OnPostSolve = OnPostSolve,
             };
 
-            // Initial particle positions: even spacing along chassis-down
-            // from the hub anchor to the tip body. Verlet's prevPosition
+            // Initial particle positions: even spacing along mount-up
+            // (away from the chassis face) from the hub anchor to the
+            // tip body. Gravity will pull the chain down once
+            // simulation starts; the initial taut shape is just for
+            // first-frame visual consistency. Verlet's prevPosition
             // = position seeds zero starting velocity.
-            Vector3 down = -transform.up;
+            Vector3 outward = transform.up;
             _prevParticleVis = new Vector3[N];
             _curParticleVis = new Vector3[N];
             _renderParticleScratch = new Vector3[N];
             for (int i = 0; i < N; i++)
             {
-                Vector3 p = hubAnchorWorld + down * (segLen * i);
+                Vector3 p = hubAnchorWorld + outward * (segLen * i);
                 _chain.Particles[i].Position = p;
                 _chain.Particles[i].PrevPosition = p;
                 _prevParticleVis[i] = p;
@@ -767,29 +775,25 @@ namespace Robogame.Movement
         /// </summary>
         private void BuildStaticVisual(int particleCount, float segLen, float segRad)
         {
-            // Show the host cell so the player can see where the rope
-            // attaches in build mode — the live path hides it because the
-            // dangling chain visual replaces the cube; the static path
-            // has no chain-mid visual, so the cell mesh IS the visual cue.
-            BlockVisuals.SetHostMeshVisible(gameObject, true);
+            // Host cube stays HIDDEN in static mode too. The rope is
+            // visually represented as a chain — the cube is just a
+            // collider hull for damage / build-mode targeting. (Session
+            // 52: prior versions re-showed the cube for the garage; the
+            // user wants the chain to be the rope's only visual.)
+            BlockVisuals.HideHostMesh(gameObject);
 
             _segmentContainer = new GameObject($"Rope_{name}_StaticVisual");
             _segmentContainer.transform.SetParent(transform, worldPositionStays: false);
             _segmentContainer.transform.localPosition = Vector3.zero;
             _segmentContainer.transform.localRotation = Quaternion.identity;
 
-            // Geometry: by default the rope dangles to its full live length
-            // straight down so the player can see how long the rope will
-            // be in flight. If a tip block (Hook / Mace) is placed on an
-            // adjacent grid cell, the cylinder instead spans from the rope
-            // cell centre to the tip cell centre — visually meeting the
-            // tip so the player doesn't see "rope cell, hook one cell
-            // below, then 8 cells of dead rope hanging into empty space".
-            // The arena's live-rope path adopts the tip and the chain
-            // dangles to its full length there; the garage trade-off is
-            // visual coherence over scale fidelity.
+            // Geometry: chain extends from the chassis-side face (rope-
+            // local -Y) along the mount-up direction (rope-local +Y)
+            // by the full live chain length. If a tip block is placed
+            // on an adjacent grid cell, the cylinder instead spans
+            // from the chassis-side face to the tip cell centre.
             float fullLen = segLen * (particleCount - 1);
-            Vector3 startLocal = new Vector3(0f, -0.5f, 0f); // bottom face of host cell
+            Vector3 startLocal = new Vector3(0f, -0.5f, 0f); // chassis-side face of rope cell
             Vector3 endLocal;
             if (TryGetAdjacentTipCellLocal(out Vector3 tipCellLocal))
             {
@@ -801,7 +805,9 @@ namespace Robogame.Movement
             }
             else
             {
-                endLocal = new Vector3(0f, -0.5f - fullLen, 0f);
+                // No adjacent tip — extend to full chain length along
+                // local +Y (mount-up = away from chassis face).
+                endLocal = new Vector3(0f, -0.5f + fullLen, 0f);
             }
 
             Vector3 axisLocal = endLocal - startLocal;
