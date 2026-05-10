@@ -821,7 +821,13 @@ namespace Robogame.Movement
 
             GameObject cyl = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             cyl.name = "Vis_Static";
-            Object.Destroy(cyl.GetComponent<Collider>());
+            // Keep the cylinder's collider in static (build-mode) mode so
+            // the player can aim at the chain itself for placement
+            // targeting. The cube host is hidden, so without this collider
+            // the chain has no clickable surface and the user can't place
+            // a hook at the free end. The collider hits resolve to the
+            // rope's BlockBehaviour via GetComponentInParent — same path
+            // the regular host-cube collider uses.
             cyl.transform.SetParent(_segmentContainer.transform, worldPositionStays: false);
             // Cylinder primitive: long axis is local +Y, mesh height 2 →
             // localScale.y is HALF the visual length. Centre at the

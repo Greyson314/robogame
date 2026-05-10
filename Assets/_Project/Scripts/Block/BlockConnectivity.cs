@@ -93,7 +93,10 @@ namespace Robogame.Block
             if (hostDef == null) return false;
             Vector3Int up = hostUp == Vector3Int.zero ? Vector3Int.up : hostUp;
             if (hostDef.Id == BlockIds.Rotor) return placementUp == up;
-            if (hostDef.Id == BlockIds.Rope)  return placementUp == -up;
+            // Rope's tip face = the chain's free end direction = +mount-up
+            // (per session 52's chain redesign — chain extends OUTWARD
+            // from the chassis face, so the tip is at +up, not -up).
+            if (hostDef.Id == BlockIds.Rope)  return placementUp == up;
             return false;
         }
 
@@ -177,7 +180,10 @@ namespace Robogame.Block
             }
             if (hostDef.Id == BlockIds.Rope)
             {
-                if (placementUp != -up) return AcceptDecision.HostIsLeaf;
+                // Rope's tip face = +mount-up (chain's free end side)
+                // per session 52's redesign. Was -up under the old
+                // chain-extends-toward-chassis convention.
+                if (placementUp != up) return AcceptDecision.HostIsLeaf;
                 if (placementDef == null) return AcceptDecision.HostFaceRejectsBlockType;
                 bool isTip = placementDef.Id == BlockIds.Hook || placementDef.Id == BlockIds.Mace;
                 return isTip ? AcceptDecision.None : AcceptDecision.HostFaceRejectsBlockType;

@@ -1,4 +1,5 @@
 using Robogame.Block;
+using Robogame.Core;
 using Robogame.Movement;
 using UnityEngine;
 
@@ -180,15 +181,13 @@ namespace Robogame.Gameplay
             // placement cell (rope-local -Y) along the mount-up
             // direction (rope-local +Y) by the full length.
             int segments = (dims.x > 0f) ? Mathf.Clamp(Mathf.RoundToInt(dims.x), 2, 32) : 8;
-            // Match RopeBlock's Tweakable defaults so the hologram
-            // length tracks what the placed rope will actually be.
-            // The slider value the panel writes to dims.x is the
-            // segment count; segLen / segRad come from runtime
-            // tweakables but we use the build-time defaults here so
-            // the ghost factory doesn't need a runtime dependency.
-            const float defaultSegLen = 0.4f;
-            const float defaultSegRad = 0.05f;
-            float fullLen = defaultSegLen * segments;
+            // Read live segment-length / radius Tweakables so the
+            // hologram length tracks what the placed rope will
+            // actually be. RopeBlock.LiveSegmentLength/Radius use the
+            // same Tweakables with the same Mathf.Max guards.
+            float segLen = Mathf.Max(0.05f, Tweakables.Get(Tweakables.RopeSegmentLength));
+            float segRad = Mathf.Max(0.01f, Tweakables.Get(Tweakables.RopeSegmentRadius));
+            float fullLen = segLen * segments;
 
             Vector3 startLocal = new Vector3(0f, -0.5f, 0f);
             Vector3 endLocal   = new Vector3(0f, -0.5f + fullLen, 0f);
@@ -202,7 +201,7 @@ namespace Robogame.Gameplay
             // visible length so the cylinder spans `length` along its
             // local +Y direction.
             Spawn(parent, PrimitiveType.Cylinder, mid, rot,
-                new Vector3(defaultSegRad * 2f, length * 0.5f, defaultSegRad * 2f));
+                new Vector3(segRad * 2f, length * 0.5f, segRad * 2f));
         }
 
         private static void BuildRotor(Transform parent)
