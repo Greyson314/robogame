@@ -372,14 +372,18 @@ namespace Robogame.Gameplay
             BlockDefinition def = GetSelectedDefinition();
             string targetId = def != null ? def.Id : BlockIds.Cube;
             Vector3 targetDims = _variantPanel != null ? _variantPanel.GetDimsForBlock(targetId) : Vector3.zero;
-            float targetPitch = _variantPanel != null ? _variantPanel.GetPitchForBlock(targetId) : 0f;
+            float worldPitch = _variantPanel != null ? _variantPanel.GetPitchForBlock(targetId) : 0f;
             Vector3Int targetCell = _hasTarget ? _targetPlaceCell : Vector3Int.zero;
             Vector3Int targetUp = _hasTarget ? (_targetPlaceCell - _targetHitCell) : Vector3Int.up;
             if (targetUp == Vector3Int.zero) targetUp = Vector3Int.up;
+            // Ghost factory expects local-frame pitch (same as the placed
+            // block uses). World-intent → local conversion happens here
+            // so the ghost matches what the player will actually place.
+            float targetLocalPitch = BlockOrientation.NormalizePitchForUp(def, worldPitch, targetUp);
 
             bool showMirror = false;
             Vector3Int mCell = default, mUp = default;
-            float mPitch = 0f;
+            float mLocalPitch = 0f;
             bool mValid = false;
             if (_hasTarget && _mirrorMode != null && _mirrorMode.Enabled)
             {
@@ -388,9 +392,9 @@ namespace Robogame.Gameplay
                 {
                     mCell = BlockMirror.MirrorCell(targetCell, axis);
                     mUp = BlockMirror.MirrorUp(targetUp, axis);
-                    // Pitch needs the SOURCE up to decide negation —
-                    // same rule the mirror place path uses.
-                    mPitch = BlockMirror.MirrorPitch(targetPitch, targetUp, axis);
+                    // Same world-intent → local-pitch conversion as the
+                    // primary side, just with the mirrored up.
+                    mLocalPitch = BlockOrientation.NormalizePitchForUp(def, worldPitch, mUp);
                     mValid = IsValidPlacement(mCell, mUp);
                     showMirror = true;
                 }
@@ -402,14 +406,14 @@ namespace Robogame.Gameplay
                 hasTarget: _hasTarget,
                 definition: def,
                 dims: targetDims,
-                pitchDeg: targetPitch,
+                pitchDeg: targetLocalPitch,
                 cell: targetCell,
                 up: targetUp,
                 valid: _validPlacement,
                 showMirror: showMirror,
                 mirrorCell: mCell,
                 mirrorUp: mUp,
-                mirrorPitchDeg: mPitch,
+                mirrorPitchDeg: mLocalPitch,
                 mirrorValid: mValid,
                 chassisRoot: _buildMode != null ? _buildMode.Chassis : null,
                 grid: _grid);
@@ -470,18 +474,23 @@ namespace Robogame.Gameplay
             // ropes: segment count). Defaults (zero) tell PlaceBlock + the
             // consuming component to fall back to block defaults.
             Vector3 dims = _variantPanel != null ? _variantPanel.GetDimsForBlock(id) : Vector3.zero;
-            float pitch = _variantPanel != null ? _variantPanel.GetPitchForBlock(id) : 0f;
+            float worldPitch = _variantPanel != null ? _variantPanel.GetPitchForBlock(id) : 0f;
             // Up = face normal of the cell we're attaching to. Without
             // this, every placement would orient as +Y and a wing on a
             // side-mount face would point along chassis +Y instead of
             // outward from the face.
             Vector3Int placeUp = _targetPlaceCell - _targetHitCell;
             if (placeUp == Vector3Int.zero) placeUp = Vector3Int.up;
-            bool placed = _grid.PlaceBlock(def, _targetPlaceCell, placeUp, dims, pitch) != null;
+            // Convert world-intent pitch to the local-frame value the
+            // foil's lift formula + visual rotation use. Per-up sign
+            // correction applies to foils only (rotors use pitch as
+            // collective, intrinsically local-frame).
+            float localPitch = BlockOrientation.NormalizePitchForUp(def, worldPitch, placeUp);
+            bool placed = _grid.PlaceBlock(def, _targetPlaceCell, placeUp, dims, localPitch) != null;
             if (placed)
             {
                 AutoPlaceCompanionsOf(def, _targetPlaceCell, placeUp);
-                TryMirrorPlace(def, _targetPlaceCell, placeUp, dims, pitch);
+                TryMirrorPlace(def, _targetPlaceCell, placeUp, dims, worldPitch);
                 SyncBlueprintFromGrid();
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.BlockPlace);
             }
@@ -618,17 +627,20 @@ namespace Robogame.Gameplay
             }
         }
 
-        private void TryMirrorPlace(BlockDefinition def, Vector3Int cell, Vector3Int up, Vector3 dims, float pitchDeg)
+        private void TryMirrorPlace(BlockDefinition def, Vector3Int cell, Vector3Int up, Vector3 dims, float worldPitch)
         {
             if (!MirrorActive) return;
             MirrorAxis axis = _mirrorMode.Axis;
             if (BlockMirror.IsOnPlane(cell, axis)) return;
             Vector3Int mCell = BlockMirror.MirrorCell(cell, axis);
             Vector3Int mUp   = BlockMirror.MirrorUp(up, axis);
-            float mPitch     = BlockMirror.MirrorPitch(pitchDeg, up, axis);
+            // Each side normalizes the same world-intent pitch for its
+            // own up — the mirror axis no longer needs its own pitch
+            // sign-flip rule (per BlockOrientation.NormalizePitchForUp).
+            float mLocalPitch = BlockOrientation.NormalizePitchForUp(def, worldPitch, mUp);
             if (mCell == cell) return;
             if (!IsValidPlacement(mCell, mUp)) return;
-            BlockBehaviour mPlaced = _grid.PlaceBlock(def, mCell, mUp, dims, mPitch);
+            BlockBehaviour mPlaced = _grid.PlaceBlock(def, mCell, mUp, dims, mLocalPitch);
             if (mPlaced != null) AutoPlaceCompanionsOf(def, mCell, mUp);
         }
 

@@ -154,7 +154,13 @@ namespace Robogame.Block
                     if (lateral)
                     {
                         if (placementDef == null) return AcceptDecision.HostFaceRejectsBlockType;
-                        if (placementDef.Id != BlockIds.Aero && placementDef.Id != BlockIds.AeroFin)
+                        // Aero blades adopt cleanly into the rotor's
+                        // kinematic hub. Ropes also adopt — rule of cool
+                        // per the user — and provide a centrifugal-chain
+                        // effect when the rotor spins.
+                        if (placementDef.Id != BlockIds.Aero
+                            && placementDef.Id != BlockIds.AeroFin
+                            && placementDef.Id != BlockIds.Rope)
                             return AcceptDecision.HostFaceRejectsBlockType;
                     }
                 }

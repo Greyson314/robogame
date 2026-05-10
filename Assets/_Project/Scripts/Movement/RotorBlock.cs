@@ -143,6 +143,21 @@ namespace Robogame.Movement
         }
         private readonly List<AdoptedFoil> _adoptedFoils = new List<AdoptedFoil>();
 
+        // Ropes adopted into the kinematic hub. Same shape as AdoptedFoil
+        // but the rope is its own kind (no AeroSurfaceBlock) and its
+        // adoption is purely "reparent so the rope swings with the hub".
+        // Per the user's "rule of cool" — a rope on a rotor's lateral
+        // face spins with the rotor and produces a centrifugal-chain
+        // effect on the rope's adopted hook / mace tip.
+        private struct AdoptedRope
+        {
+            public RopeBlock  Rope;
+            public Transform  OriginalParent;
+            public Vector3    OriginalLocalPos;
+            public Quaternion OriginalLocalRot;
+        }
+        private readonly List<AdoptedRope> _adoptedRopes = new List<AdoptedRope>();
+
         // Property cache.
         private static readonly int s_albedoColorId   = Shader.PropertyToID("_AlbedoColor");
         private static readonly int s_baseColorId     = Shader.PropertyToID("_BaseColor");
@@ -558,6 +573,19 @@ namespace Robogame.Movement
                 if (!grid.TryGetBlock(neighborCell, out BlockBehaviour neighbor)) continue;
                 if (neighbor == null) continue;
 
+                // Rope adoption: the rope reparents to the hub, the
+                // rope's own OnTransformParentChanged → Rebuild
+                // re-anchors its verlet chain (or static visual in the
+                // garage) to the new hub Rigidbody. No lift force
+                // contribution, no ignore-collision dance — ropes just
+                // ride along.
+                RopeBlock rope = neighbor.GetComponent<RopeBlock>();
+                if (rope != null)
+                {
+                    AdoptRope(rope);
+                    continue;
+                }
+
                 AeroSurfaceBlock aero = neighbor.GetComponent<AeroSurfaceBlock>();
                 if (aero == null) continue;
 
@@ -649,6 +677,24 @@ namespace Robogame.Movement
             }
         }
 
+        private void AdoptRope(RopeBlock rope)
+        {
+            if (rope == null || _hub == null) return;
+            AdoptedRope record = new AdoptedRope
+            {
+                Rope             = rope,
+                OriginalParent   = rope.transform.parent,
+                OriginalLocalPos = rope.transform.localPosition,
+                OriginalLocalRot = rope.transform.localRotation,
+            };
+            Vector3 ropeWorldPos = rope.transform.position;
+            Quaternion ropeWorldRot = rope.transform.rotation;
+            rope.transform.SetParent(_hub.transform, worldPositionStays: true);
+            rope.transform.position = ropeWorldPos;
+            rope.transform.rotation = ropeWorldRot;
+            _adoptedRopes.Add(record);
+        }
+
         // Pair the foil's host collider with every chassis-side collider
         // in an ignore-collision relationship. PhysX caches the pairs
         // internally; the cost is paid once per adoption and amortised
@@ -688,8 +734,17 @@ namespace Robogame.Movement
                     rec.Aero.transform.localPosition = rec.OriginalLocalPos;
                     rec.Aero.transform.localRotation = rec.OriginalLocalRot;
                 }
+                foreach (AdoptedRope rec in _adoptedRopes)
+                {
+                    if (rec.Rope == null) continue;
+                    if (rec.OriginalParent == null) continue;
+                    rec.Rope.transform.SetParent(rec.OriginalParent, worldPositionStays: false);
+                    rec.Rope.transform.localPosition = rec.OriginalLocalPos;
+                    rec.Rope.transform.localRotation = rec.OriginalLocalRot;
+                }
             }
             _adoptedFoils.Clear();
+            _adoptedRopes.Clear();
 
             if (_hubGo != null)
             {

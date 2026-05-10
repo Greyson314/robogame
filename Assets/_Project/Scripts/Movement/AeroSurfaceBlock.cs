@@ -459,11 +459,23 @@ namespace Robogame.Movement
         /// instead of straddling its own cell symmetrically.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// Regular foils shift along foil-local +Y (the mount-up
-        /// direction); rotor blades shift along foil-local +X (the
-        /// blade tangent direction). Rotor blade direction is derived
-        /// from <paramref name="cellPos"/>.x sign so the blade extends
-        /// outward from the rotor hub.
+        /// direction); rotor blades shift along foil-local -X.
+        /// </para>
+        /// <para>
+        /// Why <b>-X</b> for rotor blades and not +X: rotor adoption
+        /// builds the blade's transform via
+        /// <c>LookRotation(tangent, spinAxis)</c>, which makes
+        /// foil-local +X = <c>up × forward</c> = <c>spinAxis × tangent</c>
+        /// = <i>-radial</i> (inward toward the hub). To extend the
+        /// mesh OUTWARD (root at the hub-adjacent cell face, tip
+        /// past the cell's far face), the offset has to be in foil-local
+        /// -X for every blade. The previous "<c>signX = sign(cellPos.x)</c>"
+        /// version got -X-side blades right by accident and shifted +X-side
+        /// blades INWARD, with span > 1 blades visibly crossing through
+        /// the rotor hub.
+        /// </para>
         /// </remarks>
         public static Vector3 ComputeWingShift(Vector3Int cellPos, float span, bool rotorMode)
         {
@@ -473,8 +485,11 @@ namespace Robogame.Movement
             if (magnitude <= 0f) return Vector3.zero;
             if (rotorMode)
             {
-                int signX = cellPos.x > 0 ? 1 : (cellPos.x < 0 ? -1 : 0);
-                return new Vector3(signX * magnitude, 0f, 0f);
+                // Foil-local -X is the radial-outward direction for any
+                // blade adopted by RotorBlock.AdoptAdjacentAerofoils,
+                // independent of which lateral cell the blade started on
+                // or which way the rotor's spin axis points.
+                return new Vector3(-magnitude, 0f, 0f);
             }
             // Non-rotor foil: foil-local +Y always points away from the
             // host (OrientationFromUp guarantees this). Shift positive Y

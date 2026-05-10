@@ -201,15 +201,18 @@ namespace Robogame.Gameplay
                 return new PlaceOutcome(PlacementRules.PlacementError.HostMissing, PlacementRules.PlacementError.None, false);
 
             Vector3 dims = GetVariantDims(def.Id);
-            float pitch = GetVariantPitch(def.Id);
-            var candidate = new PlacementRules.Candidate(def, cell, up, dims, pitch);
+            // Variant cache stores world-intent pitch (positive =
+            // tilt toward sky); convert to local frame per side.
+            float worldPitch = GetVariantPitch(def.Id);
+            float localPitch = BlockOrientation.NormalizePitchForUp(def, worldPitch, up);
+            var candidate = new PlacementRules.Candidate(def, cell, up, dims, localPitch);
 
             RefreshCpuReachable();
             PlacementRules.PlacementError primary = PlacementRules.EvaluatePlacement(Grid, in candidate, _cpuReachableValid ? _cpuReachable : null);
             if (primary != PlacementRules.PlacementError.None)
                 return new PlaceOutcome(primary, PlacementRules.PlacementError.None, false);
 
-            BlockBehaviour placed = Grid.PlaceBlock(def, cell, up, dims, pitch);
+            BlockBehaviour placed = Grid.PlaceBlock(def, cell, up, dims, localPitch);
             if (placed == null)
                 return new PlaceOutcome(PlacementRules.PlacementError.WouldOverlapNeighbour, PlacementRules.PlacementError.None, false);
 
@@ -222,21 +225,18 @@ namespace Robogame.Gameplay
             {
                 Vector3Int mCell = BlockMirror.MirrorCell(cell, MirrorAxis);
                 Vector3Int mUp   = BlockMirror.MirrorUp(up, MirrorAxis);
-                float mPitch     = BlockMirror.MirrorPitch(pitch, up, MirrorAxis);
+                // Each side normalizes the same world-intent pitch
+                // for its own up — no separate mirror-axis sign rule.
+                float mLocalPitch = BlockOrientation.NormalizePitchForUp(def, worldPitch, mUp);
                 if (mCell != cell)
                 {
                     mirrorAttempted = true;
-                    var mirrorCandidate = new PlacementRules.Candidate(def, mCell, mUp, dims, mPitch);
-                    // RefreshCpuReachable already snapshotted; the new
-                    // primary placement just added a cell, but since
-                    // the snapshot is "what was reachable" the mirror
-                    // cell's host (typically also new) won't be marked
-                    // reachable yet. Re-run.
+                    var mirrorCandidate = new PlacementRules.Candidate(def, mCell, mUp, dims, mLocalPitch);
                     RefreshCpuReachable();
                     mirrorErr = PlacementRules.EvaluatePlacement(Grid, in mirrorCandidate, _cpuReachableValid ? _cpuReachable : null);
                     if (mirrorErr == PlacementRules.PlacementError.None)
                     {
-                        Grid.PlaceBlock(def, mCell, mUp, dims, mPitch);
+                        Grid.PlaceBlock(def, mCell, mUp, dims, mLocalPitch);
                     }
                 }
             }
