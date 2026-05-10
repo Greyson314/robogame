@@ -11,7 +11,30 @@ or AI) landing on the project mid-stream.
 Style: dev log, not changelog. Each session entry covers user intent,
 what shipped, what we learned. File links use repo-relative paths.
 
-## Recent batch — what landed since session 16
+## Recent batch — what landed since session 44
+
+**Building architecture refactor + rotor/rope playtest pass.**
+Two-day arc covered in [session 54](54-session-wrap.md):
+
+- Sessions 45–46: every step from
+  [BUILDING_ARCHITECTURE_REVIEW.md](../BUILDING_ARCHITECTURE_REVIEW.md)
+  §4. Major modules: `BlockEntries` (canonical sort enforced),
+  `BlockGraph` (one BFS primitive), `PlacementRules` (editor +
+  validator share rules), `IBlueprintEntryTransform` (compile-time
+  guard against silently-dropped Entry fields), `BuildSession`
+  (plain-C# build-mode model), `BlockGhostRenderer` +
+  `PlacementFeedbackHud` (extracted from BlockEditor),
+  `ChassisAssembler` (unified Build/BuildTarget + ChassisHandle).
+- Sessions 47–51: rotor + foil pass — auto-companion mechanism
+  cube, spin-axis-only connective face, world-intent pitch
+  (`BlockOrientation`), `ComputeWingShift` rotor mode fix,
+  rope adoption by rotor.
+- Sessions 52–53: rope redesign — chain extends OUTWARD from
+  chassis face (not toward), host cube always hidden, hologram
+  = full chain length, static cylinder collider preserved so
+  the chain itself is the placement target.
+
+## Older batch — what landed sessions 17–21
 
 **Helicopter chassis is the headline.** Sessions 17–21 fix the
 "helicopter frame spins with the rotor" bug end-to-end:
@@ -63,6 +86,16 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 54 | [Session wrap: building-architecture refactor + rotor/rope follow-ups (2-day arc, sessions 45–53 digest)](54-session-wrap.md) |
+| 53 | [Rope follow-ups: tip-face direction (+up not -up), hologram length (use Tweakable segLen), chain collider preserved](53-rope-followups.md) |
+| 52 | [Rope redesign: chain extends outward from chassis face, host cube hidden, hologram = full chain length](52-rope-redesign.md) |
+| 51 | [World-intent pitch + rotor blade shift fix + rope adoption (rule of cool)](51-pitch-normalization-and-rotor-fixes.md) |
+| 50 | [Per-face placement rules: rotor blade slots aero-only, rope tip face accepts hook/mace](50-rotor-aero-only-and-rope-tip.md) |
+| 49 | [Auto-derive RotorsGenerateLift from grid contents (any rotor on chassis flips the flag)](49-rotor-auto-lift-flag.md) |
+| 48 | [Rotor placement parity: auto-companion mechanism cube + cascade removal](48-rotor-auto-companion.md) |
+| 47 | [Rotor placement fixes: FP overlap epsilon, hidden mechanism cube, spin-axis face connective](47-rotor-placement-fixes.md) |
+| 46 | [BlockGhostRenderer extract + mirror-pitch sign-flip fix + placement-error HUD overlay](46-ghost-renderer-extract-and-mirror-pitch.md) |
+| 45 | [Building architecture review steps 1–8: structural refactor (BlockEntries, BlockGraph, PlacementRules, BuildSession, ChassisAssembler, …)](45-architecture-review-implementation.md) |
 | 44 | [Foil pitch Phase 4 (live readouts) + 3 fixes: rotor/foil deletion, leaf-bridge over-rejection, foil panel layout flip](44-foil-pitch-phase4-and-fixes.md) |
 | 43 | [Foil pitch Phase 3: VariantConfigPanel rebuild — preset cards + primary slider + Advanced expander, foil + rotor sections](43-foil-pitch-phase3-ui.md) |
 | 42 | [Foil pitch Phase 0+1+2+5: per-instance pitch / incidence on every aerofoil + rotor adopt-pass + visual mesh tilt](42-foil-pitch-audit.md) |
@@ -119,6 +152,37 @@ going forward" section at the bottom of this file.
 These are real items the next session should be aware of. None block
 shipping the current branch; flagged so they don't decay into
 "why is this broken".
+
+- **Rope tip-block placement is grid-cell-adjacent, not chain-end.**
+  After session 53's fixes, hooks / maces can be placed on a rope,
+  but only at `rope.cell + 1 * up` (one cell beyond the rope cell
+  along its mount-up). The chain visual extends `segments × segLen`
+  cells (default 8 × 0.5 = 4 cells), so a default-length rope ends
+  up with 3+ cells of dangling chain past the attached hook —
+  "a thread of child ropes with no purpose" per the user.
+  Resolution options + recommended next move (Option 1: snap chain
+  length to integer cells, place tip at the end cell) are listed
+  in [session 54's "Open" section](54-session-wrap.md).
+
+- **Per-rotor `RotorsGenerateLift` opt-in.**
+  Today the flag is auto-derived chassis-wide whenever any rotor is
+  in the grid (session 49). Per-rotor opt-in needs per-cell blueprint
+  config — same `ChassisBlueprint.Entry` extension other future
+  schema additions will need. Tracked in
+  [`ChassisBlueprint.RotorsGenerateLift`](../../Assets/_Project/Scripts/Block/ChassisBlueprint.cs)'s
+  doc comment.
+
+- **`BlockOccupancy` + `BlockGhostFactory` per-id switches** are still
+  hardcoded. The structural refactor (session 45) intentionally
+  stopped short of converting them to schema-driven dispatch tables
+  — that's the right move when the second scalable shape lands per
+  [`SCALABLE_PARTS_PLAN.md`](../SCALABLE_PARTS_PLAN.md) Phase 2.
+
+- **Rope chain not visualising in garage.** User reported in session
+  51; couldn't reproduce from code reading. Session 53's collider
+  fix may have closed it (the chain was previously colliderless,
+  which could have made it look "not present" in some camera
+  angles). Needs verification on next playtest.
 
 - **Foil pitch arc (sessions 42–44) — implementation still needs
   work.** The data model + adopt-pass + UI + live readouts all

@@ -7,6 +7,11 @@ Robogame.Core         — Tweakables, IDamageable, GameBootstrap, PerfMarkers,
                          RuntimePalette, VfxKind, VfxSpawner,
                          AudioBus, AudioCue, AudioCueLibrary, AudioRouter
 Robogame.Block        — BlockDefinition, BlockGrid, BlockBinder, BlockIds, BlockVisuals,
+                         BlockConnectivity, BlockOccupancy, BlockMirror,
+                         BlockEntries (canonical sort), BlockGraph (BFS primitive),
+                         BlockOrientation (world-intent pitch normalize),
+                         BlockVariants (variant-config flag), FoilDefaults,
+                         IBlueprintEntryTransform, PlacementRules,
                          ChassisBlueprint, BlockDefinitionLibrary,
                          BlueprintBuilder, BlueprintValidator, BlueprintAsciiDump
 Robogame.Movement     — RobotDrive, GroundDriveSubsystem, PlaneControlSubsystem,
@@ -30,11 +35,16 @@ Robogame.Player       — PlayerController, FollowCamera, AimReticle, OrbitCamer
                          BuildFreeCam, DeathOverlay, FloatingDamageOverlay,
                          HitMarkerOverlay, VehicleStatsHud
 Robogame.Robot/Robots — Robot, aggregates
-Robogame.Gameplay     — GameStateController, ChassisFactory,
+Robogame.Gameplay     — GameStateController,
+                         ChassisAssembler + ChassisHandle + AssemblyOptions
+                         (ChassisFactory still exists as a back-compat facade),
                          GarageController, ArenaController,
                          PlanetArenaController, WaterArenaController, MainMenuController,
                          SceneTransitionHud, SettingsHud,
-                         BuildModeController, BlockEditor, BuildHotbar, BlockGhostFactory,
+                         BuildModeController, BlockEditor, BuildHotbar,
+                         BuildSession (plain-C# build-mode model — variant cache,
+                         mirror state, TryPlace/TryRemove verbs),
+                         BlockGhostFactory, BlockGhostRenderer, PlacementFeedbackHud,
                          VariantConfigPanel,
                          BuoyancyController, WaterMeshAnimator, WaterSurface, WaterVolume,
                          PlanetBody, PlanetGravity, PlanetGravityBody,
@@ -67,7 +77,10 @@ Auto-bootstrapped (RuntimeInitializeOnLoadMethod, present in every scene)
 
 Garage.unity / Arena.unity / WaterArena.unity / PlanetArena.unity
 └─ {Garage,Arena,…}Controller
-   ├─ spawns chassis via ChassisFactory.Build(go, blueprint, library, inputActions)
+   ├─ spawns chassis via ChassisAssembler.Assemble(root, blueprint, library, options)
+   │  — returns a ChassisHandle bundling { Root, Robot, Grid, Blueprint, Library }.
+   │  ChassisFactory.Build / BuildTarget remain as thin back-compat shims that
+   │  call Assemble with AssemblyOptions.Player / Bot / Target presets.
    ├─ binds FollowCamera + AimReticle + per-camera HUDs
    └─ SceneTransitionHud (Launch / Garage button + chassis dropdown in garage)
 
