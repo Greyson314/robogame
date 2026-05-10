@@ -259,7 +259,7 @@ namespace Robogame.Movement
         private void OnGridBlockPlaced(BlockBehaviour placed)
         {
             if (placed == null || placed.Definition == null) return;
-            if (_broken || _adoptedTip != null || _tipRb == null) return;
+            if (_broken) return;
             if (_block == null) return;
             // Adjacency: must be a manhattan-1 neighbour of our cell.
             Vector3Int delta = placed.GridPosition - _block.GridPosition;
@@ -270,6 +270,17 @@ namespace Robogame.Movement
             // for non-tip neighbours like cubes.
             if (placed.GetComponent<TipBlock>() == null) return;
 
+            if (_builtKinematic)
+            {
+                // Static / build-mode path: BuildStaticVisual snapped the
+                // cylinder to its tip target at the LAST Build call. A
+                // freshly-placed tip block needs a re-Build so the
+                // cylinder spans to the new tip cell instead of
+                // dangling to full length past it.
+                Rebuild();
+                return;
+            }
+            if (_adoptedTip != null || _tipRb == null) return;
             TryAdoptTipBlock(_tipRb);
         }
 

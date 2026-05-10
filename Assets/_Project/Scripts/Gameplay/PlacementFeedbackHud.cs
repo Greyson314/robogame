@@ -68,6 +68,8 @@ namespace Robogame.Gameplay
                     return $"host at {hostCell} isn't connected to the CPU.";
                 case PlacementRules.PlacementError.HostIsLeaf:
                     return $"host at {hostCell} is a leaf (wing/weapon/thruster) — nothing builds on it.";
+                case PlacementRules.PlacementError.HostFaceRejectsBlockType:
+                    return $"host at {hostCell} doesn't accept this block type on that face — try a different block (e.g. aero on a rotor mechanism, hook/mace below a rope).";
                 case PlacementRules.PlacementError.InvalidMountFace:
                     return "this block can only mount on side faces, not top/bottom.";
                 case PlacementRules.PlacementError.SecondCpu:

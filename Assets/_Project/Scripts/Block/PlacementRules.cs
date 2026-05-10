@@ -48,6 +48,7 @@ namespace Robogame.Block
             HostMissing,
             HostNotCpuReachable,
             HostIsLeaf,
+            HostFaceRejectsBlockType,
             InvalidMountFace,
             SecondCpu,
             WouldOverlapNeighbour,
@@ -103,12 +104,17 @@ namespace Robogame.Block
             Vector3Int hostCell = c.Cell - c.Up;
             if (!grid.TryGetBlock(hostCell, out BlockBehaviour host) || host == null)
                 return PlacementError.None; // covered by CheckHostExists
-            // Per-face check — rotors accept their spin-axis face but
-            // reject lateral mounts; everything else uses the global
-            // leaf flag.
-            return BlockConnectivity.IsConnectiveFace(host.Definition, host.Up, c.Up)
-                ? PlacementError.None
-                : PlacementError.HostIsLeaf;
+            // Per-face + per-block-id check — rotor's spin-axis face
+            // accepts the mechanism cube; rope's tip face accepts hook
+            // / mace; mechanism-cube lateral faces accept aero only
+            // (the rotor's adoption pass otherwise leaves them static).
+            switch (BlockConnectivity.AcceptsPlacement(grid, host, c.Up, c.Definition))
+            {
+                case BlockConnectivity.AcceptDecision.None: return PlacementError.None;
+                case BlockConnectivity.AcceptDecision.HostFaceRejectsBlockType:
+                    return PlacementError.HostFaceRejectsBlockType;
+                default: return PlacementError.HostIsLeaf;
+            }
         }
 
         /// <summary>

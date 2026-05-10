@@ -63,7 +63,11 @@ namespace Robogame.Block
         /// <summary>
         /// Per-face connectivity: would the host accept a new block
         /// mounting on the face whose normal points along
-        /// <paramref name="placementUp"/>?
+        /// <paramref name="placementUp"/>? Used by the blueprint
+        /// validator (no live grid). The richer runtime check is
+        /// <see cref="AcceptsPlacement"/>, which also vets the
+        /// placement's block id and looks at the host's own host
+        /// (e.g. mechanism cube identity).
         /// </summary>
         /// <remarks>
         /// <para>
@@ -73,22 +77,106 @@ namespace Robogame.Block
         /// </para>
         /// <para>
         /// <b>Rotor exception.</b> The rotor is a "leaf" for its lateral
-        /// faces (you can't mount a wing on a rotor's side — that's not
-        /// what a rotor is for) but its spin-axis face IS the natural
-        /// host for a structural mechanism cube. Without this exception
-        /// the player can place a rotor from scratch but can't extend
-        /// it — the rotor is unusable in build mode.
+        /// faces (you can't mount a wing on a rotor's side) but its
+        /// spin-axis face IS the natural host for a structural
+        /// mechanism cube.
+        /// </para>
+        /// <para>
+        /// <b>Rope exception.</b> The rope's lateral and top faces
+        /// are leaf, but its tip face (opposite the mount-up) IS the
+        /// natural host for a hook / mace tip block.
         /// </para>
         /// </remarks>
         public static bool IsConnectiveFace(BlockDefinition hostDef, Vector3Int hostUp, Vector3Int placementUp)
         {
             if (!IsLeaf(hostDef)) return true;
-            if (hostDef != null && hostDef.Id == BlockIds.Rotor)
-            {
-                Vector3Int spinAxis = hostUp == Vector3Int.zero ? Vector3Int.up : hostUp;
-                return placementUp == spinAxis;
-            }
+            if (hostDef == null) return false;
+            Vector3Int up = hostUp == Vector3Int.zero ? Vector3Int.up : hostUp;
+            if (hostDef.Id == BlockIds.Rotor) return placementUp == up;
+            if (hostDef.Id == BlockIds.Rope)  return placementUp == -up;
             return false;
+        }
+
+        /// <summary>
+        /// Tri-state result for <see cref="AcceptsPlacement"/>. Maps
+        /// to <see cref="Robogame.Block.PlacementRules.PlacementError"/>
+        /// at the call site.
+        /// </summary>
+        public enum AcceptDecision
+        {
+            None,
+            HostIsLeaf,
+            HostFaceRejectsBlockType,
+        }
+
+        /// <summary>
+        /// Runtime placement gate that <see cref="IsConnectiveFace"/>
+        /// can't fully express because it depends on grid context
+        /// ("is this cube hosted on a rotor below?") and on the
+        /// placement block id ("rope's tip face only accepts hook /
+        /// mace"). Used by <c>PlacementRules.CheckHostIsConnective</c>
+        /// in the build editor.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Mechanism cube rule.</b> A cube whose own host is a rotor
+        /// on its spin-axis face only accepts aero blocks on the four
+        /// lateral faces. Anything else placed there wouldn't be
+        /// adopted by the rotor's adoption pass (only AeroSurfaceBlocks
+        /// are), so the player would end up with a static block sitting
+        /// next to a spinning rotor — visually broken.
+        /// </para>
+        /// <para>
+        /// <b>Rope tip rule.</b> The rope's tip face accepts only hook
+        /// or mace tip blocks; the rope's adoption pass looks for
+        /// TipBlock components specifically.
+        /// </para>
+        /// </remarks>
+        public static AcceptDecision AcceptsPlacement(
+            BlockGrid grid,
+            BlockBehaviour host,
+            Vector3Int placementUp,
+            BlockDefinition placementDef)
+        {
+            if (host == null || host.Definition == null) return AcceptDecision.HostIsLeaf;
+            BlockDefinition hostDef = host.Definition;
+
+            // Mechanism-cube rule (non-leaf host, lateral-face restriction).
+            if (hostDef.Id == BlockIds.Cube && grid != null)
+            {
+                Vector3Int cellBelow = host.GridPosition - host.Up;
+                if (grid.TryGetBlock(cellBelow, out BlockBehaviour below) && below != null
+                    && below.Definition != null && below.Definition.Id == BlockIds.Rotor
+                    && below.Up == host.Up)
+                {
+                    int dot = placementUp.x * host.Up.x + placementUp.y * host.Up.y + placementUp.z * host.Up.z;
+                    bool lateral = (dot == 0);
+                    if (lateral)
+                    {
+                        if (placementDef == null) return AcceptDecision.HostFaceRejectsBlockType;
+                        if (placementDef.Id != BlockIds.Aero && placementDef.Id != BlockIds.AeroFin)
+                            return AcceptDecision.HostFaceRejectsBlockType;
+                    }
+                }
+            }
+
+            // Past the mechanism-cube guard, non-leaves accept any face.
+            if (!IsLeaf(hostDef)) return AcceptDecision.None;
+
+            // Leaf-host exceptions:
+            Vector3Int up = host.Up == Vector3Int.zero ? Vector3Int.up : host.Up;
+            if (hostDef.Id == BlockIds.Rotor)
+            {
+                return placementUp == up ? AcceptDecision.None : AcceptDecision.HostIsLeaf;
+            }
+            if (hostDef.Id == BlockIds.Rope)
+            {
+                if (placementUp != -up) return AcceptDecision.HostIsLeaf;
+                if (placementDef == null) return AcceptDecision.HostFaceRejectsBlockType;
+                bool isTip = placementDef.Id == BlockIds.Hook || placementDef.Id == BlockIds.Mace;
+                return isTip ? AcceptDecision.None : AcceptDecision.HostFaceRejectsBlockType;
+            }
+            return AcceptDecision.HostIsLeaf;
         }
 
         // -----------------------------------------------------------------
