@@ -86,6 +86,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 63 | [Terraforming Phase 0: foundation interfaces (IDigZone / DigField / BrushKind / BrushOp / BrushOpBatch / Vector3Fixed) added to Robogame.Core. Zero behaviour change, dotnet build clean. Phase 1+ adds the meshing](63-terraforming-phase-0.md) |
 | 62 | [Project-health sweep: deleted 5 dead-file scaffolders (ArenaBuilder, KenneyKit, RobotLayouts, DummyAiInputSource, ScrapPrefabScaffolder), slimmed ScaffoldHelpers 156→41 lines, retired 2 dead Tweakables, scrubbed stale comments. Pure deletion, no behaviour change](62-project-health-sweep.md) |
 | 61 | [Grapple Magnet weapon: single-shot fire-and-retract launcher that lobs a rope+magnet up to 24 m, latches on enemy contact, instant retract on miss. New Grappler plane preset (twin-thrust nose-mount). Buggy preset retired](61-grapple-magnet-weapon.md) |
 | 60 | [Tip-block attach redesign: SpringJoint replaces Locked ConfigurableJoint, MomentumImpactHandler exempts tip blocks, magnet latches + drags. Fixes the long-running "hook destroys itself" bug](60-tip-block-attach-redesign.md) |
