@@ -227,9 +227,9 @@ namespace Robogame.Gameplay
             else if (rope)
             {
                 Vector3 cached = GetDimsForBlock(blockId);
-                int count = cached.x > 0f ? Mathf.RoundToInt(cached.x) : RopeBlock.DefaultSegmentCount;
-                _ropeSegmentSlider.value = count;
-                UpdateValueText(_ropeSegmentValue, count, "F0");
+                int cells = cached.x > 0f ? Mathf.RoundToInt(cached.x) : RopeBlock.DefaultLengthCells;
+                _ropeSegmentSlider.value = cells;
+                UpdateValueText(_ropeSegmentValue, cells, "F0");
             }
             else if (rotor)
             {
@@ -597,8 +597,8 @@ namespace Robogame.Gameplay
             rt.offsetMin = new Vector2(12f, 12f);
             rt.offsetMax = new Vector2(-12f, -40f);
 
-            _ropeSegmentSlider = BuildLabeledSlider(section.transform, "Segments", 0,
-                RopeBlock.MinSegmentCount, RopeBlock.MaxSegmentCount, RopeBlock.DefaultSegmentCount,
+            _ropeSegmentSlider = BuildLabeledSlider(section.transform, "Length (cells)", 0,
+                RopeBlock.MinLengthCells, RopeBlock.MaxLengthCells, RopeBlock.DefaultLengthCells,
                 OnRopeSegmentCountChanged, out _ropeSegmentValue);
 
             return section;

@@ -83,6 +83,17 @@ namespace Robogame.Movement
         /// </summary>
         public Vector3? AimPointOverride { get; set; }
 
+        /// <summary>
+        /// External multiplier applied to drive-force output this tick.
+        /// Defaults to 1 (no penalty). Wired up by
+        /// <c>ScrapCarryMovementPenalty</c> (Gameplay tier) so a chassis
+        /// hauling scrap moves slower. Keeping the field on RobotDrive
+        /// instead of reading <c>Robot.CarryWeightMoveMultiplier</c>
+        /// directly preserves the Movement → Robots asmdef separation
+        /// (Robots references Movement, not the other way around).
+        /// </summary>
+        public float CarrySpeedMultiplier { get; set; } = 1f;
+
         // -----------------------------------------------------------------
         // Lifecycle
         // -----------------------------------------------------------------
@@ -211,7 +222,8 @@ namespace Robogame.Movement
                 vertical,
                 _input != null && _input.FireHeld,
                 _aimPoint,
-                deltaTime);
+                deltaTime,
+                CarrySpeedMultiplier);
 
             for (int i = 0; i < _subs.Count; i++)
             {

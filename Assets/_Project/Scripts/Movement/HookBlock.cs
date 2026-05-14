@@ -51,61 +51,50 @@ namespace Robogame.Movement
         // Grapple state
         // -----------------------------------------------------------------
 
-        // The joint linking the rope's last segment Rigidbody to the
-        // contacted target Rigidbody. Null while not grappled.
-        private ConfigurableJoint _grappleJoint;
-        // The Rigidbody we're grappled to. Tracked separately from
-        // _grappleJoint.connectedBody so the FixedUpdate guard can
-        // tell apart "joint exists, target gone" from "no joint."
+        // The SpringJoint linking the rope's tip-end body to the contacted
+        // target. Session-60 redesign: was a Locked ConfigurableJoint with
+        // breakForce, but a locked-motion constraint between two free
+        // bodies applies whatever impulse PhysX needs to keep them
+        // coincident — those impulses spike enormously under target /
+        // chassis acceleration, then trip the breakForce and the grapple
+        // snaps. A SpringJoint with rest distance 0 applies a *force*
+        // proportional to the current separation: bounded, smooth, no
+        // break threshold needed. The rope's own chassis↔tip leash
+        // (RopeBlock's ConfigurableJoint at totalRopeLength, 8000 N spring)
+        // is what prevents the chassis flying off forever; this joint is
+        // just "target wants to be where the tip is."
+        private SpringJoint _grappleJoint;
+        // The Rigidbody we're grappled to. Tracked separately so the
+        // FixedUpdate guard can distinguish "joint exists, target gone"
+        // (target chassis was destroyed mid-grapple) from "no joint."
         private Rigidbody _grappleTarget;
         // Last release time (Time.time). Used to gate immediate
         // re-attach so the player can pull the rope free between swings.
         private float _releaseTime = -999f;
 
         // The RopeBlock's chassis↔tip ConfigurableJoint, cached at
-        // adoption time. While grappled we soften this joint's spring
-        // to prevent resonance between two locked-distance constraints
-        // (chassis-tip + grapple) on a low-mass tip body — see Attach
-        // / Release for the swap rationale.
+        // adoption time. Read-only — the previous design softened its
+        // spring during grapple to fight resonance between two locked
+        // constraints; the SpringJoint design doesn't need that
+        // band-aid because spring forces are bounded by definition.
         private ConfigurableJoint _chassisTipJoint;
-        private SoftJointLimitSpring _origChassisSpring;
-        private bool _origChassisSpringSaved;
-        // Soft values applied while grappled. Tuned so the rope still
-        // pulls the chassis back toward the grapple anchor (so the
-        // player can swing) but the spring force never spikes hard
-        // enough to instantly catapult a low-mass target into the
-        // chassis. See the bug writeup in the session-30 addendum.
-        private const float GrappledChassisSpring = 600f;
-        private const float GrappledChassisDamper = 250f;
-
-        // While grappled, temporarily fatten the tip Rigidbody. The
-        // chassis↔tip joint applies a restoring force F to the tip,
-        // which a Locked grapple joint would otherwise transmit to the
-        // target as full-velocity impulse (target a = F / m_target,
-        // unbounded for a low-mass barbell dummy). Heavier tip absorbs
-        // the impulse first — its own velocity gain caps the throughput
-        // before the constraint solver pushes the target. Restored on
-        // Release.
-        private const float GrappledTipMass = 25f;
-        private float _origTipMass = 0.5f;
-        private bool _origTipMassSaved;
 
         // Tuning. Per PHYSICS_PLAN §1.5 these are NOT Tweakables (they
-        // affect gameplay outcomes — whether the hook detaches under a
-        // given pull, how often a swung hook can re-grapple). They live
-        // as serialized inspector fields for the tuning pass and migrate
-        // to per-block blueprint config when PHYSICS_PLAN §6 lands.
+        // affect gameplay outcomes — how hard the tether pulls, whether
+        // the rope effectively snags a target). Inspector-tweakable for
+        // balance; migrate to per-block blueprint config in PHYSICS_PLAN §6.
         [Header("Grapple")]
-        [Tooltip("Joint break force (N). Hook releases when the linear " +
-                 "force on the joint exceeds this — acts as a tug-of-war " +
-                 "limit so a heavy target can be grappled but not towed " +
-                 "indefinitely. PhysX detects the break automatically.")]
-        [SerializeField] private float _grappleBreakForce = 1200f;
+        [Tooltip("Spring stiffness of the tether (N/m). The target is " +
+                 "pulled toward the tip with F = spring × distance. At " +
+                 "spring 300 and 1 m separation that's 300 N — enough to " +
+                 "drag a 5 kg dummy at ~60 m/s² baseline, gentle enough " +
+                 "that the target doesn't get catapulted on first contact.")]
+        [SerializeField, Min(0f)] private float _tetherSpring = 300f;
 
-        [Tooltip("Joint break torque (N·m). Hook releases when angular " +
-                 "stress on the joint exceeds this. Mostly cosmetic — " +
-                 "angular axes are free, so torque buildup is rare.")]
-        [SerializeField] private float _grappleBreakTorque = 800f;
+        [Tooltip("Damper on the spring tether (N·s/m). Bleeds off " +
+                 "oscillation energy so the target doesn't bob into and " +
+                 "out of the tip on every swing.")]
+        [SerializeField, Min(0f)] private float _tetherDamper = 80f;
 
         [Tooltip("Cooldown after a grapple release before the hook can " +
                  "re-attach. Prevents a swinging hook from immediately " +
@@ -221,15 +210,12 @@ namespace Robogame.Movement
         private void CacheChassisTipJoint()
         {
             _chassisTipJoint = null;
-            _origChassisSpringSaved = false;
             if (_hostRb == null) return;
             ConfigurableJoint[] joints = _hostRb.GetComponents<ConfigurableJoint>();
             for (int i = 0; i < joints.Length; i++)
             {
                 if (joints[i] == null) continue;
                 _chassisTipJoint = joints[i];
-                _origChassisSpring = joints[i].linearLimitSpring;
-                _origChassisSpringSaved = true;
                 break;
             }
         }
@@ -281,98 +267,78 @@ namespace Robogame.Movement
         }
 
         /// <summary>
-        /// Build the grapple joint between the rope's last segment and
+        /// Build the tether spring between the rope's tip-end body and
         /// <paramref name="targetRb"/>, anchored at the world contact
-        /// point so the hook "sticks" exactly where it bit. Linear
-        /// motion is locked (the hook doesn't slide along the target);
-        /// angular motion is free (the target can spin about the
-        /// contact without the hook fighting it). PhysX auto-releases
-        /// when the linear force exceeds <see cref="_grappleBreakForce"/>.
+        /// point so the hook "sticks" exactly where it bit. A SpringJoint
+        /// at rest distance 0 pulls the target toward the tip with a
+        /// force that scales with separation — bounded, smooth, and
+        /// (critically) doesn't need a breakForce because the rope's
+        /// existing chassis↔tip linear-limit joint is the actual leash.
         /// </summary>
+        /// <remarks>
+        /// <b>Why SpringJoint, not ConfigurableJoint:Locked.</b> A locked
+        /// constraint on two free bodies applies whatever impulse the
+        /// solver needs to keep them coincident. Those impulses spike
+        /// arbitrarily high under acceleration (target jinks, chassis
+        /// banks), trip the old <c>breakForce</c>, and the grapple
+        /// snaps. A spring applies <i>force</i> = stiffness × distance,
+        /// so the force envelope is bounded by tether stretch alone —
+        /// no impulse spike, no catapult, no resonance.
+        /// </remarks>
         private void Attach(Rigidbody targetRb, Vector3 worldContactPoint)
         {
             if (_hostRb == null || _grappleJoint != null) return;
 
             // The rope's tip-end Rigidbody is kinematic during free flight
-            // so the Verlet simulator can drive it without PhysX integrator
-            // fighting back. A ConfigurableJoint on a kinematic body acts
-            // only as an immovable anchor — the chassis wouldn't be pulled
-            // toward the target. Flip back to non-kinematic before adding
-            // the joint so PhysX integrates joint forces in both directions.
+            // so the Verlet simulator can drive it via MovePosition. The
+            // simulator auto-flips to "pin tip to its PhysX position" mode
+            // when the body goes non-kinematic (see
+            // VerletRopeSimulator.IsTipExternallyConstrained), so the
+            // chain follows the tip while PhysX integrates the spring.
             _hostRb.isKinematic = false;
 
-            ConfigurableJoint joint = _hostRb.gameObject.AddComponent<ConfigurableJoint>();
+            SpringJoint joint = _hostRb.gameObject.AddComponent<SpringJoint>();
             joint.connectedBody = targetRb;
             joint.autoConfigureConnectedAnchor = false;
 
             // Anchor at the world contact point, expressed in each
-            // body's local space.
+            // body's local space. SpringJoint computes distance between
+            // the two anchors and applies F = spring × (distance - minDistance)
+            // restoring toward each other; minDistance/maxDistance = 0
+            // means "pull together, no slack zone."
             joint.anchor          = _hostRb.transform.InverseTransformPoint(worldContactPoint);
             joint.connectedAnchor = targetRb.transform.InverseTransformPoint(worldContactPoint);
 
-            // Lock linear motion: the hook bites and holds.
-            joint.xMotion = ConfigurableJointMotion.Locked;
-            joint.yMotion = ConfigurableJointMotion.Locked;
-            joint.zMotion = ConfigurableJointMotion.Locked;
+            joint.spring   = _tetherSpring;
+            joint.damper   = _tetherDamper;
+            joint.minDistance = 0f;
+            joint.maxDistance = 0f;
+            joint.tolerance   = 0.025f; // small rest band so micro-jitter doesn't oscillate
 
-            // Free angular motion: target can spin freely about the
-            // contact, hook doesn't torque-lock it into a weird pose.
-            joint.angularXMotion = ConfigurableJointMotion.Free;
-            joint.angularYMotion = ConfigurableJointMotion.Free;
-            joint.angularZMotion = ConfigurableJointMotion.Free;
-
-            // PhysX auto-releases when force / torque exceeds these.
-            // Component is destroyed on break; FixedUpdate poll catches
-            // the null and re-arms the cooldown.
-            joint.breakForce  = _grappleBreakForce;
-            joint.breakTorque = _grappleBreakTorque;
+            // No break force — the chassis↔tip leash in RopeBlock is
+            // what stops infinite drag. The spring stays attached even
+            // through high tension; release is via R-key or target death.
+            joint.breakForce  = Mathf.Infinity;
+            joint.breakTorque = Mathf.Infinity;
 
             // Don't let the joint pair collide with each other through
-            // the joint — the host segment and the target chassis
-            // already collide normally via PhysX, and joint-pair
-            // collision causes contact storms while grappled.
+            // the joint — joint-pair collision causes contact storms
+            // while two bodies are being actively pulled together.
             joint.enableCollision     = false;
             joint.enablePreprocessing = false;
 
             _grappleJoint  = joint;
             _grappleTarget = targetRb;
 
-            // Soften the chassis-tip joint while grappled. Two
-            // locked-distance constraints (chassis-tip + grapple) on
-            // a low-mass tip body compound: the chassis-tip spring
-            // (8000 N/m default) applies large restoring forces in
-            // a single FixedUpdate step, the grapple joint
-            // transmits them as impulses to the target before the
-            // grapple's own breakForce check trips, and a low-mass
-            // target gets catapulted toward the chassis. Lowering
-            // the spring + bumping the damper smears the restoring
-            // force over more frames so the system stays inside
-            // PhysX's normal force envelope.
-            if (_chassisTipJoint != null)
-            {
-                _chassisTipJoint.linearLimitSpring = new SoftJointLimitSpring
-                {
-                    spring = GrappledChassisSpring,
-                    damper = GrappledChassisDamper,
-                };
-            }
-
-            // Temporarily fatten the tip Rigidbody so its inertia
-            // absorbs the chassis-tip joint impulse before the locked
-            // grapple joint transmits it to the target. Without this,
-            // even with the soft spring above, a 0.5 kg tip rigidly
-            // coupled to a 1–5 kg target chassis launches that target
-            // before forces reach steady state.
-            _origTipMass = _hostRb.mass;
-            _origTipMassSaved = true;
-            _hostRb.mass = GrappledTipMass;
+            // No chassis-tip spring softening, no tip mass fattening.
+            // Both were band-aids for the locked-joint impulse-spike
+            // problem the SpringJoint design avoids by construction.
         }
 
         /// <summary>
         /// Cleanly release any active grapple and start the re-attach
         /// cooldown. Safe to call when not grappled — no-op in that case.
-        /// Public so player input wiring (or AI) can release on demand
-        /// once that input lands.
+        /// Public so player input wiring (or AI) can release on demand.
         /// </summary>
         public void Release()
         {
@@ -382,21 +348,8 @@ namespace Robogame.Movement
                 else                       DestroyImmediate(_grappleJoint);
                 _grappleJoint = null;
             }
-            // Restore the chassis-tip joint's original spring/damper —
-            // we softened it in Attach to prevent grapple resonance.
-            if (_chassisTipJoint != null && _origChassisSpringSaved)
-            {
-                _chassisTipJoint.linearLimitSpring = _origChassisSpring;
-            }
-            // Restore the tip Rigidbody's original mass.
-            if (_hostRb != null && _origTipMassSaved)
-            {
-                _hostRb.mass = _origTipMass;
-                _origTipMassSaved = false;
-            }
-            // Restore kinematic mode so the simulator owns the body again
-            // (matches the inverse of Attach above; see RopeBlock comment
-            // on tipRb.isKinematic for the rationale).
+            // Restore kinematic mode so the Verlet simulator owns the
+            // body again. Matches the inverse of Attach.
             if (_hostRb != null) _hostRb.isKinematic = true;
             _grappleTarget = null;
             _releaseTime   = Time.time;
@@ -404,37 +357,12 @@ namespace Robogame.Movement
 
         private void FixedUpdate()
         {
-            // Detect "PhysX broke the joint at end of last fixed step":
-            // the component is destroyed, _grappleJoint reads null, but
-            // _hostRb is still non-kinematic from when Attach flipped it.
-            // Without this branch, the tip would stay non-kinematic
-            // forever (leak) after a breakForce-triggered release.
-            if (_grappleJoint == null)
-            {
-                if (_hostRb != null && !_hostRb.isKinematic)
-                {
-                    // Path: PhysX broke the joint; nobody called Release.
-                    // Reverse Attach's state changes here — kinematic
-                    // mode, chassis-tip spring, and tip mass.
-                    _hostRb.isKinematic = true;
-                    if (_chassisTipJoint != null && _origChassisSpringSaved)
-                    {
-                        _chassisTipJoint.linearLimitSpring = _origChassisSpring;
-                    }
-                    if (_origTipMassSaved)
-                    {
-                        _hostRb.mass = _origTipMass;
-                        _origTipMassSaved = false;
-                    }
-                    _grappleTarget = null;
-                    _releaseTime = Time.time;
-                }
-                return;
-            }
+            if (_grappleJoint == null) return;
 
-            // Joint still alive — but the target chassis may have been
-            // destroyed (HP→0); Unity sets connectedBody to null and
-            // _grappleTarget to fake-null. Tear down cleanly.
+            // Target chassis may have been destroyed (HP→0); Unity sets
+            // connectedBody to null and _grappleTarget to fake-null.
+            // Tear down cleanly so the tip body returns to kinematic
+            // and the rope chain resumes simulator-driven flight.
             if (_grappleTarget == null || _grappleJoint.connectedBody == null)
             {
                 Release();

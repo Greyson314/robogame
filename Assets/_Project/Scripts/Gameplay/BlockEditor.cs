@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Robogame.Block;
+using Robogame.Movement;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -168,6 +169,13 @@ namespace Robogame.Gameplay
         private bool _hasTarget;
         private Vector3Int _targetPlaceCell;
         private Vector3Int _targetHitCell;
+        // Unit mount-up for the candidate placement at _targetPlaceCell.
+        // Stored separately from (_targetPlaceCell - _targetHitCell) because
+        // the rope-tip redirect can produce a multi-cell delta there, while
+        // PlacementRules.ResolveHostCell requires a unit axis on c.Up.
+        // UpdateTarget sets this in lockstep with _targetPlaceCell; TryPlace
+        // and DriveGhostRenderer / DriveFeedbackHud all read it from here.
+        private Vector3Int _targetPlaceUp = Vector3Int.up;
         private bool _validPlacement;
         private PlacementRules.PlacementError _lastPlacementError;
         // Mirror ghost validity is tracked independently because the
@@ -296,16 +304,52 @@ namespace Robogame.Gameplay
 
             // Convert hit normal to a grid step. World → local → round.
             Vector3 localN = _buildMode.Chassis.InverseTransformDirection(hit.normal);
-            _targetPlaceCell = block.GridPosition + RoundToAxis(localN);
+            Vector3Int faceStep = RoundToAxis(localN);
+            _targetPlaceCell = block.GridPosition + faceStep;
+
+            // Rope-chain hit special case: the rope's chain visual spans
+            // multiple cells but the hit collider belongs to the rope
+            // cell. Mapping +rope.up hits to rope.cell + 1*up would
+            // place the tip block one cell from the rope (under the
+            // chain), not at the chain's free end where the player aimed.
+            // Two triggers for the redirect to the tip cell:
+            //   (a) RopeTipAimTarget hit — generous sphere collider at
+            //       the chain free end. Any hit direction snaps; the
+            //       cylinder's tiny end-cap was painful to aim through.
+            //   (b) Cylinder-end-cap hit — faceStep already lines up
+            //       with rope.up, so the player's intent is clear.
+            // Either way, only fires when the selected block IS a tip
+            // block — other selections keep the standard adjacent-cell
+            // candidate so existing rejection paths fire at the same
+            // cell as before.
+            RopeTipAimTarget tipAim = hit.collider != null ? hit.collider.GetComponent<RopeTipAimTarget>() : null;
+            bool ropeHit = block.Definition != null && block.Definition.Id == BlockIds.Rope;
+            if (ropeHit && IsTipBlockSelected()
+                && (tipAim != null || faceStep == block.Up))
+            {
+                // Force faceStep to rope.up so the downstream placeUp
+                // matches the rope's mount-up — required by
+                // PlacementRules.ResolveHostCell, which walks back
+                // along -c.Up looking for the rope at matching distance.
+                faceStep = block.Up;
+                _targetPlaceCell = block.GridPosition + block.Up * RopeGeometry.ChainCellCount(block);
+            }
 
             _hasTarget = true;
+            // Cache the unit mount-up for downstream consumers (click
+            // handler, ghost renderer, feedback HUD). Computing it from
+            // (_targetPlaceCell - _targetHitCell) at click time would be
+            // wrong for the rope-tip case, where _targetPlaceCell sits
+            // ChainCellCount cells away — TryPlace would then hand a
+            // multi-cell vector to BuildSession.TryPlace and the rules
+            // engine would reject the placement (host walk-back distance
+            // mismatch).
+            _targetPlaceUp = faceStep == Vector3Int.zero ? Vector3Int.up : faceStep;
             // EvaluatePlacement returns the specific failure reason so
             // the feedback HUD can render "Host is leaf at (1,1,0)" and
             // similar diagnostics. _validPlacement stays the bool fast
             // path the click handler reads.
-            Vector3Int placeUp = _targetPlaceCell - _targetHitCell;
-            if (placeUp == Vector3Int.zero) placeUp = Vector3Int.up;
-            _lastPlacementError = EvaluatePlacement(_targetPlaceCell, placeUp);
+            _lastPlacementError = EvaluatePlacement(_targetPlaceCell, _targetPlaceUp);
             _validPlacement = _lastPlacementError == PlacementRules.PlacementError.None;
         }
 
@@ -359,6 +403,13 @@ namespace Robogame.Gameplay
             return state.Library.Get(_hotbar.SelectedBlockId);
         }
 
+        private bool IsTipBlockSelected()
+        {
+            BlockDefinition def = GetSelectedDefinition();
+            if (def == null) return false;
+            return def.Id == BlockIds.Hook || def.Id == BlockIds.Mace || def.Id == BlockIds.Magnet;
+        }
+
         // -----------------------------------------------------------------
         // Ghost / feedback HUD orchestration. Visual rendering lives on
         // BlockGhostRenderer + PlacementFeedbackHud; the editor just
@@ -374,7 +425,9 @@ namespace Robogame.Gameplay
             Vector3 targetDims = _variantPanel != null ? _variantPanel.GetDimsForBlock(targetId) : Vector3.zero;
             float worldPitch = _variantPanel != null ? _variantPanel.GetPitchForBlock(targetId) : 0f;
             Vector3Int targetCell = _hasTarget ? _targetPlaceCell : Vector3Int.zero;
-            Vector3Int targetUp = _hasTarget ? (_targetPlaceCell - _targetHitCell) : Vector3Int.up;
+            // Read the cached unit mount-up populated by UpdateTarget so
+            // the ghost orients the same way the click handler will place.
+            Vector3Int targetUp = _hasTarget ? _targetPlaceUp : Vector3Int.up;
             if (targetUp == Vector3Int.zero) targetUp = Vector3Int.up;
             // Ghost factory expects local-frame pitch (same as the placed
             // block uses). World-intent → local conversion happens here
@@ -428,8 +481,8 @@ namespace Robogame.Gameplay
                 _feedbackHud.Hide();
                 return;
             }
-            Vector3Int up = _targetPlaceCell - _targetHitCell;
-            if (up == Vector3Int.zero) up = Vector3Int.up;
+            // Unit mount-up cached by UpdateTarget — host = place - up.
+            Vector3Int up = _targetPlaceUp == Vector3Int.zero ? Vector3Int.up : _targetPlaceUp;
             Vector3Int hostCell = _targetPlaceCell - up;
             _feedbackHud.Show(_lastPlacementError, _targetPlaceCell, hostCell);
         }
@@ -451,6 +504,11 @@ namespace Robogame.Gameplay
         private void TryPlace()
         {
             if (!_validPlacement) return;
+            if (_session == null)
+            {
+                Debug.LogWarning("[Robogame] BlockEditor: no BuildSession bound — placement skipped.");
+                return;
+            }
             string id = _hotbar != null ? _hotbar.SelectedBlockId : BlockIds.Cube;
 
             GameStateController state = GameStateController.Instance;
@@ -462,210 +520,56 @@ namespace Robogame.Gameplay
                 return;
             }
 
-            // Block placing a 2nd CPU.
-            if (def.Category == BlockCategory.Cpu && HasAnyCpu())
-            {
-                Debug.Log("[Robogame] BlockEditor: chassis already has a CPU; placement skipped.");
-                return;
-            }
-
-            // Per-block "variable part" dims + pitch come from the variant
-            // panel (foils: span/thickness/chord/pitch; rotors: collective;
-            // ropes: segment count). Defaults (zero) tell PlaceBlock + the
-            // consuming component to fall back to block defaults.
+            // Per-block "variable part" dims + world-intent pitch come from
+            // the variant panel (foils: span/thickness/chord/pitch; rotors:
+            // collective; ropes: length-in-cells). Zero means "use the
+            // block's authored default". The session normalizes world-intent
+            // pitch to local-frame internally per side.
             Vector3 dims = _variantPanel != null ? _variantPanel.GetDimsForBlock(id) : Vector3.zero;
             float worldPitch = _variantPanel != null ? _variantPanel.GetPitchForBlock(id) : 0f;
-            // Up = face normal of the cell we're attaching to. Without
-            // this, every placement would orient as +Y and a wing on a
-            // side-mount face would point along chassis +Y instead of
-            // outward from the face.
-            Vector3Int placeUp = _targetPlaceCell - _targetHitCell;
-            if (placeUp == Vector3Int.zero) placeUp = Vector3Int.up;
-            // Convert world-intent pitch to the local-frame value the
-            // foil's lift formula + visual rotation use. Per-up sign
-            // correction applies to foils only (rotors use pitch as
-            // collective, intrinsically local-frame).
-            float localPitch = BlockOrientation.NormalizePitchForUp(def, worldPitch, placeUp);
-            bool placed = _grid.PlaceBlock(def, _targetPlaceCell, placeUp, dims, localPitch) != null;
-            if (placed)
+
+            // Push mirror state onto the session so its TryPlace handles
+            // the mirrored side too — single source of truth for the rule
+            // check, the grid mutation, the auto-companion cascade, and
+            // the blueprint sync. Editor is a thin driver from here on.
+            _session.SetMirrorEnabled(_mirrorMode != null && _mirrorMode.Enabled);
+            _session.SetMirrorAxis(_mirrorMode != null ? _mirrorMode.Axis : Robogame.Block.MirrorAxis.X);
+
+            // Use the cached unit mount-up — same value the ghost preview
+            // and placement-rule evaluator saw, so ghost-valid = click-valid.
+            BuildSession.PlaceOutcome outcome = _session.TryPlace(def, _targetPlaceCell, _targetPlaceUp, dims, worldPitch);
+            if (outcome.PrimarySucceeded)
             {
-                AutoPlaceCompanionsOf(def, _targetPlaceCell, placeUp);
-                TryMirrorPlace(def, _targetPlaceCell, placeUp, dims, worldPitch);
-                SyncBlueprintFromGrid();
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.BlockPlace);
             }
             else
             {
-                // Placement rejected by the grid (collision / off-grid /
-                // unauthorised cell). Surface the buzzer so the user
-                // hears the same "no" they see.
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
             }
         }
 
         private void TryRemove()
         {
-            if (!_grid.Blocks.TryGetValue(_targetHitCell, out BlockBehaviour block) || block == null) return;
+            if (_session == null || _grid == null) return;
+            if (!_grid.HasBlock(_targetHitCell)) return;
 
-            // Per Pass-3 design: CPU is sacred while editing.
-            if (block.Definition != null && block.Definition.Category == BlockCategory.Cpu)
+            _session.SetMirrorEnabled(_mirrorMode != null && _mirrorMode.Enabled);
+            _session.SetMirrorAxis(_mirrorMode != null ? _mirrorMode.Axis : Robogame.Block.MirrorAxis.X);
+
+            BuildSession.RemoveOutcome outcome = _session.TryRemove(_targetHitCell);
+            if (outcome.PrimarySucceeded)
             {
-                Debug.Log("[Robogame] BlockEditor: CPU cannot be removed in build mode.");
-                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
-                return;
-            }
-
-            // Rotor cascade: removing a rotor co-removes its auto-placed
-            // mechanism cube IF the cube is otherwise dependent on the
-            // rotor. Without this, the orphan check would block every
-            // rotor removal — the cube was placed for the rotor and has
-            // no other neighbours initially.
-            Vector3Int? cascadeCell = ResolveRotorCascadeCell(block, _targetHitCell);
-
-            int orphanCount;
-            bool wouldOrphan = cascadeCell.HasValue
-                ? BlockGraph.WouldOrphanIfRemoved(_grid, _targetHitCell, cascadeCell.Value, _bfsBuffers, out orphanCount)
-                : BlockGraph.WouldOrphanIfRemoved(_grid, _targetHitCell, _bfsBuffers, out orphanCount);
-
-            if (wouldOrphan)
-            {
-                Debug.Log($"[Robogame] BlockEditor: removal blocked — would orphan {orphanCount} block(s).");
-                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
-                return;
-            }
-
-            if (_grid.RemoveBlock(_targetHitCell))
-            {
-                if (cascadeCell.HasValue) _grid.RemoveBlock(cascadeCell.Value);
-                TryMirrorRemove(_targetHitCell);
-                SyncBlueprintFromGrid();
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.BlockRemove);
             }
-        }
-
-        /// <summary>
-        /// If <paramref name="block"/> is a rotor whose mechanism cube
-        /// would be orphaned by its removal, return the mechanism cell
-        /// so the caller can cascade-remove both. Returns null when the
-        /// rotor has dependents on the cube (blades, chained structure)
-        /// — in that case the orphan check on the rotor alone correctly
-        /// blocks the removal until the dependents go first.
-        /// </summary>
-        private Vector3Int? ResolveRotorCascadeCell(BlockBehaviour block, Vector3Int blockCell)
-        {
-            if (_grid == null || block == null || block.Definition == null) return null;
-            if (block.Definition.Id != BlockIds.Rotor) return null;
-            Vector3Int spinAxis = block.Up == Vector3Int.zero ? Vector3Int.up : block.Up;
-            Vector3Int mechCell = blockCell + spinAxis;
-            if (!_grid.TryGetBlock(mechCell, out BlockBehaviour mech) || mech == null) return null;
-            if (mech.Definition == null || mech.Definition.Id != BlockIds.Cube) return null;
-            // Only cascade when the cube has no neighbours other than
-            // this rotor — otherwise blades or chained structure are at
-            // stake, and the user should be the one to clear them.
-            if (CountAdjacentBlocksExcluding(mechCell, blockCell) > 0) return null;
-            return mechCell;
-        }
-
-        private static readonly Vector3Int[] s_cascadeFaces =
-        {
-            new Vector3Int( 1, 0, 0), new Vector3Int(-1, 0, 0),
-            new Vector3Int( 0, 1, 0), new Vector3Int( 0,-1, 0),
-            new Vector3Int( 0, 0, 1), new Vector3Int( 0, 0,-1),
-        };
-
-        private int CountAdjacentBlocksExcluding(Vector3Int cell, Vector3Int excluded)
-        {
-            if (_grid == null) return 0;
-            int count = 0;
-            for (int i = 0; i < s_cascadeFaces.Length; i++)
+            else
             {
-                Vector3Int n = cell + s_cascadeFaces[i];
-                if (n == excluded) continue;
-                if (_grid.HasBlock(n)) count++;
+                // CPU-sacred / would-orphan / etc. — session rejected. The
+                // log line preserves the diagnostic the old direct path
+                // emitted.
+                if (outcome.Primary == PlacementRules.PlacementError.WouldOrphanOnRemoval)
+                    Debug.Log("[Robogame] BlockEditor: removal blocked — would orphan one or more blocks.");
+                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
             }
-            return count;
-        }
-
-        // -----------------------------------------------------------------
-        // Mirror mode — best-effort dual placement / removal. The original
-        // is the source of truth; the mirror is a soft attempt that skips
-        // (silently, no buzzer) if it would violate any placement rule.
-        // -----------------------------------------------------------------
-
-        private bool MirrorActive =>
-            _mirrorMode != null && _mirrorMode.Enabled;
-
-        /// <summary>
-        /// Auto-place the structural companions a primary block needs to
-        /// be usable. Called once per successful placement (primary side
-        /// + once per mirror side), best-effort — silent if any
-        /// companion fails its own placement (cell occupied, etc.).
-        /// </summary>
-        /// <remarks>
-        /// <b>Rotor.</b> A rotor's only connective face is its spin
-        /// axis (per <see cref="BlockConnectivity.IsConnectiveFace"/>),
-        /// so a from-scratch rotor is unusable until a structural cube
-        /// goes on that face — that's the cell where the rotor's disc +
-        /// crossbars actually live, and the cube hosts the four blades.
-        /// The default-helicopter preset does this implicitly via
-        /// <see cref="BlueprintBuilder.RotorWithFoils"/>; the build-mode
-        /// editor mirrors that behaviour so a placed rotor immediately
-        /// behaves like the preset's.
-        /// </remarks>
-        private void AutoPlaceCompanionsOf(BlockDefinition def, Vector3Int cell, Vector3Int up)
-        {
-            if (def == null || _grid == null) return;
-            if (def.Id == BlockIds.Rotor)
-            {
-                GameStateController state = GameStateController.Instance;
-                if (state == null || state.Library == null) return;
-                BlockDefinition cubeDef = state.Library.Get(BlockIds.Cube);
-                if (cubeDef == null) return;
-                Vector3Int mechanismCell = cell + up;
-                if (_grid.HasBlock(mechanismCell)) return;
-                _grid.PlaceBlock(cubeDef, mechanismCell, up, Vector3.zero, 0f);
-            }
-        }
-
-        private void TryMirrorPlace(BlockDefinition def, Vector3Int cell, Vector3Int up, Vector3 dims, float worldPitch)
-        {
-            if (!MirrorActive) return;
-            MirrorAxis axis = _mirrorMode.Axis;
-            if (BlockMirror.IsOnPlane(cell, axis)) return;
-            Vector3Int mCell = BlockMirror.MirrorCell(cell, axis);
-            Vector3Int mUp   = BlockMirror.MirrorUp(up, axis);
-            // Each side normalizes the same world-intent pitch for its
-            // own up — the mirror axis no longer needs its own pitch
-            // sign-flip rule (per BlockOrientation.NormalizePitchForUp).
-            float mLocalPitch = BlockOrientation.NormalizePitchForUp(def, worldPitch, mUp);
-            if (mCell == cell) return;
-            if (!IsValidPlacement(mCell, mUp)) return;
-            BlockBehaviour mPlaced = _grid.PlaceBlock(def, mCell, mUp, dims, mLocalPitch);
-            if (mPlaced != null) AutoPlaceCompanionsOf(def, mCell, mUp);
-        }
-
-        private void TryMirrorRemove(Vector3Int cell)
-        {
-            if (!MirrorActive) return;
-            MirrorAxis axis = _mirrorMode.Axis;
-            if (BlockMirror.IsOnPlane(cell, axis)) return;
-            Vector3Int mCell = BlockMirror.MirrorCell(cell, axis);
-            if (mCell == cell) return;
-            if (!_grid.Blocks.TryGetValue(mCell, out BlockBehaviour mBlock) || mBlock == null) return;
-            if (mBlock.Definition != null && mBlock.Definition.Category == BlockCategory.Cpu) return;
-
-            // Mirror cascade: same rotor → cube logic as the primary
-            // path so a mirrored rotor + cube pair removes cleanly when
-            // the user right-clicks one rotor in mirror mode.
-            Vector3Int? cascadeCell = ResolveRotorCascadeCell(mBlock, mCell);
-
-            bool wouldOrphan = cascadeCell.HasValue
-                ? BlockGraph.WouldOrphanIfRemoved(_grid, mCell, cascadeCell.Value, _bfsBuffers, out _)
-                : BlockGraph.WouldOrphanIfRemoved(_grid, mCell, _bfsBuffers, out _);
-            if (wouldOrphan) return;
-
-            _grid.RemoveBlock(mCell);
-            if (cascadeCell.HasValue) _grid.RemoveBlock(cascadeCell.Value);
         }
 
         /// <summary>
@@ -700,48 +604,5 @@ namespace Robogame.Gameplay
             _cpuReachableValid = true;
         }
 
-        private bool HasAnyCpu()
-        {
-            foreach (var kvp in _grid.Blocks)
-            {
-                BlockBehaviour b = kvp.Value;
-                if (b != null && b.Definition != null && b.Definition.Category == BlockCategory.Cpu)
-                    return true;
-            }
-            return false;
-        }
-
-        // -----------------------------------------------------------------
-        // Blueprint sync
-        // -----------------------------------------------------------------
-
-        private void SyncBlueprintFromGrid()
-        {
-            // Route through the session so canonical-sort + on-disk
-            // shape happen in one place. Falls back to direct sync if
-            // no session is bound (legacy scenes / standalone editor).
-            if (_session != null && _session.Blueprint != null)
-            {
-                _session.SyncBlueprint();
-                return;
-            }
-            GameStateController state = GameStateController.Instance;
-            if (state == null || state.CurrentBlueprint == null || _grid == null) return;
-
-            var list = new List<ChassisBlueprint.Entry>(_grid.Blocks.Count);
-            bool hasRotor = false;
-            foreach (var kvp in _grid.Blocks)
-            {
-                BlockBehaviour b = kvp.Value;
-                if (b == null || b.Definition == null) continue;
-                list.Add(new ChassisBlueprint.Entry(b.Definition.Id, kvp.Key, b.Up, b.Dims, b.PitchDeg));
-                if (b.Definition.Id == BlockIds.Rotor) hasRotor = true;
-            }
-            state.CurrentBlueprint.SetEntries(list.ToArray());
-            // See BuildSession.SyncBlueprint for rationale: "this
-            // chassis has rotors" auto-derives RotorsGenerateLift
-            // until per-cell config lands.
-            if (hasRotor) state.CurrentBlueprint.RotorsGenerateLift = true;
-        }
     }
 }

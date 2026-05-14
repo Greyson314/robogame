@@ -23,7 +23,7 @@ namespace Robogame.Movement
         {
             if (block == null || block.Definition == null) return false;
             string id = block.Definition.Id;
-            return id == BlockIds.Hook || id == BlockIds.Mace;
+            return id == BlockIds.Hook || id == BlockIds.Mace || id == BlockIds.Magnet;
         }
 
         protected override void Bind(BlockBehaviour block)
@@ -37,6 +37,11 @@ namespace Robogame.Movement
             {
                 if (block.GetComponent<MaceBlock>() == null)
                     block.gameObject.AddComponent<MaceBlock>();
+            }
+            else if (block.Definition.Id == BlockIds.Magnet)
+            {
+                if (block.GetComponent<MagnetBlock>() == null)
+                    block.gameObject.AddComponent<MagnetBlock>();
             }
         }
     }

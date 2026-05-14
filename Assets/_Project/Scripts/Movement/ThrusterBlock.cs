@@ -106,7 +106,11 @@ namespace Robogame.Movement
 
             UpdatePlumeEmission();
 
-            float thrust = _throttle * MaxThrust;
+            // Carry-weight penalty (SCRAP_LOOP_PLAN § 3). Scaling thrust
+            // — not throttle — keeps the cruise control feel intact: the
+            // chassis still wants to fly, it just produces less push per
+            // unit of throttle when hauling.
+            float thrust = _throttle * MaxThrust * control.SpeedMultiplier;
             if (thrust <= 0f) return;
 
             // Push along this thruster's forward axis (which is also the

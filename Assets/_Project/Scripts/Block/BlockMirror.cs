@@ -96,11 +96,11 @@ namespace Robogame.Block
 
     /// <summary>
     /// <see cref="IBlueprintEntryTransform"/> that reflects an entry
-    /// across the chosen mirror plane. The build-mode mirror tool and
-    /// the <see cref="BlueprintBuilder.MirrorX"/> /
-    /// <see cref="BlueprintBuilder.MirrorZ"/> authoring helpers compose
-    /// over this so reflection logic lives in one place. Cheap to mint —
-    /// allocate one per mirror call, no caching needed.
+    /// across the chosen mirror plane. The build-mode mirror tool, the
+    /// <see cref="BlueprintBuilder"/> data-builder, and the editor-time
+    /// scripted authoring path all compose over this so reflection logic
+    /// lives in one place. Cheap to mint — allocate one per mirror call,
+    /// no caching needed.
     /// </summary>
     public sealed class MirrorTransform : IBlueprintEntryTransform
     {

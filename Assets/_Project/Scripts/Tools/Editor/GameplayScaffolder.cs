@@ -29,7 +29,9 @@ namespace Robogame.Tools.Editor
         private const string LibraryAssetPath = SoFolder + "/BlockDefinitionLibrary.asset";
         private const string DefaultGroundPath = BlueprintFolder + "/Blueprint_DefaultGround.asset";
         private const string DefaultPlanePath = BlueprintFolder + "/Blueprint_DefaultPlane.asset";
-        private const string DefaultBuggyPath = BlueprintFolder + "/Blueprint_DefaultBuggy.asset";
+        // Session 61: retired the Buggy preset; replaced its slot with
+        // the Grappler — a plane mounting a grapple-magnet weapon.
+        private const string DefaultGrapplerPath = BlueprintFolder + "/Blueprint_DefaultGrappler.asset";
         private const string DefaultBoatPath = BlueprintFolder + "/Blueprint_DefaultBoat.asset";
         private const string DefaultBomberPath = BlueprintFolder + "/Blueprint_DefaultBomber.asset";
         private const string DefaultPropPlanePath = BlueprintFolder + "/Blueprint_DefaultPropPlane.asset";
@@ -79,267 +81,365 @@ namespace Robogame.Tools.Editor
             BlockDefinitionWizard.CreateTestDefinitions();
             EnsureFolder(BlueprintFolder);
 
-            ChassisBlueprint ground = CreateOrUpdateBlueprint(DefaultGroundPath, "Tank", ChassisKind.Ground, BuildGroundEntries());
-            CreateOrUpdateBlueprint(DefaultPlanePath, "Plane", ChassisKind.Plane, BuildPlaneEntries());
-            CreateOrUpdateBlueprint(DefaultBuggyPath, "Buggy", ChassisKind.Ground, BuildBuggyEntries());
-            CreateOrUpdateBlueprint(DefaultBoatPath,  "Boat",  ChassisKind.Ground, BuildBoatEntries());
-            CreateOrUpdateBlueprint(DefaultBomberPath, "Bomber", ChassisKind.Plane, BuildBomberEntries());
+            // Load the library by path so every preset script can resolve
+            // BlockDefinitions for ScriptedChassisBuilder. The library was
+            // populated immediately before us in BuildAllPassA / BuildAll;
+            // load-by-path here is robust against AssetDatabase.Refresh
+            // invalidations that might have stale C# refs from elsewhere.
+            BlockDefinitionLibrary lib = AssetDatabase.LoadAssetAtPath<BlockDefinitionLibrary>(LibraryAssetPath);
+            if (lib == null)
+            {
+                Debug.LogError(
+                    $"[Robogame] CreateDefaultBlueprints: BlockDefinitionLibrary load FAILED at {LibraryAssetPath}. " +
+                    "Run Robogame > Scaffold > Gameplay > Populate Block Definition Library first.");
+                return null;
+            }
+
+            ChassisBlueprint ground = CreateOrUpdateBlueprint(DefaultGroundPath, BuildGroundPlan(lib));
+            CreateOrUpdateBlueprint(DefaultPlanePath, BuildPlanePlan(lib));
+            CreateOrUpdateBlueprint(DefaultGrapplerPath, BuildGrapplerPlan(lib));
+            CreateOrUpdateBlueprint(DefaultBoatPath,  BuildBoatPlan(lib));
+            CreateOrUpdateBlueprint(DefaultBomberPath, BuildBomberPlan(lib));
             // Propeller plane: same wing/tail layout as the standard plane
             // but propulsion comes from a forward-facing rotor + 4-blade
             // propeller ring at the nose instead of a thruster at the tail.
             // RotorsGenerateLift = true flips the prop's foils into thrust
             // mode (force along the rotor's spin axis = chassis +Z).
-            CreateOrUpdateBlueprint(DefaultPropPlanePath, "Prop Plane", ChassisKind.Plane, BuildPropPlaneEntries(), rotorsGenerateLift: true);
-            // Helicopter: simple T-shaped sandbox chassis — short fuselage,
-            // long tail boom, vertical fin, rotor on top of the CPU. The
-            // rotor block flips into lift mode (kinematic hub + ring of
-            // aerofoil blades) via RotorsGenerateLift; ChassisFactory.Build
-            // sets the flag on every RotorBlock after placement. No
-            // thruster — forward flight via player tilt input is a
-            // separate session. Ground-kind for now (no plane-spawn
-            // forward velocity); revisit once helicopter input lands.
-            CreateOrUpdateBlueprint(DefaultHelicopterPath, "Helicopter", ChassisKind.Ground, BuildHelicopterEntries(), rotorsGenerateLift: true);
-            CreateOrUpdateBlueprint(CombatDummyPath, "Combat Dummy", ChassisKind.Ground, BuildDummyEntries());
-            // Stress-test target: a tall column of rotors, each carrying
-            // a default ring of 4 ropes. The arena controller spawns this
-            // when the Stress.RotorTower tweakable is on; a dev session
-            // drags the slider to 1, the tower appears, the Profiler
-            // shows the truth about how the kinematic-hub trick scales.
-            CreateOrUpdateBlueprint(StressTowerPath, "Stress Rotor Tower", ChassisKind.Ground, BuildStressTowerEntries());
+            CreateOrUpdateBlueprint(DefaultPropPlanePath, BuildPropPlanePlan(lib));
+            // Helicopter: rotor on top of cabin generates lift via
+            // RotorsGenerateLift. Ground-kind so it spawns on the pad;
+            // forward-flight input is a separate session.
+            CreateOrUpdateBlueprint(DefaultHelicopterPath, BuildHelicopterPlan(lib));
+            CreateOrUpdateBlueprint(CombatDummyPath, BuildCombatDummyPlan(lib));
+            // Stress-test target: tall column of rotors. Spawn-gated by
+            // Stress.RotorTower tweakable in the settings panel.
+            CreateOrUpdateBlueprint(StressTowerPath, BuildStressTowerPlan(lib));
             // Verlet rope profiling target (PHYSICS_PLAN § 2 trigger #1):
-            // 5 rotor levels × 4 ropes ringing each rotor's mech cell, each
-            // rope at default 8 segments → 5 × 4 = 20 chains × 8 segs =
-            // 160 particles. Old joint-chain pre-Verlet would be 160
-            // Rigidbodies + 160 ConfigurableJoints, well above the alarm.
-            CreateOrUpdateBlueprint(StressRopeTowerPath, "Stress Rope Tower", ChassisKind.Ground, BuildStressRopeTowerEntries(), rotorsGenerateLift: false);
-            // Arch dummy: simple grounded archway. Two 1-cell-thick
-            // pillars + a 1-cell-thick top beam. Designed for the
-            // hook test loop: helicopter flies up to the arch, the
-            // rope swings, the J-hook latches onto the top beam. The
-            // 1 m beam fits the hook's 1.5 m mouth cleanly.
-            CreateOrUpdateBlueprint(ArchDummyPath, "Arch Dummy", ChassisKind.Ground, BuildArchDummyEntries());
+            // 5 rotor levels × 4 ropes ringing each rotor's mech cell =
+            // 20 chains × 8 segs = 160 particles for the Verlet sim.
+            CreateOrUpdateBlueprint(StressRopeTowerPath, BuildStressRopeTowerPlan(lib));
+            // Arch dummy: pillars + beam, sized so the J-hook's 1.5 m mouth
+            // scoops the top beam cleanly.
+            CreateOrUpdateBlueprint(ArchDummyPath, BuildArchDummyPlan(lib));
             AssetDatabase.SaveAssets();
-            Debug.Log($"[Robogame] Default blueprints created (ground asset persisted: {AssetDatabase.Contains(ground)}).");
+            Debug.Log($"[Robogame] Default blueprints created via ScriptedChassisBuilder (ground asset persisted: {AssetDatabase.Contains(ground)}).");
             return ground;
         }
 
-        private static ChassisBlueprint.Entry[] BuildGroundEntries()
+        private static BlueprintPlan BuildGroundPlan(BlockDefinitionLibrary lib)
         {
-            // Mirrors RobotLayouts.PopulateTestRobot: 3×6 chassis (cubes
-            // fill every floor cell except the CPU), with 6 wheels mounted
-            // on the side faces of the outermost cubes — stem extends out
-            // from the chassis along ±X.
-            var list = new List<ChassisBlueprint.Entry>();
-            const int xMin = -1, xMax = 1, zMin = -2, zMax = 3;
-            for (int x = xMin; x <= xMax; x++)
-            for (int z = zMin; z <= zMax; z++)
+            // 3-wide × 6-long floor (x ∈ [-1,1], z ∈ [-2,3]), CPU at centre,
+            // weapon on top, six wheels side-mounted on the outermost cubes.
+            // Build order is CPU → outward so every Place call has a placed
+            // host on its mount face — the same constraint a player faces
+            // building this from scratch in the garage.
+            //
+            // Cube Up directions point back toward a placed neighbor; cubes
+            // are visually symmetric so the choice is arbitrary as long as
+            // PlacementRules' host-exists check passes.
+            var sb = ScriptedChassisBuilder.Create("Tank", ChassisKind.Ground, lib);
+            try
             {
-                if (x == 0 && z == 0) continue; // CPU
-                list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(x, 0, z)));
+                sb.Place(BlockIds.Cpu, 0, 0, 0);
+                // Central z-axis from CPU outward (north then south). Up =
+                // step direction so each cube hosts on the previous one.
+                Vector3Int forwardStep = new Vector3Int(0, 0, 1);
+                Vector3Int backStep    = new Vector3Int(0, 0, -1);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  1), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  2), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  3), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -1), backStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -2), backStep);
+                // Side strips mirrored across X. Each x=1 cube mounts on the
+                // x=0 column placed above; mirror produces the x=-1 cube
+                // mounting on the corresponding x=0 cell.
+                Vector3Int rightStep = new Vector3Int(1, 0, 0);
+                sb.MirrorX(b => b
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0,  0), rightStep)
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0,  1), rightStep)
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0,  2), rightStep)
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0,  3), rightStep)
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0, -1), rightStep)
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0, -2), rightStep));
+                // Top weapon on CPU's +Y face.
+                sb.Place(BlockIds.Weapon, new Vector3Int(0, 1, 0), Vector3Int.up);
+                // Wheels: side-mount stem extends outward from the
+                // outermost cube. Each wheel's host = (±1, 0, z); up =
+                // ±X. Mirrored across X for the opposite side.
+                sb.MirrorX(b => b
+                    .Place(BlockIds.WheelSteer, new Vector3Int(2, 0,  3), rightStep)
+                    .Place(BlockIds.Wheel,      new Vector3Int(2, 0,  0), rightStep)
+                    .Place(BlockIds.Wheel,      new Vector3Int(2, 0, -2), rightStep));
+                return sb.Build();
             }
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Weapon, new Vector3Int(0, 1, 0)));
-            Vector3Int upRight = new Vector3Int( 1, 0, 0);
-            Vector3Int upLeft  = new Vector3Int(-1, 0, 0);
-            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int(xMin - 1, 0, zMax), upLeft));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int(xMax + 1, 0, zMax), upRight));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(xMin - 1, 0, 0),    upLeft));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(xMax + 1, 0, 0),    upRight));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(xMin - 1, 0, zMin), upLeft));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(xMax + 1, 0, zMin), upRight));
-            return list.ToArray();
+            finally { sb.Dispose(); }
         }
 
-        private static ChassisBlueprint.Entry[] BuildPlaneEntries()
+        private static BlueprintPlan BuildPlanePlan(BlockDefinitionLibrary lib)
         {
-            // Plane in the new "wing extends along mount-face normal"
-            // paradigm (session 41). Wings side-mount on the fuselage cubes
-            // so they extend laterally; vertical fin top-mounts on a tail
-            // riser so it extends straight up. Each wing is a single block
-            // with span set in Dims, replacing the old "row of unit foils"
-            // pattern.
+            // Plane: side-mount wings + canards + tail stabs, top-mount
+            // vertical fin on a riser, tail-hanging rope+hook for the
+            // contact-damage hot path. Thruster sits on top of the tail
+            // spine end with up=+Y so ThrusterBlock's `transform.forward`
+            // resolves to chassis +Z (forward push). With up != +Y,
+            // OrientationFromUp's fwdSeed fallback rotates the forward
+            // axis sideways — see ThrusterBlock.Tick.
             //
             // Layout (forward = +Z):
-            //   - Spine cubes z=-2..3 with thruster at z=-3 and CPU at z=0.
+            //   - Spine cubes z=-3..3 with CPU at z=0.
             //   - Top weapon at the nose (0, 1, 3).
+            //   - Thruster on top of the tail end: (0, 1, -3) up=+Y.
             //   - Main wing pair: side-mounted on the CPU, span 4.
             //   - Forward canards: side-mounted on (0,0,1), span 2.
             //   - Tail stabilisers: side-mounted on (0,0,-2), span 2.
-            //   - Vertical fin: top-mounted on a riser above the tail, span 2.
-            //   - Tail rope-with-hook for hot-testing the contact-damage path.
+            //   - Vertical fin: top-mounted on a riser above (0,0,-2), span 2.
+            //   - Tail rope+hook on -Y face of (0,0,-2).
             Vector3 wingDims  = new Vector3(4f, 0.08f, 0.9f);
             Vector3 stabDims  = new Vector3(2f, 0.08f, 0.7f);
             Vector3 finDims   = new Vector3(2f, 0.08f, 0.9f);
             Vector3Int upRight = new Vector3Int( 1, 0, 0);
             Vector3Int upTop   = new Vector3Int( 0, 1, 0);
-            return BlueprintBuilder.Create("Plane", ChassisKind.Plane)
-                .Block(BlockIds.Cpu,      0, 0,  0)
-                .Block(BlockIds.Thruster, 0, 0, -3)
-                .Row(BlockIds.Cube, new Vector3Int(0, 0, -2), new Vector3Int(0, 0, -1))
-                .Row(BlockIds.Cube, new Vector3Int(0, 0,  1), new Vector3Int(0, 0,  3))
-                .Block(BlockIds.Weapon,   0, 1,  3)
-                // Main wings + forward canards + tail stabilisers — write
-                // the +X side, MirrorX produces the -X side with up flipped.
-                .MirrorX(b => b
-                    .Block(BlockIds.Aero, new Vector3Int(1, 0,  0), upRight, wingDims)
-                    .Block(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)
-                    .Block(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, stabDims))
-                // Vertical fin riser + the fin itself (top-mounted, extends up).
-                .Block(BlockIds.Cube, 0, 1, -2)
-                .Block(BlockIds.AeroFin, new Vector3Int(0, 2, -2), upTop, finDims)
-                // Hook on a rope hanging off the tail-boom cube. Connectivity
-                // walks hook → rope → cube at (0, 0, -2) → CPU.
-                .Block(BlockIds.Rope, 0, -1, -2)
-                .Block(BlockIds.Hook, 0, -2, -2)
-                .Build()
-                .Entries;
-        }
+            Vector3Int upDown  = new Vector3Int( 0,-1, 0);
+            Vector3Int forwardStep = new Vector3Int(0, 0, 1);
+            Vector3Int backStep    = new Vector3Int(0, 0,-1);
 
-        private static ChassisBlueprint.Entry[] BuildBuggyEntries()
-        {
-            // Compact 3-wide × 3-long buggy chassis (a solid 3×3 floor of
-            // cubes with the CPU at centre) and 4 wheels mounted on the
-            // ±X faces of the front and rear corner cubes.
-            var list = new List<ChassisBlueprint.Entry>();
-            for (int x = -1; x <= 1; x++)
-            for (int z = -1; z <= 1; z++)
+            var sb = ScriptedChassisBuilder.Create("Plane", ChassisKind.Plane, lib);
+            try
             {
-                if (x == 0 && z == 0) continue; // CPU
-                list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(x, 0, z)));
+                sb.Place(BlockIds.Cpu, 0, 0, 0);
+                // Forward spine (z=1..3), then aft spine (z=-1..-3). Each
+                // cube hosts on the previous one along the spine.
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  1), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  2), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  3), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -1), backStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -2), backStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -3), backStep);
+                // Thruster on +Y face of the tail-end cube. up=+Y is the
+                // only orientation that gives ThrusterBlock the correct
+                // forward axis (chassis +Z) for push direction.
+                sb.Place(BlockIds.Thruster, new Vector3Int(0, 1, -3), upTop);
+                // Top weapon at the nose.
+                sb.Place(BlockIds.Weapon, new Vector3Int(0, 1, 3), upTop);
+                // Main wings + canards + tail stabs — mirrored.
+                sb.MirrorX(b => b
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0,  0), upRight, wingDims)
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, stabDims));
+                // Vertical fin: riser cube on top of (0,0,-2), then the
+                // fin top-mounted on the riser.
+                sb.Place(BlockIds.Cube,    new Vector3Int(0, 1, -2), upTop);
+                sb.Place(BlockIds.AeroFin, new Vector3Int(0, 2, -2), upTop, finDims);
+                // Rope+hook hanging off the -Y face of the tail-boom cube
+                // (0,0,-2). Rope's mount-up = -Y (chain dangles downward);
+                // hook lands at ropeCell + lengthCells * up.
+                sb.RopeWithHook(new Vector3Int(0, -1, -2), upDown, lengthCells: 1);
+                return sb.Build();
             }
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)));
-            // Wheels: stem outward from corner cubes. Steering at front (z=+1).
-            Vector3Int upRight = new Vector3Int( 1, 0, 0);
-            Vector3Int upLeft  = new Vector3Int(-1, 0, 0);
-            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int(-2, 0,  1), upLeft));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.WheelSteer, new Vector3Int( 2, 0,  1), upRight));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int(-2, 0, -1), upLeft));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Wheel,      new Vector3Int( 2, 0, -1), upRight));
-            // Roll cage / weapon mount.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Weapon, new Vector3Int(0, 1, 0)));
-            return list.ToArray();
+            finally { sb.Dispose(); }
         }
 
-        private static ChassisBlueprint.Entry[] BuildBoatEntries()
+        private static BlueprintPlan BuildGrapplerPlan(BlockDefinitionLibrary lib)
         {
-            // Sandbox boat for the water arena: a wide 5×7 flat hull
-            // (35 cells of displacement) with a CPU at the centre, a single
-            // rear thruster on the deck, and a weapon up front. Designed
-            // around the default water tweakables (density=4, displacement=0.30):
-            // total mass ≈ 39 kg vs buoyancy ≈ 412 N at full submersion, so
-            // it settles ≈94% submerged — visible freeboard, room to bob.
-            // Bump Water.Density above ~6 in Settings if you want it to ride higher.
+            // Plane variant kitted for utility play: same airframe as the
+            // default Plane (spine, wings, canards, tail stabs, fin), but
+            // sports a Grapple Magnet on the nose instead of an SMG and
+            // *two* thrusters so the player has the extra acceleration
+            // they need to drag a heavy target around on the rope.
             //
-            // Steering note: this is a Ground-kind chassis with no wheels,
-            // so movement is thruster-only (W = forward, no native turn).
-            // That's intentional for a v1 sandbox; rudder/keel block lands
-            // in a follow-up if we want true boat control.
-            var list = new List<ChassisBlueprint.Entry>();
+            // No tail hook — the grapple magnet is the only swung tool
+            // on this preset. (Hook + grapple together is a viable
+            // future preset.)
+            Vector3 wingDims  = new Vector3(4f, 0.08f, 0.9f);
+            Vector3 stabDims  = new Vector3(2f, 0.08f, 0.7f);
+            Vector3 finDims   = new Vector3(2f, 0.08f, 0.9f);
+            Vector3Int upRight = new Vector3Int( 1, 0, 0);
+            Vector3Int upTop   = new Vector3Int( 0, 1, 0);
+            Vector3Int forwardStep = new Vector3Int(0, 0, 1);
+            Vector3Int backStep    = new Vector3Int(0, 0,-1);
+
+            var sb = ScriptedChassisBuilder.Create("Grappler", ChassisKind.Plane, lib);
+            try
+            {
+                sb.Place(BlockIds.Cpu, 0, 0, 0);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  1), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  2), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  3), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -1), backStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -2), backStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -3), backStep);
+                // Twin thrusters along the spine top, both with up=+Y.
+                // up=+Y is the only orientation that lets ThrusterBlock
+                // resolve its forward axis to chassis +Z (see the rant
+                // in BuildPlanePlan). That means each thruster's host
+                // must be one cell BELOW it on the spine — no -Y face
+                // mount is available because there's no block under the
+                // tail cube. So we stack two thrusters at (0,1,-3) and
+                // (0,1,-1), hosted by spine cubes (0,0,-3) and (0,0,-1).
+                // Twice the forward thrust, no airframe restructure.
+                sb.Place(BlockIds.Thruster, new Vector3Int(0, 1, -3), upTop);
+                sb.Place(BlockIds.Thruster, new Vector3Int(0, 1, -1), upTop);
+                // Grapple magnet on the bottom-rear face of the tail-
+                // boom cube (0, 0, -2). Same mount as the default
+                // Plane's tail rope+hook, on purpose: apples-to-apples
+                // comparison between this fired-from-a-gun grapple and
+                // a chassis-attached rope+magnet on the same airframe
+                // position. up=-Y means the block's local +Y axis points
+                // downward, so the yoke + barrel will hang under the
+                // tail rather than rise above the nose.
+                Vector3Int upDown = new Vector3Int(0, -1, 0);
+                sb.Place(BlockIds.GrappleMagnet, new Vector3Int(0, -1, -2), upDown);
+                // Same wing kit as the default plane: main wings on the
+                // CPU, canards forward, stabs back.
+                sb.MirrorX(b => b
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0,  0), upRight, wingDims)
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, stabDims));
+                // Vertical fin: riser cube on top of (0,0,-2), fin on top.
+                sb.Place(BlockIds.Cube,    new Vector3Int(0, 1, -2), upTop);
+                sb.Place(BlockIds.AeroFin, new Vector3Int(0, 2, -2), upTop, finDims);
+                return sb.Build();
+            }
+            finally { sb.Dispose(); }
+        }
+
+        private static BlueprintPlan BuildBoatPlan(BlockDefinitionLibrary lib)
+        {
+            // 5w × 7d flat hull, CPU at centre, rear thruster on deck,
+            // rudder below stern, bow gun up front. Buoyancy math sits at
+            // ~94% submerged with default water tweakables (density=4,
+            // displacement=0.30) → 39 kg vs 412 N at full submersion.
             const int xMin = -2, xMax = 2;
             const int zMin = -3, zMax = 3;
+            Vector3Int rightStep = new Vector3Int(1, 0, 0);
+            Vector3Int forwardStep = new Vector3Int(0, 0, 1);
+            Vector3Int backStep    = new Vector3Int(0, 0, -1);
+            Vector3Int upDown      = new Vector3Int(0, -1, 0);
 
-            // Flat hull: 5 wide × 7 long × 1 tall. CPU replaces the centre
-            // cube so the brain has the same buoyancy contribution as the
-            // structure block it displaces.
-            for (int x = xMin; x <= xMax; x++)
-            for (int z = zMin; z <= zMax; z++)
+            var sb = ScriptedChassisBuilder.Create("Boat", ChassisKind.Ground, lib);
+            try
             {
-                if (x == 0 && z == 0) continue; // CPU goes here
-                list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(x, 0, z)));
+                sb.Place(BlockIds.Cpu, 0, 0, 0);
+                // Central z-axis from CPU outward to the bow / stern.
+                for (int z = 1; z <= zMax; z++)
+                    sb.Place(BlockIds.Cube, new Vector3Int(0, 0, z), forwardStep);
+                for (int z = -1; z >= zMin; z--)
+                    sb.Place(BlockIds.Cube, new Vector3Int(0, 0, z), backStep);
+                // Side strips: each x-step mirrored, each row along z fans
+                // out from the x=0 column. Build x=1 first, then x=2; for
+                // each x, sweep z from 0 outward.
+                for (int x = 1; x <= xMax; x++)
+                {
+                    int xLocal = x;
+                    sb.MirrorX(b =>
+                    {
+                        b.Place(BlockIds.Cube, new Vector3Int(xLocal, 0, 0), rightStep);
+                        for (int z = 1; z <= zMax; z++)
+                            b.Place(BlockIds.Cube, new Vector3Int(xLocal, 0, z), rightStep);
+                        for (int z = -1; z >= zMin; z--)
+                            b.Place(BlockIds.Cube, new Vector3Int(xLocal, 0, z), rightStep);
+                    });
+                }
+                // Rear thruster on top of stern (above water line).
+                sb.Place(BlockIds.Thruster, new Vector3Int(0, 1, zMin), Vector3Int.up);
+                // Rudder hangs below stern.
+                sb.Place(BlockIds.Rudder, new Vector3Int(0, -1, zMin), upDown);
+                // Bow gun.
+                sb.Place(BlockIds.Weapon, new Vector3Int(0, 1, zMax), Vector3Int.up);
+                return sb.Build();
             }
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)));
-
-            // Single rear thruster on top of the deck — keeps the prop
-            // above water so it doesn't constantly drag.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Thruster, new Vector3Int(0, 1, zMin)));
-            // Rudder hangs below the stern (y=-1) where a real boat's
-            // blade would sit. Speed-scaled yaw torque — W to push,
-            // A/D to turn. Adds buoyancy + mass below COM, which also
-            // helps the boat self-right.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Rudder, new Vector3Int(0, -1, zMin)));
-            // Bow gun for sandbox target practice.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Weapon, new Vector3Int(0, 1, zMax)));
-
-            return list.ToArray();
+            finally { sb.Dispose(); }
         }
 
-        private static ChassisBlueprint.Entry[] BuildBomberEntries()
+        private static BlueprintPlan BuildBomberPlan(BlockDefinitionLibrary lib)
         {
-            // Bomber: same fuselage / wing skeleton as the plane (new
-            // side-mount paradigm), but the top weapon is replaced with a
-            // bomb bay slung under the CPU. Wider main wing (span 5) to
-            // carry the extra bomb-bay mass.
+            // Bomber: same wing/tail skeleton as the plane but with a
+            // bomb bay slung under the CPU and a wider main wing (span 5).
+            // Thruster on top of tail spine with up=+Y so the forward axis
+            // resolves correctly — see plane's note on ThrusterBlock.
             Vector3 wingDims = new Vector3(5f, 0.08f, 1.0f);
             Vector3 stabDims = new Vector3(2f, 0.08f, 0.7f);
             Vector3 finDims  = new Vector3(2f, 0.08f, 0.9f);
             Vector3Int upRight = new Vector3Int( 1, 0, 0);
             Vector3Int upTop   = new Vector3Int( 0, 1, 0);
-            return BlueprintBuilder.Create("Bomber", ChassisKind.Plane)
-                .Block(BlockIds.Cpu,      0, 0,  0)
-                .Block(BlockIds.Thruster, 0, 0, -3)
-                .Row(BlockIds.Cube, new Vector3Int(0, 0, -2), new Vector3Int(0, 0, -1))
-                .Row(BlockIds.Cube, new Vector3Int(0, 0,  1), new Vector3Int(0, 0,  3))
-                // Bomb bay underneath the CPU (drops bombs straight down).
-                .Block(BlockIds.BombBay, 0, -1, 0)
-                // Main wings + forward + tail stabilisers (mirrored).
-                .MirrorX(b => b
-                    .Block(BlockIds.Aero, new Vector3Int(1, 0,  0), upRight, wingDims)
-                    .Block(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)
-                    .Block(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, stabDims))
-                // Vertical fin.
-                .Block(BlockIds.Cube, 0, 1, -2)
-                .Block(BlockIds.AeroFin, new Vector3Int(0, 2, -2), upTop, finDims)
-                .Build()
-                .Entries;
+            Vector3Int upDown  = new Vector3Int( 0,-1, 0);
+            Vector3Int forwardStep = new Vector3Int(0, 0, 1);
+            Vector3Int backStep    = new Vector3Int(0, 0,-1);
+
+            var sb = ScriptedChassisBuilder.Create("Bomber", ChassisKind.Plane, lib);
+            try
+            {
+                sb.Place(BlockIds.Cpu, 0, 0, 0);
+                // Forward + aft spine.
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  1), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  2), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  3), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -1), backStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -2), backStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -3), backStep);
+                sb.Place(BlockIds.Thruster, new Vector3Int(0, 1, -3), upTop);
+                // Bomb bay on CPU's -Y face.
+                sb.Place(BlockIds.BombBay, new Vector3Int(0, -1, 0), upDown);
+                // Wings + canards + tail stabs mirrored.
+                sb.MirrorX(b => b
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0,  0), upRight, wingDims)
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, stabDims));
+                // Vertical fin riser + fin.
+                sb.Place(BlockIds.Cube,    new Vector3Int(0, 1, -2), upTop);
+                sb.Place(BlockIds.AeroFin, new Vector3Int(0, 2, -2), upTop, finDims);
+                return sb.Build();
+            }
+            finally { sb.Dispose(); }
         }
 
-        private static ChassisBlueprint.Entry[] BuildPropPlaneEntries()
+        private static BlueprintPlan BuildPropPlanePlan(BlockDefinitionLibrary lib)
         {
-            // Prop plane: same skeleton as the new-paradigm Plane but the
-            // rear thruster is gone and the nose carries a forward-facing
-            // rotor (spinAxis = +Z, four propeller blades ringed around
-            // the mechanism). With RotorsGenerateLift = true the foil
-            // physics push the chassis along chassis +Z — forward thrust.
-            //
-            // Layout (forward = +Z):
-            //   - Spine cubes z=-2..3 (no thruster).
-            //   - CPU at origin.
-            //   - Top weapon at (0, 1, 0).
-            //   - Main wings: side-mounted on CPU, span 4.
-            //   - Forward canards: side-mounted on (0,0,1), span 2.
-            //   - Tail stabilisers: side-mounted on (0,0,-2), span 2.
-            //   - Vertical fin on a 1-cell riser above the tail, span 2.
-            //   - Nose rotor at z=4 with the propeller ring at z=5.
+            // Prop plane: plane skeleton with a forward-facing nose rotor
+            // instead of a rear thruster. spinAxis=+Z; the foil ring at
+            // (0,0,5) and ±x / ±y produces forward thrust when
+            // RotorsGenerateLift is set on the blueprint.
             Vector3 wingDims = new Vector3(4f, 0.08f, 0.9f);
             Vector3 stabDims = new Vector3(2f, 0.08f, 0.7f);
             Vector3 finDims  = new Vector3(2f, 0.08f, 0.9f);
             Vector3Int upRight = new Vector3Int( 1, 0, 0);
             Vector3Int upTop   = new Vector3Int( 0, 1, 0);
-            return BlueprintBuilder.Create("Prop Plane", ChassisKind.Plane)
-                .Block(BlockIds.Cpu,    0, 0, 0)
-                .Row(BlockIds.Cube, new Vector3Int(0, 0, -2), new Vector3Int(0, 0, -1))
-                .Row(BlockIds.Cube, new Vector3Int(0, 0,  1), new Vector3Int(0, 0,  3))
-                .Block(BlockIds.Weapon, 0, 1, 0)
-                .MirrorX(b => b
-                    .Block(BlockIds.Aero, new Vector3Int(1, 0,  0), upRight, wingDims)
-                    .Block(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)
-                    .Block(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, stabDims))
-                .Block(BlockIds.Cube, 0, 1, -2)
-                .Block(BlockIds.AeroFin, new Vector3Int(0, 2, -2), upTop, finDims)
-                // Nose-mounted propeller. spinAxis = +Z aligns the rotor's
-                // local +Y with chassis +Z, so the lateral axes ring
-                // (chassis ±X and ±Y) carries the four propeller blades.
-                .RotorWithFoils(new Vector3Int(0, 0, 4), new Vector3Int(0, 0, 1))
-                .Build()
-                .Entries;
+            Vector3Int forwardStep = new Vector3Int(0, 0, 1);
+            Vector3Int backStep    = new Vector3Int(0, 0,-1);
+
+            var sb = ScriptedChassisBuilder.Create("Prop Plane", ChassisKind.Plane, lib);
+            try
+            {
+                sb.Place(BlockIds.Cpu, 0, 0, 0);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  1), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  2), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  3), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -1), backStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -2), backStep);
+                sb.Place(BlockIds.Weapon, new Vector3Int(0, 1, 0), Vector3Int.up);
+                sb.MirrorX(b => b
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0,  0), upRight, wingDims)
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, stabDims));
+                sb.Place(BlockIds.Cube,    new Vector3Int(0, 1, -2), upTop);
+                sb.Place(BlockIds.AeroFin, new Vector3Int(0, 2, -2), upTop, finDims);
+                // Nose rotor with 4-foil propeller ring. spinAxis = +Z
+                // → rotor hosts on the +Z face of (0,0,3) (nose spine cap);
+                // auto-companion drops the mechanism cube at (0,0,5); foils
+                // ring at (±1,0,5) and (0,±1,5).
+                sb.RotorWithFoils(new Vector3Int(0, 0, 4), forwardStep);
+                sb.RotorsGenerateLift(true);
+                return sb.Build();
+            }
+            finally { sb.Dispose(); }
         }
 
-        private static ChassisBlueprint.Entry[] BuildHelicopterEntries()
+        private static BlueprintPlan BuildHelicopterPlan(BlockDefinitionLibrary lib)
         {
-            // Larger helicopter sandbox — ~38 cells, roughly 4× the size of
-            // the previous T-shaped placeholder. Built via BlueprintBuilder
-            // so the layout reads top-down as a description of the chassis
-            // rather than a coordinate dump.
+            // Larger helicopter sandbox (~38 cells). Authored as a sequence
+            // of player-style placements — every cube hosts on a placed
+            // neighbor, every weapon / rotor / foil has a face-adjacent
+            // cabin or mechanism cube to mount on.
             //
             // Plan side profile (z increases forward, +X = right):
             //
@@ -356,169 +456,215 @@ namespace Robogame.Tools.Editor
             //                #
             //                F       y=1 vertical tail fin at the boom tip
             //
-            // Scope cuts: ChassisKind.Ground (arena spawn on the pad, not
-            // 18 m up) and RotorsGenerateLift = true (set externally in
-            // CreateOrUpdateBlueprint). Dual side guns share the chassis
-            // WeaponMount; both fire toward the player's aim point each
-            // press, giving the chassis a visible muzzle on each side.
-            return BlueprintBuilder.Create("Helicopter", ChassisKind.Ground)
-                // CPU at the cabin centre.
-                .Block(BlockIds.Cpu, 0, 0, 0)
-                // Central column along Z: tail boom (-5..-1) and forward
-                // fuselage (1..3). z=0 holds the CPU (already placed).
-                .Row(BlockIds.Cube, new Vector3Int(0, 0, -5), new Vector3Int(0, 0, -1))
-                .Row(BlockIds.Cube, new Vector3Int(0, 0,  1), new Vector3Int(0, 0,  3))
-                // Cabin sides at |x|=1, z=-1..2. Mirrored across X so
-                // the layout reads as one half + symmetry.
-                .MirrorX(b => b
-                    .Block(BlockIds.Cube, 1, 0, -1)
-                    .Block(BlockIds.Cube, 1, 0,  0)
-                    .Block(BlockIds.Cube, 1, 0,  1)
-                    .Block(BlockIds.Cube, 1, 0,  2))
-                // Outboard hardpoint guns at |x|=2, z=0. Each connects to
-                // the cabin via face-adjacency through (±1, 0, 0).
-                .MirrorX(b => b.Block(BlockIds.Weapon, 2, 0, 0))
-                // Cabin roof: 3-wide × 4-deep slab at y=1, z=-1..2.
-                .Box(BlockIds.Cube, new Vector3Int(-1, 1, -1), new Vector3Int(1, 1, 2))
-                // Vertical tail fin on top of the boom tip.
-                .Block(BlockIds.AeroFin, 0, 1, -5)
-                // Tail rotor REMOVED in session 23. The bare cosmetic
-                // tail rotor at (1, 0, -4) was the only asymmetric block
-                // on this preset (every other cell has a -X mirror).
-                // PhysX auto-computes the chassis inertia tensor from
-                // collider mass distribution; an off-axis cell creates
-                // off-diagonal moments. Combined with RobotDrive's
-                // forced centerOfMass override, applied torques operate
-                // in a slightly mismatched frame and the chassis drifts
-                // toward a roll about the chassis-z axis. Removing the
-                // tail rotor restores symmetry; PlaneControlSubsystem
-                // damping does the rest.
-                // Main rotor: stem at (0,2,0) on top of the cabin roof.
-                // RotorWithFoils() also drops the invisible mechanism cube
-                // and the four foils ringed around it at y=3 — those are
-                // the absolute topmost cells on the chassis.
-                .RotorWithFoils(new Vector3Int(0, 2, 0))
-                .Build()
-                .Entries;
-        }
+            // Session 23 design note: no cosmetic tail rotor (asymmetric
+            // mass creates off-diagonal inertia moments that fight
+            // RobotDrive's center-of-mass override).
+            Vector3Int upTop      = new Vector3Int(0, 1, 0);
+            Vector3Int rightStep  = new Vector3Int(1, 0, 0);
+            Vector3Int forwardStep = new Vector3Int(0, 0, 1);
+            Vector3Int backStep    = new Vector3Int(0, 0,-1);
 
-        private static ChassisBlueprint.Entry[] BuildDummyEntries()
-        {
-            // Big fortress dummy: 5w × 5d × 6h solid cube body with a CPU
-            // "head" sticking up from the top-centre. Solid (not hollow) so
-            // splash damage has long chains of connected blocks to chew
-            // through — makes propagation visually obvious. Centred on the
-            // x/z origin so positioning the dummy GameObject feels natural.
-            var list = new List<ChassisBlueprint.Entry>();
-            const int half = 2;       // → 5 wide / deep (-2..2)
-            const int height = 6;     // body cubes y=0..5
-            for (int x = -half; x <= half; x++)
-            for (int z = -half; z <= half; z++)
-            for (int y = 0; y < height; y++)
+            var sb = ScriptedChassisBuilder.Create("Helicopter", ChassisKind.Ground, lib);
+            try
             {
-                list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(x, y, z)));
+                sb.Place(BlockIds.Cpu, 0, 0, 0);
+                // Central spine outward from CPU (forward then aft).
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  1), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  2), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  3), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -1), backStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -2), backStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -3), backStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -4), backStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -5), backStep);
+                // Cabin sides at |x|=1, z=-1..2. Each x=1 cube mounts on
+                // the corresponding x=0 cell (rightStep up); mirror builds
+                // the -X side simultaneously.
+                sb.MirrorX(b => b
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0, -1), rightStep)
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0,  0), rightStep)
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0,  1), rightStep)
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0,  2), rightStep));
+                // Outboard hardpoint guns at |x|=2, z=0 — mount on the
+                // cabin side cubes at |x|=1 (rightStep up).
+                sb.MirrorX(b => b.Place(BlockIds.Weapon, new Vector3Int(2, 0, 0), rightStep));
+                // Cabin roof at y=1, z=-1..2, x=-1..1. Every cell hosts on
+                // its y=0 counterpart (placed above). Up = +Y for every roof
+                // cell — Box default works because all the floor cells are
+                // there.
+                sb.Box(BlockIds.Cube, new Vector3Int(-1, 1, -1), new Vector3Int(1, 1, 2));
+                // Vertical tail fin on top of the boom tip cube (0,0,-5).
+                sb.Place(BlockIds.AeroFin, new Vector3Int(0, 1, -5), upTop);
+                // Main rotor at (0, 2, 0) above the cabin roof. The rotor
+                // hosts on (0, 1, 0) (a roof cell); auto-companion drops
+                // the mechanism cube at (0, 3, 0); the four foils ring
+                // around it.
+                sb.RotorWithFoils(new Vector3Int(0, 2, 0));
+                sb.RotorsGenerateLift(true);
+                return sb.Build();
             }
-            // CPU pokes up one cell above the centre of the roof so a sniper
-            // can decapitate from far away, but splash testing still has a
-            // chunky body to walk damage through.
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, height, 0)));
-            return list.ToArray();
+            finally { sb.Dispose(); }
         }
 
-        private static ChassisBlueprint.Entry[] BuildArchDummyEntries()
+        private static BlueprintPlan BuildCombatDummyPlan(BlockDefinitionLibrary lib)
         {
-            // Arch-shaped target dummy:
-            //   - Left pillar:  x=-2, y=0..6, z=0      (7 cells)
-            //   - Right pillar: x= 2, y=0..6, z=0      (7 cells)
-            //   - Top beam:     y=7, x=-2..2, z=0      (5 cells, CPU at centre)
+            // Solid 5×5×6 fortress with a CPU head one cell above the
+            // roof centre. The CPU sits at (0, 6, 0); every body cell must
+            // be CPU-reachable, so we build top-down from a temp top cell
+            // adjacent to the CPU.
             //
-            // ~5 m wide, 8 m tall. The opening between the pillars is
-            // 3 cells wide — enough to fly the helicopter through.
-            // The top beam is the natural grapple target: the hook
-            // approaches from below, scoops the beam, and the J's barb
-            // tip catches on the back side as the helicopter pulls
-            // away. CPU sits in the middle of the beam so connectivity
-            // walks pillar → beam → CPU.
-            return BlueprintBuilder.Create("Arch Dummy", ChassisKind.Ground)
-                .Block(BlockIds.Cpu, 0, 7, 0)
-                // Left pillar.
-                .Row(BlockIds.Cube, new Vector3Int(-2, 0, 0), new Vector3Int(-2, 6, 0))
-                // Right pillar.
-                .Row(BlockIds.Cube, new Vector3Int( 2, 0, 0), new Vector3Int( 2, 6, 0))
-                // Top beam — CPU is at (0,7,0), so place the four
-                // non-CPU beam cells around it.
-                .Block(BlockIds.Cube, -2, 7, 0)
-                .Block(BlockIds.Cube, -1, 7, 0)
-                .Block(BlockIds.Cube,  1, 7, 0)
-                .Block(BlockIds.Cube,  2, 7, 0)
-                .Build()
-                .Entries;
-        }
+            // Key constraint: CPU is at (0, 6, 0), so the layer at y=5 must
+            // contain the cell (0, 5, 0) (CPU-adjacent). We place that
+            // first, then expand the y=5 layer outward, then drop to y=4,
+            // etc. Each cube's Up points back toward a placed neighbor.
+            const int half = 2;
+            const int height = 6;
+            Vector3Int upDown = new Vector3Int(0, -1, 0);
+            Vector3Int rightStep = new Vector3Int(1, 0, 0);
+            Vector3Int forwardStep = new Vector3Int(0, 0, 1);
+            Vector3Int backStep    = new Vector3Int(0, 0,-1);
 
-        private static ChassisBlueprint.Entry[] BuildStressRopeTowerEntries()
-        {
-            // PHYSICS_PLAN § 2 stress profile: rotor-tower with rope rings
-            // around each rotor's mechanism cell. Used to verify the Verlet
-            // implementation scales (5 rotors × 4 ropes × 8 segs = 160
-            // particles vs the joint-chain's 160 RBs+joints). Drag a rope
-            // off each rotor in the four cardinal directions; the ropes
-            // dangle as the rotor spins, so the simulator gets exercised
-            // every step.
-            var list = new List<ChassisBlueprint.Entry>();
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)));
-            for (int y = 1; y < 10; y++)
+            var sb = ScriptedChassisBuilder.Create("Combat Dummy", ChassisKind.Ground, lib);
+            try
             {
-                bool isRotorLevel = (y % 2 == 1);
-                list.Add(new ChassisBlueprint.Entry(
-                    isRotorLevel ? BlockIds.Rotor : BlockIds.Cube,
-                    new Vector3Int(0, y, 0)));
-                if (isRotorLevel)
+                sb.Place(BlockIds.Cpu, new Vector3Int(0, height, 0));
+                // For each Y from height-1 down to 0, fill the 5×5 layer
+                // starting at (0, y, 0) which is adjacent to either the
+                // CPU (top layer) or the (0, y+1, 0) cell we just placed.
+                for (int y = height - 1; y >= 0; y--)
                 {
-                    // Four ropes ringed around the rotor at the same y. The
-                    // RobotRopeBinder will spawn a Verlet rope chain on each
-                    // — total = 4 chains per rotor × 5 rotors = 20 chains.
-                    // Default 8 segments each = 160 particles for the Verlet
-                    // simulator to integrate every FixedUpdate.
-                    list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int( 1, y,  0)));
-                    list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int(-1, y,  0)));
-                    list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int( 0, y,  1)));
-                    list.Add(new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int( 0, y, -1)));
+                    int yLocal = y;
+                    // (0, y, 0) — mounts on (0, y+1, 0) above (or CPU at top).
+                    sb.Place(BlockIds.Cube, new Vector3Int(0, yLocal, 0), upDown);
+                    // Central z-axis at this Y, growing out from (0, y, 0).
+                    for (int z = 1; z <= half; z++)
+                        sb.Place(BlockIds.Cube, new Vector3Int(0, yLocal, z), forwardStep);
+                    for (int z = -1; z >= -half; z--)
+                        sb.Place(BlockIds.Cube, new Vector3Int(0, yLocal, z), backStep);
+                    // Side strips at this Y, mirrored across X.
+                    for (int x = 1; x <= half; x++)
+                    {
+                        int xLocal = x;
+                        sb.MirrorX(b =>
+                        {
+                            b.Place(BlockIds.Cube, new Vector3Int(xLocal, yLocal, 0), rightStep);
+                            for (int z = 1; z <= half; z++)
+                                b.Place(BlockIds.Cube, new Vector3Int(xLocal, yLocal, z), rightStep);
+                            for (int z = -1; z >= -half; z--)
+                                b.Place(BlockIds.Cube, new Vector3Int(xLocal, yLocal, z), rightStep);
+                        });
+                    }
                 }
+                return sb.Build();
             }
-            return list.ToArray();
+            finally { sb.Dispose(); }
         }
 
-        private static ChassisBlueprint.Entry[] BuildStressTowerEntries()
+        private static BlueprintPlan BuildArchDummyPlan(BlockDefinitionLibrary lib)
         {
-            // Spinning-rotor tower used to visually stress-test multiple
-            // rotors on one chassis. A 1×1 column 10 cells tall with
-            // rotors at every odd y. The rotor block is now cosmetic
-            // (no Rigidbody, no ropes) so this loadout no longer
-            // exercises the joint solver — it's a sanity-check that
-            // many rotors at high RPM stay smooth and that the
-            // StressRotorTowerRpm override path still drives every
-            // rotor's spin rate. The original "80 dynamic rbs" stress
-            // test moves to the rope tower in a follow-up session
-            // (rotor + adjacent rope blocks); see PHYSICS_PLAN.md §2.
-            //
-            // CPU lives at the bottom so the rotors above all pass the
-            // CPU-connectivity check trivially (every cell is in a
-            // single y-axis chain back to (0,0,0)).
-            var list = new List<ChassisBlueprint.Entry>();
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)));
-            for (int y = 1; y < 10; y++)
+            // Pillars + top beam. CPU sits in the middle of the beam at
+            // (0, 7, 0). Build order: CPU → beam outward → pillars from
+            // beam ends downward. Each cube hosts on the previous step
+            // along the row direction.
+            Vector3Int rightStep = new Vector3Int(1, 0, 0);
+            Vector3Int leftStep  = new Vector3Int(-1, 0, 0);
+            Vector3Int upDown    = new Vector3Int(0, -1, 0);
+
+            var sb = ScriptedChassisBuilder.Create("Arch Dummy", ChassisKind.Ground, lib);
+            try
             {
-                bool isRotorLevel = (y % 2 == 1); // 1, 3, 5, 7, 9
-                list.Add(new ChassisBlueprint.Entry(
-                    isRotorLevel ? BlockIds.Rotor : BlockIds.Cube,
-                    new Vector3Int(0, y, 0)));
+                sb.Place(BlockIds.Cpu, new Vector3Int(0, 7, 0));
+                // Beam — outward from CPU along ±X.
+                sb.Place(BlockIds.Cube, new Vector3Int( 1, 7, 0), rightStep);
+                sb.Place(BlockIds.Cube, new Vector3Int( 2, 7, 0), rightStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(-1, 7, 0), leftStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(-2, 7, 0), leftStep);
+                // Pillars — downward from beam ends. Each pillar cell hosts
+                // on the cell above (the beam end first, then the prior
+                // pillar cell).
+                for (int y = 6; y >= 0; y--)
+                {
+                    sb.Place(BlockIds.Cube, new Vector3Int( 2, y, 0), upDown);
+                    sb.Place(BlockIds.Cube, new Vector3Int(-2, y, 0), upDown);
+                }
+                return sb.Build();
             }
-            return list.ToArray();
+            finally { sb.Dispose(); }
         }
 
-        private static ChassisBlueprint CreateOrUpdateBlueprint(
-            string path, string displayName, ChassisKind kind, ChassisBlueprint.Entry[] entries,
-            bool rotorsGenerateLift = false)
+        private static BlueprintPlan BuildStressRopeTowerPlan(BlockDefinitionLibrary lib)
+        {
+            // PHYSICS_PLAN § 2 stress profile. Each rotor's auto-companion
+            // cube lands at (0, y+spinAxis, 0) — since spinAxis=+Y the
+            // rotor at y=1 puts its mechanism cube at y=2. So if we use
+            // BlockIds.Cube at "even" Y, those would conflict with
+            // mechanism cubes. Instead we let auto-companion handle the
+            // even cells and only place rotors at odd Y.
+            //
+            // For each rotor level (y=1,3,5,7,9), four ropes ring the
+            // mechanism cube (the cell at y+1). Each rope's mount-up
+            // points outward from the mechanism cube. RotorBlock's
+            // BuildLiftRig won't adopt these as foils (rope mount face
+            // is allowed but rope is not aero — see BlockConnectivity).
+            Vector3Int rightStep = new Vector3Int(1, 0, 0);
+            Vector3Int leftStep  = new Vector3Int(-1, 0, 0);
+            Vector3Int forwardStep = new Vector3Int(0, 0, 1);
+            Vector3Int backStep    = new Vector3Int(0, 0,-1);
+
+            var sb = ScriptedChassisBuilder.Create("Stress Rope Tower", ChassisKind.Ground, lib);
+            try
+            {
+                sb.Place(BlockIds.Cpu, 0, 0, 0);
+                // Rotors at odd Y. Each rotor's auto-companion drops the
+                // mechanism cube one cell above (so y=1 rotor → cube at
+                // y=2, which serves as the host for the y=3 rotor).
+                // First rotor needs a structural host at y=0 (CPU works:
+                // CPU's +Y face hosts a rotor with up=+Y).
+                for (int y = 1; y < 10; y += 2)
+                {
+                    sb.Place(BlockIds.Rotor, new Vector3Int(0, y, 0), Vector3Int.up);
+                    // Four ropes ringed around the mechanism cube at y+1.
+                    int mech = y + 1;
+                    sb.Place(BlockIds.Rope, new Vector3Int( 1, mech, 0), rightStep);
+                    sb.Place(BlockIds.Rope, new Vector3Int(-1, mech, 0), leftStep);
+                    sb.Place(BlockIds.Rope, new Vector3Int( 0, mech, 1), forwardStep);
+                    sb.Place(BlockIds.Rope, new Vector3Int( 0, mech,-1), backStep);
+                }
+                return sb.Build();
+            }
+            finally { sb.Dispose(); }
+        }
+
+        private static BlueprintPlan BuildStressTowerPlan(BlockDefinitionLibrary lib)
+        {
+            // Spinning-rotor visual stress test. Same layout pattern as the
+            // rope tower but without the rope rings — pure rotor + mechanism
+            // cube column.
+            var sb = ScriptedChassisBuilder.Create("Stress Rotor Tower", ChassisKind.Ground, lib);
+            try
+            {
+                sb.Place(BlockIds.Cpu, 0, 0, 0);
+                for (int y = 1; y < 10; y += 2)
+                {
+                    sb.Place(BlockIds.Rotor, new Vector3Int(0, y, 0), Vector3Int.up);
+                    // Auto-companion cube at y+1 is placed by BuildSession;
+                    // no explicit Place needed.
+                }
+                return sb.Build();
+            }
+            finally { sb.Dispose(); }
+        }
+
+        /// <summary>
+        /// Persist a scripted <see cref="BlueprintPlan"/> to the on-disk
+        /// asset at <paramref name="path"/>. Hard-fails (throws) on any
+        /// validation error — defaults that wouldn't pass the same rules
+        /// the player faces in the garage are bugs in the build script,
+        /// not warnings to swallow. ScriptedChassisBuilder already threw
+        /// on rejected placements; this is the second-pass full-blueprint
+        /// validator (CPU connectivity, swept-overlap, pitch limits, ...).
+        /// </summary>
+        private static ChassisBlueprint CreateOrUpdateBlueprint(string path, BlueprintPlan plan)
         {
             ChassisBlueprint bp = LoadOrCreateAsset<ChassisBlueprint>(path);
             if (bp == null)
@@ -526,31 +672,30 @@ namespace Robogame.Tools.Editor
                 Debug.LogError($"[Robogame] Could not load or create blueprint at {path}.");
                 return null;
             }
-            bp.DisplayName = displayName;
-            bp.Kind = kind;
-            bp.SetEntries(entries);
-            bp.RotorsGenerateLift = rotorsGenerateLift;
-            EditorUtility.SetDirty(bp);
 
-            // Run BlueprintValidator at scaffold time so a broken preset
-            // surfaces in the Console immediately, not at game start.
-            // Errors degrade to warnings here (the asset still saves) so
-            // the user can investigate without the whole Build All Pass A
-            // bailing out — but the warning is loud and clickable.
-            BlueprintPlan plan = new BlueprintPlan(displayName, kind, entries, rotorsGenerateLift);
-            BlueprintValidationResult result = BlueprintValidator.Validate(plan);
+            // Validate BEFORE writing so a broken plan can't poison the
+            // on-disk asset. The library-aware overload catches host-face
+            // rejections that the positions-only path misses.
+            BlockDefinitionLibrary lib = AssetDatabase.LoadAssetAtPath<BlockDefinitionLibrary>(LibraryAssetPath);
+            BlueprintValidationResult result = BlueprintValidator.Validate(plan, lib);
             if (!result.IsValid)
             {
-                Debug.LogWarning(
-                    $"[Robogame] Blueprint '{displayName}' has validation errors:\n{result}",
-                    bp);
+                throw new System.InvalidOperationException(
+                    $"[Robogame] Blueprint '{plan.DisplayName}' (path={path}) failed validation:\n{result}\n" +
+                    "Fix the scripted build before retrying — defaults must pass the same rules as user-built bots.");
             }
-            else if (result.Warnings.Count > 0)
+            if (result.Warnings.Count > 0)
             {
                 Debug.Log(
-                    $"[Robogame] Blueprint '{displayName}' validated with warnings:\n{result}",
+                    $"[Robogame] Blueprint '{plan.DisplayName}' validated with warnings:\n{result}",
                     bp);
             }
+
+            bp.DisplayName = plan.DisplayName;
+            bp.Kind = plan.Kind;
+            bp.SetEntries(plan.Entries);
+            bp.RotorsGenerateLift = plan.RotorsGenerateLift;
+            EditorUtility.SetDirty(bp);
             return bp;
         }
 
@@ -603,7 +748,7 @@ namespace Robogame.Tools.Editor
             BlockDefinitionLibrary libLive = AssetDatabase.LoadAssetAtPath<BlockDefinitionLibrary>(LibraryAssetPath);
             ChassisBlueprint defaultBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultGroundPath);
             ChassisBlueprint planeBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultPlanePath);
-            ChassisBlueprint buggyBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultBuggyPath);
+            ChassisBlueprint grapplerBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultGrapplerPath);
             ChassisBlueprint boatBpLive  = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultBoatPath);
             ChassisBlueprint bomberBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultBomberPath);
             ChassisBlueprint propPlaneBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultPropPlanePath);
@@ -620,14 +765,15 @@ namespace Robogame.Tools.Editor
             stateSO.FindProperty("_defaultBlueprint").objectReferenceValue = defaultBpLive;
             stateSO.FindProperty("_inputActions").objectReferenceValue = actionsLive;
 
-            // Populate the HUD-facing preset list (Tank / Plane / Buggy / Boat / Bomber / Prop Plane / Helicopter).
+            // Populate the HUD-facing preset list (Tank / Plane / Grappler / Boat / Bomber / Prop Plane / Helicopter).
+            // Session 61: replaced Buggy slot with Grappler (utility plane).
             SerializedProperty presets = stateSO.FindProperty("_presetBlueprints");
             if (presets != null)
             {
                 presets.arraySize = 7;
                 presets.GetArrayElementAtIndex(0).objectReferenceValue = defaultBpLive;
                 presets.GetArrayElementAtIndex(1).objectReferenceValue = planeBpLive;
-                presets.GetArrayElementAtIndex(2).objectReferenceValue = buggyBpLive;
+                presets.GetArrayElementAtIndex(2).objectReferenceValue = grapplerBpLive;
                 presets.GetArrayElementAtIndex(3).objectReferenceValue = boatBpLive;
                 presets.GetArrayElementAtIndex(4).objectReferenceValue = bomberBpLive;
                 presets.GetArrayElementAtIndex(5).objectReferenceValue = propPlaneBpLive;

@@ -1,3 +1,4 @@
+using Robogame.Core;
 using UnityEngine;
 
 namespace Robogame.Gameplay
@@ -21,9 +22,8 @@ namespace Robogame.Gameplay
     public sealed class StartMatchHud : MonoBehaviour
     {
         [Header("Look")]
+        [Tooltip("Pill background — defaults match HudStyles.PanelBg.")]
         [SerializeField] private Color _bgColor = new Color(0f, 0f, 0f, 0.55f);
-        [SerializeField] private Color _textColor = new Color(0.95f, 0.97f, 1f, 0.95f);
-        [SerializeField] private Color _accentColor = new Color(0.95f, 0.55f, 0.10f, 1f); // hazard orange (key name)
         [SerializeField, Min(8)] private int _fontSize = 18;
 
         [Header("Layout")]
@@ -41,6 +41,7 @@ namespace Robogame.Gameplay
         private string _keyName = "SPACE";
         private GUIStyle _labelStyle;
         private string _renderedText = "Press [SPACE] to begin combat";
+        private string _renderedRich  = "Press [SPACE] to begin combat";
         private GUIContent _content;
 
         // -----------------------------------------------------------------
@@ -67,6 +68,13 @@ namespace Robogame.Gameplay
             if (_keyName == keyName) return;
             _keyName = keyName;
             _renderedText = $"Press [{_keyName}] to begin combat";
+            // Pre-bake the rich-text variant so CalcSize measures what
+            // we actually draw — not the plain string. Without this the
+            // pill is sized to the unbolded text, then drawn with the
+            // wider <b>…</b> wrap and overruns the right edge.
+            _renderedRich = _renderedText.Replace(
+                $"[{_keyName}]",
+                $"<b><color={HudStyles.TagAccent}>[{_keyName}]</color></b>");
             _content = null; // force GUIContent rebuild on next OnGUI
         }
 
@@ -79,39 +87,40 @@ namespace Robogame.Gameplay
             if (!IsVisible) return;
             EnsureStyles();
 
-            // Measure once per content change, not per IMGUI event.
-            if (_content == null) _content = new GUIContent(_renderedText);
+            // Measure once per content change. Measure the rich-text
+            // string (the one we draw), not the raw — bold + colour
+            // tags expand under the bold style and a plain-text CalcSize
+            // sizes the pill too tight, clipping the right side.
+            if (_content == null) _content = new GUIContent(_renderedRich);
             Vector2 size = _labelStyle.CalcSize(_content);
-            float w = size.x + _padding * 2f;
-            float h = size.y + _padding * 1.2f;
+            // Generous horizontal padding — the monospace font's CalcSize
+            // occasionally underestimates dynamic glyph widths the first
+            // few frames after the font is built. 2.4× pad on x keeps
+            // the prompt comfortably inside the pill in every case.
+            float w = size.x + _padding * 2.4f;
+            float h = size.y + _padding * 1.4f;
             float x = (Screen.width - w) * 0.5f;
             float y = Screen.height - _bottomMargin - h;
 
             Color prev = GUI.color;
-            // Pill background.
+            // Pill background + accent edge so it reads as a sibling of
+            // the scoreboard / stats panels.
             GUI.color = _bgColor;
-            GUI.DrawTexture(new Rect(x, y, w, h), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(x, y, w, h), HudStyles.Pixel);
+            GUI.color = HudStyles.PanelEdge;
+            GUI.DrawTexture(new Rect(x, y, w, 2f), HudStyles.Pixel);
             GUI.color = prev;
 
-            // Label, with the key name accented. Easiest path is two passes:
-            // base text in normal colour, then re-draw with rich-text
-            // colouring. We use a single rich-text label to keep it cheap.
-            string rich = _renderedText.Replace($"[{_keyName}]",
-                $"<b><color=#{ColorUtility.ToHtmlStringRGB(_accentColor)}>[{_keyName}]</color></b>");
-            GUI.Label(new Rect(x + _padding, y + _padding * 0.6f, size.x, size.y), rich, _labelStyle);
+            // Label fills the pill horizontally (centred via the style's
+            // MiddleCenter anchor) so the centre-of-pill stays the
+            // centre-of-text even if CalcSize rounds.
+            GUI.Label(new Rect(x, y, w, h), _renderedRich, _labelStyle);
         }
 
         private void EnsureStyles()
         {
             if (_labelStyle != null) return;
-            _labelStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = _fontSize,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter,
-                richText = true,
-            };
-            _labelStyle.normal.textColor = _textColor;
+            _labelStyle = HudStyles.Bold(_fontSize, HudStyles.TextPrimary, TextAnchor.MiddleCenter);
         }
     }
 }

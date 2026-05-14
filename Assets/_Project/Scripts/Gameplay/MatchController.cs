@@ -4,27 +4,34 @@ using Robogame.Core;
 namespace Robogame.Gameplay
 {
     /// <summary>
-    /// Round state machine for a singleplayer match. Plain C# class — no
-    /// MonoBehaviour, no scene dependency — so EditMode tests can drive it
+    /// Round state machine for a singleplayer / team match. Plain C# class —
+    /// no MonoBehaviour, no scene dependency — so EditMode tests can drive it
     /// deterministically and a future <c>NetworkBehaviour</c> wrapper can
     /// own one without restructuring.
     /// </summary>
     /// <remarks>
     /// <para>
     /// Owned and ticked by <see cref="ArenaController"/>. Listens to nothing
-    /// directly — kills, lives, and time are pushed in via the public API
-    /// (<see cref="RegisterKill"/>, <see cref="NotifyPlayerLivesExhausted"/>,
+    /// directly — deposits, lives, and time are pushed in via the public API
+    /// (<see cref="DepositScrap"/>, <see cref="NotifyPlayerLivesExhausted"/>,
     /// <see cref="Tick"/>). This keeps the netcode story simple: in MP, the
     /// server-side <c>NetworkBehaviour</c> wrapper owns the controller and
     /// pushes the same calls; clients receive the raised events as RPCs.
     /// </para>
     /// <para>
+    /// Scoring: this match counts <b>team scrap deposited at depots</b>, not
+    /// kills. Kills generate scrap drops (handled by <c>ScrapDropper</c>) that
+    /// surviving robots pick up + carry, then bank at their team's
+    /// <c>ScrapDepot</c>. The controller is told about deposits via
+    /// <see cref="DepositScrap"/> and never sees the per-robot carry state.
+    /// </para>
+    /// <para>
     /// State transitions:
     /// <code>
-    /// WarmingUp  --(timer ≥ WarmupDuration)-->  InProgress
-    /// InProgress --(score hits TargetFragCount)-->  RoundEnded   (FragLimitReached)
-    /// InProgress --(round timer expires)-->         RoundEnded   (TimeExpired or Draw)
-    /// InProgress --(NotifyPlayerLivesExhausted)-->  RoundEnded   (PlayerEliminated)
+    /// WarmingUp  --(timer ≥ WarmupDuration | StartMatch())-->  InProgress
+    /// InProgress --(team scrap hits TargetTeamScrap)-->  RoundEnded   (ScrapLimitReached)
+    /// InProgress --(round timer expires)-->              RoundEnded   (TimeExpired or Draw)
+    /// InProgress --(NotifyPlayerLivesExhausted)-->       RoundEnded   (PlayerEliminated)
     /// </code>
     /// All other inputs are ignored from <c>RoundEnded</c> — that state is
     /// terminal (re-entry is a new <see cref="MatchController"/> instance).
@@ -35,9 +42,16 @@ namespace Robogame.Gameplay
         private readonly MatchConfig _config;
 
         private float _clock;
-        private int _playerScore;
-        private int _enemyScore;
+        private int _playerTeamScrap;
+        private int _enemyTeamScrap;
         private int _playerLivesRemaining;
+        // Frag counters per team. Not part of the win condition (scrap
+        // deposits drive that) but the scoreboard surfaces them so the
+        // player has an at-a-glance read of "am I doing damage?"
+        // alongside the slower scrap economy. Incremented in
+        // RegisterKill; reset to 0 on construction.
+        private int _playerKills;
+        private int _enemyKills;
 
         /// <summary>Current state of the round.</summary>
         public MatchState State { get; private set; } = MatchState.WarmingUp;
@@ -56,13 +70,30 @@ namespace Robogame.Gameplay
         /// <summary>The config this match is running against. Read-only after construction.</summary>
         public MatchConfig Config => _config;
 
+        /// <summary>Target team-scrap total that wins the round.</summary>
+        public int TargetTeamScrap => UnityEngine.Mathf.Max(1, _config.TargetTeamScrap);
+
         // ------- events --------------------------------------------------
 
         /// <summary>Fires once when the warmup completes and the round begins.</summary>
         public event Action MatchStarted;
 
-        /// <summary>Fires for every kill that counts toward the score (i.e. while <see cref="State"/> is <see cref="MatchState.InProgress"/>).</summary>
+        /// <summary>
+        /// Fires for every kill that occurs (during <see cref="MatchState.InProgress"/>).
+        /// Kills no longer drive the score — scrap deposits do — but the
+        /// notification is kept so the <c>KillAnnouncer</c> can keep its
+        /// streak banner, and any future cosmetic-feedback systems
+        /// (kill-cam, kill-feed) have something to hang off.
+        /// </summary>
         public event Action<MatchSide /*killer*/, MatchSide /*victim*/> KillRegistered;
+
+        /// <summary>
+        /// Fires whenever a team's scrap total changes. Args: the side whose
+        /// total changed, the new running total. HUDs subscribe so the
+        /// counter at the top of the screen updates exactly when the value
+        /// moves (no per-frame polling needed).
+        /// </summary>
+        public event Action<MatchSide /*side*/, int /*newTotal*/> TeamScrapChanged;
 
         /// <summary>Fires exactly once when the round ends, regardless of how many end conditions trigger on the same tick.</summary>
         public event Action<MatchEndedArgs> MatchEnded;
@@ -98,15 +129,9 @@ namespace Robogame.Gameplay
 
             if (State == MatchState.WarmingUp)
             {
-                // Manual-start mode: warmup is indefinite. Only StartMatch
-                // (called from the FIGHT! button) leaves WarmingUp. The
-                // warmup timer still runs (TimeRemaining reflects it) but
-                // doesn't trigger the transition.
                 if (_config.RequireManualStart) return;
                 if (_clock >= _config.WarmupDuration)
                 {
-                    // Reset the clock so InProgress measures from the start
-                    // of the round, not the start of the warmup.
                     _clock = 0f;
                     State = MatchState.InProgress;
                     MatchStarted?.Invoke();
@@ -114,18 +139,19 @@ namespace Robogame.Gameplay
                 return;
             }
 
-            // InProgress: check round-timer expiry. Frag-limit is checked
-            // inside RegisterKill at the moment the kill lands, not here.
+            // InProgress: round-timer expiry. Scrap-limit win is checked
+            // inside DepositScrap at the moment the deposit lands, not
+            // here.
             if (_clock >= _config.RoundDuration)
             {
                 MatchEndReason reason;
                 MatchSide winner;
-                if (_playerScore > _enemyScore)
+                if (_playerTeamScrap > _enemyTeamScrap)
                 {
                     reason = MatchEndReason.TimeExpired;
                     winner = MatchSide.Player;
                 }
-                else if (_enemyScore > _playerScore)
+                else if (_enemyTeamScrap > _playerTeamScrap)
                 {
                     reason = MatchEndReason.TimeExpired;
                     winner = MatchSide.Enemy;
@@ -158,37 +184,59 @@ namespace Robogame.Gameplay
         // ------- public mutators --------------------------------------------------
 
         /// <summary>
-        /// Register a kill. Ignored unless <see cref="State"/> is <see cref="MatchState.InProgress"/>.
-        /// Increments the killer's score, raises <see cref="KillRegistered"/>, and
-        /// triggers <see cref="MatchEnded"/> if the killer's score reaches
-        /// <see cref="MatchConfig.TargetFragCount"/>.
+        /// Register a kill. Ignored unless <see cref="State"/> is
+        /// <see cref="MatchState.InProgress"/>. Kills do not change the score
+        /// — scrap deposits do — but the event is raised so kill-streak HUDs
+        /// (<c>KillAnnouncer</c>) keep working.
         /// </summary>
         public void RegisterKill(MatchSide killerSide, MatchSide victimSide)
         {
-            // Pre-round + post-round kills are dropped silently — spawning
-            // a chassis can fire a Robot.Destroyed during teardown of the
-            // previous round, and a stray projectile mid-warmup shouldn't
-            // count.
             if (State != MatchState.InProgress) return;
-
-            switch (killerSide)
-            {
-                case MatchSide.Player: _playerScore++; break;
-                case MatchSide.Enemy:  _enemyScore++;  break;
-                default: return; // None / unknown — ignore (environment kill)
-            }
-
+            if (killerSide == MatchSide.None) return; // environment kills don't generate streaks
+            if (killerSide == MatchSide.Player) _playerKills++;
+            else if (killerSide == MatchSide.Enemy) _enemyKills++;
             KillRegistered?.Invoke(killerSide, victimSide);
+        }
 
-            int target = UnityEngine.Mathf.Max(1, _config.TargetFragCount);
-            if (_playerScore >= target)
+        /// <summary>
+        /// Deposit <paramref name="amount"/> scrap into the given side's
+        /// team total. Called by <c>ScrapDepot</c> when a robot of that
+        /// side touches the depot trigger. Returns the side's new total
+        /// after the deposit (clamped at the target if the deposit
+        /// overflows).
+        /// </summary>
+        public int DepositScrap(MatchSide side, int amount)
+        {
+            if (State != MatchState.InProgress) return ScoreForSide(side);
+            if (amount <= 0) return ScoreForSide(side);
+
+            int newTotal;
+            switch (side)
             {
-                EndMatch(MatchSide.Player, MatchEndReason.FragLimitReached);
+                case MatchSide.Player:
+                    _playerTeamScrap += amount;
+                    newTotal = _playerTeamScrap;
+                    break;
+                case MatchSide.Enemy:
+                    _enemyTeamScrap += amount;
+                    newTotal = _enemyTeamScrap;
+                    break;
+                default: return 0;
             }
-            else if (_enemyScore >= target)
+
+            TeamScrapChanged?.Invoke(side, newTotal);
+
+            int target = TargetTeamScrap;
+            if (_playerTeamScrap >= target)
             {
-                EndMatch(MatchSide.Enemy, MatchEndReason.FragLimitReached);
+                EndMatch(MatchSide.Player, MatchEndReason.ScrapLimitReached);
             }
+            else if (_enemyTeamScrap >= target)
+            {
+                EndMatch(MatchSide.Enemy, MatchEndReason.ScrapLimitReached);
+            }
+
+            return newTotal;
         }
 
         /// <summary>
@@ -208,8 +256,8 @@ namespace Robogame.Gameplay
 
         /// <summary>
         /// Force-end the match because the player has no lives left.
-        /// Distinct from frag-limit win because a player might be eliminated
-        /// while leading on score — the outcome is still "Enemy wins by
+        /// Distinct from scrap-limit win because a player might be eliminated
+        /// while leading on scrap — the outcome is still "Enemy wins by
         /// elimination" with the right end-overlay copy.
         /// </summary>
         public void NotifyPlayerLivesExhausted()
@@ -220,13 +268,29 @@ namespace Robogame.Gameplay
 
         // ------- queries --------------------------------------------------
 
-        /// <summary>Current kill count for the given side. Returns 0 for <see cref="MatchSide.None"/>.</summary>
+        /// <summary>
+        /// Running kill count for the given side this round. Bumped by
+        /// every <see cref="RegisterKill"/> call where that side is the
+        /// killer; not part of the win condition. Returns 0 for
+        /// <see cref="MatchSide.None"/>.
+        /// </summary>
+        public int KillsForSide(MatchSide side)
+        {
+            return side switch
+            {
+                MatchSide.Player => _playerKills,
+                MatchSide.Enemy  => _enemyKills,
+                _ => 0,
+            };
+        }
+
+        /// <summary>Current team-scrap total for the given side. Returns 0 for <see cref="MatchSide.None"/>.</summary>
         public int ScoreForSide(MatchSide side)
         {
             return side switch
             {
-                MatchSide.Player => _playerScore,
-                MatchSide.Enemy  => _enemyScore,
+                MatchSide.Player => _playerTeamScrap,
+                MatchSide.Enemy  => _enemyTeamScrap,
                 _ => 0,
             };
         }
@@ -236,12 +300,11 @@ namespace Robogame.Gameplay
         private void EndMatch(MatchSide winner, MatchEndReason reason)
         {
             // Idempotency: only fire once. Two end conditions can fire on the
-            // same Tick (e.g. timer expires the frame the frag limit is hit);
-            // the first one wins, subsequent calls are swallowed.
+            // same Tick; the first one wins, subsequent calls are swallowed.
             if (State == MatchState.RoundEnded) return;
 
             State = MatchState.RoundEnded;
-            MatchEnded?.Invoke(new MatchEndedArgs(winner, reason, _playerScore, _enemyScore));
+            MatchEnded?.Invoke(new MatchEndedArgs(winner, reason, _playerTeamScrap, _enemyTeamScrap));
         }
     }
 }

@@ -1,3 +1,4 @@
+using Robogame.Core;
 using UnityEngine;
 
 namespace Robogame.UI
@@ -97,14 +98,7 @@ namespace Robogame.UI
         {
             if (_style == null)
             {
-                _style = new GUIStyle(GUI.skin.label)
-                {
-                    fontSize = 14,
-                    fontStyle = FontStyle.Bold,
-                    alignment = TextAnchor.UpperLeft,
-                    richText = true,
-                };
-                _style.normal.textColor = Color.white;
+                _style = HudStyles.Bold(14, Color.white, TextAnchor.UpperLeft);
             }
 
             // Cheap drop-shadow: draw the label twice, once offset by 1px

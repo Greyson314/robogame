@@ -82,6 +82,15 @@ namespace Robogame.Tools.Editor
             // mass ratio that drives the kinetic-energy differential.
             CreateOrUpdate("BlockDef_Hook",       BlockIds.Hook,       "Rope Hook",      BlockCategory.Weapon,    maxHealth: 120f, mass: 1.5f, cpuCost: 18, tint: w);
             CreateOrUpdate("BlockDef_Mace",       BlockIds.Mace,       "Rope Mace",      BlockCategory.Weapon,    maxHealth: 180f, mass: 5.0f, cpuCost: 28, tint: w);
+            // Magnet (session 59): heavier than hook, lighter than
+            // mace. Mid-cost CPU budget. Damage is small (DamagePerKj 0.8
+            // on the component side); the value comes from the pull
+            // field, not contact.
+            CreateOrUpdate("BlockDef_Magnet",     BlockIds.Magnet,     "Rope Magnet",    BlockCategory.Weapon,    maxHealth: 150f, mass: 3.0f, cpuCost: 24, tint: w);
+            // Grapple magnet (session 61): standalone single-shot
+            // launcher. Heavier than the SMG; spends its action
+            // budget on the rope + tip projectile rather than ammo.
+            CreateOrUpdate("BlockDef_GrappleMagnet", BlockIds.GrappleMagnet, "Grapple Magnet", BlockCategory.Weapon, maxHealth: 140f, mass: 4.5f, cpuCost: 45, tint: w);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -94,9 +103,6 @@ namespace Robogame.Tools.Editor
             string path = $"{DefinitionsFolder}/{assetName}.asset";
             return AssetDatabase.LoadAssetAtPath<BlockDefinition>(path);
         }
-
-        /// <summary>Legacy alias kept for source compatibility.</summary>
-        public static BlockDefinition LoadById(string assetName) => LoadByAssetName(assetName);
 
         // -----------------------------------------------------------------
 

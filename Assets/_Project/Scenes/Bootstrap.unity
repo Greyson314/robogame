@@ -321,7 +321,7 @@ MonoBehaviour:
   _presetBlueprints:
   - {fileID: 11400000, guid: 4c3309b81788004488f4fc78d5077814, type: 2}
   - {fileID: 11400000, guid: 45b5033dde854814dac6f4f2bf692670, type: 2}
-  - {fileID: 11400000, guid: ce8dbb9436a083248bbea70e69162064, type: 2}
+  - {fileID: 11400000, guid: a5af7bf3b23193a45ae6d064297c0cd7, type: 2}
   - {fileID: 11400000, guid: 17476483857485a4497e96808fb21389, type: 2}
   - {fileID: 11400000, guid: ba45cc32ea2f7c54686c8b423c237d20, type: 2}
   - {fileID: 11400000, guid: 712869dba827bd1499722f22ddb3db53, type: 2}

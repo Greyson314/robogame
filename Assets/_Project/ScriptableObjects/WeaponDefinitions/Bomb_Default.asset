@@ -16,3 +16,6 @@ MonoBehaviour:
   _damage: 80
   _radius: 18
   _initialSpeed: 2
+  _clipSize: 4
+  _reloadDuration: 4
+  _autoReloadDelay: 0.3

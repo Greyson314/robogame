@@ -515,9 +515,10 @@ namespace Robogame.Tests.PlayMode.Movement
         public IEnumerator RotorBlock_ChassisStaysSteadyAboutSpinAxis_UnderLoad()
         {
             // Mechanism cube at the foil ring level. WITHOUT this, the
-            // collision-sweep path goes untested. RotorWithFoils() in
-            // BlueprintBuilder always places this cube, so the test must
-            // mirror that to reflect the production scenario.
+            // collision-sweep path goes untested. The auto-companion
+            // cascade in BuildSession.TryPlace places this cube whenever
+            // a rotor goes down, so the test must mirror that to reflect
+            // the production scenario.
             PlaceAero(new Vector3Int( 0, 2,  0)); // stand-in cube — Aero is fine, just need a collider
             // Foils ring the mechanism cell at y=2 (one cell above the
             // rotor at y=1, along the +Y spin axis).

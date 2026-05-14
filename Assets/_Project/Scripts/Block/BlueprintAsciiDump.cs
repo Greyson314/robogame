@@ -40,6 +40,8 @@ namespace Robogame.Block
             { BlockIds.Rotor,      'O' },
             { BlockIds.Hook,       'h' },
             { BlockIds.Mace,       'm' },
+            { BlockIds.Magnet,     'n' },
+            { BlockIds.GrappleMagnet, 'X' },
         };
 
         public static string Dump(BlueprintPlan plan)

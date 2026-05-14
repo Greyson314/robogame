@@ -160,52 +160,6 @@ namespace Robogame.Tests.EditMode.Blueprints
         }
 
         // -----------------------------------------------------------------
-        // RotorWithFoils
-        // -----------------------------------------------------------------
-
-        [Test]
-        public void RotorWithFoils_PlacesRotorMechanismCubeAndFourFoils()
-        {
-            BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
-                .RotorWithFoils(new Vector3Int(0, 1, 0))
-                .Build();
-            // 1 rotor + 1 mechanism cube + 4 foils = 6 entries.
-            Assert.AreEqual(6, plan.Entries.Length);
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Rotor && e.Position == new Vector3Int(0, 1, 0)));
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Cube  && e.Position == new Vector3Int(0, 2, 0)));
-            // Four foils ringed around the mechanism cell at y=2.
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Aero && e.Position == new Vector3Int( 1, 2, 0)));
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Aero && e.Position == new Vector3Int(-1, 2, 0)));
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Aero && e.Position == new Vector3Int( 0, 2, 1)));
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Aero && e.Position == new Vector3Int( 0, 2,-1)));
-        }
-
-        [Test]
-        public void RotorWithFoils_HorizontalSpinAxisRingsLaterally()
-        {
-            BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
-                .RotorWithFoils(new Vector3Int(0, 0, 0), spinAxis: new Vector3Int(1, 0, 0))
-                .Build();
-            // Mechanism cell offset by +X.
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Cube && e.Position == new Vector3Int(1, 0, 0)));
-            // Foils ring around (1,0,0) in the YZ plane.
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Aero && e.Position == new Vector3Int(1,  1,  0)));
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Aero && e.Position == new Vector3Int(1, -1,  0)));
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Aero && e.Position == new Vector3Int(1,  0,  1)));
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Aero && e.Position == new Vector3Int(1,  0, -1)));
-        }
-
-        [Test]
-        public void RotorBare_PlacesRotorOnly()
-        {
-            BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
-                .RotorBare(new Vector3Int(0, 1, 0))
-                .Build();
-            Assert.AreEqual(1, plan.Entries.Length);
-            Assert.AreEqual(BlockIds.Rotor, plan.Entries[0].BlockId);
-        }
-
-        // -----------------------------------------------------------------
         // BuildValidated
         // -----------------------------------------------------------------
 
@@ -227,45 +181,51 @@ namespace Robogame.Tests.EditMode.Blueprints
         }
 
         // -----------------------------------------------------------------
-        // RopeWithHook / RopeWithMace
+        // Rope+hook validation paths — exercise the rope-bridge virtual
+        // edge in BlockGraph's BFS. Constructed via raw Entry arrays so
+        // the test is independent of any specific authoring sugar (the
+        // scripted authoring path that defaults use lives on
+        // ScriptedChassisBuilder; see ScriptedChassisBuilderTests).
         // -----------------------------------------------------------------
 
         [Test]
-        public void RopeWithHook_PlacesRopeAndHookAtFreeEnd()
+        public void Chassis_WithRopeAndHookAtChainEnd_PassesValidation()
         {
-            // Rope's chain extends along its mount-up direction; the
-            // hook lands at the chain's free end, one cell along
-            // mount-up from the rope cell. Default up=+Y → hook at
-            // ropeCell + (0,+1,0).
-            BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
-                .RopeWithHook(new Vector3Int(0, 0, 0))
-                .Build();
-            Assert.AreEqual(2, plan.Entries.Length);
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Rope && e.Position == new Vector3Int(0, 0, 0)));
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Hook && e.Position == new Vector3Int(0, 1, 0)));
+            // CPU at origin; rope on CPU's +Y face; hook at the chain's
+            // free end (DefaultLengthCells cells along mount-up). The
+            // rope-bridge edge in BlockGraph's BFS reaches the hook from
+            // the CPU without face-adjacent claims on the intermediate
+            // cells.
+            int len = RopeGeometry.DefaultLengthCells;
+            var entries = new[]
+            {
+                new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)),
+                new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int(0, 1, 0), Vector3Int.up, new Vector3(len, 0, 0)),
+                new ChassisBlueprint.Entry(BlockIds.Hook, new Vector3Int(0, 1 + len, 0), Vector3Int.up),
+            };
+            BlueprintPlan plan = new BlueprintPlan("X", ChassisKind.Ground, entries, rotorsGenerateLift: false);
+            BlueprintValidationResult result = BlueprintValidator.Validate(plan);
+            Assert.IsTrue(result.IsValid, $"Rope+hook validation failed:\n{result}");
         }
 
         [Test]
-        public void RopeWithMace_PlacesRopeAndMaceAtFreeEnd()
+        public void Chassis_WithStrandedHook_FailsValidation()
         {
-            BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
-                .RopeWithMace(new Vector3Int(0, 0, 0))
-                .Build();
-            Assert.AreEqual(2, plan.Entries.Length);
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Rope && e.Position == new Vector3Int(0, 0, 0)));
-            Assert.IsTrue(Array.Exists(plan.Entries, e => e.BlockId == BlockIds.Mace && e.Position == new Vector3Int(0, 1, 0)));
-        }
-
-        [Test]
-        public void Chassis_WithRopeWithHook_PassesValidation()
-        {
-            // CPU at origin; rope at +Y face of CPU; hook at chain's
-            // free end (one cell further along mount-up = +Y).
-            BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
-                .Block(BlockIds.Cpu, 0, 0, 0)
-                .RopeWithHook(new Vector3Int(0, 1, 0))
-                .BuildValidated();
-            Assert.AreEqual(3, plan.Entries.Length);
+            // A hook placed at rope.cell + 2*up (instead of the chain's
+            // true free end at rope.cell + N*up) is no longer reachable
+            // from the CPU via either face-adjacency or the rope-bridge.
+            // The validator must catch this — otherwise a half-snapped
+            // rope+hook chassis would slip past placement rules at
+            // blueprint-load time and fall apart at spawn.
+            var entries = new[]
+            {
+                new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)),
+                new ChassisBlueprint.Entry(BlockIds.Rope, new Vector3Int(0, 1, 0), Vector3Int.up, new Vector3(4, 0, 0)),
+                new ChassisBlueprint.Entry(BlockIds.Hook, new Vector3Int(0, 3, 0)), // wrong: should be (0,5,0)
+            };
+            BlueprintPlan plan = new BlueprintPlan("X", ChassisKind.Ground, entries, rotorsGenerateLift: false);
+            BlueprintValidationResult result = BlueprintValidator.Validate(plan);
+            Assert.IsFalse(result.IsValid, "Hook at wrong-cell on the chain should fail connectivity validation.");
         }
     }
 }

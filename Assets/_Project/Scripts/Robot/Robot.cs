@@ -50,31 +50,127 @@ namespace Robogame.Robots
         public bool IsDestroyed { get; private set; }
 
         /// <summary>
-        /// Scrap currency held by this chassis. Incremented by
-        /// <see cref="AwardScrap"/> when a <c>ScrapPickup</c> is collected;
-        /// the foundation for future systems (match score integration,
-        /// build-mode purchasing, persistent currency).
+        /// Scrap currency carried by this chassis. Incremented when a
+        /// <c>ScrapPickup</c> is collected; decremented to zero when a
+        /// <c>ScrapDepot</c> banks the load. Drives the scrap-based match
+        /// score: kills produce drops, drops get carried, depots bank.
         /// </summary>
         public int ScrapHeld { get; private set; }
 
         /// <summary>
-        /// Raised after <see cref="ScrapHeld"/> changes. Args: this Robot,
-        /// the delta that was just applied. Subscribers (HUD, match score,
-        /// future systems) read the totals off the Robot directly.
+        /// Maximum scrap this chassis can carry at once. Above the cap,
+        /// pickups stay in the world — forcing the player to deposit
+        /// before resuming hoarding. Set by <c>MatchConfig.ScrapCarryCapacity</c>
+        /// via <see cref="ConfigureScrap"/>; default falls back to a
+        /// sensible standalone value so tests don't need a MatchConfig.
+        /// </summary>
+        public int ScrapCarryCapacity { get; private set; } = 8;
+
+        /// <summary>True if <see cref="ScrapHeld"/> is at <see cref="ScrapCarryCapacity"/>.</summary>
+        public bool IsScrapFull => ScrapHeld >= ScrapCarryCapacity;
+
+        /// <summary>
+        /// Team this chassis belongs to. <see cref="TeamId.None"/> = neutral
+        /// (training dummies, props). Set by the gameplay layer at
+        /// registration time; consumed by friendly-fire filters
+        /// (<c>ProjectileWorld</c>) and the depot grinder hazard
+        /// (<c>ScrapDepot</c>).
+        /// </summary>
+        public TeamId Team { get; private set; } = TeamId.None;
+
+        /// <summary>
+        /// Push a team identity onto this chassis. Called by
+        /// <c>ArenaController.RegisterChassis</c> right after the per-side
+        /// registry entry lands so server-authoritative team data flows
+        /// through one path. Idempotent — safe to call repeatedly with the
+        /// same value.
+        /// </summary>
+        public void ConfigureTeam(TeamId team) { Team = team; }
+
+        /// <summary>
+        /// Raised after <see cref="ScrapHeld"/> changes (positive or
+        /// negative delta). Args: this Robot, the signed delta. Negative
+        /// deltas indicate deposits or losses. Subscribers (HUD, match
+        /// score, etc.) read the totals off the Robot directly.
         /// </summary>
         public event Action<Robot, int> ScrapAwarded;
 
         /// <summary>
-        /// Add <paramref name="amount"/> scrap to <see cref="ScrapHeld"/>.
-        /// Called by <c>ScrapPickup</c> on collection. Negative values are
-        /// rejected — spend paths should add a separate <c>SpendScrap</c>
-        /// when they exist so audit / rollback is explicit.
+        /// Apply the match's scrap tuning to this chassis. Called by
+        /// <c>ArenaController</c> after the Robot is spawned and the
+        /// MatchController is built — keeps tuning in one place
+        /// (MatchConfig) without giving every Robot a backref to the
+        /// match controller.
         /// </summary>
-        public void AwardScrap(int amount)
+        public void ConfigureScrap(int carryCapacity)
         {
-            if (amount <= 0) return;
-            ScrapHeld += amount;
-            ScrapAwarded?.Invoke(this, amount);
+            if (carryCapacity > 0) ScrapCarryCapacity = carryCapacity;
+        }
+
+        /// <summary>
+        /// Movement-speed multiplier driven by carried scrap. Drives the
+        /// "haul slows you down" gameplay — encourages the player to
+        /// commit to a depot run rather than sit on a giant hoard.
+        /// Stepped curve per <c>docs/SCRAP_LOOP_PLAN.md §3</c>:
+        /// 0–2 = 1.00, 3–5 = 0.95, 6–9 = 0.85, 10+ = 0.70. Const-time;
+        /// safe to call per-tick.
+        /// </summary>
+        public float CarryWeightMoveMultiplier => ComputeMoveMultiplier(ScrapHeld);
+
+        /// <summary>Static carry-weight curve. Exposed for tests + diagnostic HUDs.</summary>
+        public static float ComputeMoveMultiplier(int scrapHeld)
+        {
+            if (scrapHeld <= 2) return 1.00f;
+            if (scrapHeld <= 5) return 0.95f;
+            if (scrapHeld <= 9) return 0.85f;
+            return 0.70f;
+        }
+
+        /// <summary>
+        /// Try to award <paramref name="amount"/> scrap. Respects
+        /// <see cref="ScrapCarryCapacity"/>: if the chassis is already
+        /// full, returns 0; if a partial fit is available, awards exactly
+        /// as much as remains under the cap and returns that amount.
+        /// Returns the amount actually awarded.
+        /// </summary>
+        /// <remarks>
+        /// Pickups call this and only despawn themselves if the return
+        /// value equals their pickup value — partial pickups bank what
+        /// fits and leave the remainder in the world.
+        /// </remarks>
+        public int TryAwardScrap(int amount)
+        {
+            if (amount <= 0) return 0;
+            int room = ScrapCarryCapacity - ScrapHeld;
+            if (room <= 0) return 0;
+            int awarded = amount < room ? amount : room;
+            ScrapHeld += awarded;
+            ScrapAwarded?.Invoke(this, awarded);
+            return awarded;
+        }
+
+        /// <summary>
+        /// Legacy unconditional award. Kept as a thin wrapper over
+        /// <see cref="TryAwardScrap"/> for callers that don't care about
+        /// the cap (tests, future spend paths). Pickups should call
+        /// <see cref="TryAwardScrap"/> so the carry-capacity contract
+        /// holds end-to-end.
+        /// </summary>
+        public void AwardScrap(int amount) => TryAwardScrap(amount);
+
+        /// <summary>
+        /// Drain all carried scrap, returning the amount banked. Used by
+        /// <c>ScrapDepot</c> when the chassis enters its trigger. Fires
+        /// <see cref="ScrapAwarded"/> with the negative delta so HUDs
+        /// update without polling.
+        /// </summary>
+        public int DepositScrap()
+        {
+            int amount = ScrapHeld;
+            if (amount <= 0) return 0;
+            ScrapHeld = 0;
+            ScrapAwarded?.Invoke(this, -amount);
+            return amount;
         }
 
         /// <summary>

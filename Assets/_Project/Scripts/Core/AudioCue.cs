@@ -52,6 +52,12 @@ namespace Robogame.Core
         // Scrap pickups (post-kill collectibles)
         ScrapDrop,         // a scrap pickup spawns from a destroyed chassis — short clink
         ScrapCollect,      // a chassis drives over a scrap pickup — bright pickup chime
+        ScrapTick,         // depot ticks one scrap into team score — quiet metronome pulse
+
+        // Weapon ammo / reload
+        ReloadStart,       // weapon-pool reload begins — mechanical click / spinner
+        ReloadComplete,    // weapon-pool reload finishes — pool refilled
+        WeaponEmpty,       // attempted fire on an empty pool — dry click
 
         // UI / match
         UiHover,

@@ -5,23 +5,28 @@ using UnityEngine;
 namespace Robogame.Block
 {
     /// <summary>
-    /// Fluent helper for assembling <see cref="ChassisBlueprint.Entry"/> lists
-    /// without a wall of <c>list.Add(new Entry(id, new Vector3Int(...)))</c>
-    /// calls. Returns a <see cref="BlueprintPlan"/> the editor scaffolder can
-    /// write into a real ScriptableObject.
+    /// Pure-data builder for <see cref="ChassisBlueprint.Entry"/> arrays
+    /// — appends entries to a list and returns a <see cref="BlueprintPlan"/>.
+    /// Does NOT route through the rules engine and does NOT trigger
+    /// auto-companion cascades. Use cases: hand-authored validator test
+    /// inputs, ASCII-snapshot helpers, anywhere a "raw entry layout" is
+    /// the unit of work.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Lives in <see cref="Robogame.Block"/> so the API is reachable both
-    /// at edit-time (scaffolders authoring presets) and at runtime (the
-    /// in-game garage editor when player builds reach the same shape).
+    /// For default chassis presets and any "what would the player produce"
+    /// authoring, use <c>Robogame.Tools.Editor.ScriptedChassisBuilder</c>
+    /// instead — it drives <see cref="Gameplay.BuildSession.TryPlace"/>
+    /// against a real <see cref="BlockGrid"/>, so the rules engine and
+    /// auto-companion logic run on every placement. Anything authored
+    /// here is one step away from "user could have built this" — handy
+    /// for validator unit tests that need a contrived bad-shape, but the
+    /// wrong choice for shipping default robots.
     /// </para>
     /// <para>
-    /// The builder does not allocate the blueprint asset — it produces a
-    /// data-only <see cref="BlueprintPlan"/>. The editor scaffolder is the
-    /// thing that writes ScriptableObjects to disk; runtime callers can
-    /// turn a plan into an in-memory blueprint via
-    /// <see cref="BlueprintPlan.ToBlueprint"/>.
+    /// The builder does not allocate a <see cref="ChassisBlueprint"/>
+    /// SO — it produces a data-only <see cref="BlueprintPlan"/>. Tests
+    /// can materialise via <see cref="BlueprintPlan.ToBlueprint"/>.
     /// </para>
     /// </remarks>
     public sealed class BlueprintBuilder
@@ -166,100 +171,6 @@ namespace Robogame.Block
                 _entries.Add(BlueprintEntryTransform.Apply(transform, e));
             }
             return this;
-        }
-
-        // -----------------------------------------------------------------
-        // Rotor + foil ring
-        // -----------------------------------------------------------------
-
-        /// <summary>
-        /// Place a rotor at <paramref name="cell"/> and ring four foils
-        /// around the mechanism cell (one cell along the spin axis from
-        /// <paramref name="cell"/>). Also drops an invisible structural
-        /// cube at the mechanism cell — that cell anchors the foils to
-        /// the chassis grid for connectivity, and the rotor block hides
-        /// its renderer at runtime so the visual reads as one continuous
-        /// "stem + mechanism" unit.
-        /// </summary>
-        public BlueprintBuilder RotorWithFoils(Vector3Int cell, Vector3Int spinAxis = default)
-        {
-            if (spinAxis == default) spinAxis = Vector3Int.up;
-            // Rotor's up = its spin axis. The mechanism cube mounts on
-            // the rotor's spin-axis face (BlockConnectivity.IsConnectiveFace
-            // exempts that face from the leaf rule), so its up matches
-            // the spin axis too.
-            Block(BlockIds.Rotor, cell, spinAxis);
-            Vector3Int mechanism = cell + spinAxis;
-            Block(BlockIds.Cube, mechanism, spinAxis);
-            // Four foils ringed around the mechanism cell, perpendicular
-            // to the spin axis. Each foil's mount-up = its outward
-            // direction from the mechanism cube — gives the placement
-            // rules a real face-adjacent host (the cube) and lets the
-            // build-mode editor reproduce the same layout from scratch
-            // without auto-helpers.
-            Vector3Int a, b;
-            LateralAxes(spinAxis, out a, out b);
-            Block(BlockIds.Aero, mechanism + a, a);
-            Block(BlockIds.Aero, mechanism - a, -a);
-            Block(BlockIds.Aero, mechanism + b, b);
-            Block(BlockIds.Aero, mechanism - b, -b);
-            return this;
-        }
-
-        /// <summary>
-        /// Place a bare rotor (no mechanism cap, no foils) — cosmetic spin
-        /// only. Used when the player wants the rotor visual without
-        /// committing to lift production (e.g. tail rotors, chassis decoration).
-        /// </summary>
-        public BlueprintBuilder RotorBare(Vector3Int cell, Vector3Int spinAxis = default)
-        {
-            if (spinAxis == default) spinAxis = Vector3Int.up;
-            Block(BlockIds.Rotor, cell, spinAxis);
-            return this;
-        }
-
-        // -----------------------------------------------------------------
-        // Rope with adopted tip
-        // -----------------------------------------------------------------
-
-        /// <summary>
-        /// Place a rope at <paramref name="ropeCell"/> with a Hook block
-        /// directly below it (so <see cref="Movement.RopeBlock"/> adopts
-        /// the hook as its tip at game-start). Both cells go in the
-        /// chassis grid; visual swap happens at runtime.
-        /// </summary>
-        public BlueprintBuilder RopeWithHook(Vector3Int ropeCell)
-        {
-            // Both rope and hook default to up=+Y. The hook lands one
-            // cell along the rope's mount-up direction (i.e. the chain's
-            // free end), matching the new convention where the chain
-            // extends OUTWARD from the chassis face the rope was placed
-            // on. (Session 52 redesign — was Vector3Int.down which put
-            // the hook between rope and chassis.)
-            Block(BlockIds.Rope, ropeCell);
-            Block(BlockIds.Hook, ropeCell + Vector3Int.up);
-            return this;
-        }
-
-        /// <summary>
-        /// Place a rope at <paramref name="ropeCell"/> with a Mace block
-        /// at the chain's free end. Heavier than a hook (default 2.0 kg
-        /// vs 0.5 kg) so the chain swings with more momentum and hits
-        /// harder.
-        /// </summary>
-        public BlueprintBuilder RopeWithMace(Vector3Int ropeCell)
-        {
-            Block(BlockIds.Rope, ropeCell);
-            Block(BlockIds.Mace, ropeCell + Vector3Int.up);
-            return this;
-        }
-
-        // Pick two unit Vector3Ints perpendicular to `axis` (each axis-aligned).
-        private static void LateralAxes(Vector3Int axis, out Vector3Int a, out Vector3Int b)
-        {
-            if (Mathf.Abs(axis.x) > 0) { a = new Vector3Int(0, 1, 0); b = new Vector3Int(0, 0, 1); }
-            else if (Mathf.Abs(axis.y) > 0) { a = new Vector3Int(1, 0, 0); b = new Vector3Int(0, 0, 1); }
-            else { a = new Vector3Int(1, 0, 0); b = new Vector3Int(0, 1, 0); }
         }
 
         // -----------------------------------------------------------------

@@ -195,15 +195,33 @@ namespace Robogame.Gameplay
             public bool PrimarySucceeded => Primary == PlacementRules.PlacementError.None;
         }
 
+        /// <summary>
+        /// Place using the per-id variant caches for dims + world-intent pitch.
+        /// This is the entry point the build-mode UI uses — the variant panel
+        /// has already written its slider state into the session cache, so the
+        /// editor doesn't have to pass dims/pitch explicitly. Scripted callers
+        /// (tests, editor scaffolders) should use the explicit overload
+        /// <see cref="TryPlace(BlockDefinition,Vector3Int,Vector3Int,Vector3,float)"/>.
+        /// </summary>
         public PlaceOutcome TryPlace(BlockDefinition def, Vector3Int cell, Vector3Int up)
+            => TryPlace(def, cell, up, GetVariantDims(def?.Id), GetVariantPitch(def?.Id));
+
+        /// <summary>
+        /// Atomic place with explicit per-instance dims + world-intent pitch.
+        /// Runs the rules engine, mutates the grid, auto-places structural
+        /// companions (rotor mechanism cube, ...), best-effort mirrors, and
+        /// resyncs the blueprint. Single entry point — every placement in
+        /// the project (editor UI, tests, scripted scaffolders) flows here.
+        /// </summary>
+        public PlaceOutcome TryPlace(BlockDefinition def, Vector3Int cell, Vector3Int up,
+            Vector3 dims, float worldPitch)
         {
             if (Grid == null || def == null)
                 return new PlaceOutcome(PlacementRules.PlacementError.HostMissing, PlacementRules.PlacementError.None, false);
 
-            Vector3 dims = GetVariantDims(def.Id);
-            // Variant cache stores world-intent pitch (positive =
-            // tilt toward sky); convert to local frame per side.
-            float worldPitch = GetVariantPitch(def.Id);
+            // World-intent pitch (positive = tilt tip toward sky on every
+            // face) is normalized to the block's local frame for both the
+            // rule check and the placed instance. See BlockOrientation.
             float localPitch = BlockOrientation.NormalizePitchForUp(def, worldPitch, up);
             var candidate = new PlacementRules.Candidate(def, cell, up, dims, localPitch);
 
@@ -215,6 +233,14 @@ namespace Robogame.Gameplay
             BlockBehaviour placed = Grid.PlaceBlock(def, cell, up, dims, localPitch);
             if (placed == null)
                 return new PlaceOutcome(PlacementRules.PlacementError.WouldOverlapNeighbour, PlacementRules.PlacementError.None, false);
+
+            // Auto-place structural companions a primary block needs to be
+            // usable. Rotor → mechanism cube on its spin-axis face. Owned
+            // here (not in the editor) so every consumer of TryPlace gets
+            // the same cascade — without this, scripted scaffolders would
+            // have to hand-author the mechanism cube and drift away from
+            // what the player produces with a single rotor placement.
+            AutoPlaceCompanionsOf(def, cell, up);
 
             // Best-effort mirror placement. Skipped silently if the
             // mirror cell is on-plane, the same cell, or any rule
@@ -237,12 +263,88 @@ namespace Robogame.Gameplay
                     if (mirrorErr == PlacementRules.PlacementError.None)
                     {
                         Grid.PlaceBlock(def, mCell, mUp, dims, mLocalPitch);
+                        AutoPlaceCompanionsOf(def, mCell, mUp);
                     }
                 }
             }
 
             SyncBlueprint();
             return new PlaceOutcome(primary, mirrorErr, mirrorAttempted);
+        }
+
+        // -----------------------------------------------------------------
+        // Companion auto-placement
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Drop the structural companions a primary block needs to be
+        /// usable. Currently: rotor → cube on its spin-axis face (per
+        /// session 48 — a rotor's only connective face is the spin axis,
+        /// so a from-scratch rotor can't host blades until the cube goes
+        /// down).
+        /// </summary>
+        /// <remarks>
+        /// Bypasses the rules engine — the companion is a part of the
+        /// primary placement, not an independent action. A library-lookup
+        /// failure or occupied target cell is silently skipped (the
+        /// primary block already landed; the caller decides whether to
+        /// retry after fixing the obstruction).
+        /// </remarks>
+        private void AutoPlaceCompanionsOf(BlockDefinition def, Vector3Int cell, Vector3Int up)
+        {
+            if (def == null || Grid == null || Library == null) return;
+            if (def.Id == BlockIds.Rotor)
+            {
+                BlockDefinition cubeDef = Library.Get(BlockIds.Cube);
+                if (cubeDef == null) return;
+                Vector3Int mechanismCell = cell + up;
+                if (Grid.HasBlock(mechanismCell)) return;
+                Grid.PlaceBlock(cubeDef, mechanismCell, up, Vector3.zero, 0f);
+            }
+        }
+
+        /// <summary>
+        /// If <paramref name="cell"/> hosts a rotor whose mechanism cube
+        /// would be orphaned by its removal, return the mechanism cell so
+        /// removal can cascade. Returns null when the rotor has dependents
+        /// on the cube (blades, chained structure) — in that case the
+        /// orphan check on the rotor alone correctly blocks the removal
+        /// until the dependents go first.
+        /// </summary>
+        public Vector3Int? ResolveRotorCascadeCell(Vector3Int cell)
+        {
+            if (Grid == null) return null;
+            if (!Grid.TryGetBlock(cell, out BlockBehaviour block) || block == null) return null;
+            if (block.Definition == null || block.Definition.Id != BlockIds.Rotor) return null;
+            Vector3Int spinAxis = block.Up == Vector3Int.zero ? Vector3Int.up : block.Up;
+            Vector3Int mechCell = cell + spinAxis;
+            if (!Grid.TryGetBlock(mechCell, out BlockBehaviour mech) || mech == null) return null;
+            if (mech.Definition == null || mech.Definition.Id != BlockIds.Cube) return null;
+            // Only cascade when the cube has no neighbours other than
+            // this rotor — otherwise blades or chained structure are at
+            // stake, and the user should be the one to clear them.
+            if (CountAdjacentBlocksExcluding(mechCell, cell) > 0) return null;
+            return mechCell;
+        }
+
+        private static readonly Vector3Int[] s_cascadeFaces =
+        {
+            new Vector3Int( 1, 0, 0), new Vector3Int(-1, 0, 0),
+            new Vector3Int( 0, 1, 0), new Vector3Int( 0,-1, 0),
+            new Vector3Int( 0, 0, 1), new Vector3Int( 0, 0,-1),
+        };
+
+        private int CountAdjacentBlocksExcluding(Vector3Int cell, Vector3Int excluded)
+        {
+            if (Grid == null) return 0;
+            int count = 0;
+            for (int i = 0; i < s_cascadeFaces.Length; i++)
+            {
+                Vector3Int n = cell + s_cascadeFaces[i];
+                if (n == excluded) continue;
+                if (Grid.HasBlock(n)) count++;
+            }
+            return count;
         }
 
         /// <summary>
@@ -267,14 +369,26 @@ namespace Robogame.Gameplay
             if (Grid == null || !Grid.TryGetBlock(cell, out BlockBehaviour block) || block == null)
                 return new RemoveOutcome(PlacementRules.PlacementError.HostMissing, PlacementRules.PlacementError.None, false);
 
-            // Removal-policy rules (CPU sacred, etc.) live in the caller
-            // because they're product decisions, not graph facts. The
-            // session enforces the graph-fact rule (orphan check).
-            PlacementRules.PlacementError primary = PlacementRules.EvaluateRemoval(Grid, cell, _buffers, out _);
+            // CPU is sacred. Removal-policy rule kept inside the verb so
+            // every consumer enforces it; the caller's UI maps it to a buzzer.
+            if (block.Definition != null && block.Definition.Category == BlockCategory.Cpu)
+                return new RemoveOutcome(PlacementRules.PlacementError.HostFaceRejectsBlockType, PlacementRules.PlacementError.None, false);
+
+            // Rotor cascade: removing a rotor co-removes its auto-placed
+            // mechanism cube IF the cube has no other dependents. Without
+            // this, the orphan check would block every rotor removal —
+            // the cube was placed for the rotor and has no other neighbours
+            // initially. Mirrors the auto-companion logic in TryPlace.
+            Vector3Int? cascadeCell = ResolveRotorCascadeCell(cell);
+
+            PlacementRules.PlacementError primary = cascadeCell.HasValue
+                ? PlacementRules.EvaluateRemoval(Grid, cell, cascadeCell.Value, _buffers, out _)
+                : PlacementRules.EvaluateRemoval(Grid, cell, _buffers, out _);
             if (primary != PlacementRules.PlacementError.None)
                 return new RemoveOutcome(primary, PlacementRules.PlacementError.None, false);
 
             Grid.RemoveBlock(cell);
+            if (cascadeCell.HasValue) Grid.RemoveBlock(cascadeCell.Value);
 
             PlacementRules.PlacementError mirrorErr = PlacementRules.PlacementError.None;
             bool mirrorAttempted = false;
@@ -290,10 +404,14 @@ namespace Robogame.Gameplay
                     }
                     else
                     {
-                        mirrorErr = PlacementRules.EvaluateRemoval(Grid, mCell, _buffers, out _);
+                        Vector3Int? mirrorCascade = ResolveRotorCascadeCell(mCell);
+                        mirrorErr = mirrorCascade.HasValue
+                            ? PlacementRules.EvaluateRemoval(Grid, mCell, mirrorCascade.Value, _buffers, out _)
+                            : PlacementRules.EvaluateRemoval(Grid, mCell, _buffers, out _);
                         if (mirrorErr == PlacementRules.PlacementError.None)
                         {
                             Grid.RemoveBlock(mCell);
+                            if (mirrorCascade.HasValue) Grid.RemoveBlock(mirrorCascade.Value);
                         }
                     }
                 }

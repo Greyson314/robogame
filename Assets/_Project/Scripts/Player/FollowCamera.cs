@@ -187,12 +187,32 @@ namespace Robogame.Player
         // ADS state. _baseFov captured at Awake so the inspector value is
         // honoured. _chassisRenderers is rebuilt whenever the target swaps
         // (Robot.Rebuilt) so we don't toggle stale references after respawn.
+        // _chassisRenderersPrevEnabled snapshots each renderer's enabled
+        // bit at hide time so we restore the pre-hide state on release —
+        // critical because movement blocks (wheels, thrusters, foils,
+        // ropes, rotors) hide their host-cube primitive's MeshRenderer in
+        // Awake (`BlockVisuals.HideHostMesh`) and a blanket `r.enabled =
+        // true` after ADS would un-hide every one of those host cubes,
+        // surfacing a "ghost block at the base of every movement block".
         private bool _adsActive;
         private bool _chassisHidden;
         private float _baseFov = 60f;
         private float _fovVelocity;
         private Renderer[] _chassisRenderers;
+        private bool[] _chassisRenderersPrevEnabled;
         private Transform _renderersForTarget;
+
+        // Cache for "is this SphereCast hit one of OUR chassis's blocks?"
+        // Foils adopted by a RotorBlock get reparented under a kinematic
+        // hub at scene root (see RotorBlock.BuildLiftRig — they're not
+        // children of the chassis transform anymore), so the plain
+        // IsChildOf(_target) check misses them and the camera obstacle
+        // probe pulls in toward the spinning rotor. The grid still
+        // tracks them by their original GridPosition, so we walk the
+        // hit's parent chain to find a BlockBehaviour and check
+        // membership against _target's BlockGrid.
+        private BlockGrid _chassisGrid;
+        private Transform _gridCachedForTarget;
 
         // Single-element non-alloc buffer — SphereCast doesn't have a
         // NonAlloc overload that returns the *closest* hit cleanly, so we
@@ -242,12 +262,13 @@ namespace Robogame.Player
 
         private void RestoreChassisVisibility()
         {
-            if (_chassisRenderers != null)
+            if (_chassisRenderers != null && _chassisRenderersPrevEnabled != null
+                && _chassisRenderersPrevEnabled.Length == _chassisRenderers.Length)
             {
                 for (int i = 0; i < _chassisRenderers.Length; i++)
                 {
                     Renderer r = _chassisRenderers[i];
-                    if (r != null) r.enabled = true;
+                    if (r != null) r.enabled = _chassisRenderersPrevEnabled[i];
                 }
             }
             _chassisHidden = false;
@@ -268,7 +289,10 @@ namespace Robogame.Player
                 // be re-enabled later — drop the cache so the next ADS
                 // entry rebuilds against the new BlockGrid.
                 _chassisRenderers = null;
+                _chassisRenderersPrevEnabled = null;
                 _renderersForTarget = null;
+                _chassisGrid = null;
+                _gridCachedForTarget = null;
                 _chassisHidden = false;
             }
         }
@@ -415,10 +439,39 @@ namespace Robogame.Player
             if (shouldHide == _chassisHidden) return;
             EnsureChassisRendererCache();
             if (_chassisRenderers == null) return;
-            for (int i = 0; i < _chassisRenderers.Length; i++)
+
+            // On hide: snapshot the pre-hide enabled bit per renderer so
+            // the restore path can put it back. On show: read from the
+            // snapshot. A blanket "all true" on show would un-hide every
+            // host-cube primitive a movement block disabled in Awake (see
+            // _chassisRenderersPrevEnabled doc).
+            if (shouldHide)
             {
-                Renderer r = _chassisRenderers[i];
-                if (r != null) r.enabled = !shouldHide;
+                if (_chassisRenderersPrevEnabled == null
+                    || _chassisRenderersPrevEnabled.Length != _chassisRenderers.Length)
+                {
+                    _chassisRenderersPrevEnabled = new bool[_chassisRenderers.Length];
+                }
+                for (int i = 0; i < _chassisRenderers.Length; i++)
+                {
+                    Renderer r = _chassisRenderers[i];
+                    if (r == null) continue;
+                    _chassisRenderersPrevEnabled[i] = r.enabled;
+                    r.enabled = false;
+                }
+            }
+            else
+            {
+                for (int i = 0; i < _chassisRenderers.Length; i++)
+                {
+                    Renderer r = _chassisRenderers[i];
+                    if (r == null) continue;
+                    bool restored = _chassisRenderersPrevEnabled != null
+                        && i < _chassisRenderersPrevEnabled.Length
+                        ? _chassisRenderersPrevEnabled[i]
+                        : true; // no snapshot — best effort (shouldn't happen)
+                    r.enabled = restored;
+                }
             }
             _chassisHidden = shouldHide;
         }
@@ -453,6 +506,29 @@ namespace Robogame.Player
         }
 
         /// <summary>
+        /// Does the SphereCast hit land on a block that the chassis owns
+        /// (including blocks reparented away from the chassis transform,
+        /// like rotor-adopted foils)? Walks up the hit's parent chain to
+        /// find a <see cref="BlockBehaviour"/>, then checks the chassis's
+        /// <see cref="BlockGrid"/> by grid position. Cheap: hierarchy
+        /// walks are bounded by chassis depth, the grid lookup is O(1).
+        /// </summary>
+        private bool HitBelongsToOwnChassis(RaycastHit hit)
+        {
+            if (_target == null || hit.collider == null) return false;
+            if (_gridCachedForTarget != _target)
+            {
+                _chassisGrid = _target.GetComponent<BlockGrid>();
+                _gridCachedForTarget = _target;
+            }
+            if (_chassisGrid == null) return false;
+            BlockBehaviour bb = hit.collider.GetComponentInParent<BlockBehaviour>();
+            if (bb == null) return false;
+            return _chassisGrid.Blocks.TryGetValue(bb.GridPosition, out BlockBehaviour cellBb)
+                && cellBb == bb;
+        }
+
+        /// <summary>
         /// Camera spot for the current orbit angles, with sphere-cast
         /// obstacle avoidance so geometry between target and camera pulls
         /// the camera in instead of clipping through walls.
@@ -473,8 +549,13 @@ namespace Robogame.Player
                     QueryTriggerInteraction.Ignore))
             {
                 // Ignore hits on the player's own chassis so we don't pull
-                // the camera into our own root.
-                if (_target == null || !hit.transform.IsChildOf(_target))
+                // the camera into our own root. IsChildOf catches blocks
+                // that are still under the chassis transform; HitBelongsToOwnChassis
+                // catches reparented children (rotor-adopted foils live
+                // under a kinematic hub at scene root).
+                bool ownsHit = _target != null
+                    && (hit.transform.IsChildOf(_target) || HitBelongsToOwnChassis(hit));
+                if (!ownsHit)
                 {
                     float clamped = Mathf.Max(0f, hit.distance - _collisionPadding);
                     desired = lookAt + dir * clamped;

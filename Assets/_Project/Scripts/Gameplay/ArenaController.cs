@@ -54,7 +54,7 @@ namespace Robogame.Gameplay
         // resting on the ground (block centres are at half-cell offsets).
         // z=18 keeps it close enough to fire on immediately, far enough
         // that the player can drive around it.
-        [SerializeField] private Vector3 _dummyPosition = new Vector3(0f, 0.5f, 18f);
+        [SerializeField] private Vector3 _dummyPosition = new Vector3(0f, 0.5f, 30f);
         [SerializeField] private string _dummyName = "CombatDummy";
 
         [Header("Stress test — rotor tower")]
@@ -63,7 +63,7 @@ namespace Robogame.Gameplay
                  "in the settings panel or dev HUD). Use to profile rotor + " +
                  "rope cost under load — see docs/PHYSICS_PLAN.md.")]
         [SerializeField] private ChassisBlueprint _stressTowerBlueprint;
-        [SerializeField] private Vector3 _stressTowerPosition = new Vector3(40f, 0.5f, 18f);
+        [SerializeField] private Vector3 _stressTowerPosition = new Vector3(55f, 0.5f, 30f);
         [SerializeField] private string _stressTowerName = "StressRotorTower";
 
         [Header("Arch test dummy")]
@@ -80,7 +80,7 @@ namespace Robogame.Gameplay
         [SerializeField] private ChassisBlueprint _archBlueprint;
         [FormerlySerializedAs("_dumbbellPosition")]
         [FormerlySerializedAs("_barbellPosition")]
-        [SerializeField] private Vector3 _archPosition = new Vector3(-25f, 0.5f, 18f);
+        [SerializeField] private Vector3 _archPosition = new Vector3(-40f, 0.5f, 30f);
         [FormerlySerializedAs("_dumbbellName")]
         [FormerlySerializedAs("_barbellName")]
         [SerializeField] private string _archName = "ArchDummy";
@@ -97,6 +97,25 @@ namespace Robogame.Gameplay
         [SerializeField] private Vector3 _tankDummyPatrolCentre = Vector3.zero;
         [Tooltip("Radius of the patrol circle (m).")]
         [SerializeField, Min(8f)] private float _tankDummyPatrolRadius = 30f;
+
+        [Header("Friendly tank (Phase 1 scrap-loop)")]
+        [Tooltip("If true, a friendly AI tank spawns alongside the player on MatchSide.Player. Lets the singleplayer arena test team mechanics (depot transfer, IFF damage filter) without networking.")]
+        [SerializeField] private bool _spawnFriendlyTank = true;
+
+        [Tooltip("Blueprint the friendly tank drives. Null falls back to the same resolution as TankDummy — preferring a preset whose name contains 'Tank'.")]
+        [SerializeField] private ChassisBlueprint _friendlyTankBlueprint;
+
+        [Tooltip("Friendly tank spawn position. Off to the player's left so it doesn't fight for spawn space with the human chassis.")]
+        [SerializeField] private Vector3 _friendlyTankSpawn = new Vector3(-12f, 2f, 4f);
+
+        [Tooltip("Centre of the friendly tank's patrol circle. The bot starts in Patrol around this point until the round starts and an enemy enters its chase range.")]
+        [SerializeField] private Vector3 _friendlyTankPatrolCentre = new Vector3(-12f, 0f, 12f);
+
+        [Tooltip("Friendly tank patrol circle radius (m).")]
+        [SerializeField, Min(8f)] private float _friendlyTankPatrolRadius = 18f;
+
+        [Tooltip("Friendly tank name.")]
+        [SerializeField] private string _friendlyTankName = "FriendlyTank";
 
         [Header("Air dummy bot")]
         [Tooltip("Optional patrolling air bot. Spawned when Stress.AirDummy " +
@@ -119,7 +138,20 @@ namespace Robogame.Gameplay
         [SerializeField] private bool _spawnRepairPad = true;
 
         [Tooltip("Pad placement (corner of the arena by default).")]
-        [SerializeField] private Vector3 _repairPadPosition = new Vector3(35f, 0.1f, 35f);
+        [SerializeField] private Vector3 _repairPadPosition = new Vector3(55f, 0.1f, 55f);
+
+        [Header("Scrap depots")]
+        [Tooltip("If true, procedural scrap-depot pads are spawned at the team-base positions below. " +
+                 "Robots touching their team's depot deposit their carried scrap into the team total.")]
+        [SerializeField] private bool _spawnScrapDepots = true;
+
+        [Tooltip("Player team's scrap depot position (south of spawn). " +
+                 "Session 59: scaled out to ±90 m to match the larger arena.")]
+        [SerializeField] private Vector3 _playerDepotPosition = new Vector3(0f, 0.2f, -90f);
+
+        [Tooltip("Enemy team's scrap depot position (north of spawn). " +
+                 "Session 59: scaled out to ±90 m to match the larger arena.")]
+        [SerializeField] private Vector3 _enemyDepotPosition = new Vector3(0f, 0.2f, 90f);
 
         [Header("Match")]
         [Tooltip("Round shape + bot roster for the singleplayer game loop. " +
@@ -143,6 +175,8 @@ namespace Robogame.Gameplay
         private GroundBotInputSource _tankDummyAi;
         private GameObject _airDummyGo;
         private AirBotInputSource _airDummyAi;
+        private GameObject _friendlyTankGo;
+        private GroundBotInputSource _friendlyTankAi;
 
         // -----------------------------------------------------------------
         // Match wiring
@@ -199,6 +233,12 @@ namespace Robogame.Gameplay
             BindFollowCamera(Chassis);
             RegisterChassis(Chassis, MatchSide.Player);
             SpawnMatchBots(state);
+            SpawnFriendlyTank(state);
+
+            // Scrap depots: one per team. Spawn AFTER the match exists so
+            // the depots can DepositScrap into it; AFTER bot spawn so the
+            // side-lookup map is populated for the depot's faction filter.
+            if (_spawnScrapDepots) SpawnScrapDepots();
 
             // Stress tower: optional. Read the tweakable on entry and
             // (de)spawn live as the slider moves. Subscribing here means
@@ -374,23 +414,93 @@ namespace Robogame.Gameplay
         }
 
         /// <summary>
-        /// Push the current player <see cref="Chassis"/> transform onto every
-        /// MatchConfig-spawned bot's <c>Target</c> property. Called from
-        /// <see cref="RespawnPlayer"/> and from <see cref="RespawnBotAfterDelay"/>
-        /// (since a freshly-respawned bot also needs the live player ref).
+        /// Resolve the closest live opposing chassis for a bot on
+        /// <paramref name="ownSide"/>. Returns null when no enemy is alive
+        /// — the bot falls back to Patrol harmlessly. Walks
+        /// <see cref="_registeredChassis"/> once; the dictionary is small
+        /// (one entry per chassis), so the linear scan is cheaper than
+        /// maintaining a per-side index list.
+        /// </summary>
+        private Transform ResolveTargetFor(MatchSide ownSide)
+        {
+            // No enemy team for neutral bots — they just patrol.
+            if (ownSide == MatchSide.None) return null;
+            // Anchor distance check at the friendly tank's nearest peer.
+            // We pick the closest opposing chassis to the player (a
+            // reasonable singleplayer focal point); per-bot proximity
+            // resolution can come later if multiple friendly bots end up
+            // converging on the same target.
+            Transform anchor = Chassis != null ? Chassis.transform : null;
+            Vector3 anchorPos = anchor != null ? anchor.position : Vector3.zero;
+
+            Transform best = null;
+            float bestSqr = float.PositiveInfinity;
+            foreach (var kvp in _registeredChassis)
+            {
+                Robot candidate = kvp.Key;
+                if (candidate == null || candidate.IsDestroyed) continue;
+                MatchSide side = kvp.Value;
+                // Opposing teams only: Player vs Enemy. Neutral chassis
+                // (the dev sandbox dummies) are valid targets for anyone.
+                if (side == ownSide) continue;
+                Transform t = candidate.transform;
+                float sqr = (t.position - anchorPos).sqrMagnitude;
+                if (sqr < bestSqr) { bestSqr = sqr; best = t; }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// Push fresh targets onto every MatchConfig-spawned bot + the
+        /// friendly tank. Each bot receives a Transform from its own
+        /// team's opposing pool — so a friendly tank hunts enemies, an
+        /// enemy bot hunts the player. Called from
+        /// <see cref="RespawnPlayer"/>, <see cref="RespawnBotAfterDelay"/>,
+        /// and <see cref="HandleRobotDestroyed"/> so a kill rolls every
+        /// bot onto a still-living target.
         /// </summary>
         private void RebindBotTargets()
         {
-            Transform t = Chassis != null ? Chassis.transform : null;
             for (int i = 0; i < _matchBots.Count; i++)
             {
                 GameObject bot = _matchBots[i];
                 if (bot == null) continue;
-                GroundBotInputSource ground = bot.GetComponent<GroundBotInputSource>();
-                if (ground != null) ground.Target = t;
-                AirBotInputSource air = bot.GetComponent<AirBotInputSource>();
-                if (air != null) air.Target = t;
+                BindBotTarget(bot);
             }
+            if (_friendlyTankGo != null) BindBotTarget(_friendlyTankGo);
+        }
+
+        private void BindBotTarget(GameObject bot)
+        {
+            Robot botRobot = bot.GetComponent<Robot>();
+            if (botRobot == null) return;
+            MatchSide botSide = LookupSide(botRobot);
+            Transform target = ResolveTargetFor(botSide);
+            GroundBotInputSource ground = bot.GetComponent<GroundBotInputSource>();
+            if (ground != null) ground.Target = target;
+            AirBotInputSource air = bot.GetComponent<AirBotInputSource>();
+            if (air != null) air.Target = target;
+        }
+
+        /// <summary>
+        /// Flip the master "fire at target" toggle on every
+        /// MatchConfig-spawned bot + the friendly tank. Targets are bound
+        /// separately by <see cref="RebindBotTargets"/>; this just
+        /// enables / disables the engagement loop. Used by
+        /// <see cref="HandleMatchStarted"/> when the warmup ends.
+        /// </summary>
+        private void EnableBotFire(bool fire)
+        {
+            for (int i = 0; i < _matchBots.Count; i++)
+            {
+                GameObject bot = _matchBots[i];
+                if (bot == null) continue;
+                GroundBotInputSource g = bot.GetComponent<GroundBotInputSource>();
+                if (g != null) g.FireAtTarget = fire;
+                AirBotInputSource a = bot.GetComponent<AirBotInputSource>();
+                if (a != null) a.FireAtTarget = fire;
+            }
+            if (_friendlyTankAi != null) _friendlyTankAi.FireAtTarget = fire;
         }
 
         private void Update()
@@ -451,28 +561,13 @@ namespace Robogame.Gameplay
 
         private void HandleMatchStarted()
         {
-            // Round goes hot: bind targets + fire toggles on every
-            // MatchConfig-spawned bot. Until this point bots Patrolled
-            // passively because Target was null on spawn. Now they enter
-            // Pursue/Engage and shoot.
-            Transform t = Chassis != null ? Chassis.transform : null;
-            for (int i = 0; i < _matchBots.Count; i++)
-            {
-                GameObject bot = _matchBots[i];
-                if (bot == null) continue;
-                GroundBotInputSource ground = bot.GetComponent<GroundBotInputSource>();
-                if (ground != null)
-                {
-                    ground.Target = t;
-                    ground.FireAtTarget = true;
-                }
-                AirBotInputSource air = bot.GetComponent<AirBotInputSource>();
-                if (air != null)
-                {
-                    air.Target = t;
-                    air.FireAtTarget = true;
-                }
-            }
+            // Round goes hot: enable fire on every registered bot and
+            // push team-aware targets via RebindBotTargets. Until this
+            // point bots Patrolled passively because Target was null on
+            // spawn. Now they enter Pursue/Engage and shoot — friendly
+            // tanks at enemies, enemies at the player chassis.
+            EnableBotFire(true);
+            RebindBotTargets();
             // Cursor was already locked through warmup — nothing to do here.
             // Gameplay flows uninterrupted.
             Debug.Log("[Robogame] Match started — bots engaging.", this);
@@ -536,6 +631,35 @@ namespace Robogame.Gameplay
             if (_registeredChassis.ContainsKey(r)) return;
             _registeredChassis[r] = side;
             r.Destroyed += HandleRobotDestroyed;
+
+            // Mirror the MatchSide into the Robot-tier TeamId so damage
+            // filters (ProjectileWorld friendly-fire) and team-aware
+            // gates (ScrapDepot grinder) can read it without bouncing
+            // through ArenaController. Enum values are kept aligned in
+            // both definitions; the cast is safe.
+            r.ConfigureTeam((TeamId)(byte)side);
+
+            // Push MatchConfig's scrap tuning onto the chassis so the
+            // carry cap + drop amount live in one place (the config),
+            // not duplicated on every spawn.
+            if (_matchConfig != null)
+            {
+                r.ConfigureScrap(_matchConfig.ScrapCarryCapacity);
+                ScrapDropper dropper = go.GetComponent<ScrapDropper>();
+                if (dropper != null) dropper.ConfigureDrop(_matchConfig.BaseDeathDrop);
+            }
+        }
+
+        /// <summary>
+        /// Lookup callback for the side-aware ScrapDepot trigger. Maps a
+        /// live Robot back to its registered MatchSide (Player vs Enemy
+        /// vs None when un-registered). Captured by the depot at spawn
+        /// time so each Depot.OnTriggerStay tick is O(1).
+        /// </summary>
+        public MatchSide LookupSide(Robot robot)
+        {
+            if (robot == null) return MatchSide.None;
+            return _registeredChassis.TryGetValue(robot, out MatchSide s) ? s : MatchSide.None;
         }
 
         private void HandleRobotDestroyed(Robot victim)
@@ -549,6 +673,8 @@ namespace Robogame.Gameplay
             // (track-which-side-dealt-the-final-block-of-damage). MP debt.
             MatchSide killerSide = victimSide == MatchSide.Player ? MatchSide.Enemy : MatchSide.Player;
 
+            // RegisterKill no longer scores — scrap deposits do — but the
+            // event still fires so KillAnnouncer's streak banner works.
             if (_match != null)
             {
                 _match.RegisterKill(killerSide, victimSide);
@@ -586,6 +712,46 @@ namespace Robogame.Gameplay
 
             _registeredChassis.Remove(victim);
             // r.Destroyed unsubscribes naturally as the Robot is destroyed.
+
+            // Any bot whose Target pointed at the (now fake-null) victim
+            // will fall back to Patrol forever unless rebound. Refresh
+            // every bot's target so a dead enemy is replaced with the
+            // closest still-living opposing chassis. Cheap — the registry
+            // is small.
+            RebindBotTargets();
+
+            // Friendly tank death: schedule respawn on the same cadence
+            // as enemy bot respawn so a one-shot friendly is replaced
+            // rather than leaving the round with no ally.
+            if (victim.gameObject == _friendlyTankGo
+                && _match != null
+                && _match.State == MatchState.InProgress
+                && _match.Config.BotRespawnDelay > 0f
+                && isActiveAndEnabled)
+            {
+                StartCoroutine(RespawnFriendlyTankAfterDelay(_match.Config.BotRespawnDelay));
+            }
+        }
+
+        private IEnumerator RespawnFriendlyTankAfterDelay(float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            if (_match != null && _match.State == MatchState.RoundEnded) yield break;
+            // Tear down the corpse if it's still around.
+            if (_friendlyTankGo != null) Destroy(_friendlyTankGo);
+            _friendlyTankGo = null;
+            _friendlyTankAi = null;
+            GameStateController state = GameStateController.Instance;
+            if (state == null) yield break;
+            SpawnFriendlyTank(state);
+            // Re-enable fire if the round is in progress (HandleMatchStarted
+            // already ran once; the freshly-respawned bot defaults to
+            // FireAtTarget = false until we push the live state onto it).
+            if (_match != null && _match.State == MatchState.InProgress)
+            {
+                if (_friendlyTankAi != null) _friendlyTankAi.FireAtTarget = true;
+                RebindBotTargets();
+            }
         }
 
         private IEnumerator RespawnPlayerAfterDelay(float delay)
@@ -637,6 +803,24 @@ namespace Robogame.Gameplay
                 _matchBots[botIndex] = fresh;
                 RegisterChassis(fresh, MatchSide.Enemy);
             }
+        }
+
+        // -----------------------------------------------------------------
+        // Scrap depots (one per team)
+        // -----------------------------------------------------------------
+
+        private ScrapDepot _playerDepot;
+        private ScrapDepot _enemyDepot;
+
+        /// <summary>Public accessor for the player's depot — used by the dev-cheat F3 teleport.</summary>
+        public ScrapDepot PlayerDepot => _playerDepot;
+
+        private void SpawnScrapDepots()
+        {
+            if (_match == null) return;
+            _playerDepot = ScrapDepot.CreateProcedural(_playerDepotPosition, transform, _match, MatchSide.Player, LookupSide);
+            _enemyDepot  = ScrapDepot.CreateProcedural(_enemyDepotPosition,  transform, _match, MatchSide.Enemy,  LookupSide);
+            Debug.Log($"[Robogame] Scrap depots spawned: Player@{_playerDepotPosition}, Enemy@{_enemyDepotPosition}. Target = {_match.TargetTeamScrap} team scrap.", this);
         }
 
         // -----------------------------------------------------------------
@@ -912,6 +1096,61 @@ namespace Robogame.Gameplay
         }
 
         // -----------------------------------------------------------------
+        // Friendly tank (Phase 1 of scrap-loop plan)
+        //
+        // A second AI tank wearing MatchSide.Player. Unblocks team
+        // mechanics in singleplayer — depot transfer, IFF damage filter,
+        // friendly-vs-enemy scrap drop ownership — all of which need at
+        // least one allied chassis to evaluate. See docs/SCRAP_LOOP_PLAN.md §2.
+        // -----------------------------------------------------------------
+
+        private void SpawnFriendlyTank(GameStateController state)
+        {
+            if (!_spawnFriendlyTank) return;
+            if (_friendlyTankGo != null) return; // already alive
+            if (state.Library == null) return;
+
+            ChassisBlueprint bp = _friendlyTankBlueprint != null
+                ? _friendlyTankBlueprint
+                : ResolveTankDummyBlueprint(state);
+            if (bp == null)
+            {
+                Debug.LogWarning(
+                    "[Robogame] ArenaController: friendly tank requested but no " +
+                    "ChassisBlueprint resolved (assign _friendlyTankBlueprint in the " +
+                    "inspector or ensure GameStateController has a Tank preset).",
+                    this);
+                return;
+            }
+
+            GameObject existing = GameObject.Find(_friendlyTankName);
+            if (existing != null) Destroy(existing);
+
+            _friendlyTankGo = new GameObject(_friendlyTankName);
+            _friendlyTankGo.transform.SetPositionAndRotation(_friendlyTankSpawn, Quaternion.identity);
+            _friendlyTankGo.SetActive(false);
+            _friendlyTankAi = _friendlyTankGo.AddComponent<GroundBotInputSource>();
+            _friendlyTankAi.CircleCentre = _friendlyTankPatrolCentre;
+            _friendlyTankAi.CircleRadius = _friendlyTankPatrolRadius;
+            // Passive spawn — fire / target are bound by HandleMatchStarted
+            // (or by RespawnFriendlyTankAfterDelay if the round is already
+            // hot). Same rule as MatchConfig-driven bots.
+            _friendlyTankAi.FireAtTarget = false;
+            _friendlyTankAi.Target = null;
+            ChassisFactory.Build(
+                _friendlyTankGo, bp, state.Library,
+                inputActions: null, addPlayerInputs: false);
+            _friendlyTankGo.SetActive(true);
+
+            // Register with the match on the PLAYER side so a kill against
+            // it counts for the enemy team's scoring and the IFF filter
+            // stops the player from accidentally damaging it.
+            RegisterChassis(_friendlyTankGo, MatchSide.Player);
+            Debug.Log($"[Robogame] Friendly tank spawned at {_friendlyTankSpawn} " +
+                      $"(blueprint='{bp.name}').", _friendlyTankGo);
+        }
+
+        // -----------------------------------------------------------------
         // Air dummy bot (mirrors tank dummy)
         // -----------------------------------------------------------------
 
@@ -1059,6 +1298,20 @@ namespace Robogame.Gameplay
             KillAnnouncer announcer = mainCam.GetComponent<KillAnnouncer>();
             if (announcer == null) announcer = mainCam.gameObject.AddComponent<KillAnnouncer>();
             if (_match != null) announcer.BindMatch(_match);
+
+            // Worldspace per-robot scrap-carried indicator. Lets the player
+            // target high-load enemies (juicy kill) vs respawn-fresh ones.
+            ScrapCarriedIndicator indicator = mainCam.GetComponent<ScrapCarriedIndicator>();
+            if (indicator == null) indicator = mainCam.gameObject.AddComponent<ScrapCarriedIndicator>();
+            indicator.BindSideLookup(LookupSide);
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            // Dev cheat keys for fast iteration on the scrap loop.
+            // Compile-guarded so a shipped build can't trigger them.
+            ScrapDevCheats cheats = mainCam.GetComponent<ScrapDevCheats>();
+            if (cheats == null) cheats = mainCam.gameObject.AddComponent<ScrapDevCheats>();
+            cheats.Bind(this);
+#endif
         }
 
         /// <summary>Transition back to the garage scene.</summary>

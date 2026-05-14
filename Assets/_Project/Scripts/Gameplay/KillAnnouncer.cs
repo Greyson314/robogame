@@ -1,3 +1,4 @@
+using Robogame.Core;
 using UnityEngine;
 
 namespace Robogame.Gameplay
@@ -36,11 +37,13 @@ namespace Robogame.Gameplay
 
         [SerializeField] private int _bannerFontSize = 56;
 
-        // Palette tokens (mirrors WorldPalette / RuntimePalette).
-        private static readonly Color s_hazard = new Color(0.95f, 0.55f, 0.10f, 1f);
-        private static readonly Color s_caution = new Color(0.90f, 0.80f, 0.20f, 1f);
-        private static readonly Color s_alert  = new Color(0.75f, 0.20f, 0.25f, 1f);
-        private static readonly Color s_plasma = new Color(0.63f, 0.33f, 0.95f, 1f);
+        // Palette tokens. First three feed off HudStyles for consistency
+        // with the scoreboard / stats overlays; plasma stays local —
+        // it's the rampage-only colour and not used elsewhere.
+        private static readonly Color s_hazard  = HudStyles.Accent;
+        private static readonly Color s_caution = HudStyles.Warning;
+        private static readonly Color s_alert   = HudStyles.Danger;
+        private static readonly Color s_plasma  = new Color(0.63f, 0.33f, 0.95f, 1f);
 
         private MatchController _match;
         private GUIStyle _style;
@@ -151,13 +154,8 @@ namespace Robogame.Gameplay
         private void EnsureStyle()
         {
             if (_style != null) return;
-            _style = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = _bannerFontSize,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter,
-            };
-            _style.normal.textColor = Color.white; // tinted via GUI.color
+            // Tinted via GUI.color so the streak palette flows through.
+            _style = HudStyles.Bold(_bannerFontSize, Color.white, TextAnchor.MiddleCenter);
         }
     }
 }

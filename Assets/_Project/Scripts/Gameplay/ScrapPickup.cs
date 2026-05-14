@@ -22,11 +22,9 @@ namespace Robogame.Gameplay
     /// </para>
     /// <para>
     /// <b>Visual.</b> Tries <c>Resources.Load&lt;GameObject&gt;("Prefabs/ScrapPickup")</c>
-    /// first — that path is populated by the editor scaffolder
-    /// <c>ScrapPrefabScaffolder</c>, which wraps the Kenney
-    /// <c>coin-bronze</c> FBX. If the prefab is missing the spawner
+    /// first. If no authored prefab is present at that path the spawner
     /// falls back to a procedural cube with a palette tint, so the
-    /// gameplay loop works even before the scaffolder is run.
+    /// gameplay loop works without any hand-authored asset.
     /// </para>
     /// <para>
     /// <b>Magnetic pickup.</b> Within
@@ -51,9 +49,8 @@ namespace Robogame.Gameplay
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Resources-relative path the spawner attempts to load. Populated
-        /// by <c>ScrapPrefabScaffolder</c> (Robogame > Scaffold menu); if
-        /// the asset is missing the spawner falls back to a procedural
+        /// Resources-relative path the spawner attempts to load. If the
+        /// asset is missing the spawner falls back to a procedural
         /// cube. Public so tests can poke at the cache reset path if
         /// needed.
         /// </summary>
@@ -215,15 +212,42 @@ namespace Robogame.Gameplay
             Robot collector = other.GetComponentInParent<Robot>();
             if (collector == null || collector.IsDestroyed) return;
 
-            Collect(collector);
+            TryCollect(collector);
         }
 
-        private void Collect(Robot collector)
+        // OnTriggerStay covers the case where a robot enters with a full
+        // load (refused at the gate) then deposits at a depot WITHOUT
+        // leaving the pickup's trigger volume. Once a slot opens up, the
+        // pickup gets collected on the next physics tick.
+        private void OnTriggerStay(Collider other)
         {
             if (_collected) return;
-            _collected = true;
+            if (Time.time - _spawnTime < _armDelay) return;
 
-            collector.AwardScrap(_value);
+            Robot collector = other.GetComponentInParent<Robot>();
+            if (collector == null || collector.IsDestroyed) return;
+            if (collector.IsScrapFull) return;
+
+            TryCollect(collector);
+        }
+
+        // Returns true if the pickup was fully banked. Partial-pickup
+        // case: pickup banks what fits, reduces its value to the
+        // remainder, stays in the world for another robot (or this one,
+        // after a depot run). This way a robot with 7/8 capacity walking
+        // through a value-3 pickup bands 1 scrap and leaves a value-2
+        // pickup behind — never wastes scrap.
+        private void TryCollect(Robot collector)
+        {
+            if (_collected) return;
+            int awarded = collector.TryAwardScrap(_value);
+            if (awarded <= 0) return; // chassis full — pickup stays
+            if (awarded < _value)
+            {
+                _value -= awarded;
+                return;
+            }
+            _collected = true;
 
             VfxSpawner.Spawn(VfxKind.ScrapBurst, transform.position, Quaternion.identity, 1f);
             AudioRouter.PlayOneShot(AudioCue.ScrapCollect, transform.position);

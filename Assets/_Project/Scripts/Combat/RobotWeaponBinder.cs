@@ -28,7 +28,7 @@ namespace Robogame.Combat
             // reticle — wrong behaviour for a rope-tip that should hang
             // freely from the rope. Skip them here.
             string id = block.Definition.Id;
-            if (id == BlockIds.Hook || id == BlockIds.Mace) return false;
+            if (id == BlockIds.Hook || id == BlockIds.Mace || id == BlockIds.Magnet) return false;
             return true;
         }
 
@@ -50,6 +50,13 @@ namespace Robogame.Combat
                 CannonBlock cannon = block.GetComponent<CannonBlock>();
                 if (cannon == null) cannon = block.gameObject.AddComponent<CannonBlock>();
                 cannon.Bind(_mount);
+                return;
+            }
+            if (id == BlockIds.GrappleMagnet)
+            {
+                GrappleMagnetBlock grapple = block.GetComponent<GrappleMagnetBlock>();
+                if (grapple == null) grapple = block.gameObject.AddComponent<GrappleMagnetBlock>();
+                grapple.Bind(_mount);
                 return;
             }
 

@@ -103,8 +103,8 @@ namespace Robogame.Movement
             // in toward the chassis on every revolution and snap back
             // out as the tip cleared the line — the exact "camera
             // zooms in really close then immediately back out" symptom
-            // observed on the Plane (which has a tail rotor) but not
-            // the Buggy. Ignore Raycast is purely a query-layer flag,
+            // observed on plane-kind chassis (rope on tail boom) but not
+            // wheeled ground vehicles. Ignore Raycast is purely a query-layer flag,
             // so collision against arena geometry / dummies is
             // unaffected.
             gameObject.layer = 2; // built-in Ignore Raycast

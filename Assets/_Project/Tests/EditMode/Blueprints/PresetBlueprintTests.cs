@@ -21,6 +21,7 @@ namespace Robogame.Tests.EditMode.Blueprints
     public sealed class PresetBlueprintTests
     {
         private const string BlueprintFolder = "Assets/_Project/ScriptableObjects/Blueprints";
+        private const string LibraryAssetPath = "Assets/_Project/ScriptableObjects/BlockDefinitionLibrary.asset";
 
         // Repo-relative path for the snapshot file. Unity's Application.dataPath
         // ends in "/Assets" — go up one level to reach the project root.
@@ -36,9 +37,11 @@ namespace Robogame.Tests.EditMode.Blueprints
             BlueprintFolder + "/Blueprint_DefaultBuggy.asset",
             BlueprintFolder + "/Blueprint_DefaultBoat.asset",
             BlueprintFolder + "/Blueprint_DefaultBomber.asset",
+            BlueprintFolder + "/Blueprint_DefaultPropPlane.asset",
             BlueprintFolder + "/Blueprint_DefaultHelicopter.asset",
             BlueprintFolder + "/Blueprint_CombatDummy.asset",
             BlueprintFolder + "/Blueprint_StressRotorTower.asset",
+            BlueprintFolder + "/Blueprint_StressRopeTower.asset",
             BlueprintFolder + "/Blueprint_ArchDummy.asset",
         };
 
@@ -52,8 +55,12 @@ namespace Robogame.Tests.EditMode.Blueprints
                 return;
             }
 
+            // Library-aware validation — same strict path the scaffolder
+            // runs at write-time, so a hand-edited preset that drifted
+            // from a player-buildable shape fails here too.
+            BlockDefinitionLibrary lib = AssetDatabase.LoadAssetAtPath<BlockDefinitionLibrary>(LibraryAssetPath);
             BlueprintPlan plan = new BlueprintPlan(bp.DisplayName, bp.Kind, bp.Entries, bp.RotorsGenerateLift);
-            BlueprintValidationResult r = BlueprintValidator.Validate(plan);
+            BlueprintValidationResult r = BlueprintValidator.Validate(plan, lib);
             Assert.IsTrue(r.IsValid, $"Validation failed for {bp.DisplayName}:\n{r}");
         }
 

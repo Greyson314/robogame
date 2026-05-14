@@ -155,6 +155,11 @@ namespace Robogame.Gameplay
         public Vector2 Look => Vector2.zero;
         public float Vertical => 0f;
         public bool FireHeld => _fireHeld;
+        // Bots don't author single-shot weapons (grapple magnet) yet.
+        // When they do, this becomes a strobed pulse on attack intent.
+        public bool FirePressed => false;
+        // Bots auto-reload on empty — they never manually press R.
+        public bool ReloadPressed => false;
 
         public BotState State => _state;
 

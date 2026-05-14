@@ -403,7 +403,7 @@ That's grass *alone*, before you've drawn a single block.
    multiplies by 22. Going `121 → 81` cuts input tris by ~55% (n²)
    and barely affects the silhouette of the gentle Perlin hills.
    **Requires a rebake** (`HillsSettings` inspector → "Rebake hills
-   mesh", or re-run `Robogame > Scaffold > Build All Pass A`).
+   mesh", or re-run `Robogame > Build Everything` — Ctrl+Shift+B).
 
 5. **`_FinsEnabled = 0`** disables fin emission entirely. Saves 6
    layers per close triangle. Slight quality cost (silhouette reads

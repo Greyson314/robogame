@@ -31,5 +31,17 @@ namespace Robogame.Block
         // 2 × dmgPerKj, speed threshold, per-pair cooldown).
         public const string Hook       = "block.weapon.tip.hook";
         public const string Mace       = "block.weapon.tip.mace";
+        // Magnet (session 59): pull-field tip block. Adopted onto a
+        // rope tip like Hook/Mace, but instead of grappling or hitting
+        // hard, it continuously yanks Rigidbodies in a sphere toward
+        // itself. Crowd control / utility tool — see MagnetBlock.cs.
+        public const string Magnet     = "block.weapon.tip.magnet";
+        // Grapple magnet (session 61): single-shot fire-and-retract
+        // weapon. Fires a rope+magnet projectile up to 24 m; on enemy
+        // contact it latches and the player can drag the target around
+        // via the rope. Misses retract instantly. Standalone weapon
+        // block — NOT a tip block (the tip is spawned as a transient
+        // child of the block, not a grid cell).
+        public const string GrappleMagnet = "block.weapon.grapple_magnet";
     }
 }

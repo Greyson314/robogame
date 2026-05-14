@@ -1,3 +1,4 @@
+using Robogame.Core;
 using UnityEngine;
 
 namespace Robogame.Gameplay
@@ -27,14 +28,10 @@ namespace Robogame.Gameplay
     {
         [Header("Look")]
         [SerializeField] private Color _dimColor = new Color(0f, 0f, 0f, 0.65f);
-        [SerializeField] private Color _victoryColor = new Color(0.95f, 0.55f, 0.10f, 1f); // hazard orange
-        [SerializeField] private Color _defeatColor  = new Color(0.75f, 0.25f, 0.20f, 1f); // alert red
-        [SerializeField] private Color _drawColor    = new Color(0.85f, 0.85f, 0.85f, 1f);
-        [SerializeField] private Color _bodyColor    = new Color(0.95f, 0.97f, 1f, 0.95f);
-        [SerializeField, Min(8)] private int _headlineFontSize = 64;
-        [SerializeField, Min(8)] private int _scoreFontSize = 24;
+        [SerializeField, Min(8)] private int _headlineFontSize = 72;
+        [SerializeField, Min(8)] private int _scoreFontSize = 26;
         [SerializeField, Min(8)] private int _reasonFontSize = 16;
-        [SerializeField, Min(8)] private int _buttonFontSize = 20;
+        [SerializeField, Min(8)] private int _buttonFontSize = 22;
 
         [Header("Layout")]
         [SerializeField] private Vector2 _buttonSize = new Vector2(260f, 56f);
@@ -117,21 +114,23 @@ namespace Robogame.Gameplay
             switch (_lastArgs.WinnerSide)
             {
                 case MatchSide.Player:
-                    headline = _victoryHeadline; headlineColor = _victoryColor; break;
+                    headline = _victoryHeadline; headlineColor = HudStyles.Accent; break;
                 case MatchSide.Enemy:
-                    headline = _defeatHeadline;  headlineColor = _defeatColor;  break;
+                    headline = _defeatHeadline;  headlineColor = HudStyles.Danger; break;
                 default:
-                    headline = _drawHeadline;    headlineColor = _drawColor;    break;
+                    headline = _drawHeadline;    headlineColor = HudStyles.TextMuted; break;
             }
 
             Rect headlineRect = new Rect(0, Screen.height * 0.22f, Screen.width, _headlineFontSize + 16);
             GUI.color = headlineColor;
             GUI.Label(headlineRect, headline, _headlineStyle);
 
-            // Score line.
+            // Score line — team scrap totals. Rich-text colour per team
+            // so the player can see at a glance which side carried.
             Rect scoreRect = new Rect(0, Screen.height * 0.36f, Screen.width, _scoreFontSize + 8);
-            GUI.color = _bodyColor;
-            GUI.Label(scoreRect, $"{_lastArgs.PlayerScore}  —  {_lastArgs.EnemyScore}", _scoreStyle);
+            GUI.color = HudStyles.TextPrimary;
+            string scoreLine = $"SCRAP   <color={HudStyles.TagAccent}>{_lastArgs.PlayerScore}</color>  —  <color={HudStyles.TagDanger}>{_lastArgs.EnemyScore}</color>";
+            GUI.Label(scoreRect, scoreLine, _scoreStyle);
 
             // Reason line.
             Rect reasonRect = new Rect(0, Screen.height * 0.42f, Screen.width, _reasonFontSize + 8);
@@ -152,11 +151,11 @@ namespace Robogame.Gameplay
 
         private static string ResolveReasonCopy(MatchEndReason reason) => reason switch
         {
-            MatchEndReason.FragLimitReached => "Frag limit reached",
-            MatchEndReason.TimeExpired      => "Time up",
-            MatchEndReason.PlayerEliminated => "Out of lives",
-            MatchEndReason.Draw             => "Time up — no winner",
-            _                                => "Match ended",
+            MatchEndReason.ScrapLimitReached => "Scrap quota reached",
+            MatchEndReason.TimeExpired       => "Time up",
+            MatchEndReason.PlayerEliminated  => "Out of lives",
+            MatchEndReason.Draw              => "Time up — no winner",
+            _                                 => "Match ended",
         };
 
         private void ReturnToGarage()
@@ -171,32 +170,15 @@ namespace Robogame.Gameplay
         private void EnsureStyles()
         {
             if (_headlineStyle != null) return;
-            _headlineStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = _headlineFontSize,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter,
-            };
-            _headlineStyle.normal.textColor = Color.white; // GUI.color tints
+            _headlineStyle = HudStyles.Bold(_headlineFontSize, Color.white, TextAnchor.MiddleCenter);
+            _scoreStyle = HudStyles.Bold(_scoreFontSize, Color.white, TextAnchor.MiddleCenter);
+            _reasonStyle = HudStyles.Label(_reasonFontSize, Color.white, TextAnchor.MiddleCenter, FontStyle.Italic);
 
-            _scoreStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = _scoreFontSize,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter,
-            };
-            _scoreStyle.normal.textColor = Color.white;
-
-            _reasonStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = _reasonFontSize,
-                fontStyle = FontStyle.Italic,
-                alignment = TextAnchor.MiddleCenter,
-            };
-            _reasonStyle.normal.textColor = Color.white;
-
+            // Buttons inherit GUI.skin.button (so the engine's pressed /
+            // hover states still fire); we only override font + sizing.
             _buttonStyle = new GUIStyle(GUI.skin.button)
             {
+                font = HudStyles.Font,
                 fontSize = _buttonFontSize,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,

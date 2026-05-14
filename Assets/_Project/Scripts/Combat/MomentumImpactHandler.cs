@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Robogame.Block;
 using Robogame.Core;
+using Robogame.Movement;
 using Robogame.Robots;
 using UnityEngine;
 
@@ -162,6 +163,18 @@ namespace Robogame.Combat
             if (otherComp == null) return;
             bool otherHasHandler = otherComp.GetComponentInParent<MomentumImpactHandler>() != null;
             if (otherHasHandler) return;
+
+            // Tip-block exemption (session 60). A rope-mounted tip block
+            // (Hook / Mace / Magnet) sits on its own kinematic rope-tip
+            // Rigidbody — it has no MomentumImpactHandler, so without this
+            // branch we'd hit its IDamageable on every chassis-impact and
+            // chew its 150-ish HP down inside a couple of seconds. Tip
+            // blocks are part of the chassis's *offensive* toolkit; their
+            // damage contract is unidirectional (TipBlock.HandleCollision
+            // damages the contacted target, not the tip). Direct ranged
+            // hits still damage the tip's BlockBehaviour normally — they
+            // go through ProjectileWorld, not through this handler.
+            if (otherComp.GetComponentInParent<TipBlock>() != null) return;
 
             IDamageable plain = otherComp.GetComponentInParent<IDamageable>();
             if (plain != null) plain.TakeDamage(s_ringScratch[0]);

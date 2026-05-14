@@ -74,16 +74,18 @@ namespace Robogame.Core
         // Rope (free-body link block — see RopeBlock). Length / radius /
         // mass / damping / joint-limit stay as Tweakables intentionally:
         // rope feel is hard to dial in without live mid-match tuning, and
-        // the user explicitly carved out an exception here. Segment COUNT
-        // moved to per-block blueprint config (ChassisBlueprint.Entry.Dims.x)
-        // so a long-rope grappling hook and a short-rope mace can coexist
-        // on the same chassis. See RopeBlock.LiveSegmentCount.
+        // the user explicitly carved out an exception here. Rope LENGTH
+        // (in chassis cells) moved to per-block blueprint config
+        // (ChassisBlueprint.Entry.Dims.x) so a long-rope grappling hook
+        // and a short-rope mace can coexist on the same chassis. The
+        // segment-length Tweakable below now only controls the verlet
+        // sub-segment density, not the rope's reach — placement-relevant
+        // tip cell stays purely a function of blueprint data. See
+        // RopeGeometry.ChainCellCount and RopeBlock.LiveSegmentCount.
         public const string RopeSegmentLength  = "Rope.SegmentLength";  // metres per link
         public const string RopeSegmentRadius  = "Rope.SegmentRadius";  // capsule radius (m)
         public const string RopeSegmentMass    = "Rope.SegmentMass";    // kg per link
-        public const string RopeAngularLimit   = "Rope.AngularLimit";   // joint bend limit (deg)
         public const string RopeLinearDamping  = "Rope.LinearDamping";  // per-segment linear damping
-        public const string RopeAngularDamping = "Rope.AngularDamping"; // per-segment angular damping
 
         // Rotor (spinning block, see RotorBlock). RPM drives the visual
         // spin rate of every active rotor and (in lift mode) the kinematic
@@ -142,8 +144,8 @@ namespace Robogame.Core
         public const string StressRotorTowerRpm = "Stress.RotorTowerRpm"; // RPM applied to every rotor in the stress tower (independent of Rotor.RPM)
 
         // Tank dummy bot: drives in a circle, optional fire-at-player.
-        // Singleplayer training affordance — see DummyAiInputSource for the
-        // multiplayer-debt note. 0/1 toggles per the existing Stress.* convention.
+        // Singleplayer training affordance — see GroundBotInputSource for
+        // the AI behaviour. 0/1 toggles per the existing Stress.* convention.
         public const string TankDummySpawn = "Stress.TankDummy";       // 0/1 toggle: spawn / despawn the patrolling tank
         public const string TankDummyFire  = "Stress.TankDummyFire";   // 0/1 toggle: tank fires at player chassis when in arc + range
 
@@ -338,16 +340,20 @@ namespace Robogame.Core
             // BlockDefinition.ComponentData). Edit the assets in the
             // editor; live in-game tuning is gone for these by design.
 
-            // Rope physics. Segment count moved to per-block blueprint
-            // config — see RopeBlock.LiveSegmentCount and the audit comment
-            // up top. Length / radius / mass / damping / joint-limit stay
-            // hot-tunable per the user's "ropes need in-match tuning" call.
+            // Rope physics. Rope LENGTH (in cells) moved to per-block
+            // blueprint config — see RopeGeometry.ChainCellCount. The
+            // SegmentLength knob below is now a sub-segment density
+            // tuning knob (smaller = smoother chain over the same
+            // total length); it no longer affects the rope's reach.
+            // Length / radius / mass / linear-damping stay hot-tunable
+            // per the user's "ropes need in-match tuning" call. Angular
+            // limit + angular damping were retired with the joint-chain
+            // rope; the Verlet sim derives bending from positional
+            // constraints instead (see VerletRopeChain.BendingStiffness).
             Register(RopeSegmentLength,  "Rope", "Segment Length (m)", 0.50f, 0.10f, 1.50f);
             Register(RopeSegmentRadius,  "Rope", "Segment Radius (m)", 0.08f, 0.02f, 0.40f);
             Register(RopeSegmentMass,    "Rope", "Segment Mass (kg)",  0.04f, 0.005f, 1.0f);
-            Register(RopeAngularLimit,   "Rope", "Angular Limit (deg)",30.0f, 0f,    90f);
             Register(RopeLinearDamping,  "Rope", "Linear Damping",     0.10f, 0f,    4f);
-            Register(RopeAngularDamping, "Rope", "Angular Damping",    0.50f, 0f,    4f);
 
             // Rotor. 60 rpm = 1 rev/sec — slow enough to read individual
             // blades by eye. Bump for fan/helicopter builds; drop to 0

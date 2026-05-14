@@ -92,7 +92,7 @@ namespace Robogame.Block
         public static PlacementError CheckHostExists(BlockGrid grid, in Candidate c)
         {
             if (grid == null || grid.Count == 0) return PlacementError.None;
-            Vector3Int hostCell = c.Cell - c.Up;
+            Vector3Int hostCell = ResolveHostCell(grid, c);
             if (!grid.TryGetBlock(hostCell, out BlockBehaviour host) || host == null)
                 return PlacementError.HostMissing;
             return PlacementError.None;
@@ -101,7 +101,7 @@ namespace Robogame.Block
         public static PlacementError CheckHostIsConnective(BlockGrid grid, in Candidate c)
         {
             if (grid == null || grid.Count == 0) return PlacementError.None;
-            Vector3Int hostCell = c.Cell - c.Up;
+            Vector3Int hostCell = ResolveHostCell(grid, c);
             if (!grid.TryGetBlock(hostCell, out BlockBehaviour host) || host == null)
                 return PlacementError.None; // covered by CheckHostExists
             // Per-face + per-block-id check — rotor's spin-axis face
@@ -130,7 +130,7 @@ namespace Robogame.Block
         {
             if (grid == null || cpuReachable == null) return PlacementError.None;
             if (grid.Count == 0) return PlacementError.None;
-            Vector3Int hostCell = c.Cell - c.Up;
+            Vector3Int hostCell = ResolveHostCell(grid, c);
             HashSet<Vector3Int> set = cpuReachable as HashSet<Vector3Int>;
             bool reachable = set != null
                 ? set.Contains(hostCell)
@@ -208,7 +208,67 @@ namespace Robogame.Block
                 : PlacementError.None;
         }
 
+        /// <summary>
+        /// Two-cell variant: rejects the removal only if removing BOTH
+        /// <paramref name="cellA"/> and <paramref name="cellB"/> together
+        /// would orphan one or more blocks from the CPU. Used by the
+        /// rotor → mechanism-cube cascade so the orphan check sees the
+        /// post-cascade graph, not the post-rotor-only graph.
+        /// </summary>
+        public static PlacementError EvaluateRemoval(BlockGrid grid, Vector3Int cellA, Vector3Int cellB, BlockGraph.Buffers buffers, out int orphanCount)
+        {
+            orphanCount = 0;
+            if (grid == null || buffers == null) return PlacementError.None;
+            return BlockGraph.WouldOrphanIfRemoved(grid, cellA, cellB, buffers, out orphanCount)
+                ? PlacementError.WouldOrphanOnRemoval
+                : PlacementError.None;
+        }
+
         // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Resolve the host cell for a candidate. For Hook / Mace, walks
+        /// back from <paramref name="c"/>.Cell along -c.Up looking for a
+        /// rope whose chain length equals the walk distance and whose
+        /// mount-up matches the tip's; if one is found, that rope is the
+        /// host. For every other case, the host is the standard
+        /// face-adjacent neighbour at <c>c.Cell - c.Up</c>.
+        /// </summary>
+        /// <remarks>
+        /// Centralised so HostExists, HostIsConnective, and
+        /// HostIsCpuReachable agree on what "the host" means for tip
+        /// blocks. Mirrors the rope-bridge virtual edge in
+        /// <see cref="BlockGraph"/>: if the BFS reaches a rope's tip cell
+        /// via the rope, this resolver is what finds the rope-as-host
+        /// when the placement rules ask.
+        /// </remarks>
+        private static Vector3Int ResolveHostCell(BlockGrid grid, in Candidate c)
+        {
+            if (grid != null && c.Definition != null && IsTipBlockId(c.Definition.Id))
+            {
+                for (int dist = 1; dist <= RopeGeometry.MaxLengthCells; dist++)
+                {
+                    Vector3Int probe = c.Cell - c.Up * dist;
+                    if (!grid.TryGetBlock(probe, out BlockBehaviour blk) || blk == null) continue;
+                    if (blk.Definition == null) break;
+                    if (blk.Definition.Id == BlockIds.Rope
+                        && blk.Up == c.Up
+                        && RopeGeometry.ChainCellCount(blk) == dist)
+                    {
+                        return probe;
+                    }
+                    // First block along -up that isn't a matching rope
+                    // ends the walk — host then falls back to the standard
+                    // face-adjacent neighbour (which may or may not be
+                    // this block, depending on `dist`).
+                    break;
+                }
+            }
+            return c.Cell - c.Up;
+        }
+
+        private static bool IsTipBlockId(string id) =>
+            id == BlockIds.Hook || id == BlockIds.Mace || id == BlockIds.Magnet;
 
         private static bool ContainsLinear(IReadOnlyCollection<Vector3Int> set, Vector3Int value)
         {

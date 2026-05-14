@@ -61,7 +61,10 @@ namespace Robogame.Combat
         private IInputSource _input;
         private Robot _ownerRobot;
         private Robogame.Block.BlockBehaviour _block;
+        private WeaponAmmoState _ammo;
+        private string _blockId;
         private float _nextFireTime;
+        private float _nextEmptyClickTime;
 
         // Tracer tint for the trail. Warm cream → tracer feel.
         private static readonly Color s_tracerHead = new Color(1f, 0.85f, 0.35f, 1f);
@@ -72,6 +75,8 @@ namespace Robogame.Combat
             _input = GetComponentInParent<IInputSource>();
             _ownerRobot = GetComponentInParent<Robot>();
             _block = GetComponent<Robogame.Block.BlockBehaviour>();
+            _ammo = GetComponentInParent<WeaponAmmoState>();
+            _blockId = _block != null && _block.Definition != null ? _block.Definition.Id : null;
         }
 
         // Resolve weapon stats. Per-weapon-block WeaponDefinition (on
@@ -100,8 +105,26 @@ namespace Robogame.Combat
             if (_input == null || !_input.FireHeld) return;
             if (Time.time < _nextFireTime) return;
 
+            // Ammo gate (Phase 5). Pool-empty plays a throttled dry-click
+            // so the player gets feedback that their pull isn't firing.
+            // Cooldown matches fire-rate so a held trigger on empty
+            // doesn't strobe the dry-click cue.
+            if (_ammo != null && _blockId != null && !_ammo.CanFire(_blockId))
+            {
+                if (Time.time >= _nextEmptyClickTime)
+                {
+                    AudioRouter.PlayOneShot(AudioCue.WeaponEmpty, transform.position);
+                    _nextEmptyClickTime = Time.time + 0.20f;
+                }
+                return;
+            }
+
             float fireRate = Mathf.Max(0.1f, ResolveFireRate());
             _nextFireTime = Time.time + 1f / fireRate;
+            // Consume the round before firing — Consume is idempotent
+            // against an already-empty pool, so the if above and the
+            // Consume here can't both fail in the same frame.
+            if (_ammo != null && _blockId != null) _ammo.Consume(_blockId, 1);
             Fire();
         }
 

@@ -64,6 +64,43 @@ namespace Robogame.Input
             }
         }
 
+        /// <summary>
+        /// True for the one frame the fire button transitions
+        /// up→down. Edge-triggered companion to <see cref="FireHeld"/>;
+        /// single-shot weapons (grapple magnet) consume this so the
+        /// player can't double-fire by holding the button.
+        /// </summary>
+        public bool FirePressed
+        {
+            get
+            {
+                if (_fire == null || !_fire.WasPressedThisFrame()) return false;
+                if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+                    return false;
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// True only on the frame the player presses R. Reads the
+        /// keyboard device directly (Reload isn't a binding in the project
+        /// InputActionAsset — adding it would require asset edits). Same
+        /// HUD-pointer suppression as fire so an R press in a focused
+        /// text field doesn't reload mid-typing.
+        /// </summary>
+        public bool ReloadPressed
+        {
+            get
+            {
+                Keyboard kb = Keyboard.current;
+                if (kb == null) return false;
+                if (!kb.rKey.wasPressedThisFrame) return false;
+                if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+                    return false;
+                return true;
+            }
+        }
+
         private void OnEnable()
         {
             if (_actions == null)

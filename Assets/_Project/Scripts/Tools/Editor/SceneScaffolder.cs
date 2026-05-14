@@ -11,9 +11,10 @@ namespace Robogame.Tools.Editor
 {
     /// <summary>
     /// Editor menu commands that build out our standard scenes from scratch.
-    /// Block layouts live in <see cref="RobotLayouts"/>; per-component
-    /// wiring lives in <see cref="ScaffoldHelpers"/>; tuning data lives in
-    /// ScriptableObject assets created via <see cref="TuningAssets"/>.
+    /// Block layouts come from <see cref="GameplayScaffolder"/>'s preset
+    /// plans (built via <see cref="ScriptedChassisBuilder"/>); tuning
+    /// data lives in ScriptableObject assets created via
+    /// <see cref="TuningAssets"/>.
     /// </summary>
     public static class SceneScaffolder
     {
@@ -65,58 +66,112 @@ namespace Robogame.Tools.Editor
         }
 
         /// <summary>
-        /// Drop a small obstacle course around the origin. Idempotent:
-        /// nukes the previous "Terrain" parent and rebuilds.
+        /// Drop the arena's boundary walls + scenic mountain ring.
+        /// Idempotent: nukes the previous "Terrain" parent and rebuilds.
         /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Session 59 strip-down: the central obstacle course (ramps,
+        /// bumps, stairs, free-standing pillars) was removed in favour of
+        /// an open playfield. The course read as test-bed scenery against
+        /// the new larger arena scale and broke combat lines for the
+        /// scrap loop (depots couldn't see each other across the field).
+        /// In its place we get a wider arena (±170 m wall ring) with a
+        /// scenic ring of mountains framing the playable area for visual
+        /// landmark + sense of scale.
+        /// </para>
+        /// <para>
+        /// Mountain placement uses deterministic golden-angle sampling so
+        /// re-scaffolding lands them in the same spots every time. Each
+        /// mountain is a cone (Unity ships Cylinder; we taper it via
+        /// scale + a top vertex shrink isn't available — we use a
+        /// scaled <c>Cube</c> with a wide base and stacked tier instead,
+        /// which reads as a stylised mountain matching the Robogame
+        /// blocky art direction).
+        /// </para>
+        /// </remarks>
         public static void PopulateTestTerrain()
         {
             GameObject root = GameObject.Find("Terrain");
             if (root != null) Object.DestroyImmediate(root);
             root = new GameObject("Terrain");
 
-            // Ramps at four pitches, fan out behind the spawn (-Z).
-            float[] pitches = { 8f, 15f, 25f, 35f };
-            for (int i = 0; i < pitches.Length; i++)
-            {
-                float ang = pitches[i];
-                Vector3 pos = new Vector3(-12f + i * 6f, 0f, -16f);
-                MakeRamp(root.transform, pos, ang, size: new Vector3(4f, 0.5f, 8f), name: $"Ramp_{ang:00}deg");
-            }
-
-            // Bump strip directly ahead (+Z).
-            for (int i = 0; i < 6; i++)
-            {
-                MakeBox(root.transform,
-                    pos: new Vector3(-3f + i * 1.2f, 0.15f, 12f),
-                    size: new Vector3(1f, 0.3f, 0.6f),
-                    name: $"Bump_{i}");
-            }
-
-            // Stair step on the right (+X).
-            for (int i = 0; i < 4; i++)
-            {
-                float h = 0.4f * (i + 1);
-                MakeBox(root.transform,
-                    pos: new Vector3(15f, h * 0.5f, -2f + i * 1.2f),
-                    size: new Vector3(4f, h, 1.2f),
-                    name: $"Stair_{i}");
-            }
-
-            // Free-standing pillars.
-            MakeBox(root.transform, new Vector3(-8f, 1.5f, 6f), new Vector3(1f, 3f, 1f), "Pillar_A");
-            MakeBox(root.transform, new Vector3(-6f, 1.5f, 9f), new Vector3(1f, 3f, 1f), "Pillar_B");
-            MakeBox(root.transform, new Vector3(10f, 1.5f, 8f), new Vector3(1f, 3f, 1f), "Pillar_C");
-
-            // Boundary wall ring. Pushed well beyond the obstacle course
-            // so the arena reads as a large open field with the course in
-            // the centre. Walls are taller too so flyers don't trivially
-            // clear them.
-            const float arenaHalf = 100f;
-            const float wallH = 4f, wallT = 1f;
+            // Boundary wall ring at the new arena half-extent. Walls are
+            // taller than they were (8 m vs the legacy 4 m) so flyers can't
+            // trivially clear them, and the ring is named "Wall_*" so the
+            // existing palette tinter in EnvironmentBuilder.TintTerrain
+            // catches them.
+            const float arenaHalf = 170f;
+            const float wallH = 8f, wallT = 1.2f;
             MakeBox(root.transform, new Vector3(0f, wallH * 0.5f,  arenaHalf), new Vector3(arenaHalf * 2f, wallH, wallT), "Wall_N");
             MakeBox(root.transform, new Vector3(0f, wallH * 0.5f, -arenaHalf), new Vector3(arenaHalf * 2f, wallH, wallT), "Wall_S");
             MakeBox(root.transform, new Vector3( arenaHalf, wallH * 0.5f, 0f), new Vector3(wallT, wallH, arenaHalf * 2f), "Wall_E");
             MakeBox(root.transform, new Vector3(-arenaHalf, wallH * 0.5f, 0f), new Vector3(wallT, wallH, arenaHalf * 2f), "Wall_W");
+
+            BuildMountainRing(root.transform);
+        }
+
+        /// <summary>
+        /// Build a deterministic ring of scenic mountains a bit outside
+        /// the depot positions. Each mountain is a four-tier stacked
+        /// pyramid of cubes — reads as a stylised peak that matches the
+        /// project's blocky art direction. Tinted via <c>Pillar_</c> name
+        /// prefix so <see cref="EnvironmentBuilder.TintTerrain"/> picks
+        /// up <see cref="WorldPalette.ArenaPillar"/> automatically.
+        /// </summary>
+        private static void BuildMountainRing(Transform root)
+        {
+            // Mountains sit on a ring slightly inside the wall (160 m
+            // radius vs 170 m wall) so the player sees them silhouetted
+            // against the skybox without bumping into them mid-fight.
+            const int mountainCount = 6;
+            const float ringRadius = 152f;
+            // Jitter each mountain's radial distance a bit so the ring
+            // doesn't read as a perfect circle. Deterministic — sampled
+            // from a fixed-seed hash of the index.
+            for (int i = 0; i < mountainCount; i++)
+            {
+                float angle = (i / (float)mountainCount) * Mathf.PI * 2f
+                              + 0.42f * (i % 2 == 0 ? 1f : -1f);
+                float jitter = Mathf.Sin(i * 9.13f) * 12f;
+                float r = ringRadius + jitter;
+                Vector3 basePos = new Vector3(Mathf.Cos(angle) * r, 0f, Mathf.Sin(angle) * r);
+                float scaleVariation = 1f + Mathf.Sin(i * 5.7f) * 0.25f;
+                BuildMountain(root, basePos, scaleVariation, i);
+            }
+        }
+
+        /// <summary>
+        /// Build one tiered-pyramid mountain rooted at <paramref name="basePos"/>.
+        /// Four stacked cubes shrinking toward the peak; total height
+        /// scales with <paramref name="scale"/>. Naming convention
+        /// "Mountain_NN_TT" routes through the palette tinter.
+        /// </summary>
+        private static void BuildMountain(Transform parent, Vector3 basePos, float scale, int index)
+        {
+            // Mountains tier in 4 stacked cubes; each tier is ~22 %
+            // narrower than the last, total apex sits at ~36*scale m.
+            const int tiers = 4;
+            float baseWidth = 38f * scale;
+            float tierHeight = 9f * scale;
+
+            // Tiers attach directly to `parent` (the Terrain root) with
+            // world-space positions because MakeBox writes
+            // <c>transform.position</c> (world), not localPosition. A
+            // dedicated container per mountain would require either
+            // worldPositionStays:true on every tier or a custom helper —
+            // not worth the extra indirection for what reads as a single
+            // composite mesh to the player.
+            for (int t = 0; t < tiers; t++)
+            {
+                float widthFrac = 1f - t * 0.22f; // each tier ~22 % narrower than the last
+                float width = baseWidth * widthFrac;
+                float y = tierHeight * (t + 0.5f);
+                MakeBox(parent,
+                    pos: basePos + new Vector3(0f, y, 0f),
+                    size: new Vector3(width, tierHeight, width),
+                    name: $"Mountain_{index:D2}_T{t}");
+            }
         }
 
         // -----------------------------------------------------------------

@@ -24,5 +24,23 @@ namespace Robogame.Input
 
         /// <summary>True while the primary fire button is held.</summary>
         bool FireHeld { get; }
+
+        /// <summary>
+        /// True for exactly one tick on the frame the player pressed the
+        /// fire button. Edge-triggered companion to <see cref="FireHeld"/>.
+        /// Consumed by single-shot weapons whose firing cadence is
+        /// player-pace rather than a fire-rate timer — notably the
+        /// grapple magnet (fire once → wait for retract → fire again).
+        /// Bots: stub to false until they author single-shot logic.
+        /// </summary>
+        bool FirePressed { get; }
+
+        /// <summary>
+        /// True for exactly one tick on the frame the player pressed the
+        /// reload key. Consumed by <c>WeaponAmmoState</c> to start a
+        /// manual reload on every non-full weapon pool. Bots return false
+        /// — they rely on auto-reload-on-empty.
+        /// </summary>
+        bool ReloadPressed { get; }
     }
 }

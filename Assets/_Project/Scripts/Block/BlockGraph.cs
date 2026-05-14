@@ -93,6 +93,7 @@ namespace Robogame.Block
                     buffers.Visited.Add(n);
                     buffers.Frontier.Enqueue(n);
                 }
+                EnqueueRopeBridge(grid, c, buffers, ignoreCell);
             }
         }
 
@@ -123,6 +124,43 @@ namespace Robogame.Block
                     buffers.Visited.Add(n);
                     buffers.Frontier.Enqueue(n);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Rope-bridge-aware variant of <see cref="BfsFrom(HashSet{Vector3Int},Vector3Int,Buffers,System.Nullable{Vector3Int})"/>.
+        /// <paramref name="entries"/> lets the BFS resolve rope chain
+        /// lengths from blueprint data so a rope at one cell virtually
+        /// connects to its tip cell (one chain length along mount-up),
+        /// mirroring the live-grid behaviour in
+        /// <see cref="BfsFrom(BlockGrid,Vector3Int,Buffers,System.Nullable{Vector3Int})"/>.
+        /// Used by <see cref="BlueprintValidator"/> to validate
+        /// rope+hook chassis layouts before instantiation.
+        /// </summary>
+        public static void BfsFrom(HashSet<Vector3Int> positions,
+            IReadOnlyDictionary<Vector3Int, ChassisBlueprint.Entry> entries,
+            Vector3Int root, Buffers buffers, Vector3Int? ignoreCell = null)
+        {
+            if (buffers == null) return;
+            buffers.Clear();
+            if (positions == null) return;
+            if (!positions.Contains(root)) return;
+
+            buffers.Visited.Add(root);
+            buffers.Frontier.Enqueue(root);
+            while (buffers.Frontier.Count > 0)
+            {
+                Vector3Int c = buffers.Frontier.Dequeue();
+                for (int i = 0; i < s_face.Length; i++)
+                {
+                    Vector3Int n = c + s_face[i];
+                    if (ignoreCell.HasValue && n == ignoreCell.Value) continue;
+                    if (buffers.Visited.Contains(n)) continue;
+                    if (!positions.Contains(n)) continue;
+                    buffers.Visited.Add(n);
+                    buffers.Frontier.Enqueue(n);
+                }
+                EnqueueRopeBridgeFromEntries(positions, entries, c, buffers, ignoreCell);
             }
         }
 
@@ -216,7 +254,126 @@ namespace Robogame.Block
                     buffers.Visited.Add(n);
                     buffers.Frontier.Enqueue(n);
                 }
+                EnqueueRopeBridge(grid, c, buffers, ignA, ignB);
             }
+        }
+
+        // -----------------------------------------------------------------
+        // Rope-bridge virtual edges
+        // -----------------------------------------------------------------
+        // The rope spans `chain length in cells` cells from its grid cell
+        // to its tip cell; the intermediate cells are unclaimed (the
+        // chain visually "passes through" them). For connectivity, BFS
+        // treats rope.cell ↔ rope.tipCell as a single virtual edge —
+        // mirrors the host-resolution walk in
+        // <see cref="PlacementRules"/> so what's reachable matches what's
+        // legally placeable.
+
+        private static void EnqueueRopeBridge(BlockGrid grid, Vector3Int c, Buffers buffers, Vector3Int? ignoreCell)
+        {
+            if (!grid.TryGetBlock(c, out BlockBehaviour bb) || bb == null || bb.Definition == null) return;
+            string id = bb.Definition.Id;
+            if (id == BlockIds.Rope)
+            {
+                Vector3Int tip = RopeGeometry.TipCell(bb);
+                TryEnqueueLive(grid, tip, buffers, ignoreCell);
+            }
+            else if (id == BlockIds.Hook || id == BlockIds.Mace || id == BlockIds.Magnet)
+            {
+                Vector3Int up = bb.Up == Vector3Int.zero ? Vector3Int.up : bb.Up;
+                for (int dist = 1; dist <= RopeGeometry.MaxLengthCells; dist++)
+                {
+                    Vector3Int probe = c - up * dist;
+                    if (!grid.TryGetBlock(probe, out BlockBehaviour rope) || rope == null) continue;
+                    if (rope.Definition == null) break;
+                    if (rope.Definition.Id == BlockIds.Rope
+                        && rope.Up == up
+                        && RopeGeometry.ChainCellCount(rope) == dist)
+                    {
+                        TryEnqueueLive(grid, probe, buffers, ignoreCell);
+                    }
+                    break;
+                }
+            }
+        }
+
+        // Two-cell-ignore variant for cascade-removal checks (rotor + mechanism cube).
+        private static void EnqueueRopeBridge(BlockGrid grid, Vector3Int c, Buffers buffers, Vector3Int ignA, Vector3Int ignB)
+        {
+            if (!grid.TryGetBlock(c, out BlockBehaviour bb) || bb == null || bb.Definition == null) return;
+            string id = bb.Definition.Id;
+            if (id == BlockIds.Rope)
+            {
+                Vector3Int tip = RopeGeometry.TipCell(bb);
+                if (tip != ignA && tip != ignB) TryEnqueueLive(grid, tip, buffers, ignoreCell: null);
+            }
+            else if (id == BlockIds.Hook || id == BlockIds.Mace || id == BlockIds.Magnet)
+            {
+                Vector3Int up = bb.Up == Vector3Int.zero ? Vector3Int.up : bb.Up;
+                for (int dist = 1; dist <= RopeGeometry.MaxLengthCells; dist++)
+                {
+                    Vector3Int probe = c - up * dist;
+                    if (!grid.TryGetBlock(probe, out BlockBehaviour rope) || rope == null) continue;
+                    if (rope.Definition == null) break;
+                    if (rope.Definition.Id == BlockIds.Rope
+                        && rope.Up == up
+                        && RopeGeometry.ChainCellCount(rope) == dist
+                        && probe != ignA && probe != ignB)
+                    {
+                        TryEnqueueLive(grid, probe, buffers, ignoreCell: null);
+                    }
+                    break;
+                }
+            }
+        }
+
+        private static void TryEnqueueLive(BlockGrid grid, Vector3Int cell, Buffers buffers, Vector3Int? ignoreCell)
+        {
+            if (ignoreCell.HasValue && cell == ignoreCell.Value) return;
+            if (buffers.Visited.Contains(cell)) return;
+            if (!grid.HasBlock(cell)) return;
+            buffers.Visited.Add(cell);
+            buffers.Frontier.Enqueue(cell);
+        }
+
+        private static void EnqueueRopeBridgeFromEntries(HashSet<Vector3Int> positions,
+            IReadOnlyDictionary<Vector3Int, ChassisBlueprint.Entry> entries,
+            Vector3Int c, Buffers buffers, Vector3Int? ignoreCell)
+        {
+            if (entries == null) return;
+            if (!entries.TryGetValue(c, out ChassisBlueprint.Entry entry)) return;
+            if (entry.BlockId == BlockIds.Rope)
+            {
+                Vector3Int tip = RopeGeometry.TipCell(entry);
+                TryEnqueuePositions(positions, tip, buffers, ignoreCell);
+            }
+            else if (entry.BlockId == BlockIds.Hook
+                     || entry.BlockId == BlockIds.Mace
+                     || entry.BlockId == BlockIds.Magnet)
+            {
+                Vector3Int up = entry.EffectiveUp;
+                for (int dist = 1; dist <= RopeGeometry.MaxLengthCells; dist++)
+                {
+                    Vector3Int probe = c - up * dist;
+                    if (!entries.TryGetValue(probe, out ChassisBlueprint.Entry ropeEntry)) continue;
+                    if (ropeEntry.BlockId == BlockIds.Rope
+                        && ropeEntry.EffectiveUp == up
+                        && RopeGeometry.ChainCellCount(ropeEntry) == dist)
+                    {
+                        TryEnqueuePositions(positions, probe, buffers, ignoreCell);
+                    }
+                    break;
+                }
+            }
+        }
+
+        private static void TryEnqueuePositions(HashSet<Vector3Int> positions, Vector3Int cell, Buffers buffers, Vector3Int? ignoreCell)
+        {
+            if (ignoreCell.HasValue && cell == ignoreCell.Value) return;
+            if (buffers.Visited.Contains(cell)) return;
+            if (!positions.Contains(cell)) return;
+            buffers.Visited.Add(cell);
+            buffers.Frontier.Enqueue(cell);
         }
     }
 }

@@ -23,17 +23,17 @@ MonoBehaviour:
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: -1, y: 0, z: -2}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: -1, y: 0, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: -2}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: 0, y: 0, z: -1}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: 1, y: 0, z: -2}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: 1, y: 0, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.movement.wheel
@@ -43,17 +43,17 @@ MonoBehaviour:
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: -1, y: 0, z: -1}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: -1, y: 0, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: -1}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: 0, y: 0, z: -1}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: 1, y: 0, z: -1}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: 1, y: 0, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.movement.wheel
@@ -63,7 +63,7 @@ MonoBehaviour:
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: -1, y: 0, z: 0}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: -1, y: 0, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.cpu.standard
@@ -73,7 +73,7 @@ MonoBehaviour:
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: 1, y: 0, z: 0}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: 1, y: 0, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.movement.wheel
@@ -88,32 +88,32 @@ MonoBehaviour:
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: -1, y: 0, z: 1}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: -1, y: 0, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: 1}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: 0, y: 0, z: 1}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: 1, y: 0, z: 1}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: 1, y: 0, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: -1, y: 0, z: 2}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: -1, y: 0, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: 2}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: 0, y: 0, z: 1}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: 1, y: 0, z: 2}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: 1, y: 0, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.movement.wheel.steer
@@ -123,17 +123,17 @@ MonoBehaviour:
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: -1, y: 0, z: 3}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: -1, y: 0, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: 3}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: 0, y: 0, z: 1}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.structure.cube
     Position: {x: 1, y: 0, z: 3}
-    Up: {x: 0, y: 1, z: 0}
+    Up: {x: 1, y: 0, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
   - BlockId: block.movement.wheel.steer

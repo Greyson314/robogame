@@ -28,9 +28,22 @@ namespace Robogame.Combat
         [Tooltip("Initial downward velocity at drop time (m/s). Adds to chassis velocity.")]
         [SerializeField, Min(0f)] private float _initialSpeed = 2.0f;
 
-        public float DropInterval => _dropInterval;
-        public float Damage       => _damage;
-        public float Radius       => _radius;
-        public float InitialSpeed => _initialSpeed;
+        [Header("Ammo + reload (Phase 5/6 — SCRAP_LOOP_PLAN)")]
+        [Tooltip("Rounds per clip per bomb bay. Total pool = ClipSize × bomb bays on the chassis. Bombs are scarce — 4 by default.")]
+        [SerializeField, Min(1)] private int _clipSize = 4;
+
+        [Tooltip("Seconds the bomb-bay pool is locked during reload. Long — bomb reload is a commitment.")]
+        [SerializeField, Min(0.1f)] private float _reloadDuration = 4.0f;
+
+        [Tooltip("Grace window between firing the last bomb and the auto-reload kicking in.")]
+        [SerializeField, Min(0f)] private float _autoReloadDelay = 0.3f;
+
+        public float DropInterval    => _dropInterval;
+        public float Damage          => _damage;
+        public float Radius          => _radius;
+        public float InitialSpeed    => _initialSpeed;
+        public int ClipSize          => _clipSize;
+        public float ReloadDuration  => _reloadDuration;
+        public float AutoReloadDelay => _autoReloadDelay;
     }
 }

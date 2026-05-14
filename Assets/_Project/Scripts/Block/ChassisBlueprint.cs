@@ -57,7 +57,8 @@ namespace Robogame.Block
 
             [Tooltip("Per-block 'variable part' dimensions. Interpretation depends on the block kind:\n" +
                      "  • AeroSurfaceBlock (Aero / AeroFin): x=span, y=thickness, z=chord (metres).\n" +
-                     "  • RopeBlock: x=segment count (rounded to int).\n" +
+                     "  • RopeBlock: x=length in chassis cells (1..16, rounded to int). Tip block " +
+                     "(Hook/Mace) is placed at rope.cell + x*up.\n" +
                      "  • All other blocks: ignored.\n" +
                      "Vector3.zero means 'use the block-default'. Saved blueprints carry these so " +
                      "a wing-tuned plane stays a wing-tuned plane after a reload.")]

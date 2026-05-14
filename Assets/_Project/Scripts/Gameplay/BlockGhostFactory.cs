@@ -65,6 +65,9 @@ namespace Robogame.Gameplay
                 case BlockIds.Weapon:
                     BuildWeapon(root.transform);
                     break;
+                case BlockIds.GrappleMagnet:
+                    BuildGrappleMagnet(root.transform);
+                    break;
                 case BlockIds.Rope:
                     BuildRope(root.transform, dims);
                     break;
@@ -76,6 +79,9 @@ namespace Robogame.Gameplay
                     break;
                 case BlockIds.Mace:
                     BuildMace(root.transform);
+                    break;
+                case BlockIds.Magnet:
+                    BuildMagnet(root.transform);
                     break;
                 default:
                     BuildCube(root.transform);
@@ -163,6 +169,24 @@ namespace Robogame.Gameplay
                 Quaternion.Euler(90f, 0f, 0f), new Vector3(0.18f, 0.4f, 0.18f));
         }
 
+        private static void BuildGrappleMagnet(Transform parent)
+        {
+            // Beefier launcher silhouette than the SMG: chunky body + a
+            // wider barrel, matching the placed block's EnsureRig output
+            // in GrappleMagnetBlock. Reads as "this thing fires
+            // something bigger than a bullet" against the SMG cube.
+            Spawn(parent, PrimitiveType.Cube, Vector3.zero, Quaternion.identity,
+                new Vector3(0.8f, 0.7f, 0.7f));
+            Spawn(parent, PrimitiveType.Cylinder, new Vector3(0f, 0f, 0.55f),
+                Quaternion.Euler(90f, 0f, 0f), new Vector3(0.32f, 0.45f, 0.32f));
+            // Two cyan "pole" caps at the muzzle face hinting the magnet
+            // is inside the tube.
+            Spawn(parent, PrimitiveType.Cube, new Vector3( 0.10f, 0f, 0.92f),
+                Quaternion.identity, new Vector3(0.10f, 0.18f, 0.10f));
+            Spawn(parent, PrimitiveType.Cube, new Vector3(-0.10f, 0f, 0.92f),
+                Quaternion.identity, new Vector3(0.10f, 0.18f, 0.10f));
+        }
+
         private static void BuildRudder(Transform parent)
         {
             // Mirrors RudderBlock.EnsureRig: thin vertical blade,
@@ -175,19 +199,20 @@ namespace Robogame.Gameplay
         private static void BuildRope(Transform parent, Vector3 dims)
         {
             // Hologram = the entire rope's chain visualised at the
-            // segment count the variant panel currently has dialled
+            // length-in-cells the variant panel currently has dialled
             // in. No "rope base" cube — the rope itself is just the
             // chain, extending from the chassis-side face of the
             // placement cell (rope-local -Y) along the mount-up
             // direction (rope-local +Y) by the full length.
-            int segments = (dims.x > 0f) ? Mathf.Clamp(Mathf.RoundToInt(dims.x), 2, 32) : 8;
-            // Read live segment-length / radius Tweakables so the
-            // hologram length tracks what the placed rope will
-            // actually be. RopeBlock.LiveSegmentLength/Radius use the
-            // same Tweakables with the same Mathf.Max guards.
-            float segLen = Mathf.Max(0.05f, Tweakables.Get(Tweakables.RopeSegmentLength));
+            int cells = (dims.x > 0f)
+                ? Mathf.Clamp(Mathf.RoundToInt(dims.x), RopeGeometry.MinLengthCells, RopeGeometry.MaxLengthCells)
+                : RopeGeometry.DefaultLengthCells;
+            // Cylinder length = cells × cellSize (cellSize = 1 in the
+            // chassis grid). Radius tracks the live Tweakable so the
+            // hologram reads visually consistent with the placed rope's
+            // segment radius.
             float segRad = Mathf.Max(0.01f, Tweakables.Get(Tweakables.RopeSegmentRadius));
-            float fullLen = segLen * segments;
+            float fullLen = cells;
 
             Vector3 startLocal = new Vector3(0f, -0.5f, 0f);
             Vector3 endLocal   = new Vector3(0f, -0.5f + fullLen, 0f);
@@ -247,6 +272,27 @@ namespace Robogame.Gameplay
             // Barb tip (pointing back up).
             Spawn(parent, PrimitiveType.Cube, new Vector3(0f, 0.6f, 0.20f),
                 Quaternion.identity, new Vector3(0.18f, 0.18f, 0.4f));
+        }
+
+        private static void BuildMagnet(Transform parent)
+        {
+            // Horseshoe-magnet preview at cell scale. Bridge slab + two
+            // forward-pointing poles. Mirrors MagnetBlock.BuildTipVisual
+            // but shrunk into a single placement cell so the ghost
+            // reads inside the grid preview frame.
+            // Bridge.
+            Spawn(parent, PrimitiveType.Cube, new Vector3(0f, 0f, 0.18f),
+                Quaternion.identity, new Vector3(0.7f, 0.18f, 0.18f));
+            // North + south pole shafts.
+            Spawn(parent, PrimitiveType.Cube, new Vector3(0.28f, 0.0f, 0.45f),
+                Quaternion.identity, new Vector3(0.18f, 0.18f, 0.7f));
+            Spawn(parent, PrimitiveType.Cube, new Vector3(-0.28f, 0.0f, 0.45f),
+                Quaternion.identity, new Vector3(0.18f, 0.18f, 0.7f));
+            // Pole tip caps.
+            Spawn(parent, PrimitiveType.Cube, new Vector3(0.28f, 0.0f, 0.72f),
+                Quaternion.identity, new Vector3(0.16f, 0.16f, 0.18f));
+            Spawn(parent, PrimitiveType.Cube, new Vector3(-0.28f, 0.0f, 0.72f),
+                Quaternion.identity, new Vector3(0.16f, 0.16f, 0.18f));
         }
 
         private static void BuildMace(Transform parent)

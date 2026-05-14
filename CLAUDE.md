@@ -14,6 +14,7 @@ Eventual goal: ship to Steam. Current state: singleplayer with garage + arenas (
 - **[docs/changes/README.md](docs/changes/README.md)** — session log index. The highest-numbered file is the current state of WIP.
 - **[docs/changes/architecture.md](docs/changes/architecture.md)** — current modules, runtime flow, gotchas.
 - **[docs/PHYSICS_PLAN.md](docs/PHYSICS_PLAN.md)** — § 1 is non-negotiable. Read in full before any physics work.
+- **[docs/TIP_BLOCK_ATTACH.md](docs/TIP_BLOCK_ATTACH.md)** — how rope-mounted Hook/Mace/Magnet latch onto targets, the three concurrent constraints (Verlet chain + chassis↔tip leash + tip↔target SpringJoint), and why the pre-session-60 Locked ConfigurableJoint kept self-destructing. Read before touching any tip-block behaviour.
 - **[docs/BEST_PRACTICES.md](docs/BEST_PRACTICES.md)** — coding conventions, perf budgets (§ 16).
 - **[docs/PERFORMANCE.md](docs/PERFORMANCE.md)** — perf rules, diagnostics, predicted future hotspots, "the game feels slow" runbook.
 - **[docs/PACKAGE_MODIFICATIONS.md](docs/PACKAGE_MODIFICATIONS.md)** — third-party package source edits and how to re-apply them after an upgrade.
@@ -65,3 +66,66 @@ Skip subagents for trivial work: one-line fixes, doc edits, pure cosmetic tweaks
 ## Active work
 
 Check the highest-numbered file in [docs/changes/](docs/changes/) for the current session's intent and any outstanding regressions. New session entries go in `docs/changes/NN-slug.md`, never appended to existing files.
+
+
+# CLAUDE.md — 12-rule template
+
+These rules apply to every task in this project unless explicitly overridden.
+Bias: caution over speed on non-trivial work. Use judgment on trivial tasks.
+
+## Rule 1 — Think Before Coding
+State assumptions explicitly. If uncertain, ask rather than guess.
+Present multiple interpretations when ambiguity exists.
+Push back when a simpler approach exists.
+Stop when confused. Name what's unclear.
+
+## Rule 2 — Simplicity First
+Minimum code that solves the problem. Nothing speculative.
+No features beyond what was asked. No abstractions for single-use code.
+Test: would a senior engineer say this is overcomplicated? If yes, simplify.
+
+## Rule 3 — Surgical Changes
+Touch only what you must.
+Don't "improve" adjacent code, comments, or formatting.
+Match existing style.
+
+## Rule 4 — Goal-Driven Execution
+Define success criteria. Loop until verified.
+Don't follow steps. Define success and iterate.
+Strong success criteria let you loop independently.
+
+## Rule 5 — Use the model only for judgment calls
+Use me for: classification, drafting, summarization, extraction.
+Do NOT use me for: routing, retries, deterministic transforms.
+If code can answer, code answers.
+
+## Rule 6 — Token budgets are not advisory
+If approaching extreme token usage for task, summarize and start fresh.
+Surface the breach. Do not silently overrun.
+
+## Rule 7 — Surface conflicts, don't average them
+If two patterns contradict, pick one (more recent / more tested).
+Explain why. Flag the other for cleanup.
+Don't blend conflicting patterns.
+
+## Rule 8 — Read before you write
+Before adding code, read exports, immediate callers, shared utilities.
+"Looks orthogonal" is dangerous. If unsure why code is structured a way, ask.
+
+## Rule 9 — Tests verify intent, not just behavior
+Tests must encode WHY behavior matters, not just WHAT it does.
+A test that can't fail when business logic changes is wrong.
+
+## Rule 10 — Checkpoint after every significant step
+Summarize internally or externally what was done, what's verified, what's left.
+Don't continue from a state you can't describe back.
+If you lose track, stop and restate.
+
+## Rule 11 — Match the codebase's conventions, even if you disagree
+Conformance > taste inside the codebase.
+If you genuinely think a convention is harmful, surface it. Don't fork silently.
+
+## Rule 12 — Fail loud
+"Completed" is wrong if anything was skipped silently.
+"Tests pass" is wrong if any were skipped.
+Default to surfacing uncertainty, not hiding it.

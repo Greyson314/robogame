@@ -36,11 +36,24 @@ namespace Robogame.Combat
         [Tooltip("Cannonball Rigidbody mass (kg). Affects collision response on contact.")]
         [SerializeField, Min(0.1f)] private float _ballMass = 5f;
 
-        public float FireInterval  => _fireInterval;
-        public float MuzzleSpeed   => _muzzleSpeed;
-        public float Damage        => _damage;
-        public float BallRadius    => _ballRadius;
-        public float RecoilImpulse => _recoilImpulse;
-        public float BallMass      => _ballMass;
+        [Header("Ammo + reload (Phase 5/6 — SCRAP_LOOP_PLAN)")]
+        [Tooltip("Rounds per clip per cannon. Total pool = ClipSize × cannons on the chassis. Slow-firing — 6 default.")]
+        [SerializeField, Min(1)] private int _clipSize = 6;
+
+        [Tooltip("Seconds the cannon-pool is locked during reload. Medium-long, signalling the long reload as part of cannon's slow-firing identity.")]
+        [SerializeField, Min(0.1f)] private float _reloadDuration = 3.0f;
+
+        [Tooltip("Grace window between firing the last round and the auto-reload kicking in.")]
+        [SerializeField, Min(0f)] private float _autoReloadDelay = 0.3f;
+
+        public float FireInterval    => _fireInterval;
+        public float MuzzleSpeed     => _muzzleSpeed;
+        public float Damage          => _damage;
+        public float BallRadius      => _ballRadius;
+        public float RecoilImpulse   => _recoilImpulse;
+        public float BallMass        => _ballMass;
+        public int ClipSize          => _clipSize;
+        public float ReloadDuration  => _reloadDuration;
+        public float AutoReloadDelay => _autoReloadDelay;
     }
 }

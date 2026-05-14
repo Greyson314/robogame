@@ -62,15 +62,27 @@ namespace Robogame.Tests.EditMode.Blueprints
         }
 
         [Test]
-        public void RotorWithFoils_OnSimpleCpu_PassesConnectivity()
+        public void RotorWithFoilsLayout_PassesConnectivity()
         {
-            // Rotor sits on top of CPU; mechanism cube at +Y above rotor;
+            // CPU at origin, rotor on top, mechanism cube above the rotor,
             // four foils ring the mechanism cube. All connected via face
-            // adjacency back to CPU.
-            BlueprintPlan plan = BlueprintBuilder.Create("X", ChassisKind.Ground)
-                .Block(BlockIds.Cpu, 0, 0, 0)
-                .RotorWithFoils(new Vector3Int(0, 1, 0))
-                .Build();
+            // adjacency back to CPU. Constructed via raw entries (the
+            // validator's job is shape-validation independent of any
+            // authoring helper — the equivalent player-buildable path
+            // lives on ScriptedChassisBuilder + BuildSession.TryPlace).
+            Vector3Int rotorCell = new Vector3Int(0, 1, 0);
+            Vector3Int mechCell  = new Vector3Int(0, 2, 0);
+            var entries = new[]
+            {
+                new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)),
+                new ChassisBlueprint.Entry(BlockIds.Rotor, rotorCell, Vector3Int.up),
+                new ChassisBlueprint.Entry(BlockIds.Cube,  mechCell,  Vector3Int.up),
+                new ChassisBlueprint.Entry(BlockIds.Aero,  mechCell + new Vector3Int( 1, 0, 0), new Vector3Int( 1, 0, 0)),
+                new ChassisBlueprint.Entry(BlockIds.Aero,  mechCell + new Vector3Int(-1, 0, 0), new Vector3Int(-1, 0, 0)),
+                new ChassisBlueprint.Entry(BlockIds.Aero,  mechCell + new Vector3Int( 0, 0, 1), new Vector3Int( 0, 0, 1)),
+                new ChassisBlueprint.Entry(BlockIds.Aero,  mechCell + new Vector3Int( 0, 0,-1), new Vector3Int( 0, 0,-1)),
+            };
+            BlueprintPlan plan = new BlueprintPlan("X", ChassisKind.Ground, entries, rotorsGenerateLift: true);
             BlueprintValidationResult r = BlueprintValidator.Validate(plan);
             Assert.IsTrue(r.IsValid, r.ToString());
         }

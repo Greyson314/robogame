@@ -31,13 +31,8 @@ namespace Robogame.Gameplay
     [RequireComponent(typeof(Robot))]
     public sealed class ScrapDropper : MonoBehaviour
     {
-        [Tooltip("Total scrap value to drop, expressed as a fraction of the chassis's " +
-                 "at-spawn block count. Default 1.0 = '1 scrap per starting block', " +
-                 "rounded down. Floored to MinTotalValue so a tiny chassis still drops something.")]
-        [SerializeField, Min(0f)] private float _scrapPerBlock = 1f;
-
-        [Tooltip("Floor on total scrap dropped, regardless of chassis size.")]
-        [SerializeField, Min(1)] private int _minTotalValue = 2;
+        [Tooltip("Flat scrap dropped on death. Override defaults to 3 unless MatchConfig.BaseDeathDrop is wired in, which it is by ArenaController.")]
+        [SerializeField, Min(0)] private int _baseDeathDrop = 3;
 
         [Tooltip("Minimum number of pickup instances to scatter. The total value is split " +
                  "across instances (with the remainder added to the first).")]
@@ -65,6 +60,17 @@ namespace Robogame.Gameplay
 
         public bool OwnerCannotCollect => _ownerCannotCollect;
 
+        /// <summary>
+        /// Override the base death drop at runtime — called by ArenaController
+        /// after spawn so the value comes from MatchConfig instead of each
+        /// chassis's SerializeField. Lets a designer balance drop rates in one
+        /// place per match.
+        /// </summary>
+        public void ConfigureDrop(int baseDeathDrop)
+        {
+            if (baseDeathDrop >= 0) _baseDeathDrop = baseDeathDrop;
+        }
+
         private void OnEnable()
         {
             _robot = GetComponent<Robot>();
@@ -81,8 +87,25 @@ namespace Robogame.Gameplay
             if (_dropped) return;
             _dropped = true;
 
-            int totalValue = ComputeTotalValue(robot);
-            int pickupCount = Mathf.Clamp(robot.InitialBlockCount / 6, _minPickupCount, _maxPickupCount);
+            // Total dropped = base flat amount + whatever scrap the victim
+            // was carrying. The carried-scrap drop is what makes hoarding
+            // risky — a robot loaded with 7 scrap is a 10-scrap kill target,
+            // not a 3-scrap one.
+            int totalValue = _baseDeathDrop + Mathf.Max(0, robot.ScrapHeld);
+            if (totalValue <= 0) return;
+
+            // Grinder kill bonus (SCRAP_LOOP_PLAN § 4). A chassis that
+            // died inside a depot's volume drops bonus-multiplied scrap.
+            // The bonus is sourced from the depot itself so designers
+            // can tune the multiplier per-depot if asymmetric arenas
+            // ever need it.
+            ScrapDepot grinder = ScrapDepot.FindDepotContaining(robot);
+            if (grinder != null && grinder.GrinderKillBonus > 1f)
+            {
+                totalValue = Mathf.RoundToInt(totalValue * grinder.GrinderKillBonus);
+            }
+
+            int pickupCount = Mathf.Clamp(totalValue, _minPickupCount, _maxPickupCount);
             int valuePerPickup = Mathf.Max(1, totalValue / pickupCount);
             int remainder = totalValue - valuePerPickup * pickupCount;
 
@@ -96,13 +119,6 @@ namespace Robogame.Gameplay
                 int v = valuePerPickup + (i == 0 ? remainder : 0);
                 ScrapPickup.Spawn(origin + offset, v);
             }
-        }
-
-        private int ComputeTotalValue(Robot robot)
-        {
-            int blocks = Mathf.Max(1, robot.InitialBlockCount);
-            int value = Mathf.RoundToInt(blocks * _scrapPerBlock);
-            return Mathf.Max(_minTotalValue, value);
         }
     }
 }

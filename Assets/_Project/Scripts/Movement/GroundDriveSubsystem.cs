@@ -173,18 +173,26 @@ namespace Robogame.Movement
             }
 
             // --- Drive: planar acceleration along chassis forward, capped. ---
+            // Carry-weight penalty: scrap-laden chassis accelerate slower
+            // AND clamp at a lower top speed. Per SCRAP_LOOP_PLAN § 3 the
+            // curve is stepped at 1.00 / 0.95 / 0.85 / 0.70 by carried
+            // scrap count — RobotDrive computes the value, we apply it
+            // to both accel and max speed so the chassis feels
+            // unambiguously heavier.
+            float carryMul = control.SpeedMultiplier;
             if (!Mathf.Approximately(control.Move.y, 0f))
             {
                 Vector3 fwd = transform.forward;
                 fwd.y = 0f;
                 if (fwd.sqrMagnitude > 0.0001f) fwd.Normalize();
-                _rb.AddForce(fwd * (control.Move.y * Acceleration), ForceMode.Acceleration);
+                _rb.AddForce(fwd * (control.Move.y * Acceleration * carryMul), ForceMode.Acceleration);
 
                 Vector3 v = _rb.linearVelocity;
                 Vector3 horiz = new Vector3(v.x, 0f, v.z);
-                if (horiz.sqrMagnitude > MaxSpeed * MaxSpeed)
+                float cappedSpeed = MaxSpeed * carryMul;
+                if (horiz.sqrMagnitude > cappedSpeed * cappedSpeed)
                 {
-                    horiz = horiz.normalized * MaxSpeed;
+                    horiz = horiz.normalized * cappedSpeed;
                     _rb.linearVelocity = new Vector3(horiz.x, v.y, horiz.z);
                 }
             }

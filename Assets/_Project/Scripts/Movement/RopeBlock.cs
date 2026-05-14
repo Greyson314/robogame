@@ -77,28 +77,50 @@ namespace Robogame.Movement
         // Defaults / per-block resolved live values
         // -----------------------------------------------------------------
 
-        /// <summary>Block-default segment count when the entry's Dims.x is 0.</summary>
-        public const int DefaultSegmentCount = 8;
-        /// <summary>Min/max for the build-mode variant config slider.</summary>
-        public const int MinSegmentCount = 2, MaxSegmentCount = 32;
+        // Length-in-cells, slider range, ChainCellCount + TipCell live on
+        // RopeGeometry (in Robogame.Block) so PlacementRules + BlockGraph
+        // can use them without a circular asmdef ref. Re-exported here so
+        // existing callers (variant panel, ghost factory) don't need to
+        // import the Block namespace just for these constants.
+        public const int DefaultLengthCells = RopeGeometry.DefaultLengthCells;
+        public const int MinLengthCells = RopeGeometry.MinLengthCells;
+        public const int MaxLengthCells = RopeGeometry.MaxLengthCells;
 
-        // Live geometry. Segment count is per-block (carried on the
-        // ChassisBlueprint.Entry that placed this rope) so a player's
-        // long-rope grappling hook and short-rope mace coexist on the
-        // same chassis. Length / radius / mass / damping remain Tweakables
-        // since the user explicitly wants them tweakable mid-match for
-        // tuning rope feel.
-        private int LiveSegmentCount
+        // Verlet segment count = cells / segLen, rounded — at the default
+        // segLen=0.5 m a 4-cell rope has 8 verlet segments (= 9 particles).
+        // Smaller segLen Tweakable gives a smoother chain at the same
+        // physical length; placement-relevant cell count is unchanged.
+        private int LiveLengthCells
         {
             get
             {
                 BlockBehaviour bb = GetComponent<BlockBehaviour>();
-                int authored = bb != null ? Mathf.RoundToInt(bb.Dims.x) : 0;
-                int raw = authored > 0 ? authored : DefaultSegmentCount;
-                return Mathf.Clamp(raw, MinSegmentCount, MaxSegmentCount);
+                return RopeGeometry.ChainCellCount(bb);
             }
         }
-        private float LiveSegmentLength  => Mathf.Max(0.05f, Tweakables.Get(Tweakables.RopeSegmentLength));
+        // Cap verlet particle count so a maxed-out length-in-cells slider
+        // combined with a tiny RopeSegmentLength tweakable can't explode
+        // the solver budget (16 cells / 0.10 m = 160 segments otherwise).
+        // 32 matches the old MaxSegmentCount, which had stood up under
+        // the StressRopeTower preset.
+        private const int VerletSegmentCap = 32;
+        private int LiveSegmentCount =>
+            Mathf.Clamp(Mathf.RoundToInt(LiveLengthCells / RopeSegmentLengthTweak), 1, VerletSegmentCap);
+        private float RopeSegmentLengthTweak => Mathf.Max(0.05f, Tweakables.Get(Tweakables.RopeSegmentLength));
+        // Effective segment length the verlet sim actually uses. When the
+        // segment cap kicks in (long rope + tiny segLen Tweakable), we
+        // stretch each segment so total rest length still equals
+        // LiveLengthCells — visual chain length matches the slider, the
+        // chain just renders at fewer/longer particles.
+        private float LiveSegmentLength
+        {
+            get
+            {
+                int seg = LiveSegmentCount;
+                if (seg <= 0) return RopeSegmentLengthTweak;
+                return (float)LiveLengthCells / seg;
+            }
+        }
         private float LiveSegmentRadius  => Mathf.Max(0.01f, Tweakables.Get(Tweakables.RopeSegmentRadius));
         private float LiveSegmentMass    => Mathf.Max(0.001f, Tweakables.Get(Tweakables.RopeSegmentMass));
         private float LiveLinearDamping  => Mathf.Max(0f, Tweakables.Get(Tweakables.RopeLinearDamping));
@@ -204,7 +226,11 @@ namespace Robogame.Movement
             // and TryAdoptTipBlock will find it via the standard
             // neighbour scan.
             _gridSubscribed = GetComponentInParent<BlockGrid>();
-            if (_gridSubscribed != null) _gridSubscribed.BlockPlaced += OnGridBlockPlaced;
+            if (_gridSubscribed != null)
+            {
+                _gridSubscribed.BlockPlaced += OnGridBlockPlaced;
+                _gridSubscribed.BlockRemoving += OnGridBlockRemoving;
+            }
 
             // Rebuild on every OnEnable so the rope-chassis anchor is
             // fresh against the *current* chassis Rigidbody. Same reason
@@ -222,6 +248,7 @@ namespace Robogame.Movement
             if (_gridSubscribed != null)
             {
                 _gridSubscribed.BlockPlaced -= OnGridBlockPlaced;
+                _gridSubscribed.BlockRemoving -= OnGridBlockRemoving;
                 _gridSubscribed = null;
             }
             // Intentionally do NOT destroy the chain here. Robot.CaptureTemplate
@@ -261,10 +288,10 @@ namespace Robogame.Movement
             if (placed == null || placed.Definition == null) return;
             if (_broken) return;
             if (_block == null) return;
-            // Adjacency: must be a manhattan-1 neighbour of our cell.
-            Vector3Int delta = placed.GridPosition - _block.GridPosition;
-            int manhattan = Mathf.Abs(delta.x) + Mathf.Abs(delta.y) + Mathf.Abs(delta.z);
-            if (manhattan != 1) return;
+            // Must be placed at the rope's tip cell (one chain length
+            // along the rope's mount-up). Cells in between are unclaimed
+            // — the chain "passes through" them.
+            if (placed.GridPosition != RopeGeometry.TipCell(_block)) return;
             // Tip-block filter: only adopt blocks that actually have a
             // TipBlock component (Hook / Mace). Reduces redundant scans
             // for non-tip neighbours like cubes.
@@ -282,6 +309,31 @@ namespace Robogame.Movement
             }
             if (_adoptedTip != null || _tipRb == null) return;
             TryAdoptTipBlock(_tipRb);
+        }
+
+        // Inverse of OnGridBlockPlaced: when the adopted tip block is
+        // removed from the grid (right-click delete in build mode, or
+        // damage destroy in arena), the static visual needs to rebuild
+        // — its cylinder was sized to span to the tip cell and the
+        // generous-aim sphere was suppressed because a tip existed.
+        // Without this, removing the hook leaves the rope visually
+        // shortened to the (now empty) tip cell and the player can't
+        // re-place the hook through the tiny cylinder cap.
+        //
+        // BlockGrid.BlockRemoving fires BEFORE the dictionary entry is
+        // gone, so an immediate Rebuild() would re-detect the tip block
+        // and keep the no-sphere state. Defer by one frame via a flag
+        // that Update() drains — by then the grid is consistent.
+        private bool _pendingStaticRebuild;
+        private void OnGridBlockRemoving(BlockBehaviour removed)
+        {
+            if (removed == null || _block == null) return;
+            if (_broken) return;
+            // Only react if the block being removed is AT our tip cell.
+            // Other removals on the chassis don't affect our visual.
+            if (removed.GridPosition != RopeGeometry.TipCell(_block)) return;
+            if (!_builtKinematic) return; // arena: live path manages itself
+            _pendingStaticRebuild = true;
         }
 
         // Per-physics-step max-stretch check. Once the rope's tip body
@@ -337,6 +389,16 @@ namespace Robogame.Movement
 
         private void Update()
         {
+            // Drain the deferred-rebuild flag set by OnGridBlockRemoving.
+            // BlockRemoving fires before the grid dictionary entry is
+            // gone; rebuilding now means BuildStaticVisual sees the
+            // post-removal state (no tip, sphere re-spawned).
+            if (_pendingStaticRebuild)
+            {
+                _pendingStaticRebuild = false;
+                if (_builtKinematic) Rebuild();
+            }
+
             // Cheap safety net for ancestor-rigidbody swaps the parent
             // change callback didn't catch (e.g. the chassis Rigidbody
             // being destroyed mid-flight in some edge case).
@@ -696,20 +758,12 @@ namespace Robogame.Movement
             BlockGrid grid = GetComponentInParent<BlockGrid>();
             if (grid == null) return false;
 
-            Vector3Int[] all =
-            {
-                new Vector3Int( 0,-1, 0), new Vector3Int( 0, 1, 0),
-                new Vector3Int( 1, 0, 0), new Vector3Int(-1, 0, 0),
-                new Vector3Int( 0, 0, 1), new Vector3Int( 0, 0,-1),
-            };
-            TipBlock tip = null;
-            foreach (Vector3Int off in all)
-            {
-                if (!grid.TryGetBlock(ropeHost.GridPosition + off, out BlockBehaviour neighbor)) continue;
-                if (neighbor == null) continue;
-                tip = neighbor.GetComponent<TipBlock>();
-                if (tip != null) break;
-            }
+            // Tip block lives at the chain's free end cell — one chain
+            // length along the rope's mount-up. The rope spans those
+            // cells virtually (intermediate cells aren't grid-claimed).
+            Vector3Int tipCell = RopeGeometry.TipCell(ropeHost);
+            if (!grid.TryGetBlock(tipCell, out BlockBehaviour neighbor) || neighbor == null) return false;
+            TipBlock tip = neighbor.GetComponent<TipBlock>();
             if (tip == null) return false;
 
             _adoptedTip            = tip;
@@ -795,7 +849,8 @@ namespace Robogame.Movement
             float fullLen = segLen * (particleCount - 1);
             Vector3 startLocal = new Vector3(0f, -0.5f, 0f); // chassis-side face of rope cell
             Vector3 endLocal;
-            if (TryGetAdjacentTipCellLocal(out Vector3 tipCellLocal))
+            bool hasAdoptedTip = TryGetAdjacentTipCellLocal(out Vector3 tipCellLocal);
+            if (hasAdoptedTip)
             {
                 // tipCellLocal is the tip block's grid centre expressed in
                 // host-local space. Cylinder ends inside the tip cell so
@@ -849,7 +904,48 @@ namespace Robogame.Movement
                 mpb.SetColor(s_legacyColorId, _segmentColor);
                 mr.SetPropertyBlock(mpb);
             }
+
+            // Generous placement-target hitbox centred on the rope's
+            // tip cell (rope.cell + ChainCellCount × rope.up). The
+            // cylinder's CapsuleCollider terminates in a hemisphere of
+            // radius = segRad (~0.08 m = 16 cm Ø); without this sphere,
+            // the player has to thread the cursor through that tiny
+            // circle to place a hook / mace. A half-cell sphere covers
+            // the entire tip-cell volume so aim anywhere "at the bottom
+            // of the rope" registers — BlockEditor reads the
+            // RopeTipAimTarget marker and snaps the placement cell to
+            // the tip cell regardless of hit normal direction.
+            //
+            // Skip the sphere when a tip block is already adopted: its
+            // volume coincides with the placed tip block's own collider,
+            // and the sphere being larger would steal right-click /
+            // hover hits intended for the hook or mace. The placement-
+            // helper sphere only exists when the tip cell is empty —
+            // exactly when placement is what the player can usefully do.
+            BlockBehaviour ropeHost = GetComponent<BlockBehaviour>();
+            if (ropeHost != null && !hasAdoptedTip)
+            {
+                GameObject aim = new GameObject("Vis_TipAim");
+                aim.transform.SetParent(_segmentContainer.transform, worldPositionStays: false);
+                // Rope-local +Y is the mount-up direction; fullLen cells
+                // along it lands at the tip cell's centre. Same place
+                // the hook / mace will sit when placed.
+                aim.transform.localPosition = new Vector3(0f, fullLen, 0f);
+                aim.transform.localRotation = Quaternion.identity;
+                aim.transform.localScale = Vector3.one;
+                SphereCollider aimCol = aim.AddComponent<SphereCollider>();
+                aimCol.radius = TipAimRadius;
+                RopeTipAimTarget marker = aim.AddComponent<RopeTipAimTarget>();
+                marker.Rope = ropeHost;
+            }
         }
+
+        // Half a chassis cell — large enough that aiming "at the rope's
+        // free end" from any angle is comfortable, small enough that it
+        // doesn't bleed into adjacent cells. Centred on the tip cell,
+        // this radius leaves a small gap between the sphere surface and
+        // the tip cell's face — no overlap with neighbouring cells.
+        private const float TipAimRadius = 0.45f;
 
         /// <summary>
         /// Look for a <see cref="TipBlock"/> in any of the 6 grid neighbours
@@ -866,28 +962,17 @@ namespace Robogame.Movement
             if (ropeHost == null) return false;
             BlockGrid grid = GetComponentInParent<BlockGrid>();
             if (grid == null) return false;
-            Vector3Int[] all =
-            {
-                new Vector3Int( 0,-1, 0), new Vector3Int( 0, 1, 0),
-                new Vector3Int( 1, 0, 0), new Vector3Int(-1, 0, 0),
-                new Vector3Int( 0, 0, 1), new Vector3Int( 0, 0,-1),
-            };
-            for (int i = 0; i < all.Length; i++)
-            {
-                Vector3Int neighbourCell = ropeHost.GridPosition + all[i];
-                if (!grid.TryGetBlock(neighbourCell, out BlockBehaviour neighbour)) continue;
-                if (neighbour == null) continue;
-                if (neighbour.GetComponent<TipBlock>() == null) continue;
-                // Convert neighbour world position to host-local. The tip
-                // cell is one chassis-grid cell away from the rope cell;
-                // working in host-local makes the cylinder transform
-                // naturally with the chassis without re-deriving every
-                // FixedUpdate.
-                Vector3 neighbourWorld = neighbour.transform.position;
-                tipCellLocal = transform.InverseTransformPoint(neighbourWorld);
-                return true;
-            }
-            return false;
+            // Look at the rope's tip cell exactly — one chain length
+            // along mount-up. No more 6-neighbour scan (the chain spans
+            // multiple cells now, not a single adjacent cell).
+            Vector3Int tipCell = RopeGeometry.TipCell(ropeHost);
+            if (!grid.TryGetBlock(tipCell, out BlockBehaviour neighbour) || neighbour == null) return false;
+            if (neighbour.GetComponent<TipBlock>() == null) return false;
+            // Convert neighbour world position to host-local so the
+            // cylinder transform tracks the chassis without re-derivation
+            // every FixedUpdate.
+            tipCellLocal = transform.InverseTransformPoint(neighbour.transform.position);
+            return true;
         }
 
         private void BuildVisuals(int segmentVisualCount, float segRad)

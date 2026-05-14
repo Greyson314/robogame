@@ -82,7 +82,10 @@ namespace Robogame.Combat
         private Robot _ownerRobot;
         private Rigidbody _ownerRb;
         private BlockBehaviour _block;
+        private WeaponAmmoState _ammo;
+        private string _blockId;
         private float _nextFireTime;
+        private float _nextEmptyClickTime;
 
         private void Awake()
         {
@@ -92,6 +95,8 @@ namespace Robogame.Combat
             _ownerRobot = GetComponentInParent<Robot>();
             _ownerRb = _ownerRobot != null ? _ownerRobot.GetComponent<Rigidbody>() : null;
             _block = GetComponent<BlockBehaviour>();
+            _ammo = GetComponentInParent<WeaponAmmoState>();
+            _blockId = _block != null && _block.Definition != null ? _block.Definition.Id : null;
         }
 
         // -----------------------------------------------------------------
@@ -164,8 +169,18 @@ namespace Robogame.Combat
         {
             if (_input == null || !_input.FireHeld) return;
             if (Time.time < _nextFireTime) return;
+            if (_ammo != null && _blockId != null && !_ammo.CanFire(_blockId))
+            {
+                if (Time.time >= _nextEmptyClickTime)
+                {
+                    AudioRouter.PlayOneShot(AudioCue.WeaponEmpty, transform.position);
+                    _nextEmptyClickTime = Time.time + 0.30f;
+                }
+                return;
+            }
             float interval = Mathf.Max(0.05f, ResolveFireInterval());
             _nextFireTime = Time.time + interval;
+            if (_ammo != null && _blockId != null) _ammo.Consume(_blockId, 1);
             FireCannon();
         }
 

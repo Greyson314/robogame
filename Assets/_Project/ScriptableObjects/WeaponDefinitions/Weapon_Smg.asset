@@ -17,3 +17,6 @@ MonoBehaviour:
   _spreadDeg: 1.2
   _damage: 25
   _recoilImpulse: 5
+  _clipSize: 30
+  _reloadDuration: 1.5
+  _autoReloadDelay: 0.3

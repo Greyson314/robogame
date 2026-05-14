@@ -59,10 +59,13 @@ namespace Robogame.Combat
         private static readonly Color s_bombTint = new Color(0.10f, 0.10f, 0.12f);
 
         private float _nextDropTime;
+        private float _nextEmptyClickTime;
         private IInputSource _input;
         private Robot _ownerRobot;
         private Rigidbody _ownerRb;
         private BlockBehaviour _block;
+        private WeaponAmmoState _ammo;
+        private string _blockId;
 
         public Transform DropPoint { get; private set; }
 
@@ -72,6 +75,8 @@ namespace Robogame.Combat
             _ownerRobot = GetComponentInParent<Robot>();
             _ownerRb = _ownerRobot != null ? _ownerRobot.GetComponent<Rigidbody>() : null;
             _block = GetComponent<BlockBehaviour>();
+            _ammo = GetComponentInParent<WeaponAmmoState>();
+            _blockId = _block != null && _block.Definition != null ? _block.Definition.Id : null;
 
             DropPoint = BlockVisuals.GetOrCreateChild(transform, "DropPoint");
             DropPoint.localPosition = _dropLocalOffset;
@@ -88,9 +93,20 @@ namespace Robogame.Combat
             if (_input == null || !_input.FireHeld) return;
             if (Time.time < _nextDropTime) return;
 
+            if (_ammo != null && _blockId != null && !_ammo.CanFire(_blockId))
+            {
+                if (Time.time >= _nextEmptyClickTime)
+                {
+                    AudioRouter.PlayOneShot(AudioCue.WeaponEmpty, transform.position);
+                    _nextEmptyClickTime = Time.time + 0.40f;
+                }
+                return;
+            }
+
             BombDefinition def = ResolveDef();
             float interval = Mathf.Max(0.05f, def != null ? def.DropInterval : _dropInterval);
             _nextDropTime = Time.time + interval;
+            if (_ammo != null && _blockId != null) _ammo.Consume(_blockId, 1);
             DropOne();
         }
 

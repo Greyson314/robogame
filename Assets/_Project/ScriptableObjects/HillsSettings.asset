@@ -12,14 +12,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f376b2e6b82b96e419745bd20996c27c, type: 3}
   m_Name: HillsSettings
   m_EditorClassIdentifier: Robogame.Tools.Editor::Robogame.Tools.Editor.HillsSettings
-  size: 220
-  resolution: 81
-  hillAmpLow: 4
-  hillFreqLow: 0.025
-  hillAmpHigh: 1
-  hillFreqHigh: 0.08
-  flatRadius: 25
-  rampOuter: 55
-  edgeFlatStart: 80
-  edgeFlatEnd: 100
+  size: 360
+  resolution: 121
+  hillAmpLow: 5.5
+  hillFreqLow: 0.018
+  hillAmpHigh: 1.2
+  hillFreqHigh: 0.07
+  flatRadius: 38
+  rampOuter: 90
+  edgeFlatStart: 145
+  edgeFlatEnd: 170
   noiseOffset: {x: 137.31, y: 91.47}

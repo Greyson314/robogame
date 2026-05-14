@@ -35,13 +35,22 @@ namespace Robogame.Movement
         /// <summary>Physics step delta.</summary>
         public readonly float DeltaTime;
 
-        public DriveControl(Vector2 move, float vertical, bool fireHeld, Vector3 aimPoint, float dt)
+        /// <summary>
+        /// Scalar in [0..1] applied to drive-force output (ground accel,
+        /// thruster thrust). Used by the carry-weight penalty so a chassis
+        /// hauling scrap moves slower. Direction / torque channels are
+        /// untouched — only force magnitude scales. Default 1 (no penalty).
+        /// </summary>
+        public readonly float SpeedMultiplier;
+
+        public DriveControl(Vector2 move, float vertical, bool fireHeld, Vector3 aimPoint, float dt, float speedMultiplier = 1f)
         {
             Move = move;
             Vertical = vertical;
             FireHeld = fireHeld;
             AimPoint = aimPoint;
             DeltaTime = dt;
+            SpeedMultiplier = speedMultiplier > 0f ? speedMultiplier : 1f;
         }
     }
 }

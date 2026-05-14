@@ -86,6 +86,14 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 62 | [Project-health sweep: deleted 5 dead-file scaffolders (ArenaBuilder, KenneyKit, RobotLayouts, DummyAiInputSource, ScrapPrefabScaffolder), slimmed ScaffoldHelpers 156→41 lines, retired 2 dead Tweakables, scrubbed stale comments. Pure deletion, no behaviour change](62-project-health-sweep.md) |
+| 61 | [Grapple Magnet weapon: single-shot fire-and-retract launcher that lobs a rope+magnet up to 24 m, latches on enemy contact, instant retract on miss. New Grappler plane preset (twin-thrust nose-mount). Buggy preset retired](61-grapple-magnet-weapon.md) |
+| 60 | [Tip-block attach redesign: SpringJoint replaces Locked ConfigurableJoint, MomentumImpactHandler exempts tip blocks, magnet latches + drags. Fixes the long-running "hook destroys itself" bug](60-tip-block-attach-redesign.md) |
+| 59 | [Feel-good sweep: shared HudStyles font, scoreboard with frags, ScrapDepot recessed-hole visual + larger AOE, mountain-ring arena (no central obstacles), Magnet tip-block weapon](59-feel-good-sweep.md) |
+| 58 | [Scrap-loop v1 (6-phase end-to-end): friendly tank + carry-weight penalty + depot AOE/score-tick + grinder + per-weapon-type ammo + reload](58-scrap-loop-v1.md) |
+| 57 | [Default presets re-authored through BuildSession.TryPlace — same verb the player uses; hard-fail validation; auto-companion + cascade-remove move into the session](57-scripted-chassis-builds.md) |
+| 56 | [Scrap-based scoring (team scrap → depots → first to 20 wins) + rope aim-sphere persistence fix](56-scrap-scoring.md) |
+| 55 | [Rope tip-at-chain-end: slider in cells, tip lives at rope.cell + N*up, rope-bridge BFS edge](55-rope-tip-at-chain-end.md) |
 | 54 | [Session wrap: building-architecture refactor + rotor/rope follow-ups (2-day arc, sessions 45–53 digest)](54-session-wrap.md) |
 | 53 | [Rope follow-ups: tip-face direction (+up not -up), hologram length (use Tweakable segLen), chain collider preserved](53-rope-followups.md) |
 | 52 | [Rope redesign: chain extends outward from chassis face, host cube hidden, hologram = full chain length](52-rope-redesign.md) |

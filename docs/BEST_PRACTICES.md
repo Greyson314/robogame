@@ -604,9 +604,13 @@ build fresh. When you add a new piece of decor, parent it under
 
 ### 13.2 One menu item per coarse action, not per fiddle
 
-`Robogame > Scaffold > Gameplay > Build All Pass A` is correct.
+`Robogame > Build Everything` (Ctrl+Shift+B) is correct.
 `Robogame > Scaffold > Gameplay > Just the Wheels Please` is not —
-that's what running Build All again does for free.
+that's what running Build Everything again does for free. The old
+per-pass `Robogame > Scaffold > Gameplay > Build All Pass A` menu
+entry was retired during the build-menu cleanup; treat any mention
+of it in older docs / session logs as the legacy name for what is
+now Build Everything.
 
 Exception: per-asset live-edit tools like the
 [HillsSettingsEditor](Assets/_Project/Scripts/Tools/Editor/HillsSettingsEditor.cs)

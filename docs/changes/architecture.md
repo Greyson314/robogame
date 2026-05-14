@@ -49,11 +49,13 @@ Robogame.Gameplay     — GameStateController,
                          BuoyancyController, WaterMeshAnimator, WaterSurface, WaterVolume,
                          PlanetBody, PlanetGravity, PlanetGravityBody,
                          MatchController, MatchConfig + types,
-                         GroundBotInputSource, AirBotInputSource, DummyAiInputSource (deprecated),
+                         GroundBotInputSource, AirBotInputSource,
                          ObjectiveHud, MatchEndOverlay, StartMatchHud, KillAnnouncer
 Robogame.Tools.Editor — scaffolders, EnvironmentBuilder, WorldPalette, BlockDefinitionWizard,
-                         ScaffoldHelpers, TuningAssets, RobotLayouts, FluffGround,
-                         HillsGround, PerformanceMenu
+                         ScaffoldHelpers, TuningAssets, FluffGround,
+                         HillsGround, PerformanceMenu,
+                         ScriptedChassisBuilder (Editor-time chassis authoring through
+                         the same BuildSession.TryPlace verb the player uses — session 57)
 Robogame.UI           — DevHud, FpsCounter, PerformanceHud
 Robogame.Network      — empty placeholder for the netcode roadmap (no source yet)
 ```
@@ -102,12 +104,12 @@ Arena round flow (Pillar 1)
 |---|---|
 | Adjust pitch/roll/thrust feel live | Press Esc in-game; values persist to JSON |
 | Add a new tweak slider | `Register(...)` in [Tweakables.cs](../../Assets/_Project/Scripts/Core/Tweakables.cs) + `Tweakables.Get(key)` at consumer |
-| Add a new chassis preset | Author via [`BlueprintBuilder`](../../Assets/_Project/Scripts/Block/BlueprintBuilder.cs) inside `GameplayScaffolder` (`Block`, `Row`, `Box`, `MirrorX/Z`, `RotorWithFoils`, `RopeWithHook`, `RopeWithMace`); call `BuildValidated(library)` to fail fast on no-CPU / orphans / duplicates |
+| Add a new chassis preset | Author via [`ScriptedChassisBuilder`](../../Assets/_Project/Scripts/Tools/Editor/ScriptedChassisBuilder.cs) inside `GameplayScaffolder` (`Place`, `Row`, `Box`, `MirrorX/Z`, `RotorWithFoils`, `RopeWithHook`, `RopeWithMace`). Each call routes through `BuildSession.TryPlace` against a temp `BlockGrid` — same verb the player uses in the garage — so the rules engine and auto-companion cascade enforce shape on every step. `CreateOrUpdateBlueprint` hard-fails validation; a default that won't pass the same rules as a user save can't ship. See [session 57](57-scripted-chassis-builds.md) for the rationale. |
 | Inspect a preset's shape without launching | EditMode → run `PresetBlueprintTests.DumpAllPresets_WritesAsciiSnapshot`; reads on disk and writes [docs/blueprint-snapshots/presets.md](../blueprint-snapshots/presets.md) with one ASCII layer per Y |
 | Add a new block type | New `BlockDefinition` (via wizard or asset menu); add `BlockIds.X` const; if it has behaviour, a new `MonoBehaviour` + `BlockBinder` subclass; for a tip-on-rope block, derive from [`TipBlock`](../../Assets/_Project/Scripts/Movement/TipBlock.cs) |
 | Restyle Garage or Arena | [EnvironmentBuilder.cs](../../Assets/_Project/Scripts/Tools/Editor/EnvironmentBuilder.cs) + [WorldPalette.cs](../../Assets/_Project/Scripts/Tools/Editor/WorldPalette.cs) |
 | Tune the plane's aerodynamics shape | Change the lift formula in [AeroSurfaceBlock.cs](../../Assets/_Project/Scripts/Movement/AeroSurfaceBlock.cs) (not exposed to Tweakables yet) |
-| Re-run scaffolding | `Robogame → Scaffold → Gameplay → Build All Pass A` |
+| Re-run scaffolding | `Robogame → Build Everything` (Ctrl+Shift+B). The old `Robogame → Scaffold → Gameplay → Build All Pass A` menu was retired in the build-menu cleanup; `Build Everything` calls the same underlying `GameplayScaffolder.BuildAllPassA` entry point. |
 | Add an AI opponent to the match | Edit `_matchConfig.GroundBots` or `_matchConfig.AirBots` on Arena scene's `ArenaController`. Each entry is a `BotEntry { Blueprint, SpawnPositionOverride, PatrolCentreOverride }` |
 | Tune AI behaviour | Inspector fields on [`GroundBotInputSource`](../../Assets/_Project/Scripts/Gameplay/GroundBotInputSource.cs) / [`AirBotInputSource`](../../Assets/_Project/Scripts/Gameplay/AirBotInputSource.cs) — `OptimalRange`, `EngageBuffer`, `ChaseRange`, `RetreatHealthFraction`, `EngageFacingDotThreshold`, `PursueThrottle` (ground only) |
 | Tune match shape | `_matchConfig` SerializeField on `ArenaController` — `WarmupDuration`, `RoundDuration`, `TargetFragCount`, `PlayerLives`, `BotRespawnDelay`, `PlayerRespawnDelay`, `RequireManualStart` |
@@ -139,7 +141,7 @@ Arena round flow (Pillar 1)
   can process the click. **Don't put gameplay-critical buttons in
   IMGUI when the cursor is locked.** Use a hotkey (`StartMatchHud` is
   the example) or unlock the cursor first.
-- **Build All Pass A doesn't recompile.** Saving a .cs *and* focusing
+- **Build Everything doesn't recompile.** Saving a .cs *and* focusing
   Unity does. The Tweakables registry obsoletes most reasons to care,
   but blueprint shape changes (block layouts) still need a re-scaffold.
 - **Foil colliders + chassis colliders.** When `RotorBlock` adopts an
@@ -148,8 +150,8 @@ Arena round flow (Pillar 1)
   becomes the hub, not the chassis. Foils and chassis now own
   different Rigidbodies, so PhysX considers them collidable. As the
   hub spins, foil colliders sweep through the chassis's swept volume
-  (notably the mechanism cube placed at the same y-level by
-  `RotorWithFoils`). `RotorBlock.IgnoreFoilChassisContacts` walks
+  (notably the auto-companion mechanism cube placed at the same y-level
+  whenever a rotor is placed). `RotorBlock.IgnoreFoilChassisContacts` walks
   every chassis collider once at adoption and ignore-pairs each
   against the foil's collider. Foil-vs-arena and foil-vs-other-chassis
   contacts are preserved (future flail-weapon).

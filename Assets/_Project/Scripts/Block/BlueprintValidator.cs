@@ -48,15 +48,23 @@ namespace Robogame.Block
                 }
             }
 
-            // 3. CPU connectivity via face-adjacency BFS. Same primitive
-            //    the runtime placement/removal paths use; one
-            //    implementation in BlockGraph.
+            // 3. CPU connectivity via face-adjacency BFS, with the
+            //    rope-bridge virtual edge (rope.cell ↔ rope.tipCell) so
+            //    a Hook / Mace at the chain's free end resolves as
+            //    reachable through the rope it's attached to. Same
+            //    primitive the runtime placement / removal paths use.
             if (cpuCount >= 1)
             {
                 HashSet<Vector3Int> positions = new HashSet<Vector3Int>(plan.Entries.Length);
-                foreach (ChassisBlueprint.Entry e in plan.Entries) positions.Add(e.Position);
+                Dictionary<Vector3Int, ChassisBlueprint.Entry> entriesByCell =
+                    new Dictionary<Vector3Int, ChassisBlueprint.Entry>(plan.Entries.Length);
+                foreach (ChassisBlueprint.Entry e in plan.Entries)
+                {
+                    positions.Add(e.Position);
+                    entriesByCell[e.Position] = e;
+                }
                 BlockGraph.Buffers buffers = new BlockGraph.Buffers();
-                BlockGraph.BfsFrom(positions, cpuPos, buffers);
+                BlockGraph.BfsFrom(positions, entriesByCell, cpuPos, buffers);
                 foreach (ChassisBlueprint.Entry e in plan.Entries)
                 {
                     if (!buffers.Visited.Contains(e.Position))

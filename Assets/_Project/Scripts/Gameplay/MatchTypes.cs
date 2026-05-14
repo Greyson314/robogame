@@ -36,14 +36,14 @@ namespace Robogame.Gameplay
 
     /// <summary>
     /// Why <see cref="MatchController.MatchEnded"/> fired. Distinguishing the
-    /// reason lets the end overlay show the right copy ("Defeated by frag
+    /// reason lets the end overlay show the right copy ("Defeated by scrap
     /// limit" vs "Out of lives" vs "Time up — draw").
     /// </summary>
     public enum MatchEndReason
     {
-        /// <summary>One side hit <see cref="MatchConfig.TargetFragCount"/>.</summary>
-        FragLimitReached = 0,
-        /// <summary>Round timer expired with one side leading.</summary>
+        /// <summary>One side deposited at least <see cref="MatchConfig.TargetTeamScrap"/>.</summary>
+        ScrapLimitReached = 0,
+        /// <summary>Round timer expired with one side leading on team scrap.</summary>
         TimeExpired = 1,
         /// <summary>Player ran out of lives.</summary>
         PlayerEliminated = 2,
@@ -106,8 +106,14 @@ namespace Robogame.Gameplay
         [Tooltip("Total round length in seconds. Match ends in a Draw if no side leads at expiry.")]
         [Min(10f)] public float RoundDuration = 300f;
 
-        [Tooltip("Frags required to win. First side to hit this count wins immediately.")]
-        [Min(1)] public int TargetFragCount = 5;
+        [Tooltip("Team scrap required to win. First side to deposit this much scrap at their depot wins immediately.")]
+        [Min(1)] public int TargetTeamScrap = 20;
+
+        [Tooltip("Flat scrap dropped when a chassis dies, on top of whatever scrap the victim was carrying.")]
+        [Min(0)] public int BaseDeathDrop = 3;
+
+        [Tooltip("Maximum scrap a single robot can carry. Past this, scrap pickups remain in the world. Encourages depositing.")]
+        [Min(1)] public int ScrapCarryCapacity = 8;
 
         [Tooltip("Lives the player has before the match ends in PlayerEliminated. Bots respawn until frag limit.")]
         [Min(1)] public int PlayerLives = 3;

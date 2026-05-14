@@ -40,6 +40,8 @@ namespace Robogame.Block
             BlockIds.BombBay,
             BlockIds.Hook,
             BlockIds.Mace,
+            BlockIds.Magnet,
+            BlockIds.GrappleMagnet,
             BlockIds.Wheel,
             BlockIds.WheelSteer,
             BlockIds.Rope,
@@ -185,7 +187,9 @@ namespace Robogame.Block
                 // chain-extends-toward-chassis convention.
                 if (placementUp != up) return AcceptDecision.HostIsLeaf;
                 if (placementDef == null) return AcceptDecision.HostFaceRejectsBlockType;
-                bool isTip = placementDef.Id == BlockIds.Hook || placementDef.Id == BlockIds.Mace;
+                bool isTip = placementDef.Id == BlockIds.Hook
+                           || placementDef.Id == BlockIds.Mace
+                           || placementDef.Id == BlockIds.Magnet;
                 return isTip ? AcceptDecision.None : AcceptDecision.HostFaceRejectsBlockType;
             }
             return AcceptDecision.HostIsLeaf;

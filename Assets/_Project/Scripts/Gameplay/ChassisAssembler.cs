@@ -166,6 +166,18 @@ namespace Robogame.Gameplay
                     PlayerInputHandler inputHandler = EnsureComponent<PlayerInputHandler>(root);
                     if (options.InputActions != null)
                         AssignSerializedReference(inputHandler, "_actions", options.InputActions);
+                }
+
+                // PlayerController is the IInputSource → IMovementProvider
+                // bridge that ticks RobotDrive each FixedUpdate. Bots have
+                // their own IInputSource (GroundBot / AirBot input source)
+                // attached BEFORE Build runs; without PlayerController the
+                // bot's Move output is computed every Update but never
+                // applied to the rigidbody. Add it whenever drive
+                // subsystems exist — i.e. anything that isn't a frozen
+                // passive target.
+                if (options.AddDriveSubsystems)
+                {
                     EnsureComponent<PlayerController>(root);
                 }
 
@@ -178,7 +190,10 @@ namespace Robogame.Gameplay
                     {
                         if (e.BlockId == BlockIds.Wheel || e.BlockId == BlockIds.WheelSteer) hasWheels = true;
                         if (e.BlockId == BlockIds.Aero || e.BlockId == BlockIds.AeroFin) hasAero = true;
-                        if (e.BlockId == BlockIds.Weapon || e.BlockId == BlockIds.BombBay || e.BlockId == BlockIds.Cannon)
+                        if (e.BlockId == BlockIds.Weapon
+                            || e.BlockId == BlockIds.BombBay
+                            || e.BlockId == BlockIds.Cannon
+                            || e.BlockId == BlockIds.GrappleMagnet)
                             hasWeapon = true;
                     }
 
@@ -221,6 +236,8 @@ namespace Robogame.Gameplay
                 {
                     EnsureComponent<MomentumImpactHandler>(root);
                     EnsureComponent<ScrapDropper>(root);
+                    EnsureComponent<ScrapCarryMovementPenalty>(root);
+                    EnsureComponent<WeaponAmmoState>(root);
                 }
 
                 // Phase 4 — block placement. Subsystems / binders

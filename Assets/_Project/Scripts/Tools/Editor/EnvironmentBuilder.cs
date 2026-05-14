@@ -121,13 +121,9 @@ namespace Robogame.Tools.Editor
             GameObject ground = HillsGround.Build(env.transform, "Ground");
             FluffGround.ApplyToGround(ground);
 
-            // Re-use the primitive obstacle course populator + palette
-            // tint. PopulateTestTerrain creates a loose "Terrain" root;
-            // we reparent it under Environment for hierarchy consistency.
-            // (We previously experimented with Kenney mesh kits here —
-            // see ArenaBuilder.cs / KenneyKit.cs — but rolled back to
-            // geometric primitives until the asset pipeline is sorted.
-            // ART_DIRECTION.md § "Verifying authored size".)
+            // Wall ring + scenic mountain ring via SceneScaffolder.
+            // PopulateTestTerrain creates a loose "Terrain" root; we
+            // reparent it under Environment for hierarchy consistency.
             SceneScaffolder.PopulateTestTerrain();
             GameObject terrain = GameObject.Find("Terrain");
             if (terrain != null && terrain.transform.parent == null)
@@ -148,6 +144,11 @@ namespace Robogame.Tools.Editor
                 else if (n.StartsWith("Bump_")) mat = WorldPalette.ArenaBump;
                 else if (n.StartsWith("Stair_")) mat = WorldPalette.ArenaStair;
                 else if (n.StartsWith("Pillar_")) mat = WorldPalette.ArenaPillar;
+                // Mountains (session 59) — slate stone tone, same
+                // material as the wall ring. Distinct prefix so a future
+                // dedicated mountain material doesn't have to dig
+                // through the Wall_ namespace.
+                else if (n.StartsWith("Mountain_")) mat = WorldPalette.ArenaWall;
                 else if (n.StartsWith("Wall_")) mat = WorldPalette.ArenaWall;
                 WorldPalette.Apply(child.gameObject, mat);
             }
@@ -591,10 +592,10 @@ namespace Robogame.Tools.Editor
             GameObject oldTerrain = GameObject.Find("Terrain");
             if (oldTerrain != null) Object.DestroyImmediate(oldTerrain);
 
-            // Kenney mesh-kit instances from the short ArenaBuilder
-            // experiment. Bombproof scrub: any subtree containing a
-            // mesh imported from Assets/_Project/Art/ThirdParty/kenney_*
-            // dies, regardless of name or parenting.
+            // Defensive scrub against any Kenney-FBX instances left
+            // over from a long-retired Kenney-asset experiment. Pure
+            // safety net for stale scenes; the scrub does nothing if no
+            // Kenney instances exist.
             ScrubKenneyInstances();
 
             return new GameObject(EnvRoot);
@@ -603,11 +604,13 @@ namespace Robogame.Tools.Editor
         /// <summary>
         /// Walk every root GameObject in the active scene and destroy any
         /// subtree containing a MeshFilter whose shared mesh was imported
-        /// from a Kenney FBX. This is the bombproof cleanup for the
-        /// short-lived ArenaBuilder experiment: it doesn't matter what
-        /// the parent name is, what scale it has, or how it was nested —
-        /// if a mesh in the subtree came from <c>Assets/_Project/Art/
-        /// ThirdParty/kenney_*</c>, the whole instance dies.
+        /// from a Kenney FBX. Bombproof cleanup for any stale scene that
+        /// still references a Kenney mesh (the scaffolder that authored
+        /// those is gone; this stays as defence against pre-cleanup
+        /// scenes). It doesn't matter what the parent name is, what scale
+        /// it has, or how it was nested — if a mesh in the subtree came
+        /// from <c>Assets/_Project/Art/ThirdParty/kenney_*</c>, the whole
+        /// instance dies.
         /// </summary>
         /// <remarks>
         /// Cheap (one AssetDatabase.GetAssetPath per unique mesh,
