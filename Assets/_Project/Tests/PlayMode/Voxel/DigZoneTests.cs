@@ -515,6 +515,89 @@ namespace Robogame.Tests.PlayMode.Voxel
             Assert.AreEqual(0, changed);
         }
 
+        // ------------------------------------------------------------------
+        // Phase 4a — LOD reduces vertex count proportionally.
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void SetLodLevel_ReducesVertexCountAtHigherLevels()
+        {
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+
+            int v0 = chunk.CurrentMesh.vertexCount;
+            chunk.SetLodLevel(1);
+            int v1 = chunk.CurrentMesh.vertexCount;
+            chunk.SetLodLevel(2);
+            int v2 = chunk.CurrentMesh.vertexCount;
+            chunk.SetLodLevel(0);
+            int v0again = chunk.CurrentMesh.vertexCount;
+
+            Assert.Greater(v0, v1, $"LOD 1 should have fewer vertices than LOD 0 (lod0={v0}, lod1={v1}).");
+            Assert.Greater(v1, v2, $"LOD 2 should have fewer vertices than LOD 1 (lod1={v1}, lod2={v2}).");
+            Assert.AreEqual(v0, v0again, "Returning to LOD 0 should restore the original vertex count.");
+        }
+
+        // ------------------------------------------------------------------
+        // Phase 4b — RefreshLod picks per-chunk LOD by view distance.
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void RefreshLod_NearView_ChunksStayAtLod0()
+        {
+            DigZone zone = MakeZone(new Vector3Int(2, 1, 1));
+            // View at zone centre — all chunks are within d1.
+            zone.RefreshLod(zone.WorldBounds.center);
+            Assert.AreEqual(0, zone.GetChunk(0, 0, 0).CurrentLodLevel);
+            Assert.AreEqual(0, zone.GetChunk(1, 0, 0).CurrentLodLevel);
+        }
+
+        [Test]
+        public void RefreshLod_FarView_ChunksGetHigherLod()
+        {
+            DigZone zone = MakeZone(new Vector3Int(2, 1, 1));
+            // View 1000 m away — every chunk is well past d2.
+            zone.RefreshLod(zone.WorldBounds.center + new Vector3(1000f, 0f, 0f));
+            Assert.AreEqual(2, zone.GetChunk(0, 0, 0).CurrentLodLevel);
+            Assert.AreEqual(2, zone.GetChunk(1, 0, 0).CurrentLodLevel);
+        }
+
+        // ------------------------------------------------------------------
+        // Phase 4d — triangle budget proxy. Plan §7 / §11 set the
+        // 100-chunk worst-case budget at 1.5M triangles with LOD on.
+        // Setting up 100 chunks in a unit test is heavy; instead, this
+        // test proves the per-chunk scaling at lod=2 leaves comfortable
+        // headroom under the per-chunk budget (15K tris = 1.5M / 100).
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void HighLod_HeavyExcavation_StaysUnderPerChunkBudget()
+        {
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+
+            // Excavate heavily: 50 random sphere brushes inside the chunk.
+            // Drives the chunk toward worst-case surface area.
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            var rng = new System.Random(42);
+            for (int i = 0; i < 50; i++)
+            {
+                Vector3 c = new Vector3(
+                    (float)rng.NextDouble() * chunkSide,
+                    (float)rng.NextDouble() * chunkSide,
+                    (float)rng.NextDouble() * chunkSide);
+                zone.ApplyBrush(MakeSphereBrush(c, radiusMeters: 1.5f));
+            }
+
+            // Force lod=2 (the production "far chunk" level).
+            chunk.SetLodLevel(2);
+            int tris = chunk.CurrentMesh.triangles.Length / 3;
+
+            // Per-chunk budget at the 100-chunk × 1.5M plan target = 15K tris.
+            Assert.Less(tris, 15000,
+                $"Phase 4 machine gate: lod=2 worst-case chunk should fit in ~15K tris (got {tris}).");
+        }
+
         [Test]
         public void ChunkCount_MatchesGridSize()
         {

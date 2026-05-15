@@ -49,6 +49,14 @@ namespace Robogame.Voxel
         [Tooltip("Wireframe colour. Defaults to hazard yellow.")]
         [SerializeField] private Color _perimeterColor = new Color(0.95f, 0.75f, 0.15f, 1f);
 
+        [Header("LOD")]
+        [Tooltip("Chunks farther than this from the view camera mesh at half resolution.")]
+        [SerializeField, Min(0f)] private float _lodDistance1 = 32f;
+        [Tooltip("Chunks farther than this mesh at quarter resolution.")]
+        [SerializeField, Min(0f)] private float _lodDistance2 = 64f;
+        [Tooltip("Disable to lock every chunk at LOD 0.")]
+        [SerializeField] private bool _enableLod = true;
+
         private GameObject _perimeterObj;
         private Mesh _perimeterMesh;
         private Material _perimeterMaterial;
@@ -117,13 +125,41 @@ namespace Robogame.Voxel
 
         private void Update()
         {
-            // Phase 2c: poll each chunk's async Physics.BakeMesh job. When
-            // the worker finishes, the chunk reassigns its MeshCollider's
-            // sharedMesh to pick up the fresh cooked data.
+            // Phase 2c: poll async Physics.BakeMesh completions and
+            // refresh collider sharedMesh.
+            // Phase 4b: refresh per-chunk LOD from main-camera distance.
             if (_chunks == null) return;
+            if (_enableLod)
+            {
+                Camera cam = Camera.main;
+                if (cam != null) RefreshLod(cam.transform.position);
+            }
             for (int i = 0; i < _chunks.Length; i++)
             {
                 if (_chunks[i] != null) _chunks[i].PollBakeAndSwap();
+            }
+        }
+
+        /// <summary>
+        /// Choose a LOD level for every chunk based on its distance from
+        /// <paramref name="viewWorldPos"/>. Chunks whose level changes are
+        /// re-meshed (which schedules a fresh bake). Exposed for tests.
+        /// </summary>
+        public void RefreshLod(Vector3 viewWorldPos)
+        {
+            if (_chunks == null) return;
+            float d1Sq = _lodDistance1 * _lodDistance1;
+            float d2Sq = _lodDistance2 * _lodDistance2;
+            for (int i = 0; i < _chunks.Length; i++)
+            {
+                DigChunk c = _chunks[i];
+                if (c == null) continue;
+                float distSq = (c.WorldBounds.center - viewWorldPos).sqrMagnitude;
+                int lod;
+                if (distSq > d2Sq) lod = 2;
+                else if (distSq > d1Sq) lod = 1;
+                else lod = 0;
+                c.SetLodLevel(lod);
             }
         }
 

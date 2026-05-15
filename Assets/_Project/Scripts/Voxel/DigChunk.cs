@@ -45,10 +45,12 @@ namespace Robogame.Voxel
 
         private NativeArray<sbyte> _sdf;           // Own SDF, (chunkSize+1)³ = dim³ samples. Brush-mutable.
         private NativeArray<sbyte> _sdfWithApron;  // Per-remesh staging: own + apron. (chunkSize+2)³.
+        private NativeArray<sbyte> _sdfLod;        // Temp downsampled SDF for lod>0 meshing.
         private SurfaceNetsMesher.Buffers _meshBuffers;
         private Mesh _mesh;
         private MeshFilter _meshFilter;
         private MeshCollider _meshCollider;
+        private int _currentLodLevel;
 
         private bool _initialised;
 
@@ -137,6 +139,7 @@ namespace Robogame.Voxel
 
             if (_sdf.IsCreated) _sdf.Dispose();
             if (_sdfWithApron.IsCreated) _sdfWithApron.Dispose();
+            if (_sdfLod.IsCreated) _sdfLod.Dispose();
             if (_meshBuffers.IsCreated) _meshBuffers.Dispose();
 
             if (_mesh != null)
@@ -160,13 +163,29 @@ namespace Robogame.Voxel
         }
 
         /// <summary>
-        /// Re-extract the surface mesh from <see cref="SdfWithApron"/> and
-        /// schedule an async <c>Physics.BakeMesh</c> on a worker thread.
-        /// The collider's cooked data is refreshed by
-        /// <see cref="PollBakeAndSwap"/> once the bake completes; in the
-        /// meantime, the collider's <c>sharedMesh</c> reference stays
-        /// pointed at this chunk's mesh (its cached cooked data reflects
-        /// the previous baked state until the swap).
+        /// Current LOD level for this chunk's mesh. 0 = full res; 1 = half
+        /// res (~9× fewer vertices); 2 = quarter res. Read-only; use
+        /// <see cref="SetLodLevel"/> to change.
+        /// </summary>
+        public int CurrentLodLevel => _currentLodLevel;
+
+        /// <summary>
+        /// Switch this chunk to a different LOD level and remesh. No-op if
+        /// the level is unchanged.
+        /// </summary>
+        public void SetLodLevel(int newLevel)
+        {
+            if (newLevel < 0) newLevel = 0;
+            if (newLevel == _currentLodLevel) return;
+            _currentLodLevel = newLevel;
+            RemeshNow();
+        }
+
+        /// <summary>
+        /// Re-extract the surface mesh from <see cref="SdfWithApron"/> at
+        /// the chunk's <see cref="CurrentLodLevel"/> and schedule an async
+        /// <c>Physics.BakeMesh</c> on a worker. See Phase 2c's session log
+        /// for the atomic-swap pattern.
         /// </summary>
         public void RemeshNow()
         {
@@ -182,9 +201,27 @@ namespace Robogame.Voxel
                 _hasPendingBake = false;
             }
 
-            SurfaceNetsMesher.Mesh(_sdfWithApron, DimWithApron, _meshBuffers,
-                out int vCount, out int iCount,
-                cellScale: _cellSize);
+            int vCount, iCount;
+            if (_currentLodLevel <= 0)
+            {
+                SurfaceNetsMesher.Mesh(_sdfWithApron, DimWithApron, _meshBuffers,
+                    out vCount, out iCount,
+                    cellScale: _cellSize);
+            }
+            else
+            {
+                // Phase 4a: downsample the apron-staging buffer into _sdfLod,
+                // mesh from there with an enlarged cell scale so output is
+                // still in world units. Each LOD level halves the dim and
+                // doubles the cell-grid step.
+                int stride = 1 << _currentLodLevel;
+                int lodDim = ((DimWithApron - 1) / stride) + 1;
+                EnsureLodBuffer(lodDim);
+                DownsampleSdf(_sdfWithApron, DimWithApron, _sdfLod, lodDim, stride);
+                SurfaceNetsMesher.Mesh(_sdfLod, lodDim, _meshBuffers,
+                    out vCount, out iCount,
+                    cellScale: _cellSize * stride);
+            }
 
             _mesh.Clear(keepVertexLayout: false);
 
@@ -226,6 +263,37 @@ namespace Robogame.Voxel
 
         /// <summary>True while a Physics.BakeMesh worker call is in flight.</summary>
         public bool HasPendingBake => _hasPendingBake;
+
+        private void EnsureLodBuffer(int lodDim)
+        {
+            int needed = lodDim * lodDim * lodDim;
+            if (_sdfLod.IsCreated && _sdfLod.Length == needed) return;
+            if (_sdfLod.IsCreated) _sdfLod.Dispose();
+            _sdfLod = new NativeArray<sbyte>(needed, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        }
+
+        private static void DownsampleSdf(NativeArray<sbyte> src, int srcDim, NativeArray<sbyte> dst, int dstDim, int stride)
+        {
+            // Nearest-sample downsample. For dst[i,j,k], read src at
+            // (i*stride, j*stride, k*stride), clamped to src's bounds so
+            // the last dst sample is safe if (dstDim-1)*stride > srcDim-1.
+            int srcMaxIdx = srcDim - 1;
+            int srcDimSq = srcDim * srcDim;
+            int dstDimSq = dstDim * dstDim;
+            for (int z = 0; z < dstDim; z++)
+            {
+                int sz = z * stride; if (sz > srcMaxIdx) sz = srcMaxIdx;
+                for (int y = 0; y < dstDim; y++)
+                {
+                    int sy = y * stride; if (sy > srcMaxIdx) sy = srcMaxIdx;
+                    for (int x = 0; x < dstDim; x++)
+                    {
+                        int sx = x * stride; if (sx > srcMaxIdx) sx = srcMaxIdx;
+                        dst[z * dstDimSq + y * dstDim + x] = src[sz * srcDimSq + sy * srcDim + sx];
+                    }
+                }
+            }
+        }
 
         private struct BakeMeshJob : IJob
         {
