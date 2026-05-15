@@ -43,5 +43,10 @@ namespace Robogame.Block
         // block — NOT a tip block (the tip is spawned as a transient
         // child of the block, not a grid cell).
         public const string GrappleMagnet = "block.weapon.grapple_magnet";
+        // Drill (Phase 3b): a tool block that carves voxel dig zones via
+        // CapsuleSubtract brush ops on contact. Not a TipBlock — directly
+        // mounted on the chassis grid. See Robogame.Voxel.DrillBlock and
+        // TERRAFORMING_PLAN §12 Phase 3 for the design.
+        public const string Drill      = "block.tool.drill";
     }
 }

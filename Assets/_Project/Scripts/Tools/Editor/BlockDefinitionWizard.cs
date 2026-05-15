@@ -91,6 +91,10 @@ namespace Robogame.Tools.Editor
             // launcher. Heavier than the SMG; spends its action
             // budget on the rope + tip projectile rather than ammo.
             CreateOrUpdate("BlockDef_GrappleMagnet", BlockIds.GrappleMagnet, "Grapple Magnet", BlockCategory.Weapon, maxHealth: 140f, mass: 4.5f, cpuCost: 45, tint: w);
+            // Drill (Phase 3b): carves voxel dig zones. Moderate mass +
+            // mid-cost CPU. No componentData yet — drill radius + emit
+            // rate live on the DrillBlock MonoBehaviour as SerializeFields.
+            CreateOrUpdate("BlockDef_Drill",      BlockIds.Drill,      "Drill",          BlockCategory.Weapon,    maxHealth: 130f, mass: 3.5f, cpuCost: 32, tint: w);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();

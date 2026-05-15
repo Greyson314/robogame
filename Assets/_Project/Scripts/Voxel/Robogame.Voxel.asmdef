@@ -3,6 +3,7 @@
     "rootNamespace": "Robogame.Voxel",
     "references": [
         "Robogame.Core",
+        "Robogame.Block",
         "Unity.Burst",
         "Unity.Collections",
         "Unity.Mathematics"

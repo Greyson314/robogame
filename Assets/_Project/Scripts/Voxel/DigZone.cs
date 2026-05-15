@@ -43,6 +43,16 @@ namespace Robogame.Voxel
         /// </summary>
         [SerializeField] private TextAsset _digAsset;
 
+        [Header("Perimeter visual")]
+        [Tooltip("Draw a wireframe cube around the dig zone so players can see where to dig.")]
+        [SerializeField] private bool _drawPerimeter = true;
+        [Tooltip("Wireframe colour. Defaults to hazard yellow.")]
+        [SerializeField] private Color _perimeterColor = new Color(0.95f, 0.75f, 0.15f, 1f);
+
+        private GameObject _perimeterObj;
+        private Mesh _perimeterMesh;
+        private Material _perimeterMaterial;
+
         private DigChunk[] _chunks;
 
         public float CellSize
@@ -99,7 +109,11 @@ namespace Robogame.Voxel
 
         private void OnDisable() => DigField.Unregister(this);
 
-        private void OnDestroy() => DestroyChildChunks();
+        private void OnDestroy()
+        {
+            DestroyChildChunks();
+            DestroyPerimeter();
+        }
 
         private void Update()
         {
@@ -169,6 +183,89 @@ namespace Robogame.Voxel
                 InitializeHalfSpace();
             }
             RebuildAllMeshes();
+            BuildPerimeter();
+        }
+
+        // -----------------------------------------------------------------
+        // Perimeter visual — wireframe cube outlining the zone's extent.
+        // Always-visible runtime line mesh; not a gameplay element. Lives
+        // as a HideFlags.DontSave child like the chunks.
+        // -----------------------------------------------------------------
+
+        private void BuildPerimeter()
+        {
+            if (!_drawPerimeter) return;
+            DestroyPerimeter();
+
+            _perimeterObj = new GameObject("Perimeter") { hideFlags = HideFlags.DontSave };
+            _perimeterObj.transform.SetParent(transform, worldPositionStays: false);
+            _perimeterObj.transform.localPosition = Vector3.zero;
+
+            var mf = _perimeterObj.AddComponent<MeshFilter>();
+            var mr = _perimeterObj.AddComponent<MeshRenderer>();
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+
+            float chunkSide = _chunkSizeCells * _cellSize;
+            Vector3 size = new Vector3(
+                chunkSide * _chunkGridSize.x,
+                chunkSide * _chunkGridSize.y,
+                chunkSide * _chunkGridSize.z);
+
+            _perimeterMesh = new Mesh { name = $"{name}_Perimeter" };
+            Vector3[] verts =
+            {
+                new Vector3(0,      0,      0),       // 0
+                new Vector3(size.x, 0,      0),       // 1
+                new Vector3(0,      size.y, 0),       // 2
+                new Vector3(size.x, size.y, 0),       // 3
+                new Vector3(0,      0,      size.z),  // 4
+                new Vector3(size.x, 0,      size.z),  // 5
+                new Vector3(0,      size.y, size.z),  // 6
+                new Vector3(size.x, size.y, size.z),  // 7
+            };
+            int[] lineIndices =
+            {
+                0, 1, 1, 5, 5, 4, 4, 0,   // bottom face perimeter
+                2, 3, 3, 7, 7, 6, 6, 2,   // top face perimeter
+                0, 2, 1, 3, 4, 6, 5, 7,   // 4 vertical edges
+            };
+            _perimeterMesh.vertices = verts;
+            _perimeterMesh.SetIndices(lineIndices, MeshTopology.Lines, submesh: 0);
+            _perimeterMesh.bounds = new Bounds(size * 0.5f, size);
+            mf.sharedMesh = _perimeterMesh;
+
+            // Best-effort unlit material. URP/Unlit if present (URP project);
+            // otherwise fall back to the legacy Unlit/Color.
+            Shader sh = Shader.Find("Universal Render Pipeline/Unlit");
+            if (sh == null) sh = Shader.Find("Unlit/Color");
+            _perimeterMaterial = new Material(sh) { name = "DigZonePerimeter" };
+            _perimeterMaterial.color = _perimeterColor;
+            if (_perimeterMaterial.HasProperty("_BaseColor"))
+                _perimeterMaterial.SetColor("_BaseColor", _perimeterColor);
+            mr.sharedMaterial = _perimeterMaterial;
+        }
+
+        private void DestroyPerimeter()
+        {
+            if (_perimeterObj != null)
+            {
+                if (Application.isPlaying) Destroy(_perimeterObj);
+                else DestroyImmediate(_perimeterObj);
+                _perimeterObj = null;
+            }
+            if (_perimeterMesh != null)
+            {
+                if (Application.isPlaying) Destroy(_perimeterMesh);
+                else DestroyImmediate(_perimeterMesh);
+                _perimeterMesh = null;
+            }
+            if (_perimeterMaterial != null)
+            {
+                if (Application.isPlaying) Destroy(_perimeterMaterial);
+                else DestroyImmediate(_perimeterMaterial);
+                _perimeterMaterial = null;
+            }
         }
 
         /// <summary>
