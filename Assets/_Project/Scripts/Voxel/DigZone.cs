@@ -1,64 +1,87 @@
 using Robogame.Core;
-using Unity.Collections;
-using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace Robogame.Voxel
 {
     /// <summary>
-    /// Single-chunk dig zone. Owns a 33³-sample SDF buffer at default
-    /// settings (32 cells per side at 0.5 m → 16 m chunk). Implements
-    /// <see cref="IDigZone"/> and registers with <see cref="DigField"/>
-    /// on enable.
+    /// A multi-chunk dig zone. <see cref="IDigZone"/> implementer + container
+    /// that manages a 3D grid of <see cref="DigChunk"/> child objects.
+    /// Brush ops are dispatched to all chunks whose AABBs overlap the brush
+    /// volume; each chunk decides for itself which of its cells are
+    /// touched via <see cref="BrushApplicator"/>'s AABB clipping.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Phase 1c update: SDF and mesher buffers are
-    /// <see cref="NativeArray{T}"/>-backed; meshing is Burst-compiled via
-    /// <see cref="SurfaceNetsMesher"/>. Mesh upload uses
-    /// <see cref="Mesh.SetVertexBufferData{T}(NativeArray{T},int,int,int,int,MeshUpdateFlags)"/>
-    /// directly off the native buffer for zero managed allocation in the
-    /// steady-state remesh path.
+    /// Phase 2a deliverable. The single-chunk path of Phases 1b/1c is the
+    /// chunkGridSize = (1,1,1) case of this container.
     /// </para>
     /// <para>
-    /// MeshCollider is still cooked synchronously on the main thread —
-    /// Phase 2 moves to <c>Physics.BakeMesh</c> on a worker.
+    /// Chunks are spawned as <see cref="HideFlags.DontSave"/> children — the
+    /// scene file only persists the DigZone GameObject, never the chunks
+    /// themselves. On scene load, <see cref="EnsureInitialised"/> rebuilds
+    /// chunks fresh from the zone configuration (and, Phase 2d, from a
+    /// <c>.dig</c> asset reference).
+    /// </para>
+    /// <para>
+    /// No apron handling at Phase 2a — chunks mesh independently and seams
+    /// are visible at chunk boundaries. Phase 2b adds apron data flow so
+    /// vertex positions agree on shared chunk edges. Phase 2c moves
+    /// MeshCollider cooking to a worker thread via <c>Physics.BakeMesh</c>.
     /// </para>
     /// </remarks>
     [ExecuteAlways]
-    [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider))]
     public sealed class DigZone : MonoBehaviour, IDigZone
     {
         [SerializeField, Min(0.01f)] private float _cellSize = 0.5f;
         [SerializeField, Min(2)]     private int   _chunkSizeCells = 32;
+        [SerializeField] private Vector3Int _chunkGridSize = new Vector3Int(2, 2, 2);
+        [SerializeField] private Material _chunkMaterial;
 
-        private NativeArray<sbyte> _sdf;
-        private SurfaceNetsMesher.Buffers _meshBuffers;
-        private Mesh _mesh;
-        private MeshFilter _meshFilter;
-        private MeshCollider _meshCollider;
+        private DigChunk[] _chunks;
 
+        public float CellSize
+        {
+            get => _cellSize;
+            set { ThrowIfInitialised(nameof(CellSize)); _cellSize = value; }
+        }
+
+        public int ChunkSizeCells
+        {
+            get => _chunkSizeCells;
+            set { ThrowIfInitialised(nameof(ChunkSizeCells)); _chunkSizeCells = value; }
+        }
+
+        public Vector3Int ChunkGridSize
+        {
+            get => _chunkGridSize;
+            set { ThrowIfInitialised(nameof(ChunkGridSize)); _chunkGridSize = value; }
+        }
+
+        public int ChunkCount => _chunks != null ? _chunks.Length : 0;
+
+        private void ThrowIfInitialised(string fieldName)
+        {
+            if (_chunks != null)
+                throw new System.InvalidOperationException(
+                    $"{fieldName} cannot change after the DigZone is initialised. " +
+                    "Set it on an inactive GameObject before SetActive(true).");
+        }
+
+        /// <summary>World-space AABB covering every chunk in the zone.</summary>
         public Bounds WorldBounds
         {
             get
             {
-                float side = _chunkSizeCells * _cellSize;
-                Vector3 size = new Vector3(side, side, side);
-                return new Bounds(transform.position + size * 0.5f, size);
+                float chunkSide = _chunkSizeCells * _cellSize;
+                Vector3 totalSize = new Vector3(
+                    chunkSide * _chunkGridSize.x,
+                    chunkSide * _chunkGridSize.y,
+                    chunkSide * _chunkGridSize.z);
+                return new Bounds(transform.position + totalSize * 0.5f, totalSize);
             }
         }
 
-        public float CellSize => _cellSize;
-        public int ChunkSizeCells => _chunkSizeCells;
         public bool ContainsPoint(Vector3 worldPosition) => WorldBounds.Contains(worldPosition);
-
-        public int Dim => _chunkSizeCells + 1;
-
-        public Mesh CurrentMesh => _mesh;
-
-        /// <summary>SDF samples in z-major order. Trusted accessor for tests + diagnostics.</summary>
-        public NativeArray<sbyte> Sdf => _sdf;
 
         private void Awake() => EnsureInitialised();
 
@@ -70,105 +93,142 @@ namespace Robogame.Voxel
 
         private void OnDisable() => DigField.Unregister(this);
 
-        private void OnDestroy()
-        {
-            if (_sdf.IsCreated) _sdf.Dispose();
-            if (_meshBuffers.IsCreated) _meshBuffers.Dispose();
-
-            if (_mesh != null)
-            {
-                if (Application.isPlaying) Destroy(_mesh);
-                else DestroyImmediate(_mesh);
-                _mesh = null;
-            }
-        }
+        private void OnDestroy() => DestroyChildChunks();
 
         private void EnsureInitialised()
         {
-            if (_sdf.IsCreated) return;
+            if (_chunks != null) return;
 
-            int dim = Dim;
-            _sdf = new NativeArray<sbyte>(dim * dim * dim, Allocator.Persistent, NativeArrayOptions.ClearMemory);
-            _meshBuffers = SurfaceNetsMesher.Allocate(dim, Allocator.Persistent);
+            DestroyChildChunks();   // defensive: clear any leaked children from a prior session.
 
-            _mesh = new Mesh
+            int nx = _chunkGridSize.x, ny = _chunkGridSize.y, nz = _chunkGridSize.z;
+            _chunks = new DigChunk[nx * ny * nz];
+
+            float chunkSideMeters = _chunkSizeCells * _cellSize;
+            Vector3 zoneOrigin = transform.position;
+
+            for (int cz = 0; cz < nz; cz++)
+            for (int cy = 0; cy < ny; cy++)
+            for (int cx = 0; cx < nx; cx++)
             {
-                name = $"{name}_DigZoneMesh",
-                indexFormat = IndexFormat.UInt32,
-            };
-            _meshFilter = GetComponent<MeshFilter>();
-            _meshFilter.sharedMesh = _mesh;
-            _meshCollider = GetComponent<MeshCollider>();
+                int idx = FlatIndex(cx, cy, cz);
+                Vector3Int coord = new Vector3Int(cx, cy, cz);
+
+                GameObject chunkObj = new GameObject($"Chunk_{cx}_{cy}_{cz}")
+                {
+                    hideFlags = HideFlags.DontSave,
+                };
+                chunkObj.transform.SetParent(transform, worldPositionStays: false);
+                chunkObj.transform.localPosition = new Vector3(cx, cy, cz) * chunkSideMeters;
+
+                chunkObj.AddComponent<MeshFilter>();
+                var renderer = chunkObj.AddComponent<MeshRenderer>();
+                if (_chunkMaterial != null) renderer.sharedMaterial = _chunkMaterial;
+                chunkObj.AddComponent<MeshCollider>();
+
+                var chunk = chunkObj.AddComponent<DigChunk>();
+                chunk.Initialize(coord, _cellSize, _chunkSizeCells);
+                _chunks[idx] = chunk;
+            }
 
             InitializeHalfSpace();
-            RemeshNow();
+
+            for (int i = 0; i < _chunks.Length; i++) _chunks[i].RemeshNow();
         }
 
-        /// <summary>
-        /// Seed the SDF with a half-space: lower half (Y &lt; dim/2) solid,
-        /// upper half exterior. Produces a flat top surface on first remesh.
-        /// </summary>
-        public void InitializeHalfSpace()
+        private void DestroyChildChunks()
         {
-            int dim = Dim;
-            int split = dim / 2;
-            for (int z = 0; z < dim; z++)
-            for (int y = 0; y < dim; y++)
-            for (int x = 0; x < dim; x++)
+            if (_chunks != null)
             {
-                int v = (y - split) * 64;
-                if (v < sbyte.MinValue) v = sbyte.MinValue;
-                else if (v > sbyte.MaxValue) v = sbyte.MaxValue;
-                _sdf[z * dim * dim + y * dim + x] = (sbyte)v;
+                for (int i = 0; i < _chunks.Length; i++)
+                {
+                    if (_chunks[i] != null)
+                    {
+                        if (Application.isPlaying) Destroy(_chunks[i].gameObject);
+                        else DestroyImmediate(_chunks[i].gameObject);
+                    }
+                }
+                _chunks = null;
+            }
+
+            // Also destroy any DontSave children that might be left over from
+            // a domain reload mid-edit.
+            for (int i = transform.childCount - 1; i >= 0; i--)
+            {
+                Transform child = transform.GetChild(i);
+                if (child.GetComponent<DigChunk>() != null)
+                {
+                    if (Application.isPlaying) Destroy(child.gameObject);
+                    else DestroyImmediate(child.gameObject);
+                }
             }
         }
 
-        /// <summary>Apply one brush op (max-fold) and remesh. Returns changed-cell count.</summary>
+        /// <summary>
+        /// Seed every chunk's SDF with a global half-space: lower half of
+        /// the entire zone (gy &lt; totalCellsY / 2) is solid, upper half
+        /// is exterior. Produces a flat top surface plane at zone midline.
+        /// </summary>
+        public void InitializeHalfSpace()
+        {
+            EnsureInitialised();
+
+            int totalCellsY = _chunkGridSize.y * _chunkSizeCells;
+            int splitGlobal = totalCellsY / 2;
+            int dim = _chunkSizeCells + 1;
+            int dimSq = dim * dim;
+
+            for (int i = 0; i < _chunks.Length; i++)
+            {
+                DigChunk chunk = _chunks[i];
+                Vector3Int coord = chunk.ChunkCoord;
+                Unity.Collections.NativeArray<sbyte> sdf = chunk.Sdf;
+
+                for (int z = 0; z < dim; z++)
+                for (int y = 0; y < dim; y++)
+                for (int x = 0; x < dim; x++)
+                {
+                    int globalY = coord.y * _chunkSizeCells + y;
+                    int v = (globalY - splitGlobal) * 64;
+                    if (v < sbyte.MinValue) v = sbyte.MinValue;
+                    else if (v > sbyte.MaxValue) v = sbyte.MaxValue;
+                    sdf[z * dimSq + y * dim + x] = (sbyte)v;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Apply one brush op to every chunk whose AABB overlaps the brush.
+        /// Returns the total number of cells whose SDF changed across all
+        /// touched chunks.
+        /// </summary>
         public int ApplyBrush(BrushOp op)
         {
             EnsureInitialised();
-            int changed = BrushApplicator.Apply(op, _sdf, Dim, _cellSize, transform.position);
-            if (changed > 0) RemeshNow();
-            return changed;
+            int totalChanged = 0;
+            for (int i = 0; i < _chunks.Length; i++)
+            {
+                // Each chunk's ApplyBrush calls BrushApplicator which clips
+                // to the chunk's AABB and returns 0 if the brush misses. So
+                // we can dispatch to every chunk unconditionally; the cost
+                // for a non-touched chunk is one AABB rejection (microseconds).
+                totalChanged += _chunks[i].ApplyBrush(op);
+            }
+            return totalChanged;
         }
 
-        /// <summary>Re-extract the surface mesh from the current SDF. Schedules + completes the Burst job synchronously.</summary>
-        public void RemeshNow()
+        /// <summary>Get the chunk at a grid coordinate, or null if out of range.</summary>
+        public DigChunk GetChunk(int cx, int cy, int cz)
         {
-            EnsureInitialised();
-            int dim = Dim;
-
-            // Burst job folds CellScale in, so positions come back in local
-            // mesh units. No managed post-scale loop on the host.
-            SurfaceNetsMesher.Mesh(_sdf, dim, _meshBuffers,
-                out int vCount, out int iCount,
-                cellScale: _cellSize);
-
-            _mesh.Clear(keepVertexLayout: false);
-
-            // High-level Mesh API with NativeArray inputs — zero managed
-            // allocations on the host side. Reinterpret<Vector3>() is a
-            // zero-copy view of NativeArray<float3>; float3 and Vector3 are
-            // both 3-float structs.
-            var vertsAsVec3 = _meshBuffers.Vertices.Reinterpret<Vector3>();
-            _mesh.SetVertices(vertsAsVec3, 0, vCount);
-            _mesh.SetIndices(_meshBuffers.Indices.GetSubArray(0, iCount),
-                MeshTopology.Triangles, submesh: 0, calculateBounds: false);
-
-            // Manual bounds — chunk occupies [0, side]³ in local space.
-            float side = _chunkSizeCells * _cellSize;
-            _mesh.bounds = new Bounds(new Vector3(side * 0.5f, side * 0.5f, side * 0.5f),
-                                      new Vector3(side, side, side));
-
-            // Required for URP/Lit shading. Phase 4 may inline normals
-            // computation into the meshing job; for Phase 1c we accept
-            // RecalculateNormals' O(triangles) cost.
-            _mesh.RecalculateNormals();
-
-            // MeshCollider re-cook is synchronous in Phase 1c. Phase 2 moves
-            // to Physics.BakeMesh on a worker.
-            _meshCollider.sharedMesh = null;
-            _meshCollider.sharedMesh = _mesh;
+            if (_chunks == null) return null;
+            if (cx < 0 || cy < 0 || cz < 0 ||
+                cx >= _chunkGridSize.x || cy >= _chunkGridSize.y || cz >= _chunkGridSize.z) return null;
+            return _chunks[FlatIndex(cx, cy, cz)];
         }
+
+        public DigChunk GetChunk(Vector3Int coord) => GetChunk(coord.x, coord.y, coord.z);
+
+        private int FlatIndex(int cx, int cy, int cz)
+            => (cz * _chunkGridSize.y + cy) * _chunkGridSize.x + cx;
     }
 }

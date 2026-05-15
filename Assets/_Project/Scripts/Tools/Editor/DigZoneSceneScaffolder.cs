@@ -8,18 +8,13 @@ using UnityEngine.SceneManagement;
 namespace Robogame.Tools.Editor
 {
     /// <summary>
-    /// Editor menu entries that build and exercise the Phase 1b DigZone
-    /// test scene. Scaffolded programmatically — the scene is regenerable
-    /// from code on a fresh checkout (TERRAFORMING_PLAN.md §12 autonomy
-    /// contract).
+    /// Editor menu entries that build and exercise the DigZone test scene.
+    /// Scaffolded programmatically per TERRAFORMING_PLAN.md §12 autonomy
+    /// contract — the scene is regenerable on a fresh checkout.
     /// </summary>
     public static class DigZoneSceneScaffolder
     {
         public const string DigZoneTestScenePath = ScaffoldUtils.ScenesFolder + "/DigZone_Test.unity";
-
-        // -----------------------------------------------------------------
-        // Build Test Scene
-        // -----------------------------------------------------------------
 
         [MenuItem("Robogame/Dig Zone/Build Test Scene", priority = 200)]
         public static void BuildTestScene()
@@ -30,80 +25,75 @@ namespace Robogame.Tools.Editor
             }
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-
-            // Save the new scene to disk first so subsequent ops have a
-            // path to write back to.
             EditorSceneManager.SaveScene(scene, DigZoneTestScenePath);
 
-            // Ground plane below the chunk. The chunk's half-space init
-            // makes its bottom half solid, so the chunk visually rests on
-            // the ground plane along its lower face.
+            // Ground plane. At 2×2×2 chunks of 16 m each the zone covers
+            // 32×32×32 m, so widen the ground to keep some visible margin.
             GameObject ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
             ground.name = "Ground";
             ground.transform.position = new Vector3(0f, 0f, 0f);
-            ground.transform.localScale = new Vector3(4f, 1f, 4f);   // 40 m × 40 m
+            ground.transform.localScale = new Vector3(8f, 1f, 8f);   // 80 m × 80 m
 
-            // Directional light. Stylised palette is fine — Phase 1b is
-            // about geometry verification, art pass deferred.
             GameObject lightObj = new GameObject("Sun");
             Light light = lightObj.AddComponent<Light>();
             light.type = LightType.Directional;
             light.intensity = 1.0f;
             lightObj.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
 
-            // Camera positioned to frame the chunk diagonally from above.
             GameObject cameraObj = new GameObject("MainCamera");
             cameraObj.tag = "MainCamera";
             Camera cam = cameraObj.AddComponent<Camera>();
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.10f, 0.13f, 0.18f);
-            // Chunk centres around (~8, ~8, ~8) at default settings (32×0.5 m).
-            cameraObj.transform.position = new Vector3(20f, 18f, -10f);
-            cameraObj.transform.LookAt(new Vector3(8f, 8f, 8f));
+            // 2×2×2 zone centred at (16,16,16); pull the camera back to frame it.
+            cameraObj.transform.position = new Vector3(38f, 32f, -18f);
+            cameraObj.transform.LookAt(new Vector3(16f, 16f, 16f));
 
-            // The DigZone itself. Located at world origin so its chunk
-            // occupies [0..16, 0..16, 0..16] m.
+            // The DigZone container itself has no renderer/collider — chunks
+            // carry those. Configure serialised fields before the component's
+            // Awake fires so the chunk grid spins up at the right size with
+            // the right material.
             GameObject digZoneObj = new GameObject("DigZone");
             digZoneObj.transform.position = Vector3.zero;
-            digZoneObj.AddComponent<MeshFilter>();
-            MeshRenderer renderer = digZoneObj.AddComponent<MeshRenderer>();
-            // Phase 4 introduces Mat_DigZoneEarth per TERRAFORMING_PLAN §7.
-            // For now reuse the arena-ground palette material so the geometry
-            // reads against the toon palette instead of magenta-default.
-            renderer.sharedMaterial = WorldPalette.ArenaGround;
-            digZoneObj.AddComponent<MeshCollider>();
-            digZoneObj.AddComponent<DigZone>();
+            digZoneObj.SetActive(false);
+            DigZone zone = digZoneObj.AddComponent<DigZone>();
+
+            SerializedObject so = new SerializedObject(zone);
+            so.FindProperty("_cellSize").floatValue = 0.5f;
+            so.FindProperty("_chunkSizeCells").intValue = 32;
+            so.FindProperty("_chunkGridSize").vector3IntValue = new Vector3Int(2, 2, 2);
+            so.FindProperty("_chunkMaterial").objectReferenceValue = WorldPalette.ArenaGround;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            digZoneObj.SetActive(true);   // Awake fires, chunks spawn.
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
 
-            Debug.Log($"[Robogame] Built {DigZoneTestScenePath}. Use 'Robogame > Dig Zone > Test Sphere Subtract' to dig.");
+            Debug.Log($"[Robogame] Built {DigZoneTestScenePath} with " +
+                      $"{zone.ChunkGridSize.x}×{zone.ChunkGridSize.y}×{zone.ChunkGridSize.z} chunks. " +
+                      "Use 'Robogame > Dig Zone > Test Sphere Subtract' to dig.");
         }
-
-        // -----------------------------------------------------------------
-        // Test Sphere Subtract (menu-driven brush trigger per the autonomy
-        // contract — invokable from tests + CLI batch mode without a
-        // Scene-View click handler).
-        // -----------------------------------------------------------------
 
         [MenuItem("Robogame/Dig Zone/Test Sphere Subtract", priority = 210)]
         public static void TestSphereSubtract()
         {
-            DigZone zone = Object.FindFirstObjectByType<DigZone>();
+            DigZone zone = Object.FindAnyObjectByType<DigZone>();
             if (zone == null)
             {
                 Debug.LogWarning("[Robogame] No DigZone in the current scene. Run 'Build Test Scene' first.");
                 return;
             }
 
-            ApplyCentredSphereSubtract(zone, radiusMeters: 2.0f);
+            int changed = ApplyCentredSphereSubtract(zone, radiusMeters: 4.0f);
             EditorSceneManager.MarkSceneDirty(zone.gameObject.scene);
+            Debug.Log($"[Robogame] Sphere brush mutated {changed} cells across {zone.ChunkCount} chunks.");
         }
 
         /// <summary>
-        /// Apply a <see cref="BrushKind.SphereSubtract"/> at the chunk's
-        /// centre with the given radius. Exposed so PlayMode tests can
-        /// invoke the same brush trigger as the menu.
+        /// Apply a <see cref="BrushKind.SphereSubtract"/> at the zone's centre.
+        /// Exposed for PlayMode tests so they can use the same brush trigger
+        /// as the menu.
         /// </summary>
         public static int ApplyCentredSphereSubtract(DigZone zone, float radiusMeters)
         {

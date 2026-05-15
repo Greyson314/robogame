@@ -6,30 +6,27 @@ using UnityEngine;
 namespace Robogame.Tests.PlayMode.Voxel
 {
     /// <summary>
-    /// Phase 1b machine gate per TERRAFORMING_PLAN.md §12: a DigZone
-    /// instantiated programmatically, seeded with the half-space initial
-    /// SDF, must produce a non-empty surface mesh and respond to a
-    /// SphereSubtract brush by mutating the SDF at the brush location and
-    /// re-extracting the surface. Tests the end-to-end pipeline (BrushOp
-    /// → BrushApplicator max-fold → SurfaceNetsMesher → Mesh upload)
-    /// without requiring a scene file or visual playtest.
+    /// Phase 2a machine gate plus the IDigZone surface that 1b/1c pinned.
+    /// Tests instantiate DigZones in code with explicit chunkGridSize per
+    /// test: 1×1×1 for the single-chunk regression suite, 2×1×1 for the
+    /// new multi-chunk dispatch test.
     /// </summary>
     public sealed class DigZoneTests
     {
         private GameObject _go;
         private DigZone _zone;
 
-        [SetUp]
-        public void SetUp()
+        private DigZone MakeZone(Vector3Int chunkGridSize, int chunkSizeCells = 32, float cellSize = 0.5f)
         {
             _go = new GameObject("TestDigZone");
             _go.transform.position = Vector3.zero;
-            _go.AddComponent<MeshFilter>();
-            _go.AddComponent<MeshRenderer>();
-            _go.AddComponent<MeshCollider>();
+            _go.SetActive(false);   // Awake blocked until configured.
             _zone = _go.AddComponent<DigZone>();
-            // Awake fires synchronously on AddComponent — _zone is now
-            // initialised with the default 33-sample / 32-cell chunk.
+            _zone.ChunkGridSize = chunkGridSize;
+            _zone.ChunkSizeCells = chunkSizeCells;
+            _zone.CellSize = cellSize;
+            _go.SetActive(true);    // Awake fires, chunks spawn.
+            return _zone;
         }
 
         [TearDown]
@@ -40,154 +37,214 @@ namespace Robogame.Tests.PlayMode.Voxel
             _zone = null;
         }
 
+        private BrushOp MakeSphereBrush(Vector3 centre, float radiusMeters)
+        {
+            return new BrushOp
+            {
+                kind = BrushKind.SphereSubtract,
+                serverTick = 0,
+                p0 = Vector3Fixed.FromVector3(centre),
+                p1 = Vector3Fixed.FromVector3(centre),
+                radiusFixed = (ushort)Mathf.Clamp(
+                    Mathf.RoundToInt(radiusMeters * Vector3Fixed.UnitsPerMeter),
+                    0, ushort.MaxValue),
+            };
+        }
+
         // ------------------------------------------------------------------
-        // Initial state — the half-space seed must produce a non-empty
-        // flat-plane mesh and register with DigField.
+        // IDigZone surface — preserved from Phase 1c.
         // ------------------------------------------------------------------
 
         [Test]
-        public void Awake_HalfSpaceSeed_ProducesNonEmptyMesh()
+        public void Awake_SingleChunkHalfSpaceSeed_ProducesNonEmptyMesh()
         {
-            Assert.IsNotNull(_zone.CurrentMesh, "DigZone must have a mesh after Awake.");
-            Assert.Greater(_zone.CurrentMesh.vertexCount, 0,
-                "Half-space SDF seed straddles y = dim/2; the mesher must emit a surface plane there.");
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+
+            Assert.IsNotNull(chunk, "1×1×1 zone must spawn one chunk.");
+            Assert.IsNotNull(chunk.CurrentMesh);
+            Assert.Greater(chunk.CurrentMesh.vertexCount, 0,
+                "Half-space SDF seed straddles y = totalCellsY/2; the mesher must emit a surface plane.");
         }
 
         [Test]
         public void OnEnable_RegistersWithDigField()
         {
-            // Active component → DigField sees this zone via ZoneAt at the chunk centre.
-            IDigZone zoneAt = DigField.ZoneAt(_zone.WorldBounds.center);
-            Assert.AreSame(_zone, zoneAt,
-                "DigField.ZoneAt must return the registered DigZone for points inside its bounds.");
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            IDigZone zoneAt = DigField.ZoneAt(zone.WorldBounds.center);
+            Assert.AreSame(zone, zoneAt);
         }
 
         [Test]
-        public void WorldBounds_MatchesChunkSizeAndOrigin()
+        public void WorldBounds_MatchesAggregateChunkExtent()
         {
-            Bounds b = _zone.WorldBounds;
-            float expectedSide = _zone.ChunkSizeCells * _zone.CellSize;
+            DigZone zone = MakeZone(new Vector3Int(2, 2, 2));
+            Bounds b = zone.WorldBounds;
+            float expectedSide = 2 * zone.ChunkSizeCells * zone.CellSize;
             Assert.AreEqual(expectedSide, b.size.x, 1e-4f);
             Assert.AreEqual(expectedSide, b.size.y, 1e-4f);
             Assert.AreEqual(expectedSide, b.size.z, 1e-4f);
-            // Origin at (0,0,0); chunk centre at half-side along each axis.
             Assert.AreEqual(expectedSide * 0.5f, b.center.x, 1e-4f);
         }
 
         // ------------------------------------------------------------------
-        // Brush application — Phase 1b's load-bearing assertion. The
-        // SphereSubtract must (a) mutate the SDF where the brush hit and
-        // (b) cause the mesher to re-extract a different surface.
+        // Brush application — single-chunk regression suite.
         // ------------------------------------------------------------------
 
         [Test]
         public void ApplyBrush_SphereSubtractAtChunkCentre_MutatesSdfInsideBrush()
         {
-            // Brush centre = chunk centre. The chunk centre cell is on the
-            // half-space dividing plane (y = dim/2). For an interior cell
-            // just below (y = dim/2 - 1) the half-space init sets sdf < 0
-            // (interior). After the brush, that cell — being inside the
-            // sphere — must become sdf >= 0 (exterior).
-            Vector3 centre = _zone.WorldBounds.center;
-            int dim = _zone.Dim;
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+
+            // Single chunk: split is at the chunk centre. Cell just below
+            // the split plane is interior pre-brush.
+            int dim = chunk.Dim;
             int dimSq = dim * dim;
-            int midX = dim / 2;
-            int midY = dim / 2;
-            int midZ = dim / 2;
+            int midX = dim / 2, midY = dim / 2, midZ = dim / 2;
             int interiorIdx = midZ * dimSq + (midY - 1) * dim + midX;
 
-            sbyte sdfBefore = _zone.Sdf[interiorIdx];
-            Assert.Less(sdfBefore, 0,
-                "Pre-condition: cell just below the half-space plane must be interior.");
+            Assert.Less(chunk.Sdf[interiorIdx], 0,
+                "Pre-condition: cell just below half-space plane must be interior.");
 
-            int changed = ApplyCentreSphere(centre, radiusMeters: 2.0f);
-            Assert.Greater(changed, 0, "Brush must mutate at least one cell.");
+            int changed = zone.ApplyBrush(MakeSphereBrush(zone.WorldBounds.center, 2.0f));
+            Assert.Greater(changed, 0);
 
-            sbyte sdfAfter = _zone.Sdf[interiorIdx];
-            Assert.GreaterOrEqual(sdfAfter, 0,
-                $"Cell at (midX, midY-1, midZ) was interior (sdf={sdfBefore}); inside a centred 2m sphere brush it must become exterior (sdf={sdfAfter}).");
+            Assert.GreaterOrEqual(chunk.Sdf[interiorIdx], 0,
+                "Inside a centred 2 m sphere brush, the cell must become exterior.");
         }
 
         [Test]
         public void ApplyBrush_CellsOutsideBrushAabb_UnchangedSdf()
         {
-            // A cell at the chunk corner (deep interior, far from the centre)
-            // must NOT have its SDF changed by a small centred brush — the
-            // brush AABB doesn't reach it.
-            int dim = _zone.Dim;
-            int dimSq = dim * dim;
-            int cornerIdx = 0 * dimSq + 0 * dim + 0;   // (0,0,0)
-            sbyte sdfBefore = _zone.Sdf[cornerIdx];
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+            sbyte before = chunk.Sdf[0];
 
-            ApplyCentreSphere(_zone.WorldBounds.center, radiusMeters: 2.0f);
+            zone.ApplyBrush(MakeSphereBrush(zone.WorldBounds.center, 2.0f));
 
-            sbyte sdfAfter = _zone.Sdf[cornerIdx];
-            Assert.AreEqual(sdfBefore, sdfAfter,
-                "Cells outside the brush AABB must not be touched (TERRAFORMING_PLAN §2: max-fold restricted to brush AABB).");
+            Assert.AreEqual(before, chunk.Sdf[0],
+                "Cells outside the brush AABB must not be touched (max-fold restricted to brush AABB).");
         }
 
         [Test]
         public void ApplyBrush_RemeshesSurface_VertexCountChanges()
         {
-            int preCount = _zone.CurrentMesh.vertexCount;
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+            int preCount = chunk.CurrentMesh.vertexCount;
 
-            int changed = ApplyCentreSphere(_zone.WorldBounds.center, radiusMeters: 2.0f);
+            int changed = zone.ApplyBrush(MakeSphereBrush(zone.WorldBounds.center, 2.0f));
             Assume.That(changed, Is.GreaterThan(0));
 
-            int postCount = _zone.CurrentMesh.vertexCount;
-            Assert.AreNotEqual(preCount, postCount,
-                "Carving out a dome from a flat half-space must change the active-cell count → vertex count.");
+            Assert.AreNotEqual(preCount, chunk.CurrentMesh.vertexCount,
+                "Carving the half-space must change the chunk's active-cell count → vertex count.");
         }
 
         [Test]
         public void ApplyBrush_MeshColliderSwapped()
         {
-            MeshCollider mc = _go.GetComponent<MeshCollider>();
-            Assert.IsNotNull(mc.sharedMesh, "Pre-brush: collider must reference a cooked mesh.");
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+            MeshCollider mc = chunk.GetComponent<MeshCollider>();
+            Assert.IsNotNull(mc.sharedMesh, "Pre-brush: chunk collider must reference a cooked mesh.");
 
-            ApplyCentreSphere(_zone.WorldBounds.center, radiusMeters: 2.0f);
+            zone.ApplyBrush(MakeSphereBrush(zone.WorldBounds.center, 2.0f));
 
-            Assert.IsNotNull(mc.sharedMesh,
-                "Post-brush: collider must still reference a cooked mesh (atomic swap, not transient null).");
-            Assert.AreSame(_zone.CurrentMesh, mc.sharedMesh,
-                "Collider's sharedMesh must match the DigZone's CurrentMesh.");
+            Assert.IsNotNull(mc.sharedMesh, "Post-brush: collider still non-null.");
+            Assert.AreSame(chunk.CurrentMesh, mc.sharedMesh);
         }
-
-        // ------------------------------------------------------------------
-        // Monotonicity invariant — TERRAFORMING_PLAN §2. Applying the same
-        // brush twice produces no further change (idempotent under max-fold).
-        // ------------------------------------------------------------------
 
         [Test]
         public void ApplyBrush_AppliedTwice_SecondApplicationChangesNothing()
         {
-            Vector3 centre = _zone.WorldBounds.center;
-            int firstChanged = ApplyCentreSphere(centre, radiusMeters: 2.0f);
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            BrushOp op = MakeSphereBrush(zone.WorldBounds.center, 2.0f);
+
+            int firstChanged = zone.ApplyBrush(op);
             Assume.That(firstChanged, Is.GreaterThan(0));
 
-            int secondChanged = ApplyCentreSphere(centre, radiusMeters: 2.0f);
+            int secondChanged = zone.ApplyBrush(op);
             Assert.AreEqual(0, secondChanged,
-                "Re-applying the same SphereSubtract must change nothing: SDF is at the max already. " +
-                "If this fails, the max-fold invariant is broken — every brush would keep churning SDF.");
+                "Re-applying the same SphereSubtract must change nothing — the max-fold invariant.");
         }
 
         // ------------------------------------------------------------------
-        // Helpers
+        // Phase 2a machine gate — multi-chunk dispatch.
         // ------------------------------------------------------------------
 
-        private int ApplyCentreSphere(Vector3 worldCentre, float radiusMeters)
+        [Test]
+        public void ApplyBrush_AtChunkBoundary_MutatesBothChunks()
         {
-            BrushOp op = new BrushOp
-            {
-                kind = BrushKind.SphereSubtract,
-                serverTick = 0,
-                p0 = Vector3Fixed.FromVector3(worldCentre),
-                p1 = Vector3Fixed.FromVector3(worldCentre),
-                radiusFixed = (ushort)Mathf.Clamp(
-                    Mathf.RoundToInt(radiusMeters * Vector3Fixed.UnitsPerMeter),
-                    0, ushort.MaxValue),
-            };
-            return _zone.ApplyBrush(op);
+            // 2 chunks along X. The boundary between chunk(0,0,0) and
+            // chunk(1,0,0) is at x = chunkSizeCells × cellSize = 16 m.
+            // A brush of radius 3 m centred at x=16 reaches into both chunks.
+            DigZone zone = MakeZone(new Vector3Int(2, 1, 1));
+            DigChunk left  = zone.GetChunk(0, 0, 0);
+            DigChunk right = zone.GetChunk(1, 0, 0);
+            Assert.IsNotNull(left);
+            Assert.IsNotNull(right);
+
+            // Capture pre-brush mesh sizes — what we expect to change.
+            int leftBefore  = left.CurrentMesh.vertexCount;
+            int rightBefore = right.CurrentMesh.vertexCount;
+
+            float chunkSideMeters = zone.ChunkSizeCells * zone.CellSize;
+            // Brush centre at the boundary plane (x = chunkSideMeters),
+            // y at the half-space plane so we actually carve solid material.
+            Vector3 brushCentre = new Vector3(chunkSideMeters, chunkSideMeters * 0.5f, chunkSideMeters * 0.5f);
+
+            int changed = zone.ApplyBrush(MakeSphereBrush(brushCentre, 3.0f));
+            Assert.Greater(changed, 0, "Brush spanning two chunks must mutate at least one cell total.");
+
+            // Direct SDF check — pick a cell just inside the brush radius on each side of the boundary.
+            int dim = left.Dim;
+            int dimSq = dim * dim;
+            // Cell at left chunk's +X face, mid Y/Z (about 1 cell in from boundary).
+            int leftCheckIdx = (dim / 2) * dimSq + (dim / 2 - 1) * dim + (dim - 2);
+            // Cell at right chunk's -X face, mid Y/Z.
+            int rightCheckIdx = (dim / 2) * dimSq + (dim / 2 - 1) * dim + 1;
+
+            Assert.GreaterOrEqual(left.Sdf[leftCheckIdx], 0,
+                "Left chunk: cell just inside +X face should be carved exterior by the boundary brush.");
+            Assert.GreaterOrEqual(right.Sdf[rightCheckIdx], 0,
+                "Right chunk: cell just inside -X face should be carved exterior by the boundary brush.");
+
+            // Mesh-level check: both chunks should have remeshed (their
+            // vertex counts changed because new sign-crossings appeared).
+            Assert.AreNotEqual(leftBefore,  left.CurrentMesh.vertexCount,  "Left chunk must remesh.");
+            Assert.AreNotEqual(rightBefore, right.CurrentMesh.vertexCount, "Right chunk must remesh.");
+        }
+
+        [Test]
+        public void ApplyBrush_OutsideZone_NoChunksTouched()
+        {
+            DigZone zone = MakeZone(new Vector3Int(2, 1, 1));
+            DigChunk left  = zone.GetChunk(0, 0, 0);
+            DigChunk right = zone.GetChunk(1, 0, 0);
+
+            sbyte leftCorner  = left.Sdf[0];
+            sbyte rightCorner = right.Sdf[0];
+
+            // Brush far above the zone.
+            Vector3 centre = zone.WorldBounds.center + Vector3.up * 1000f;
+            int changed = zone.ApplyBrush(MakeSphereBrush(centre, 2.0f));
+
+            Assert.AreEqual(0, changed, "A brush outside every chunk's AABB must mutate zero cells.");
+            Assert.AreEqual(leftCorner,  left.Sdf[0]);
+            Assert.AreEqual(rightCorner, right.Sdf[0]);
+        }
+
+        [Test]
+        public void ChunkCount_MatchesGridSize()
+        {
+            DigZone zone = MakeZone(new Vector3Int(2, 2, 2));
+            Assert.AreEqual(8, zone.ChunkCount);
+
+            for (int z = 0; z < 2; z++)
+            for (int y = 0; y < 2; y++)
+            for (int x = 0; x < 2; x++)
+                Assert.IsNotNull(zone.GetChunk(x, y, z), $"Chunk ({x},{y},{z}) must exist.");
         }
     }
 }

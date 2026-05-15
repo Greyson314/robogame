@@ -604,12 +604,19 @@ Operationally split in practice into three sub-phases — see `docs/changes/64-t
 
 ### Phase 2 — Multi-chunk dig zone + async MeshCollider (1 week)
 
-- Multi-chunk `DigZone` with sparse chunk allocation.
-- Apron-based meshing for seam-free chunk boundaries.
-- Async MeshCollider bake via `Physics.BakeMesh`, atomic swap.
-- `.dig` asset baker (editor tool) for initial state.
+Operationally split into four sub-phases — same pattern Phase 1 used:
 
-**Machine gate:** EditMode test bakes a fixture `.dig` asset and round-trips it through the loader, asserting SDF byte-identical. PlayMode test instantiates a 16-chunk dig zone, applies a brush spanning two chunks, asserts both touched chunks remesh and their `MeshCollider.sharedMesh` swapped with no exceptions. Seam test asserts vertex positions agree on shared chunk edges to within 1e-4 m after independent meshing.
+- **2a** — Multi-chunk container. `DigZone` becomes the IDigZone-implementing manager; new `DigChunk` MonoBehaviour owns one chunk's SDF + buffers + Mesh + MeshFilter + MeshCollider. Brush dispatch routes ops to chunks in the brush's AABB. No apron yet (boundaries seam), no async cook yet, no `.dig` baker yet.
+- **2b** — Apron data flow: each chunk's mesher reads its own 32³ cells plus a 1-cell rim from neighbouring chunks. Seam test asserts vertex positions on shared chunk edges agree to within 1e-4 m.
+- **2c** — Async MeshCollider bake via `Physics.BakeMesh` on a worker thread. Atomic swap on completion (collider's sharedMesh is never transiently null).
+- **2d** — `.dig` binary format + editor baker (voxelises an authored mesh into the chunk SDFs at bake time) + loader. Content-hash for the Phase 6 netcode handshake.
+
+**Machine gate (cumulative across 2a–2d):**
+
+- 2a: PlayMode test instantiates a 2×2×2 chunk grid, applies a brush at a chunk boundary, asserts both touched chunks mutate and remesh independently with no exceptions.
+- 2b: EditMode seam test bakes a known SDF into two adjacent chunks (with apron), meshes both, asserts vertex positions on the shared chunk-edge agree to within 1e-4 m.
+- 2c: PlayMode test instantiates a dig zone, applies a brush, asserts `MeshCollider.sharedMesh` is non-null both before and during the bake (no transient null window) and matches the new mesh after completion.
+- 2d: EditMode test bakes a fixture `.dig` asset and round-trips it through the loader, asserting SDF byte-identical and content hash stable.
 
 **Visual playtest:** drive a robot onto the dig zone, click to dig, wheels rest on the dug surface, no frame hitches in the Profiler.
 
