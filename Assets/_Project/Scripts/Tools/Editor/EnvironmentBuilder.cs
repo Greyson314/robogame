@@ -129,6 +129,37 @@ namespace Robogame.Tools.Editor
             if (terrain != null && terrain.transform.parent == null)
                 terrain.transform.SetParent(env.transform, worldPositionStays: true);
             TintTerrain();
+
+            // Phase 3 follow-up: drop a small dig zone in the arena corner
+            // so the player can drive a drill onto carveable voxel terrain
+            // without leaving the main arena. Surface flush with the
+            // hilly ground; perimeter wireframe makes the volume visible.
+            BuildArenaDigZone(env.transform);
+        }
+
+        /// <summary>
+        /// Spawn a small dig zone in the arena. 2×1×2 chunks at default
+        /// settings = 32 m × 16 m × 32 m. Positioned 60 m off-spawn with
+        /// its half-space surface plane sitting flush with the arena
+        /// ground (y = 0).
+        /// </summary>
+        private static void BuildArenaDigZone(Transform envRoot)
+        {
+            GameObject zoneObj = new GameObject("DigZone");
+            zoneObj.transform.SetParent(envRoot, worldPositionStays: false);
+            // Surface plane at world y=0 (chunkSide × gridY × 0.5 below transform).
+            zoneObj.transform.position = new Vector3(60f, -8f, 60f);
+            zoneObj.SetActive(false);   // configure before Awake.
+
+            Robogame.Voxel.DigZone zone = zoneObj.AddComponent<Robogame.Voxel.DigZone>();
+            SerializedObject so = new SerializedObject(zone);
+            so.FindProperty("_cellSize").floatValue = 0.5f;
+            so.FindProperty("_chunkSizeCells").intValue = 32;
+            so.FindProperty("_chunkGridSize").vector3IntValue = new Vector3Int(2, 1, 2);
+            so.FindProperty("_chunkMaterial").objectReferenceValue = WorldPalette.ArenaGround;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            zoneObj.SetActive(true);
         }
 
         private static void TintTerrain()
