@@ -11,6 +11,7 @@
         "Robogame.Robots",
         "Robogame.UI",
         "Robogame.Gameplay",
+        "Robogame.Voxel",
         "Unity.InputSystem",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.Universal.Runtime"

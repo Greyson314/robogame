@@ -69,20 +69,22 @@ These are accepted costs. The perf and netcode wins below are worth them.
 
 ## 2. The dig-only invariant and what it buys us
 
-> **The invariant.** For every cell, `sdf[c]` is monotonically non-increasing over the lifetime of a match.
+> **The invariant.** For every cell, `sdf[c]` is monotonically non-decreasing over the lifetime of a match.
 
-Once a cell goes more-empty, it never goes less-empty again. Stated formally:
+Under the § 3 sign convention (`sdf < 0` = interior / solid, `sdf >= 0` = exterior / empty), digging pushes a cell from interior toward exterior — SDF goes up. Once a cell goes more-empty, it never goes less-empty again. Stated formally:
 
 ```
-sdf[c, t+1] = min(sdf[c, t], brush(op, c))   for every applied op
+sdf[c, t+1] = max(sdf[c, t], brush(op, c))   for every applied op
 ```
+
+where `brush(op, c)` returns a value that is **positive** for cells inside the brush volume (the brush wants them exterior) and **negative or zero** for cells outside (the brush is indifferent). For `SphereSubtract` with centre `p` and radius `r`: `brush(c) = r - length(c - p)`.
 
 This is the load-bearing simplification of the whole design. Five concrete wins drop out of it:
 
-**1. Brush ops are commutative under `min()`.** Applying `A` then `B` gives the same SDF as applying `B` then `A`:
+**1. Brush ops are commutative under `max()`.** Applying `A` then `B` gives the same SDF as applying `B` then `A`:
 
 ```
-min(min(initial, A(c)), B(c)) = min(initial, A(c), B(c)) = min(min(initial, B(c)), A(c))
+max(max(initial, A(c)), B(c)) = max(initial, A(c), B(c)) = max(max(initial, B(c)), A(c))
 ```
 
 This eliminates the entire class of "two clients applied ops in different orders" desyncs.
@@ -560,23 +562,45 @@ A large dig zone (100 chunks) at worst-case is ~2M voxel triangles alone — ove
 
 Each phase is a shippable internal milestone with a tag and a `docs/changes/NN-slug.md` entry.
 
-### Phase 0 — Foundation interfaces (2–3 days, zero behaviour change)
+### Autonomy contract — machine gates vs. visual playtests
+
+Each phase below has **two** exit gates:
+
+- **Machine gate** — CI-runnable: EditMode/PlayMode tests, a clean `dotnet build`, a passing benchmark. No human required; an AI agent executing the plan unattended can determine pass/fail and decide whether to commit.
+- **Visual playtest** — a human-in-the-loop sanity check (open scene, click thing, see expected result). Demo-form; valuable but not gating.
+
+**The machine gate is the hard requirement for marking a phase complete.** An agent landing a phase autonomously should make the machine gate green, commit, and surface the visual playtest as a follow-up for the user to run on return. Failing the visual playtest is iteration on the same phase, not a phase rollback — file a follow-up session log and fix it.
+
+Two corollaries for test scenes and tooling:
+
+- **Test scenes are scaffolded from editor menu items, not hand-authored.** Every phase that introduces a test scene ships an editor menu that rebuilds it programmatically (mirroring the existing `EnvironmentBuilder` / `GameplayScaffolder` pattern). Scenes are deterministic on a fresh checkout.
+- **Prefer menu-driven brush triggers over Scene-View click handlers** as the first cut. A menu item is invokable from `[Test]` and from CLI batch mode; a Scene-View click handler is not. Add the cursor-click affordance after the machine gate is green if it's worth the polish.
+
+### Phase 0 — Foundation interfaces (2–3 days, zero behaviour change) ✅ shipped session 63
 
 - Add `IDigZone`, `DigField`, `BrushKind`, `BrushOp`, `BrushOpBatch` to `Robogame.Core`.
 - Add `Vector3Fixed` int16 helper.
 - No meshing yet. No chunks yet. Just the types.
 
-**Exit criterion:** existing arenas play exactly as before. No visible regression.
+**Machine gate:** `dotnet build` clean across every `Robogame.*.csproj`. All existing EditMode tests still pass.
+
+**Visual playtest:** existing arenas play exactly as before. No visible regression.
 
 ### Phase 1 — Single-chunk SP prototype (1–2 weeks)
 
-- Burst-compiled Surface Nets job for one 32³ chunk.
-- `DigZone` component with a single hard-coded chunk.
-- Test scene `DigZone_Test.unity` with a flat plane and a single chunk on top.
-- Editor button: "Apply test brush" — applies a `SphereSubtract` at the cursor click point.
-- No drill block yet, no bombs yet.
+Operationally split in practice into three sub-phases — see `docs/changes/64-terraforming-phase-1a.md` onward for the per-session breakdown:
 
-**Exit criterion:** clicking in the scene removes a smooth spherical chunk of voxel terrain. Remesh < 1 ms (Burst, profiled). No allocations. Looks like NMS / Astroneer.
+- **1a** ✅ shipped session 64. Naive Surface Nets algorithm in plain managed C# (`Robogame.Voxel.SurfaceNetsMesher`). EditMode tests cover degenerate cases, half-spaces on all 3 axes with normal verification, single-corner topology, sphere closedness, determinism, and buffer reuse.
+- **1b** — `DigZone : MonoBehaviour` (single hard-coded chunk, owns SDF + Buffers + Mesh). `BrushApplicator` (max-fold per the § 2 invariant). Editor scaffolder for `DigZone_Test.unity`. Editor menu item that applies a `SphereSubtract` at chunk centre and triggers a remesh.
+- **1c** — Burst port: `[BurstCompile] IJobParallelFor` over the mesher. `com.unity.burst` package dependency added. Profiling pass.
+
+**Machine gate (cumulative across 1a–1c):**
+
+- 1a: `SurfaceNetsMesherTests` (12 tests) pass.
+- 1b: PlayMode test scaffolds the scene, instantiates a half-space-initialised `DigZone`, applies a centred `SphereSubtract`, asserts the chunk's SDF was mutated where the brush hit (cells inside the brush radius now have `sdf >= 0`), the `MeshFilter` swapped to a non-null mesh, and the post-brush vertex count differs from the pre-brush count.
+- 1c: PlayMode benchmark test asserts median remesh time `< 1 ms` over 50 iterations at `dim=33`, and `GC.GetAllocatedBytesForCurrentThread()` delta between iterations is zero.
+
+**Visual playtest (1b):** open `DigZone_Test.unity`, click `Robogame > Dig Zone > Test Sphere Subtract`. A smooth dimple appears in the chunk where the brush hit; surrounding mesh stays watertight. Repeat clicks accumulate.
 
 ### Phase 2 — Multi-chunk dig zone + async MeshCollider (1 week)
 
@@ -585,7 +609,9 @@ Each phase is a shippable internal milestone with a tag and a `docs/changes/NN-s
 - Async MeshCollider bake via `Physics.BakeMesh`, atomic swap.
 - `.dig` asset baker (editor tool) for initial state.
 
-**Exit criterion:** a 16-chunk dig zone with hand-authored initial geometry. Drive a robot onto it. Click to dig. Physics works (wheels rest on dug surface). No frame hitches.
+**Machine gate:** EditMode test bakes a fixture `.dig` asset and round-trips it through the loader, asserting SDF byte-identical. PlayMode test instantiates a 16-chunk dig zone, applies a brush spanning two chunks, asserts both touched chunks remesh and their `MeshCollider.sharedMesh` swapped with no exceptions. Seam test asserts vertex positions agree on shared chunk edges to within 1e-4 m after independent meshing.
+
+**Visual playtest:** drive a robot onto the dig zone, click to dig, wheels rest on the dug surface, no frame hitches in the Profiler.
 
 ### Phase 3 — Drill block + bomb integration (1 week)
 
@@ -594,7 +620,9 @@ Each phase is a shippable internal milestone with a tag and a `docs/changes/NN-s
 - Drill rate is gated by physics (drill tip has to actually reach the cells; you can't drill the air).
 - VFX: particle dust at drill tip, particle debris at bomb impact, both via existing `VfxSpawner` pipeline.
 
-**Exit criterion:** SP playthrough — drive up to dig zone, deploy drill, tunnel through to a pre-authored chamber. Drop a bomb, see a crater. No regressions in existing arenas.
+**Machine gate:** PlayMode test instantiates a chassis with a `DrillBlock`, drives a synthetic `CollisionStay` against a `DigZone` collider over 30 `FixedUpdate`s, asserts ≥ 1 `CapsuleSubtract` was emitted and applied to the SDF. Bomb-crater PlayMode test detonates a bomb inside a dig zone, asserts a `SphereSubtract` was emitted and applied. Regression: all pre-Phase-3 EditMode tests still pass.
+
+**Visual playtest:** SP playthrough — drive up to dig zone, deploy drill, tunnel through to a pre-authored chamber. Drop a bomb, see a crater.
 
 ### Phase 4 — Chunk LOD + transvoxel seams (1–2 weeks)
 
@@ -602,7 +630,9 @@ Each phase is a shippable internal milestone with a tag and a `docs/changes/NN-s
 - LOD-on-edit (far chunk edited remotely re-meshes at low res; high-res on camera approach).
 - Profiling pass against the worst-case triangle budget.
 
-**Exit criterion:** a 100-chunk dig zone at worst-case excavation maintains the < 1.5M tri target with LOD on.
+**Machine gate:** PlayMode test sets up a 100-chunk dig zone at worst-case excavation with LOD enabled, asserts total triangle count `< 1.5M`. LOD-seam test asserts no degenerate triangles (zero-area or near-zero-area) at LOD boundaries. Benchmark test asserts steady-state frame cost `< 2 ms` for the voxel system in the heavy-drilling scenario.
+
+**Visual playtest:** fly the camera around the worst-case dig zone, look for cracks at LOD boundaries.
 
 ### Phase 5 — AI occupancy grid + underground enemies (1–2 weeks)
 
@@ -610,7 +640,9 @@ Each phase is a shippable internal milestone with a tag and a `docs/changes/NN-s
 - A* pathfinding over the grid.
 - One or two pre-authored underground POI enemies driving on / flying through the dig zone.
 
-**Exit criterion:** AI enemy in a POI chamber notices the player drilling in, paths through the new tunnel to attack.
+**Machine gate:** EditMode test builds an occupancy grid from a fixture SDF, asserts traversability matches a hand-authored expected mask. A* path test asserts a path exists through an authored tunnel of known shape. Incremental-update test asserts that mutating one chunk's SDF only invalidates that chunk's occupancy entries.
+
+**Visual playtest:** AI enemy in a POI chamber notices the player drilling in, paths through the new tunnel to attack.
 
 ### Phase 6 — Network the dig zone (gated on NETCODE Phase 1–4)
 
@@ -619,7 +651,9 @@ Each phase is a shippable internal milestone with a tag and a `docs/changes/NN-s
 - Late-join replay (cumulative compressed log).
 - Content-hash check on `.dig` assets.
 
-**Exit criterion:** 4-client MPPM session in a dig-zone arena. All clients see the same terrain after sustained drilling. No desyncs over 10 minutes of mixed bombing and drilling.
+**Machine gate:** EditMode test asserts `BrushOpBatch` encode/decode round-trips byte-identical. Single-process two-`NetworkManager` PlayMode test simulates 100 brush ops with randomised delivery order across both clients, asserts SDFs converge byte-identical (commutativity). Bandwidth synthesis test asserts average bytes/s/client `< 16 kbps` over a 10-minute synthetic drilling trace.
+
+**Visual playtest:** 4-client MPPM session in a dig-zone arena. All clients see the same terrain after sustained drilling. No desyncs over 10 minutes of mixed bombing and drilling.
 
 ### Phase 7 — Op-log checkpointing (deferred; when match length grows)
 

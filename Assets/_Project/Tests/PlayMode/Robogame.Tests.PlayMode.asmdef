@@ -8,6 +8,7 @@
         "Robogame.Movement",
         "Robogame.Player",
         "Robogame.Gameplay",
+        "Robogame.Voxel",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
