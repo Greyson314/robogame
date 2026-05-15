@@ -7,24 +7,30 @@ namespace Robogame.Voxel
 {
     /// <summary>
     /// One chunk within a multi-chunk <see cref="DigZone"/>. Owns its own
-    /// SDF buffer, mesher buffers, <see cref="Mesh"/>, and renderer/collider.
-    /// Lifecycle: instantiated as a hidden child of <see cref="DigZone"/>;
-    /// <see cref="Initialize"/> must be called before the GameObject is
-    /// activated (the parent zone configures cell size + chunk coord, then
-    /// activates the chunk).
+    /// SDF buffer plus an apron-augmented staging buffer used for meshing,
+    /// the mesher buffers, the <see cref="Mesh"/>, and the renderer +
+    /// collider.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Phase 2a deliverable. Chunks are not registered with
-    /// <see cref="DigField"/> directly — the parent <see cref="DigZone"/>
-    /// is the <see cref="IDigZone"/>. Chunks are ephemeral runtime objects
-    /// (<see cref="HideFlags.DontSave"/>) so the scene file persists only
-    /// the parent zone; chunks are rebuilt on every scene load from the
-    /// zone's stored configuration (or, Phase 2d, from a <c>.dig</c> asset).
+    /// Phase 2b: each chunk meshes a <c>(chunkSize+2)³</c> SDF region —
+    /// the chunk's own <c>(chunkSize+1)³</c> samples plus a one-cell
+    /// apron rim from its +X / +Y / +Z neighbours (and edge / corner
+    /// overlap neighbours). The apron is rebuilt by the parent
+    /// <see cref="DigZone"/> before each remesh; this chunk only meshes,
+    /// it doesn't fetch.
     /// </para>
     /// <para>
-    /// Apron handling lands in Phase 2b — for Phase 2a each chunk meshes
-    /// independently, which produces visible seams at chunk boundaries.
+    /// Why an apron: vertices for cells at the chunk's +face boundary
+    /// (cell index = chunkSize) lie at world positions inside the +face
+    /// neighbour's territory, and the boundary quads connecting them
+    /// require knowing the SDF on the neighbour's side. Without the
+    /// apron, the mesher skips those edges and visible seams appear at
+    /// chunk boundaries. With it, both neighbouring chunks compute
+    /// identical vertices for the shared rim cells (deterministic math
+    /// on identical SDF samples) so the meshes meet seamlessly.
+    /// </para>
+    /// <para>
     /// MeshCollider cooking is synchronous; Phase 2c moves to
     /// <c>Physics.BakeMesh</c> on a worker thread.
     /// </para>
@@ -36,7 +42,8 @@ namespace Robogame.Voxel
         private float _cellSize;
         private int _chunkSizeCells;
 
-        private NativeArray<sbyte> _sdf;
+        private NativeArray<sbyte> _sdf;           // Own SDF, (chunkSize+1)³ = dim³ samples. Brush-mutable.
+        private NativeArray<sbyte> _sdfWithApron;  // Per-remesh staging: own + apron. (chunkSize+2)³.
         private SurfaceNetsMesher.Buffers _meshBuffers;
         private Mesh _mesh;
         private MeshFilter _meshFilter;
@@ -47,16 +54,25 @@ namespace Robogame.Voxel
         public Vector3Int ChunkCoord => _chunkCoord;
         public float CellSize => _cellSize;
         public int ChunkSizeCells => _chunkSizeCells;
+
+        /// <summary>Samples per side of the chunk's own SDF. <c>chunkSizeCells + 1</c>.</summary>
         public int Dim => _chunkSizeCells + 1;
+
+        /// <summary>Samples per side of the mesher input (own + 1-cell apron rim). <c>chunkSizeCells + 2</c>.</summary>
+        public int DimWithApron => _chunkSizeCells + 2;
+
         public bool IsInitialised => _initialised;
         public Mesh CurrentMesh => _mesh;
 
-        /// <summary>Trusted accessor for tests + the parent zone's SDF seeding.</summary>
+        /// <summary>Own SDF samples. Brush-mutable, persistent. Index z*Dim²+y*Dim+x.</summary>
         public NativeArray<sbyte> Sdf => _sdf;
 
+        /// <summary>Apron-augmented SDF staging buffer. Written by the parent zone before each remesh.</summary>
+        public NativeArray<sbyte> SdfWithApron => _sdfWithApron;
+
         /// <summary>
-        /// World-space AABB of this chunk. Includes the +face boundary
-        /// samples (which are shared with the next chunk in each axis).
+        /// World-space AABB of this chunk's own region. (The meshed region
+        /// extends 1 cell past this in each +face direction — the apron.)
         /// </summary>
         public Bounds WorldBounds
         {
@@ -68,11 +84,6 @@ namespace Robogame.Voxel
             }
         }
 
-        /// <summary>
-        /// Configure the chunk. Must be called by the parent <see cref="DigZone"/>
-        /// immediately after <c>AddComponent</c> and before the GameObject is
-        /// activated.
-        /// </summary>
         public void Initialize(Vector3Int chunkCoord, float cellSize, int chunkSizeCells)
         {
             if (_initialised)
@@ -83,8 +94,11 @@ namespace Robogame.Voxel
             _chunkSizeCells = chunkSizeCells;
 
             int dim = Dim;
+            int dimWithApron = DimWithApron;
             _sdf = new NativeArray<sbyte>(dim * dim * dim, Allocator.Persistent, NativeArrayOptions.ClearMemory);
-            _meshBuffers = SurfaceNetsMesher.Allocate(dim, Allocator.Persistent);
+            _sdfWithApron = new NativeArray<sbyte>(dimWithApron * dimWithApron * dimWithApron,
+                Allocator.Persistent, NativeArrayOptions.ClearMemory);
+            _meshBuffers = SurfaceNetsMesher.Allocate(dimWithApron, Allocator.Persistent);
 
             _mesh = new Mesh
             {
@@ -101,6 +115,7 @@ namespace Robogame.Voxel
         private void OnDestroy()
         {
             if (_sdf.IsCreated) _sdf.Dispose();
+            if (_sdfWithApron.IsCreated) _sdfWithApron.Dispose();
             if (_meshBuffers.IsCreated) _meshBuffers.Dispose();
 
             if (_mesh != null)
@@ -111,22 +126,28 @@ namespace Robogame.Voxel
             }
         }
 
-        /// <summary>Apply one brush op (max-fold) and remesh if anything changed. Returns changed-cell count.</summary>
-        public int ApplyBrush(BrushOp op)
+        /// <summary>
+        /// Apply a brush op to this chunk's own SDF (no remesh; the parent
+        /// zone schedules apron-rebuild + remesh for all dirty chunks
+        /// together so apron data from a freshly-edited neighbour is
+        /// visible to its neighbours' remesh).
+        /// </summary>
+        public int ApplyBrushNoRemesh(BrushOp op)
         {
             if (!_initialised) throw new System.InvalidOperationException("DigChunk used before Initialize.");
-            int changed = BrushApplicator.Apply(op, _sdf, Dim, _cellSize, transform.position);
-            if (changed > 0) RemeshNow();
-            return changed;
+            return BrushApplicator.Apply(op, _sdf, Dim, _cellSize, transform.position);
         }
 
-        /// <summary>Re-extract the surface mesh from the current SDF. Synchronous Burst job; synchronous MeshCollider re-cook.</summary>
+        /// <summary>
+        /// Re-extract the surface mesh from <see cref="SdfWithApron"/>.
+        /// Caller (the parent <see cref="DigZone"/>) must have populated
+        /// the apron staging buffer first.
+        /// </summary>
         public void RemeshNow()
         {
             if (!_initialised) throw new System.InvalidOperationException("DigChunk used before Initialize.");
-            int dim = Dim;
 
-            SurfaceNetsMesher.Mesh(_sdf, dim, _meshBuffers,
+            SurfaceNetsMesher.Mesh(_sdfWithApron, DimWithApron, _meshBuffers,
                 out int vCount, out int iCount,
                 cellScale: _cellSize);
 
@@ -137,7 +158,9 @@ namespace Robogame.Voxel
             _mesh.SetIndices(_meshBuffers.Indices.GetSubArray(0, iCount),
                 MeshTopology.Triangles, submesh: 0, calculateBounds: false);
 
-            float side = _chunkSizeCells * _cellSize;
+            // Local bounds: the meshed region extends 1 cell past the own
+            // region in each +face direction.
+            float side = (_chunkSizeCells + 1) * _cellSize;
             _mesh.bounds = new Bounds(new Vector3(side * 0.5f, side * 0.5f, side * 0.5f),
                                       new Vector3(side, side, side));
             _mesh.RecalculateNormals();

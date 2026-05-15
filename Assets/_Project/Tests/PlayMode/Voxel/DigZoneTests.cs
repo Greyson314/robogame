@@ -235,6 +235,68 @@ namespace Robogame.Tests.PlayMode.Voxel
             Assert.AreEqual(rightCorner, right.Sdf[0]);
         }
 
+        // ------------------------------------------------------------------
+        // Phase 2b machine gate — apron-based seam-free meshing.
+        // For two adjacent chunks meshed independently with apron support,
+        // the boundary-region vertices must agree to within 1e-4 m so the
+        // meshes meet without visible seams.
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void Mesh_TwoAdjacentChunks_VerticesOnSharedXBoundaryAgreeToTolerance()
+        {
+            DigZone zone = MakeZone(new Vector3Int(2, 1, 1));
+            DigChunk left  = zone.GetChunk(0, 0, 0);
+            DigChunk right = zone.GetChunk(1, 0, 0);
+
+            float chunkSideMeters = zone.ChunkSizeCells * zone.CellSize;
+            Vector3 leftOrigin  = left.transform.position;
+            Vector3 rightOrigin = right.transform.position;
+
+            // Boundary plane at world x = chunkSideMeters. Apron-meshed
+            // vertices in chunk A and own -X-face vertices in chunk B both
+            // land at world x = chunkSideMeters + 0.5 × cellSize for a
+            // half-space SDF (the X position is the average of the cell's
+            // X-edge crossings, which for a Y-only-varying SDF is the cell's
+            // X-midpoint).
+            float expectedBoundaryWorldX = chunkSideMeters + 0.5f * zone.CellSize;
+            const float tolerance = 1e-4f;
+
+            var leftBoundary = CollectVerticesNear(left, leftOrigin, expectedBoundaryWorldX, tolerance);
+            var rightBoundary = CollectVerticesNear(right, rightOrigin, expectedBoundaryWorldX, tolerance);
+
+            Assert.Greater(leftBoundary.Count, 0,
+                "Left chunk must emit vertices on the shared boundary plane (otherwise apron isn't working).");
+            Assert.AreEqual(leftBoundary.Count, rightBoundary.Count,
+                "Both chunks must emit the same number of vertices on the shared X boundary.");
+
+            // For each left boundary vertex, find a matching right one.
+            foreach (var lv in leftBoundary)
+            {
+                bool found = false;
+                foreach (var rv in rightBoundary)
+                {
+                    if (Vector3.Distance(lv, rv) < tolerance) { found = true; break; }
+                }
+                Assert.IsTrue(found,
+                    $"Left vertex {lv} has no matching right vertex within {tolerance} m. " +
+                    "Seam-free meshing is broken — chunk A's apron disagreed with chunk B's own data.");
+            }
+        }
+
+        private static System.Collections.Generic.List<Vector3> CollectVerticesNear(
+            DigChunk chunk, Vector3 origin, float worldX, float tolerance)
+        {
+            var list = new System.Collections.Generic.List<Vector3>();
+            var verts = chunk.CurrentMesh.vertices;
+            for (int i = 0; i < verts.Length; i++)
+            {
+                Vector3 world = origin + verts[i];
+                if (Mathf.Abs(world.x - worldX) < tolerance) list.Add(world);
+            }
+            return list;
+        }
+
         [Test]
         public void ChunkCount_MatchesGridSize()
         {

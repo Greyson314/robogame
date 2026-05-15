@@ -19,7 +19,10 @@ namespace Robogame.Tests.PlayMode.Voxel
     /// </summary>
     public sealed class SurfaceNetsBenchmarkTests
     {
-        private const int Dim = 33;
+        // dim=34 matches the production chunk meshing extent after Phase 2b
+        // (chunkSizeCells + 2 = 32 + 2 = 34, where the +2 covers the own-region
+        // 33 samples plus the 1-cell apron rim used for seam-free meshing).
+        private const int Dim = 34;
         private const float SphereRadius = 12f;
         private const int Iterations = 50;
 

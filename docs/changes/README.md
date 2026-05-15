@@ -86,6 +86,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 69 | [Terraforming Phase 2b: apron-based seam-free meshing. DigChunk grows a (chunkSize+2)³ staging buffer; DigZone.BuildApronFor fills it from own SDF + 7 +direction neighbours (replicates own face when neighbour absent). New seam test (machine gate) pins boundary vertex agreement to 1e-4 m. Visible chunk-boundary cracks gone. Verified autonomously via run-tests.sh](69-terraforming-phase-2b.md) |
 | 68 | [Stale bot-steering tests fixed (session 62 follow-up): DummyAiInputSourceTests.cs renamed to GroundBotInputSourceTests.cs, inline math helper replaced with GroundBotInputSource.ComputeSteer call, three test scenarios fixed for the actual −Z tangent at the +X point, three Assert.Pass stubs dropped](68-stale-bot-steering-tests-fix.md) |
 | 67 | [Terraforming Phase 2a: multi-chunk DigZone container, new DigChunk MonoBehaviour, brush dispatch routes to affected chunks, scaffolder builds 2×2×2 grid. 10 PlayMode tests including new boundary-spanning brush test. No apron yet — seams visible (Phase 2b)](67-terraforming-phase-2a.md) |
 | 66 | [Terraforming Phase 1c: Burst port of SurfaceNetsMesher (NativeArray + IJob.Run), DigZone zero-alloc mesh upload (Reinterpret + GetSubArray), new SurfaceNetsBenchmarkTests pinning < 1 ms median + zero-GC machine gate, BURST_NOTES.md](66-terraforming-phase-1c.md) |

@@ -1,4 +1,5 @@
 using Robogame.Core;
+using Unity.Collections;
 using UnityEngine;
 
 namespace Robogame.Voxel
@@ -6,27 +7,24 @@ namespace Robogame.Voxel
     /// <summary>
     /// A multi-chunk dig zone. <see cref="IDigZone"/> implementer + container
     /// that manages a 3D grid of <see cref="DigChunk"/> child objects.
-    /// Brush ops are dispatched to all chunks whose AABBs overlap the brush
-    /// volume; each chunk decides for itself which of its cells are
-    /// touched via <see cref="BrushApplicator"/>'s AABB clipping.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Phase 2a deliverable. The single-chunk path of Phases 1b/1c is the
-    /// chunkGridSize = (1,1,1) case of this container.
+    /// Phase 2b adds apron-based seam-free meshing: before each chunk
+    /// remeshes, the zone copies the chunk's own SDF plus a one-cell rim
+    /// of neighbour samples into the chunk's apron-staging buffer. Two
+    /// adjacent chunks compute identical vertex positions for the shared
+    /// rim cells (deterministic math on identical sample data), so their
+    /// meshes meet seamlessly. Boundary chunks (no neighbour in some
+    /// direction) replicate their own face sample into the apron to
+    /// avoid false sign-crossings at the dig zone edge.
     /// </para>
     /// <para>
-    /// Chunks are spawned as <see cref="HideFlags.DontSave"/> children — the
-    /// scene file only persists the DigZone GameObject, never the chunks
-    /// themselves. On scene load, <see cref="EnsureInitialised"/> rebuilds
-    /// chunks fresh from the zone configuration (and, Phase 2d, from a
-    /// <c>.dig</c> asset reference).
-    /// </para>
-    /// <para>
-    /// No apron handling at Phase 2a — chunks mesh independently and seams
-    /// are visible at chunk boundaries. Phase 2b adds apron data flow so
-    /// vertex positions agree on shared chunk edges. Phase 2c moves
-    /// MeshCollider cooking to a worker thread via <c>Physics.BakeMesh</c>.
+    /// Brush ops apply to chunks' own SDFs (untouched by the apron). The
+    /// remesh pass then rebuilds aprons across ALL chunks and remeshes
+    /// every chunk in the zone — Phase 2b accepts the full-rebuild cost
+    /// for correctness; Phase 2c adds proper dirty-set propagation
+    /// (only -face neighbours of brushed chunks need apron rebuild).
     /// </para>
     /// </remarks>
     [ExecuteAlways]
@@ -67,7 +65,7 @@ namespace Robogame.Voxel
                     "Set it on an inactive GameObject before SetActive(true).");
         }
 
-        /// <summary>World-space AABB covering every chunk in the zone.</summary>
+        /// <summary>World-space AABB covering every chunk's own region.</summary>
         public Bounds WorldBounds
         {
             get
@@ -99,13 +97,12 @@ namespace Robogame.Voxel
         {
             if (_chunks != null) return;
 
-            DestroyChildChunks();   // defensive: clear any leaked children from a prior session.
+            DestroyChildChunks();
 
             int nx = _chunkGridSize.x, ny = _chunkGridSize.y, nz = _chunkGridSize.z;
             _chunks = new DigChunk[nx * ny * nz];
 
             float chunkSideMeters = _chunkSizeCells * _cellSize;
-            Vector3 zoneOrigin = transform.position;
 
             for (int cz = 0; cz < nz; cz++)
             for (int cy = 0; cy < ny; cy++)
@@ -132,8 +129,7 @@ namespace Robogame.Voxel
             }
 
             InitializeHalfSpace();
-
-            for (int i = 0; i < _chunks.Length; i++) _chunks[i].RemeshNow();
+            RebuildAllMeshes();
         }
 
         private void DestroyChildChunks()
@@ -151,8 +147,6 @@ namespace Robogame.Voxel
                 _chunks = null;
             }
 
-            // Also destroy any DontSave children that might be left over from
-            // a domain reload mid-edit.
             for (int i = transform.childCount - 1; i >= 0; i--)
             {
                 Transform child = transform.GetChild(i);
@@ -167,7 +161,7 @@ namespace Robogame.Voxel
         /// <summary>
         /// Seed every chunk's SDF with a global half-space: lower half of
         /// the entire zone (gy &lt; totalCellsY / 2) is solid, upper half
-        /// is exterior. Produces a flat top surface plane at zone midline.
+        /// is exterior.
         /// </summary>
         public void InitializeHalfSpace()
         {
@@ -182,7 +176,7 @@ namespace Robogame.Voxel
             {
                 DigChunk chunk = _chunks[i];
                 Vector3Int coord = chunk.ChunkCoord;
-                Unity.Collections.NativeArray<sbyte> sdf = chunk.Sdf;
+                NativeArray<sbyte> sdf = chunk.Sdf;
 
                 for (int z = 0; z < dim; z++)
                 for (int y = 0; y < dim; y++)
@@ -198,23 +192,97 @@ namespace Robogame.Voxel
         }
 
         /// <summary>
-        /// Apply one brush op to every chunk whose AABB overlaps the brush.
-        /// Returns the total number of cells whose SDF changed across all
-        /// touched chunks.
+        /// Apply one brush op. Two-pass: (1) brush every chunk's own SDF;
+        /// (2) if anything changed, rebuild apron + remesh every chunk.
+        /// Returns the total number of cells whose SDF changed.
         /// </summary>
         public int ApplyBrush(BrushOp op)
         {
             EnsureInitialised();
             int totalChanged = 0;
             for (int i = 0; i < _chunks.Length; i++)
-            {
-                // Each chunk's ApplyBrush calls BrushApplicator which clips
-                // to the chunk's AABB and returns 0 if the brush misses. So
-                // we can dispatch to every chunk unconditionally; the cost
-                // for a non-touched chunk is one AABB rejection (microseconds).
-                totalChanged += _chunks[i].ApplyBrush(op);
-            }
+                totalChanged += _chunks[i].ApplyBrushNoRemesh(op);
+
+            if (totalChanged > 0) RebuildAllMeshes();
             return totalChanged;
+        }
+
+        /// <summary>
+        /// Rebuild aprons for every chunk and remesh every chunk. Phase 2b
+        /// uses this whenever any chunk's SDF changes; Phase 2c will add
+        /// proper dirty-set propagation so only the affected chunks +
+        /// their -face neighbours rebuild.
+        /// </summary>
+        public void RebuildAllMeshes()
+        {
+            EnsureInitialised();
+            for (int i = 0; i < _chunks.Length; i++)
+            {
+                BuildApronFor(_chunks[i]);
+                _chunks[i].RemeshNow();
+            }
+        }
+
+        /// <summary>
+        /// Populate <paramref name="chunk"/>.<see cref="DigChunk.SdfWithApron"/>
+        /// with the chunk's own SDF plus a one-cell rim from its +X / +Y / +Z
+        /// (and +XY, +XZ, +YZ, +XYZ) neighbours. Missing neighbours
+        /// replicate the chunk's own face sample so no false sign-crossings
+        /// appear at the dig zone boundary.
+        /// </summary>
+        public void BuildApronFor(DigChunk chunk)
+        {
+            Vector3Int coord = chunk.ChunkCoord;
+            int dim = chunk.Dim;                   // chunkSize + 1
+            int dimWithApron = chunk.DimWithApron; // chunkSize + 2
+            int dimSq = dim * dim;
+            int dimApronSq = dimWithApron * dimWithApron;
+            NativeArray<sbyte> ownSdf = chunk.Sdf;
+            NativeArray<sbyte> dst = chunk.SdfWithApron;
+
+            for (int z = 0; z < dimWithApron; z++)
+            for (int y = 0; y < dimWithApron; y++)
+            for (int x = 0; x < dimWithApron; x++)
+            {
+                // Determine which chunk supplies this sample and the
+                // sample's coords in that chunk's frame. For axes where the
+                // local index is in own range [0, dim), the source chunk is
+                // this chunk. For axes where the local index is == dim, the
+                // source chunk's component on that axis is shifted by +1
+                // and the source local coord is 1.
+                int nx, ny, nz, lx, ly, lz;
+                if (x < dim) { nx = coord.x; lx = x; }
+                else         { nx = coord.x + 1; lx = 1; }
+                if (y < dim) { ny = coord.y; ly = y; }
+                else         { ny = coord.y + 1; ly = 1; }
+                if (z < dim) { nz = coord.z; lz = z; }
+                else         { nz = coord.z + 1; lz = 1; }
+
+                sbyte v;
+                if (nx == coord.x && ny == coord.y && nz == coord.z)
+                {
+                    v = ownSdf[lz * dimSq + ly * dim + lx];
+                }
+                else
+                {
+                    DigChunk neighbour = GetChunk(nx, ny, nz);
+                    if (neighbour != null)
+                    {
+                        v = neighbour.Sdf[lz * dimSq + ly * dim + lx];
+                    }
+                    else
+                    {
+                        // No neighbour — replicate the own boundary sample
+                        // along whichever axes are out of own range.
+                        int rx = x < dim ? x : dim - 1;
+                        int ry = y < dim ? y : dim - 1;
+                        int rz = z < dim ? z : dim - 1;
+                        v = ownSdf[rz * dimSq + ry * dim + rx];
+                    }
+                }
+
+                dst[z * dimApronSq + y * dimWithApron + x] = v;
+            }
         }
 
         /// <summary>Get the chunk at a grid coordinate, or null if out of range.</summary>
