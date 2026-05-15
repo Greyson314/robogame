@@ -93,6 +93,18 @@ namespace Robogame.Voxel
 
         private void OnDestroy() => DestroyChildChunks();
 
+        private void Update()
+        {
+            // Phase 2c: poll each chunk's async Physics.BakeMesh job. When
+            // the worker finishes, the chunk reassigns its MeshCollider's
+            // sharedMesh to pick up the fresh cooked data.
+            if (_chunks == null) return;
+            for (int i = 0; i < _chunks.Length; i++)
+            {
+                if (_chunks[i] != null) _chunks[i].PollBakeAndSwap();
+            }
+        }
+
         private void EnsureInitialised()
         {
             if (_chunks != null) return;

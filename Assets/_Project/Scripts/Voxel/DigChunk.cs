@@ -1,5 +1,6 @@
 using Robogame.Core;
 using Unity.Collections;
+using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -50,6 +51,14 @@ namespace Robogame.Voxel
         private MeshCollider _meshCollider;
 
         private bool _initialised;
+
+        // Phase 2c async-bake state. RemeshNow schedules Physics.BakeMesh
+        // on a worker; PollBakeAndSwap on DigZone.Update completes the
+        // handle and reassigns the collider's sharedMesh. Throughout, the
+        // collider's sharedMesh reference stays valid — only the
+        // collider's cached cooked data is refreshed by the reassign.
+        private JobHandle _bakeHandle;
+        private bool _hasPendingBake;
 
         public Vector3Int ChunkCoord => _chunkCoord;
         public float CellSize => _cellSize;
@@ -108,12 +117,24 @@ namespace Robogame.Voxel
             _meshFilter = GetComponent<MeshFilter>();
             _meshFilter.sharedMesh = _mesh;
             _meshCollider = GetComponent<MeshCollider>();
+            // Assign immediately so the collider's sharedMesh is non-null
+            // from chunk birth. RemeshNow refreshes the collider's cooked
+            // data via Physics.BakeMesh + reassign on the same Mesh object.
+            _meshCollider.sharedMesh = _mesh;
 
             _initialised = true;
         }
 
         private void OnDestroy()
         {
+            // Drain any in-flight bake job — must complete before disposing
+            // the Mesh asset it references (by instance ID).
+            if (_hasPendingBake)
+            {
+                _bakeHandle.Complete();
+                _hasPendingBake = false;
+            }
+
             if (_sdf.IsCreated) _sdf.Dispose();
             if (_sdfWithApron.IsCreated) _sdfWithApron.Dispose();
             if (_meshBuffers.IsCreated) _meshBuffers.Dispose();
@@ -139,13 +160,27 @@ namespace Robogame.Voxel
         }
 
         /// <summary>
-        /// Re-extract the surface mesh from <see cref="SdfWithApron"/>.
-        /// Caller (the parent <see cref="DigZone"/>) must have populated
-        /// the apron staging buffer first.
+        /// Re-extract the surface mesh from <see cref="SdfWithApron"/> and
+        /// schedule an async <c>Physics.BakeMesh</c> on a worker thread.
+        /// The collider's cooked data is refreshed by
+        /// <see cref="PollBakeAndSwap"/> once the bake completes; in the
+        /// meantime, the collider's <c>sharedMesh</c> reference stays
+        /// pointed at this chunk's mesh (its cached cooked data reflects
+        /// the previous baked state until the swap).
         /// </summary>
         public void RemeshNow()
         {
             if (!_initialised) throw new System.InvalidOperationException("DigChunk used before Initialize.");
+
+            // Drain any previously-scheduled bake. If a brush fires faster
+            // than the worker can keep up, the prior bake must complete
+            // before we mutate the Mesh's contents below.
+            if (_hasPendingBake)
+            {
+                _bakeHandle.Complete();
+                _meshCollider.sharedMesh = _mesh;
+                _hasPendingBake = false;
+            }
 
             SurfaceNetsMesher.Mesh(_sdfWithApron, DimWithApron, _meshBuffers,
                 out int vCount, out int iCount,
@@ -165,8 +200,44 @@ namespace Robogame.Voxel
                                       new Vector3(side, side, side));
             _mesh.RecalculateNormals();
 
-            _meshCollider.sharedMesh = null;
+            // Schedule the collider cook on a worker. The collider keeps
+            // pointing at _mesh (its cached cooked data is the previous
+            // state); PollBakeAndSwap re-assigns once the new cook is in.
+            _bakeHandle = new BakeMeshJob { MeshEntityID = _mesh.GetEntityId() }.Schedule();
+            _hasPendingBake = true;
+        }
+
+        /// <summary>
+        /// If a bake is pending and has completed on the worker, finalise
+        /// it by reassigning <see cref="MeshCollider.sharedMesh"/> so the
+        /// collider picks up the fresh cooked data. Called every frame by
+        /// the parent <see cref="DigZone.Update"/>.
+        /// </summary>
+        /// <returns>True if a swap actually happened this call.</returns>
+        public bool PollBakeAndSwap()
+        {
+            if (!_hasPendingBake) return false;
+            if (!_bakeHandle.IsCompleted) return false;
+            _bakeHandle.Complete();
             _meshCollider.sharedMesh = _mesh;
+            _hasPendingBake = false;
+            return true;
+        }
+
+        /// <summary>True while a Physics.BakeMesh worker call is in flight.</summary>
+        public bool HasPendingBake => _hasPendingBake;
+
+        private struct BakeMeshJob : IJob
+        {
+            public EntityId MeshEntityID;
+
+            public void Execute()
+            {
+                // Physics.BakeMesh is thread-safe per Unity docs and the
+                // entire point of this job is to keep the cook off the
+                // main thread.
+                Physics.BakeMesh(MeshEntityID, convex: false);
+            }
         }
     }
 }

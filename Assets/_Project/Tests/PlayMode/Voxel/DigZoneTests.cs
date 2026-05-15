@@ -1,7 +1,9 @@
+using System.Collections;
 using NUnit.Framework;
 using Robogame.Core;
 using Robogame.Voxel;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Robogame.Tests.PlayMode.Voxel
 {
@@ -295,6 +297,46 @@ namespace Robogame.Tests.PlayMode.Voxel
                 if (Mathf.Abs(world.x - worldX) < tolerance) list.Add(world);
             }
             return list;
+        }
+
+        // ------------------------------------------------------------------
+        // Phase 2c machine gate — MeshCollider.sharedMesh is never
+        // transiently null across an ApplyBrush + async Physics.BakeMesh
+        // cycle.
+        // ------------------------------------------------------------------
+
+        [UnityTest]
+        public IEnumerator ApplyBrush_AsyncBake_SharedMeshNonNullThroughout()
+        {
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+            MeshCollider mc = chunk.GetComponent<MeshCollider>();
+
+            Assert.IsNotNull(mc.sharedMesh, "Pre-brush: collider must already reference the chunk's Mesh.");
+            Assert.AreSame(chunk.CurrentMesh, mc.sharedMesh);
+
+            zone.ApplyBrush(MakeSphereBrush(zone.WorldBounds.center, 2.0f));
+
+            // Poll across frames. Throughout, sharedMesh stays pinned at
+            // chunk.CurrentMesh — only the collider's cached cooked data
+            // swaps when the worker bake completes (driven by
+            // DigZone.Update → DigChunk.PollBakeAndSwap).
+            const int maxFrames = 60;
+            int polls = 0;
+            while (polls < maxFrames && chunk.HasPendingBake)
+            {
+                Assert.IsNotNull(mc.sharedMesh,
+                    $"Frame {polls}: collider sharedMesh became null while a bake was in flight.");
+                Assert.AreSame(chunk.CurrentMesh, mc.sharedMesh,
+                    $"Frame {polls}: collider sharedMesh diverged from chunk's Mesh.");
+                yield return null;
+                polls++;
+            }
+
+            Assert.IsFalse(chunk.HasPendingBake,
+                $"Bake should have completed within {maxFrames} frames (took {polls}).");
+            Assert.IsNotNull(mc.sharedMesh, "Post-bake: collider sharedMesh must be non-null.");
+            Assert.AreSame(chunk.CurrentMesh, mc.sharedMesh, "Post-bake: collider must match chunk's Mesh.");
         }
 
         [Test]
