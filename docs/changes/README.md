@@ -86,6 +86,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 74 | [Terraforming Phase 4c: LOD-boundary transition (surface-nets-native, not literal Lengyel). NeighbourLodStrides struct on DigChunk + populated by DigZone.BuildApronFor; SurfaceNetsMesher snaps fine boundary-strip vertex axes to coarse-cell-center lattice, suppresses fine-side boundary quads, degenerate-area filter as safety net. 4 PlayMode tests including the "no degenerate triangles at LOD boundary" machine gate](74-terraforming-phase-4c.md) |
 | 73 | [Terraforming Phase 4 (partial): LOD reduction via per-chunk downsample-and-mesh (4a), camera-distance LOD selection in DigZone.Update (4b), per-chunk budget proxy test (4d). 4c transvoxel deferred — LOD boundaries show small seams as known artifact](73-terraforming-phase-4.md) |
 | 72 | [Terraforming Phase 3: drill + bomb crater integration. CapsuleSubtract algorithm + DrillBlock (emits on contact, AudioCue.DrillContact + DebrisDust VFX) + TerrainCratering.OnBombDetonation wired into ProjectileWorld's bomb impact path. IDigZone.ApplyBrush promoted to Robogame.Core. 12 new tests (7 EditMode CapsuleSubtract + 5 PlayMode drill/crater)](72-terraforming-phase-3.md) |
 | 71 | [Terraforming Phase 2d: .dig binary format + bake/load + SHA-256 content hash. DigZoneFormat.Write/Read with 68-byte header + per-chunk SDF payload; DigZone TextAsset loader integration; 6 EditMode format tests (round-trip + tamper detection) + 1 PlayMode bake/load test. Phase 2 milestone complete](71-terraforming-phase-2d.md) |

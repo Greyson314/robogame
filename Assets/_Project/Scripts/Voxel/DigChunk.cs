@@ -51,6 +51,11 @@ namespace Robogame.Voxel
         private MeshFilter _meshFilter;
         private MeshCollider _meshCollider;
         private int _currentLodLevel;
+        // Phase 4c: per-face neighbour LOD strides relative to this chunk's
+        // own meshing stride. Written by DigZone.BuildApronFor before each
+        // remesh so the mesher knows where to snap + suppress at LOD seams.
+        // Default Identity (all 1s) means no LOD seam handling.
+        private NeighbourLodStrides _neighbourLodStrides = NeighbourLodStrides.Identity;
 
         private bool _initialised;
 
@@ -80,6 +85,17 @@ namespace Robogame.Voxel
 
         /// <summary>Apron-augmented SDF staging buffer. Written by the parent zone before each remesh.</summary>
         public NativeArray<sbyte> SdfWithApron => _sdfWithApron;
+
+        /// <summary>
+        /// Per-face stride hints used by the mesher to handle LOD-coarser
+        /// neighbours (Phase 4c). Written by the parent zone in
+        /// <see cref="DigZone.BuildApronFor"/> right before each remesh.
+        /// </summary>
+        public NeighbourLodStrides NeighbourLodStrides
+        {
+            get => _neighbourLodStrides;
+            set => _neighbourLodStrides = value;
+        }
 
         /// <summary>
         /// World-space AABB of this chunk's own region. (The meshed region
@@ -206,7 +222,8 @@ namespace Robogame.Voxel
             {
                 SurfaceNetsMesher.Mesh(_sdfWithApron, DimWithApron, _meshBuffers,
                     out vCount, out iCount,
-                    cellScale: _cellSize);
+                    cellScale: _cellSize,
+                    strides: _neighbourLodStrides);
             }
             else
             {
@@ -220,7 +237,8 @@ namespace Robogame.Voxel
                 DownsampleSdf(_sdfWithApron, DimWithApron, _sdfLod, lodDim, stride);
                 SurfaceNetsMesher.Mesh(_sdfLod, lodDim, _meshBuffers,
                     out vCount, out iCount,
-                    cellScale: _cellSize * stride);
+                    cellScale: _cellSize * stride,
+                    strides: _neighbourLodStrides);
             }
 
             _mesh.Clear(keepVertexLayout: false);

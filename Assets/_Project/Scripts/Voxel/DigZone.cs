@@ -143,13 +143,19 @@ namespace Robogame.Voxel
         /// <summary>
         /// Choose a LOD level for every chunk based on its distance from
         /// <paramref name="viewWorldPos"/>. Chunks whose level changes are
-        /// re-meshed (which schedules a fresh bake). Exposed for tests.
+        /// re-meshed (which schedules a fresh bake). If any chunk's LOD
+        /// changed, runs a full <see cref="RebuildAllMeshes"/> pass
+        /// afterwards so every chunk's <see cref="NeighbourLodStrides"/>
+        /// reflects the post-change LOD topology (Phase 4c — a chunk needs
+        /// its NEIGHBOUR's new LOD to decide whether to snap/suppress on
+        /// the shared face). Exposed for tests.
         /// </summary>
         public void RefreshLod(Vector3 viewWorldPos)
         {
             if (_chunks == null) return;
             float d1Sq = _lodDistance1 * _lodDistance1;
             float d2Sq = _lodDistance2 * _lodDistance2;
+            bool anyChanged = false;
             for (int i = 0; i < _chunks.Length; i++)
             {
                 DigChunk c = _chunks[i];
@@ -159,8 +165,13 @@ namespace Robogame.Voxel
                 if (distSq > d2Sq) lod = 2;
                 else if (distSq > d1Sq) lod = 1;
                 else lod = 0;
-                c.SetLodLevel(lod);
+                if (lod != c.CurrentLodLevel)
+                {
+                    c.SetLodLevel(lod);   // remeshes with stale strides …
+                    anyChanged = true;
+                }
             }
+            if (anyChanged) RebuildAllMeshes();  // … fresh strides land here.
         }
 
         private void EnsureInitialised()
@@ -446,6 +457,15 @@ namespace Robogame.Voxel
         /// replicate the chunk's own face sample so no false sign-crossings
         /// appear at the dig zone boundary.
         /// </summary>
+        /// <remarks>
+        /// Phase 4c: also writes <paramref name="chunk"/>.<see cref="DigChunk.NeighbourLodStrides"/>
+        /// from each face-neighbour's current LOD relative to this chunk's
+        /// own LOD. Must run AFTER <see cref="RefreshLod"/> has set per-chunk
+        /// LOD levels — the current call order in <see cref="RebuildAllMeshes"/>
+        /// satisfies this because <c>RefreshLod</c> runs in <c>Update</c> on
+        /// the prior frame, and brush-triggered remeshes inherit the
+        /// current LODs.
+        /// </remarks>
         public void BuildApronFor(DigChunk chunk)
         {
             Vector3Int coord = chunk.ChunkCoord;
@@ -499,6 +519,33 @@ namespace Robogame.Voxel
 
                 dst[z * dimApronSq + y * dimWithApron + x] = v;
             }
+
+            // Phase 4c: per-face LOD stride lookup. snap stride > 1 only
+            // when the face-neighbour is meshing at coarser LOD than this
+            // chunk; otherwise 1 (no snap, no quad suppression). Use this
+            // chunk's own LOD as the fallback for missing neighbours so
+            // boundary faces of the zone never snap (the "no neighbour"
+            // case replicates own data into the apron — same-LOD geometry,
+            // no seam).
+            int ownLod = chunk.CurrentLodLevel;
+            chunk.NeighbourLodStrides = new NeighbourLodStrides
+            {
+                NegX = ComputeNeighbourStride(coord.x - 1, coord.y, coord.z, ownLod),
+                PosX = ComputeNeighbourStride(coord.x + 1, coord.y, coord.z, ownLod),
+                NegY = ComputeNeighbourStride(coord.x, coord.y - 1, coord.z, ownLod),
+                PosY = ComputeNeighbourStride(coord.x, coord.y + 1, coord.z, ownLod),
+                NegZ = ComputeNeighbourStride(coord.x, coord.y, coord.z - 1, ownLod),
+                PosZ = ComputeNeighbourStride(coord.x, coord.y, coord.z + 1, ownLod),
+            };
+        }
+
+        private int ComputeNeighbourStride(int nx, int ny, int nz, int ownLod)
+        {
+            DigChunk neighbour = GetChunk(nx, ny, nz);
+            if (neighbour == null) return 1;
+            int neighbourLod = neighbour.CurrentLodLevel;
+            if (neighbourLod <= ownLod) return 1;
+            return 1 << (neighbourLod - ownLod);
         }
 
         /// <summary>Get the chunk at a grid coordinate, or null if out of range.</summary>

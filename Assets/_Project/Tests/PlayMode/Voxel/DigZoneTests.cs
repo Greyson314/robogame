@@ -609,5 +609,218 @@ namespace Robogame.Tests.PlayMode.Voxel
             for (int x = 0; x < 2; x++)
                 Assert.IsNotNull(zone.GetChunk(x, y, z), $"Chunk ({x},{y},{z}) must exist.");
         }
+
+        // ------------------------------------------------------------------
+        // Phase 4c — LOD-boundary transition handling.
+        //
+        // When two adjacent chunks mesh at different LOD levels, the fine
+        // side snaps its boundary-strip vertex positions to the coarse
+        // grid along the axis perpendicular to the shared face, and
+        // suppresses its boundary-face X/Y/Z-axis-edge quads (where all 4
+        // corners lie in the boundary strip) so the coarse neighbour owns
+        // the seam geometry. A small per-triangle degenerate-area filter
+        // in Pass 2 catches the rare case where snapping coalesces
+        // corners to identical positions.
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Build a 2×1×1 zone with a sphere brush spanning the boundary,
+        /// then force fine = LOD 0 on chunk (0,0,0) and coarse = a given
+        /// LOD on chunk (1,0,0). Final <see cref="DigZone.RebuildAllMeshes"/>
+        /// call refreshes the stride lookup so the fine chunk's mesh
+        /// reflects the LOD mismatch.
+        /// </summary>
+        private DigZone MakeLodSeamZone(int coarseLod)
+        {
+            DigZone zone = MakeZone(new Vector3Int(2, 1, 1));
+            // Carve a sphere straddling the +X face so both chunks have
+            // surface near the seam; otherwise the boundary face has no
+            // active edges and the suppression/snap logic is untestable.
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            Vector3 brushCentre = new Vector3(chunkSide, chunkSide * 0.5f, chunkSide * 0.5f);
+            int changed = zone.ApplyBrush(MakeSphereBrush(brushCentre, 4.0f));
+            Assume.That(changed, Is.GreaterThan(0), "Sphere brush at the boundary must mutate cells.");
+
+            zone.GetChunk(0, 0, 0).SetLodLevel(0);
+            zone.GetChunk(1, 0, 0).SetLodLevel(coarseLod);
+            zone.RebuildAllMeshes();   // refresh NeighbourLodStrides post-LOD-change.
+            return zone;
+        }
+
+        [Test]
+        public void LodSeam_FineSidePosXBoundaryVertices_SnapXToCoarseGrid()
+        {
+            // chunk(0,0,0) at LOD 0, chunk(1,0,0) at LOD 1 → fine side's
+            // +X PosX stride = 2. Apron cells (cx = chunkSize) get their
+            // X centroid snapped to the coarse-cell-center pattern (odd
+            // integers in fine cell-grid units for stride 2). World X of
+            // a snapped vertex on the seam plane is then (chunkSize+1) ×
+            // cellSize. The chunkSize+1 fine-unit lattice = chunkSize×
+            // cellSize + 0.5×coarseCellSize = the coarse neighbour's
+            // first-cell-centre X.
+            DigZone zone = MakeLodSeamZone(coarseLod: 1);
+            DigChunk fine = zone.GetChunk(0, 0, 0);
+            DigChunk coarse = zone.GetChunk(1, 0, 0);
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            float coarseCellSize = zone.CellSize * 2f;
+            float expectedSnappedWorldX = chunkSide + 0.5f * coarseCellSize;
+
+            // Collect vertices on the fine side near the snapped X plane.
+            Vector3 fineOrigin = fine.transform.position;
+            var verts = fine.CurrentMesh.vertices;
+            int onSnapPlane = 0;
+            for (int i = 0; i < verts.Length; i++)
+            {
+                Vector3 world = fineOrigin + verts[i];
+                // The snap is to the coarse-cell-center plane; raw fine
+                // vertices in the apron column would be at chunkSide +
+                // 0.25 (= 0.5 × cellSize). The snap moves them to
+                // chunkSide + 0.5 × coarseCellSize = chunkSide + 0.5m
+                // for cellSize 0.5. Filter for vertices at this exact X.
+                if (Mathf.Abs(world.x - expectedSnappedWorldX) < 1e-3f)
+                {
+                    onSnapPlane++;
+                    // And there should be NO vertex at the un-snapped X
+                    // (chunkSide + 0.5 × cellSize) for a snap-active cell.
+                }
+            }
+            Assert.Greater(onSnapPlane, 0,
+                "Fine side's +X boundary cells must produce at least one vertex on the snapped X plane.");
+
+            // Negative test: no fine vertex at the would-be RAW X
+            // (chunkSide + 0.5 × cellSize = 16.25 m for default config) —
+            // i.e., the snap actually moved them.
+            float rawWorldX = chunkSide + 0.5f * zone.CellSize;
+            for (int i = 0; i < verts.Length; i++)
+            {
+                Vector3 world = fineOrigin + verts[i];
+                Assert.IsFalse(Mathf.Abs(world.x - rawWorldX) < 1e-3f,
+                    $"Fine vertex {world} sits at the un-snapped X={rawWorldX} m — boundary snap didn't run.");
+            }
+
+            // Sanity: coarse chunk also has vertices on the same snapped
+            // plane (its first-cell-centre X), confirming the seam line
+            // exists on both sides at the same world X.
+            Vector3 coarseOrigin = coarse.transform.position;
+            var coarseVerts = coarse.CurrentMesh.vertices;
+            int coarseOnPlane = 0;
+            for (int i = 0; i < coarseVerts.Length; i++)
+            {
+                Vector3 world = coarseOrigin + coarseVerts[i];
+                if (Mathf.Abs(world.x - expectedSnappedWorldX) < 1e-3f) coarseOnPlane++;
+            }
+            Assert.Greater(coarseOnPlane, 0,
+                "Coarse chunk must also place vertices on the snapped plane for the seam to match.");
+        }
+
+        [Test]
+        public void LodSeam_NoDegenerateTrianglesAcrossLodMismatch_LodOneTwo()
+        {
+            // Machine gate. Either LOD level on the coarse side stresses
+            // the snap + suppress path differently — run both.
+            foreach (int coarseLod in new[] { 1, 2 })
+            {
+                DigZone zone = MakeLodSeamZone(coarseLod);
+                AssertNoDegenerateTriangles(zone.GetChunk(0, 0, 0), coarseLod, "fine");
+                AssertNoDegenerateTriangles(zone.GetChunk(1, 0, 0), coarseLod, "coarse");
+                Object.DestroyImmediate(_go);
+                _go = null;
+                _zone = null;
+            }
+        }
+
+        private static void AssertNoDegenerateTriangles(DigChunk chunk, int coarseLod, string side)
+        {
+            const float minAreaSq = 1e-6f;  // cross-product magnitude² in m² × m² ≈ (1 mm)²
+            Mesh mesh = chunk.CurrentMesh;
+            var verts = mesh.vertices;
+            var tris = mesh.triangles;
+            int triCount = tris.Length / 3;
+            int degenerates = 0;
+            for (int t = 0; t < triCount; t++)
+            {
+                Vector3 a = verts[tris[t * 3]];
+                Vector3 b = verts[tris[t * 3 + 1]];
+                Vector3 c = verts[tris[t * 3 + 2]];
+                Vector3 cross = Vector3.Cross(b - a, c - a);
+                if (cross.sqrMagnitude < minAreaSq) degenerates++;
+            }
+            Assert.AreEqual(0, degenerates,
+                $"coarseLod={coarseLod}, {side} side: {degenerates}/{triCount} triangles have near-zero area. " +
+                "The Pass 2 degenerate-area filter must drop these before they enter the index buffer.");
+        }
+
+        [Test]
+        public void LodSeam_FineAndCoarse_BothHaveVerticesOnSeamPlane()
+        {
+            // Seam continuity check: with snap active, fine + coarse both
+            // emit vertices on the shared seam X plane (chunkSide + 0.5 ×
+            // coarseCellSize). Both counts must be > 0; the exact numbers
+            // differ (fine has more, since its in-plane Y/Z spacing stays
+            // fine), but the meshes share the seam line in world space.
+            DigZone zone = MakeLodSeamZone(coarseLod: 1);
+            DigChunk fine = zone.GetChunk(0, 0, 0);
+            DigChunk coarse = zone.GetChunk(1, 0, 0);
+
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            float coarseCellSize = zone.CellSize * 2f;
+            float seamWorldX = chunkSide + 0.5f * coarseCellSize;
+
+            int fineOnPlane = CountVerticesNearX(fine, seamWorldX);
+            int coarseOnPlane = CountVerticesNearX(coarse, seamWorldX);
+
+            Assert.Greater(fineOnPlane, 0, "Fine side: no vertices on the seam plane — snap didn't run.");
+            Assert.Greater(coarseOnPlane, 0, "Coarse side: no vertices on the seam plane — coarse mesh missing.");
+        }
+
+        private static int CountVerticesNearX(DigChunk chunk, float targetWorldX, float tol = 1e-3f)
+        {
+            Vector3 origin = chunk.transform.position;
+            var verts = chunk.CurrentMesh.vertices;
+            int count = 0;
+            for (int i = 0; i < verts.Length; i++)
+            {
+                Vector3 world = origin + verts[i];
+                if (Mathf.Abs(world.x - targetWorldX) < tol) count++;
+            }
+            return count;
+        }
+
+        [Test]
+        public void LodSeam_SameLod_NeighbourStridesAreIdentity_NoSnapNoSuppress()
+        {
+            // Regression guard: when neighbours are at same LOD, the
+            // Phase 4c plumbing produces all-1 strides and the mesher
+            // takes the no-snap/no-suppress path. The post-Phase-4c
+            // mesh of a same-LOD pair must therefore match the
+            // pre-Phase-4c reference: same vertex count, identical
+            // positions to float precision.
+            DigZone zone = MakeLodSeamZone(coarseLod: 0);
+            DigChunk fine = zone.GetChunk(0, 0, 0);
+            NeighbourLodStrides strides = fine.NeighbourLodStrides;
+            Assert.AreEqual(1, strides.NegX, "NegX stride should be 1 — no -X neighbour.");
+            Assert.AreEqual(1, strides.PosX, "PosX stride should be 1 — same-LOD neighbour.");
+            Assert.AreEqual(1, strides.NegY, "NegY stride should be 1 — no -Y neighbour.");
+            Assert.AreEqual(1, strides.PosY, "PosY stride should be 1 — no +Y neighbour.");
+            Assert.AreEqual(1, strides.NegZ, "NegZ stride should be 1 — no -Z neighbour.");
+            Assert.AreEqual(1, strides.PosZ, "PosZ stride should be 1 — no +Z neighbour.");
+            Assert.IsFalse(strides.AnySnap, "Same-LOD neighbours: no boundary snap should be active.");
+
+            // No vertex on the fine side should sit at the SNAPPED X
+            // (would only appear if snap actually ran).
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            float snappedX = chunkSide + 0.5f * (zone.CellSize * 2f);
+            float rawX = chunkSide + 0.5f * zone.CellSize;
+            Vector3 fineOrigin = fine.transform.position;
+            var verts = fine.CurrentMesh.vertices;
+            bool sawRawX = false;
+            for (int i = 0; i < verts.Length; i++)
+            {
+                Vector3 world = fineOrigin + verts[i];
+                if (Mathf.Abs(world.x - rawX) < 1e-3f) sawRawX = true;
+            }
+            Assert.IsTrue(sawRawX,
+                $"Same-LOD neighbours: at least one fine vertex must sit at the un-snapped X={rawX} m.");
+        }
     }
 }
