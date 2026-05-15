@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c984c839f6be4847b115d05de5ac654, type: 3}
+  m_Name: BlockDef_Drill
+  m_EditorClassIdentifier: Robogame.Block::Robogame.Block.BlockDefinition
+  _id: block.tool.drill
+  _displayName: Drill
+  _category: 3
+  _maxHealth: 130
+  _mass: 3.5
+  _cpuCost: 32
+  _isLeafBlock: 0
+  _sideMountOnly: 0
+  _hasVariantConfig: 0
+  _prefab: {fileID: 0}
+  _tintColor: {r: 1, g: 1, b: 1, a: 1}
+  _material: {fileID: 2100000, guid: 799a882d77be5374393b5a55927275df, type: 2}
+  _componentData: {fileID: 0}
