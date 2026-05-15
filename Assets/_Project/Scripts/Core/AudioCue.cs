@@ -32,6 +32,7 @@ namespace Robogame.Core
         ChassisRam,
         TipImpact,         // hook / mace tip striking a target — the "thonk" of a swung weapon
         BombExplosion,
+        DrillContact,      // drill tip carving dig-zone terrain — looped scraping / motorised grind
 
         // Movement
         ThrusterIgnite,

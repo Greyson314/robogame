@@ -390,6 +390,84 @@ namespace Robogame.Tests.PlayMode.Voxel
                 "Re-baking the loaded zone must produce byte-identical output to the original bake.");
         }
 
+        // ------------------------------------------------------------------
+        // Phase 3b — DrillBlock emits CapsuleSubtract on contact and the
+        // brush carves the SDF along the swept path.
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void DrillBlock_DrillInsideZone_EmitsBrushAndMutatesSdf()
+        {
+            // Single chunk; place the drill inside the lower (solid) half
+            // of the half-space init so the brush has material to carve.
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            Vector3 startPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f);
+
+            // Create the drill at the start position; track its tip via
+            // LateUpdate by calling Drill twice (the second call uses the
+            // first call's snapshot as the prev-tip).
+            GameObject drillGo = new GameObject("TestDrill");
+            drillGo.transform.position = startPos;
+            DrillBlock drill = drillGo.AddComponent<DrillBlock>();
+
+            // Capture pre-state at a cell just below the start position.
+            int dim = chunk.Dim;
+            int dimSq = dim * dim;
+            int startX = Mathf.RoundToInt(startPos.x / zone.CellSize);
+            int startY = Mathf.RoundToInt(startPos.y / zone.CellSize);
+            int startZ = Mathf.RoundToInt(startPos.z / zone.CellSize);
+            int testIdx = startZ * dimSq + startY * dim + startX;
+            sbyte sdfBefore = chunk.Sdf[testIdx];
+            Assert.Less(sdfBefore, 0, "Pre-condition: drill should start in interior (solid) material.");
+
+            // Drive a synthetic drill cycle. First call has no previous tip,
+            // so the capsule degenerates to a sphere at the current position
+            // — still carves a chunk of material around the tip.
+            int changed = drill.Drill(zone);
+            Assert.Greater(changed, 0, "Drill at an interior point must mutate at least one SDF cell.");
+
+            Assert.GreaterOrEqual(chunk.Sdf[testIdx], 0,
+                "Cell at the drill position should be carved exterior.");
+
+            // Move the drill +X by one cell, drill again — the second call's
+            // capsule sweeps from the previous position to the new one,
+            // carving a tunnel along the X axis.
+            drillGo.transform.position = startPos + new Vector3(zone.CellSize, 0, 0);
+            int secondChanged = drill.Drill(zone);
+            Assert.Greater(secondChanged, 0, "Second drill call (with motion) should carve new material along the swept axis.");
+
+            Object.DestroyImmediate(drillGo);
+        }
+
+        [Test]
+        public void DrillBlock_NoMotion_ReDrillSamePoint_ChangesNothing()
+        {
+            // Drill once at a point, then drill again at the same point
+            // without moving. The second call's capsule is degenerate (and
+            // re-applies a brush onto already-exterior cells), so max-fold
+            // idempotency means zero change.
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            Vector3 pos = new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f);
+
+            GameObject drillGo = new GameObject("TestDrill");
+            drillGo.transform.position = pos;
+            DrillBlock drill = drillGo.AddComponent<DrillBlock>();
+
+            int first = drill.Drill(zone);
+            Assume.That(first, Is.GreaterThan(0));
+
+            int second = drill.Drill(zone);
+            Assert.AreEqual(0, second,
+                "Re-drilling the same point with no motion must hit max-fold idempotency (zero change).");
+
+            Object.DestroyImmediate(drillGo);
+        }
+
         [Test]
         public void ChunkCount_MatchesGridSize()
         {
