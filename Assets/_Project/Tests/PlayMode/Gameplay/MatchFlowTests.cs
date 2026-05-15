@@ -253,8 +253,8 @@ namespace Robogame.Tests.PlayMode.Gameplay
             // PlayerController._input is private; check for the symptom instead:
             // if IInputSource resolved, PlayerController doesn't log an error,
             // and the bot's Move is non-zero after a tick. We approximate this
-            // by checking that a GroundBotInputSource (or DummyAiInputSource)
-            // is present on the same root.
+            // by checking that a GroundBotInputSource is present on the same
+            // root.
             IInputSource inputSource = botGo.GetComponentInChildren<IInputSource>();
             Assert.IsNotNull(inputSource,
                 "Spawned bot root must have an IInputSource component. " +
