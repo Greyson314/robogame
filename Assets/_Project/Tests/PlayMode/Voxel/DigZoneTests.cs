@@ -339,6 +339,57 @@ namespace Robogame.Tests.PlayMode.Voxel
             Assert.AreSame(chunk.CurrentMesh, mc.sharedMesh, "Post-bake: collider must match chunk's Mesh.");
         }
 
+        // ------------------------------------------------------------------
+        // Phase 2d machine gate — DigZone bake/load round-trip via
+        // DigZoneFormat. A modified zone baked + read + applied to a
+        // fresh zone must produce SDF byte-identical to the source.
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void BakeAndLoad_ViaDigZone_SdfsByteIdentical()
+        {
+            // Source zone — half-space init + a brush.
+            DigZone zoneA = MakeZone(new Vector3Int(2, 1, 1));
+            int changed = zoneA.ApplyBrush(MakeSphereBrush(zoneA.WorldBounds.center, 3.0f));
+            Assume.That(changed, Is.GreaterThan(0), "Brush must mutate something for the test to be meaningful.");
+
+            // Bake.
+            byte[] bytes = DigZoneFormat.Write(zoneA);
+
+            // Tear down zoneA's GameObject (preserves SDFs on the in-memory
+            // snapshot, frees the test rig).
+            Object.DestroyImmediate(_go);
+            _go = null;
+            _zone = null;
+
+            // Read into snapshot.
+            DigZoneSnapshot snapshot = DigZoneFormat.Read(bytes);
+
+            // Fresh zone with the same config.
+            DigZone zoneB = MakeZone(new Vector3Int(2, 1, 1));
+            zoneB.ApplySnapshot(snapshot);
+
+            // Compare SDFs chunk-by-chunk.
+            int dim = zoneB.ChunkSizeCells + 1;
+            int sdfBytes = dim * dim * dim;
+            for (int i = 0; i < snapshot.Chunks.Length; i++)
+            {
+                Vector3Int coord = snapshot.Chunks[i].ChunkCoord;
+                DigChunk chunk = zoneB.GetChunk(coord);
+                Assert.IsNotNull(chunk);
+                for (int j = 0; j < sdfBytes; j++)
+                {
+                    Assert.AreEqual((sbyte)snapshot.Chunks[i].Sdf[j], chunk.Sdf[j],
+                        $"Chunk {coord} SDF byte {j} diverged after round-trip.");
+                }
+            }
+
+            // Re-bake — bytes should be identical (content hash stable).
+            byte[] reBytes = DigZoneFormat.Write(zoneB);
+            CollectionAssert.AreEqual(bytes, reBytes,
+                "Re-baking the loaded zone must produce byte-identical output to the original bake.");
+        }
+
         [Test]
         public void ChunkCount_MatchesGridSize()
         {

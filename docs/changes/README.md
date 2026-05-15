@@ -86,6 +86,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 71 | [Terraforming Phase 2d: .dig binary format + bake/load + SHA-256 content hash. DigZoneFormat.Write/Read with 68-byte header + per-chunk SDF payload; DigZone TextAsset loader integration; 6 EditMode format tests (round-trip + tamper detection) + 1 PlayMode bake/load test. Phase 2 milestone complete](71-terraforming-phase-2d.md) |
 | 70 | [Terraforming Phase 2c: async Physics.BakeMesh on a worker (IJob), atomic collider swap — sharedMesh stays pinned at chunk.CurrentMesh throughout, never transiently null. DigZone.Update polls each chunk's PollBakeAndSwap. New [UnityTest] machine gate yields up to 60 frames asserting sharedMesh non-null + AreSame through bake completion. Verified autonomously](70-terraforming-phase-2c.md) |
 | 69 | [Terraforming Phase 2b: apron-based seam-free meshing. DigChunk grows a (chunkSize+2)³ staging buffer; DigZone.BuildApronFor fills it from own SDF + 7 +direction neighbours (replicates own face when neighbour absent). New seam test (machine gate) pins boundary vertex agreement to 1e-4 m. Visible chunk-boundary cracks gone. Verified autonomously via run-tests.sh](69-terraforming-phase-2b.md) |
 | 68 | [Stale bot-steering tests fixed (session 62 follow-up): DummyAiInputSourceTests.cs renamed to GroundBotInputSourceTests.cs, inline math helper replaced with GroundBotInputSource.ComputeSteer call, three test scenarios fixed for the actual −Z tangent at the +X point, three Assert.Pass stubs dropped](68-stale-bot-steering-tests-fix.md) |

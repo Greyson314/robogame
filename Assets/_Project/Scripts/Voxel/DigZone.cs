@@ -35,6 +35,14 @@ namespace Robogame.Voxel
         [SerializeField] private Vector3Int _chunkGridSize = new Vector3Int(2, 2, 2);
         [SerializeField] private Material _chunkMaterial;
 
+        /// <summary>
+        /// Optional <c>.dig</c> asset (Phase 2d). If assigned, the asset's
+        /// header overrides <see cref="CellSize"/>, <see cref="ChunkSizeCells"/>,
+        /// <see cref="ChunkGridSize"/>, and its payload seeds each chunk's
+        /// SDF instead of <see cref="InitializeHalfSpace"/>.
+        /// </summary>
+        [SerializeField] private TextAsset _digAsset;
+
         private DigChunk[] _chunks;
 
         public float CellSize
@@ -111,6 +119,18 @@ namespace Robogame.Voxel
 
             DestroyChildChunks();
 
+            // Phase 2d: if a .dig asset is assigned, its header drives the
+            // grid config. Parse before chunk spawn so the spawned grid
+            // matches the asset's dimensions.
+            DigZoneSnapshot snapshot = null;
+            if (_digAsset != null && _digAsset.bytes != null && _digAsset.bytes.Length > 0)
+            {
+                snapshot = DigZoneFormat.Read(_digAsset.bytes);
+                _cellSize = snapshot.CellSize;
+                _chunkSizeCells = snapshot.ChunkSizeCells;
+                _chunkGridSize = snapshot.ChunkGridSize;
+            }
+
             int nx = _chunkGridSize.x, ny = _chunkGridSize.y, nz = _chunkGridSize.z;
             _chunks = new DigChunk[nx * ny * nz];
 
@@ -140,8 +160,59 @@ namespace Robogame.Voxel
                 _chunks[idx] = chunk;
             }
 
-            InitializeHalfSpace();
+            if (snapshot != null)
+            {
+                ApplySnapshot(snapshot);
+            }
+            else
+            {
+                InitializeHalfSpace();
+            }
             RebuildAllMeshes();
+        }
+
+        /// <summary>
+        /// Overwrite every chunk's SDF with the snapshot's payload. Used by
+        /// the Phase 2d loader path (`.dig` asset → SDF) and by tests doing
+        /// bake-and-load round-trips.
+        /// </summary>
+        public void ApplySnapshot(DigZoneSnapshot snapshot)
+        {
+            if (snapshot == null) throw new System.ArgumentNullException(nameof(snapshot));
+            EnsureInitialised();
+
+            if (snapshot.ChunkGridSize != _chunkGridSize ||
+                snapshot.ChunkSizeCells != _chunkSizeCells ||
+                !Mathf.Approximately(snapshot.CellSize, _cellSize))
+            {
+                throw new System.InvalidOperationException(
+                    "Snapshot dimensions disagree with the DigZone's current config. " +
+                    $"Snapshot: grid={snapshot.ChunkGridSize} chunkSize={snapshot.ChunkSizeCells} cellSize={snapshot.CellSize}. " +
+                    $"Zone: grid={_chunkGridSize} chunkSize={_chunkSizeCells} cellSize={_cellSize}.");
+            }
+
+            int dim = _chunkSizeCells + 1;
+            int sdfBytes = dim * dim * dim;
+            foreach (DigZoneSnapshot.Chunk sc in snapshot.Chunks)
+            {
+                DigChunk chunk = GetChunk(sc.ChunkCoord);
+                if (chunk == null)
+                    throw new System.InvalidOperationException(
+                        $"Snapshot references chunk {sc.ChunkCoord} which doesn't exist in the spawned grid.");
+                if (sc.Sdf.Length != sdfBytes)
+                    throw new System.InvalidOperationException(
+                        $"Snapshot chunk {sc.ChunkCoord} SDF length {sc.Sdf.Length} != expected {sdfBytes}.");
+
+                NativeArray<sbyte> dst = chunk.Sdf;
+                for (int i = 0; i < sdfBytes; i++) dst[i] = (sbyte)sc.Sdf[i];
+            }
+        }
+
+        /// <summary>Test-friendly setter for the .dig asset before activation. Throws once initialised.</summary>
+        public TextAsset DigAsset
+        {
+            get => _digAsset;
+            set { ThrowIfInitialised(nameof(DigAsset)); _digAsset = value; }
         }
 
         private void DestroyChildChunks()
