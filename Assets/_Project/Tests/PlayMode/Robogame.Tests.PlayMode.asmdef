@@ -9,6 +9,8 @@
         "Robogame.Player",
         "Robogame.Gameplay",
         "Robogame.Voxel",
+        "Unity.Collections",
+        "Unity.Mathematics",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

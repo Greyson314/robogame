@@ -1,6 +1,8 @@
-using System;
 using Robogame.Core;
+using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Robogame.Voxel
 {
@@ -12,22 +14,16 @@ namespace Robogame.Voxel
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Phase 1b deliverable. Plain managed C# meshing (Phase 1c ports
-    /// to Burst). Synchronous remesh + synchronous <c>MeshCollider</c>
-    /// swap on the main thread; Phase 1c uses
-    /// <c>Physics.BakeMesh</c> on a worker for the cook.
+    /// Phase 1c update: SDF and mesher buffers are
+    /// <see cref="NativeArray{T}"/>-backed; meshing is Burst-compiled via
+    /// <see cref="SurfaceNetsMesher"/>. Mesh upload uses
+    /// <see cref="Mesh.SetVertexBufferData{T}(NativeArray{T},int,int,int,int,MeshUpdateFlags)"/>
+    /// directly off the native buffer for zero managed allocation in the
+    /// steady-state remesh path.
     /// </para>
     /// <para>
-    /// The initial SDF state is set by <see cref="InitializeHalfSpace"/>
-    /// or any future <c>.dig</c> asset loader (Phase 2). Brush ops are
-    /// applied via <see cref="ApplyBrush"/> which delegates to
-    /// <see cref="BrushApplicator"/> (max-fold per TERRAFORMING_PLAN §2)
-    /// and then triggers a remesh.
-    /// </para>
-    /// <para>
-    /// <c>[ExecuteAlways]</c> so the chunk meshes in Edit Mode as well
-    /// as Play Mode — the Phase 1b test scene shows the meshed surface
-    /// without entering Play Mode.
+    /// MeshCollider is still cooked synchronously on the main thread —
+    /// Phase 2 moves to <c>Physics.BakeMesh</c> on a worker.
     /// </para>
     /// </remarks>
     [ExecuteAlways]
@@ -37,10 +33,7 @@ namespace Robogame.Voxel
         [SerializeField, Min(0.01f)] private float _cellSize = 0.5f;
         [SerializeField, Min(2)]     private int   _chunkSizeCells = 32;
 
-        // SDF buffer is non-serialised — it's reinitialised on Awake from
-        // a stored seed (currently HalfSpace; Phase 2 swaps this for a
-        // .dig asset reference).
-        private sbyte[] _sdf;
+        private NativeArray<sbyte> _sdf;
         private SurfaceNetsMesher.Buffers _meshBuffers;
         private Mesh _mesh;
         private MeshFilter _meshFilter;
@@ -60,14 +53,12 @@ namespace Robogame.Voxel
         public int ChunkSizeCells => _chunkSizeCells;
         public bool ContainsPoint(Vector3 worldPosition) => WorldBounds.Contains(worldPosition);
 
-        /// <summary>SDF samples per chunk side. <c>ChunkSizeCells + 1</c>.</summary>
         public int Dim => _chunkSizeCells + 1;
 
-        /// <summary>The remeshed surface mesh. Null until <see cref="EnsureInitialised"/> runs.</summary>
         public Mesh CurrentMesh => _mesh;
 
-        /// <summary>Direct access to the SDF buffer for tests + diagnostics. Trusted callers only.</summary>
-        public ReadOnlySpan<sbyte> Sdf => _sdf;
+        /// <summary>SDF samples in z-major order. Trusted accessor for tests + diagnostics.</summary>
+        public NativeArray<sbyte> Sdf => _sdf;
 
         private void Awake() => EnsureInitialised();
 
@@ -81,8 +72,9 @@ namespace Robogame.Voxel
 
         private void OnDestroy()
         {
-            // Destroy the runtime-created mesh so we don't leak it across
-            // domain reloads / scene reloads.
+            if (_sdf.IsCreated) _sdf.Dispose();
+            if (_meshBuffers.IsCreated) _meshBuffers.Dispose();
+
             if (_mesh != null)
             {
                 if (Application.isPlaying) Destroy(_mesh);
@@ -93,18 +85,17 @@ namespace Robogame.Voxel
 
         private void EnsureInitialised()
         {
-            if (_sdf != null) return;
+            if (_sdf.IsCreated) return;
 
             int dim = Dim;
-            _sdf = new sbyte[dim * dim * dim];
-            _meshBuffers = SurfaceNetsMesher.Allocate(dim);
+            _sdf = new NativeArray<sbyte>(dim * dim * dim, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+            _meshBuffers = SurfaceNetsMesher.Allocate(dim, Allocator.Persistent);
 
             _mesh = new Mesh
             {
                 name = $"{name}_DigZoneMesh",
-                indexFormat = UnityEngine.Rendering.IndexFormat.UInt32,
+                indexFormat = IndexFormat.UInt32,
             };
-
             _meshFilter = GetComponent<MeshFilter>();
             _meshFilter.sharedMesh = _mesh;
             _meshCollider = GetComponent<MeshCollider>();
@@ -114,9 +105,8 @@ namespace Robogame.Voxel
         }
 
         /// <summary>
-        /// Seed the SDF with a half-space: lower half of the chunk (Y &lt; dim/2)
-        /// is solid, upper half is exterior. Produces a flat top surface
-        /// the first remesh will extract as a plane.
+        /// Seed the SDF with a half-space: lower half (Y &lt; dim/2) solid,
+        /// upper half exterior. Produces a flat top surface on first remesh.
         /// </summary>
         public void InitializeHalfSpace()
         {
@@ -126,8 +116,6 @@ namespace Robogame.Voxel
             for (int y = 0; y < dim; y++)
             for (int x = 0; x < dim; x++)
             {
-                // Signed-distance to the y = split plane in cell-grid units,
-                // converted to sbyte units (64 sbyte/cell).
                 int v = (y - split) * 64;
                 if (v < sbyte.MinValue) v = sbyte.MinValue;
                 else if (v > sbyte.MaxValue) v = sbyte.MaxValue;
@@ -135,10 +123,7 @@ namespace Robogame.Voxel
             }
         }
 
-        /// <summary>
-        /// Apply one brush op to the chunk and remesh. Synchronous.
-        /// Returns the number of cells whose SDF changed.
-        /// </summary>
+        /// <summary>Apply one brush op (max-fold) and remesh. Returns changed-cell count.</summary>
         public int ApplyBrush(BrushOp op)
         {
             EnsureInitialised();
@@ -147,39 +132,41 @@ namespace Robogame.Voxel
             return changed;
         }
 
-        /// <summary>
-        /// Re-extract the surface mesh from the current SDF. Phase 1c
-        /// moves this to a Burst job; Phase 1b is plain managed C#.
-        /// </summary>
+        /// <summary>Re-extract the surface mesh from the current SDF. Schedules + completes the Burst job synchronously.</summary>
         public void RemeshNow()
         {
             EnsureInitialised();
             int dim = Dim;
 
-            SurfaceNetsMesher.Mesh(_sdf, dim, _meshBuffers, out int vCount, out int iCount);
+            // Burst job folds CellScale in, so positions come back in local
+            // mesh units. No managed post-scale loop on the host.
+            SurfaceNetsMesher.Mesh(_sdf, dim, _meshBuffers,
+                out int vCount, out int iCount,
+                cellScale: _cellSize);
 
-            // Convert cell-grid positions to local mesh positions (scaled
-            // by cellSize). The GameObject's transform handles world placement.
-            // Phase 1c will pre-scale into a NativeArray<Vector3> and call
-            // Mesh.SetVertexBufferData directly to skip the per-frame
-            // managed-array allocation.
-            Vector3[] verts = new Vector3[vCount];
-            for (int v = 0; v < vCount; v++)
-            {
-                Vector3 g = _meshBuffers.Vertices[v];
-                verts[v] = new Vector3(g.x * _cellSize, g.y * _cellSize, g.z * _cellSize);
-            }
+            _mesh.Clear(keepVertexLayout: false);
 
-            int[] tris = new int[iCount];
-            Array.Copy(_meshBuffers.Indices, tris, iCount);
+            // High-level Mesh API with NativeArray inputs — zero managed
+            // allocations on the host side. Reinterpret<Vector3>() is a
+            // zero-copy view of NativeArray<float3>; float3 and Vector3 are
+            // both 3-float structs.
+            var vertsAsVec3 = _meshBuffers.Vertices.Reinterpret<Vector3>();
+            _mesh.SetVertices(vertsAsVec3, 0, vCount);
+            _mesh.SetIndices(_meshBuffers.Indices.GetSubArray(0, iCount),
+                MeshTopology.Triangles, submesh: 0, calculateBounds: false);
 
-            _mesh.Clear();
-            _mesh.SetVertices(verts);
-            _mesh.SetIndices(tris, MeshTopology.Triangles, submesh: 0);
+            // Manual bounds — chunk occupies [0, side]³ in local space.
+            float side = _chunkSizeCells * _cellSize;
+            _mesh.bounds = new Bounds(new Vector3(side * 0.5f, side * 0.5f, side * 0.5f),
+                                      new Vector3(side, side, side));
+
+            // Required for URP/Lit shading. Phase 4 may inline normals
+            // computation into the meshing job; for Phase 1c we accept
+            // RecalculateNormals' O(triangles) cost.
             _mesh.RecalculateNormals();
-            _mesh.RecalculateBounds();
 
-            // Force the MeshCollider to re-cook by null-then-reassigning.
+            // MeshCollider re-cook is synchronous in Phase 1c. Phase 2 moves
+            // to Physics.BakeMesh on a worker.
             _meshCollider.sharedMesh = null;
             _meshCollider.sharedMesh = _mesh;
         }

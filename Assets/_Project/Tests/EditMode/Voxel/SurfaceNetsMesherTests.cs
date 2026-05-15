@@ -1,32 +1,64 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using Robogame.Voxel;
+using Unity.Collections;
 using UnityEngine;
 
 namespace Robogame.Tests.EditMode.Voxel
 {
     /// <summary>
     /// Correctness pinning for the Naive Surface Nets implementation.
-    /// Phase 1c will port to Burst; these tests are the contract that
-    /// the Burst version must continue to satisfy. WHY each test exists
-    /// is documented inline — they each cover a class of bug the
-    /// algorithm is naturally prone to.
+    /// Phase 1a shipped the managed C# version; Phase 1c ported to Burst.
+    /// These tests are the contract both versions must satisfy — running
+    /// them against the Burst version proves the port preserves behavior.
+    /// WHY each test exists is documented inline.
     /// </summary>
+    /// <remarks>
+    /// Disposal: tests can't use <c>using var sdf = new NativeArray&lt;sbyte&gt;(...)</c>
+    /// because C# 8 treats <c>using</c> variables as readonly, blocking
+    /// the indexer setter. We track allocations in fields and dispose in
+    /// <c>[TearDown]</c> instead — runs whether the test passes or fails,
+    /// no leaked NativeContainers between tests.
+    /// </remarks>
     public sealed class SurfaceNetsMesherTests
     {
+        private readonly List<NativeArray<sbyte>> _sdfs = new();
+        private readonly List<SurfaceNetsMesher.Buffers> _buffers = new();
+
+        [TearDown]
+        public void TearDown()
+        {
+            foreach (var s in _sdfs) if (s.IsCreated) s.Dispose();
+            foreach (var b in _buffers) if (b.IsCreated) b.Dispose();
+            _sdfs.Clear();
+            _buffers.Clear();
+        }
+
+        private NativeArray<sbyte> AllocSdf(int dim)
+        {
+            var arr = new NativeArray<sbyte>(dim * dim * dim, Allocator.TempJob);
+            _sdfs.Add(arr);
+            return arr;
+        }
+
+        private SurfaceNetsMesher.Buffers AllocBuffers(int dim)
+        {
+            var buf = SurfaceNetsMesher.Allocate(dim, Allocator.TempJob);
+            _buffers.Add(buf);
+            return buf;
+        }
+
         // ------------------------------------------------------------------
         // Degenerate cases — chunks with no surface should emit nothing.
-        // A regression here means the mesher is fabricating geometry from
-        // uniform input, which is a hard fail at the apron boundary in
-        // Phase 2.
         // ------------------------------------------------------------------
 
         [Test]
         public void Mesh_AllInterior_ProducesNoGeometry()
         {
             const int dim = 8;
-            sbyte[] sdf = new sbyte[dim * dim * dim];
+            var sdf = AllocSdf(dim);
             for (int i = 0; i < sdf.Length; i++) sdf[i] = -100;
-            SurfaceNetsMesher.Buffers buffers = SurfaceNetsMesher.Allocate(dim);
+            var buffers = AllocBuffers(dim);
 
             SurfaceNetsMesher.Mesh(sdf, dim, buffers, out int vCount, out int iCount);
 
@@ -38,9 +70,9 @@ namespace Robogame.Tests.EditMode.Voxel
         public void Mesh_AllExterior_ProducesNoGeometry()
         {
             const int dim = 8;
-            sbyte[] sdf = new sbyte[dim * dim * dim];
+            var sdf = AllocSdf(dim);
             for (int i = 0; i < sdf.Length; i++) sdf[i] = 100;
-            SurfaceNetsMesher.Buffers buffers = SurfaceNetsMesher.Allocate(dim);
+            var buffers = AllocBuffers(dim);
 
             SurfaceNetsMesher.Mesh(sdf, dim, buffers, out int vCount, out int iCount);
 
@@ -49,56 +81,40 @@ namespace Robogame.Tests.EditMode.Voxel
         }
 
         // ------------------------------------------------------------------
-        // Half-space — pins active-cell count, vertex position, normal
-        // direction. A flat plane is the strongest constraint on the
-        // algorithm because the expected geometry is exactly predictable.
+        // Half-space pinning on all three axes.
         // ------------------------------------------------------------------
 
         [Test]
         public void Mesh_HalfSpaceAlongX_ProducesFlatPlaneAtMidpoint()
         {
             const int dim = 8;
-            const int splitSample = 4;   // solid: x ∈ [0,3], empty: x ∈ [4,7]
-            sbyte[] sdf = MakeHalfSpaceX(dim, splitSample);
-            SurfaceNetsMesher.Buffers buffers = SurfaceNetsMesher.Allocate(dim);
+            const int splitSample = 4;
+            var sdf = AllocSdf(dim);
+            FillHalfSpaceX(sdf, dim, splitSample);
+            var buffers = AllocBuffers(dim);
 
             SurfaceNetsMesher.Mesh(sdf, dim, buffers, out int vCount, out int iCount);
 
-            // Active cells: only the i=splitSample-1 column straddles the sign change.
-            // For dim=8, cellDim=7, so active cells = 7*7 = 49.
-            Assert.AreEqual(49, vCount, "Active cell count for a half-space along X should be (cellDim)² on a single column.");
-
-            // All vertices should lie on the plane x = splitSample - 0.5.
-            // The crossing on the X edge from sample 3 (sdf=-100) to sample 4 (sdf=+100)
-            // is at t = -100 / (-100 - 100) = 0.5, so x = 3 + 0.5 = 3.5.
+            Assert.AreEqual(49, vCount, "Active cell count for a half-space along X should be cellDim².");
             for (int v = 0; v < vCount; v++)
             {
                 Assert.AreEqual(splitSample - 0.5f, buffers.Vertices[v].x, 1e-4f,
-                    $"Vertex {v} on a perfect half-space should have x = {splitSample - 0.5f} (got {buffers.Vertices[v].x}).");
+                    $"Vertex {v} on a perfect half-space should have x = {splitSample - 0.5f}.");
             }
-
-            // Quad count: only X-edges straddling i=splitSample-1→splitSample are active,
-            // and only those with all 4 incident cells existing (j∈[1,dim-2], k∈[1,dim-2]).
-            // That's 6×6 = 36 quads × 2 triangles × 3 indices = 216 indices.
             Assert.AreEqual(216, iCount, "Expected 36 quads at the chunk-interior boundary.");
         }
 
         [Test]
         public void Mesh_HalfSpaceAlongX_NormalsPointTowardExterior()
         {
-            // The convention: sA<0 → sB≥0 means solid-to-empty along the edge,
-            // so the outward (front-face) normal points +X. Triangle winding
-            // (CCW from the outside in Unity's left-handed coords) is what
-            // the second-pass quad emission must produce.
             const int dim = 8;
-            sbyte[] sdf = MakeHalfSpaceX(dim, 4);
-            SurfaceNetsMesher.Buffers buffers = SurfaceNetsMesher.Allocate(dim);
+            var sdf = AllocSdf(dim);
+            FillHalfSpaceX(sdf, dim, 4);
+            var buffers = AllocBuffers(dim);
 
             SurfaceNetsMesher.Mesh(sdf, dim, buffers, out _, out int iCount);
             Assert.Greater(iCount, 0);
 
-            // Every triangle in the output should have a +X-pointing normal
-            // (cross-product with the standard winding interpretation).
             for (int t = 0; t < iCount; t += 3)
             {
                 Vector3 a = buffers.Vertices[buffers.Indices[t]];
@@ -106,23 +122,20 @@ namespace Robogame.Tests.EditMode.Voxel
                 Vector3 c = buffers.Vertices[buffers.Indices[t + 2]];
                 Vector3 n = Vector3.Cross(b - a, c - a).normalized;
                 Assert.Greater(n.x, 0.99f,
-                    $"Triangle {t/3} normal should point +X for a +X-facing half-space (got {n}).");
+                    $"Triangle {t / 3} normal should point +X for a +X-facing half-space (got {n}).");
             }
         }
 
         [Test]
         public void Mesh_HalfSpaceFlipped_NormalsPointOppositeWay()
         {
-            // Same surface, opposite sign convention. Pins the else-branch of
-            // the quad winding so we don't accidentally have both branches
-            // produce the same orientation.
             const int dim = 8;
-            sbyte[] sdf = new sbyte[dim * dim * dim];
+            var sdf = AllocSdf(dim);
             for (int z = 0; z < dim; z++)
             for (int y = 0; y < dim; y++)
             for (int x = 0; x < dim; x++)
-                sdf[z * dim * dim + y * dim + x] = (sbyte)(x < 4 ? 100 : -100);   // solid on +X side
-            SurfaceNetsMesher.Buffers buffers = SurfaceNetsMesher.Allocate(dim);
+                sdf[z * dim * dim + y * dim + x] = (sbyte)(x < 4 ? 100 : -100);
+            var buffers = AllocBuffers(dim);
 
             SurfaceNetsMesher.Mesh(sdf, dim, buffers, out _, out int iCount);
             Assert.Greater(iCount, 0);
@@ -133,23 +146,20 @@ namespace Robogame.Tests.EditMode.Voxel
                 Vector3 b = buffers.Vertices[buffers.Indices[t + 1]];
                 Vector3 c = buffers.Vertices[buffers.Indices[t + 2]];
                 Vector3 n = Vector3.Cross(b - a, c - a).normalized;
-                Assert.Less(n.x, -0.99f, $"Triangle {t/3} should face -X when solid is on +X.");
+                Assert.Less(n.x, -0.99f, $"Triangle {t / 3} should face -X when solid is on +X.");
             }
         }
 
         [Test]
         public void Mesh_HalfSpaceAlongY_ProducesFlatPlane()
         {
-            // Y-axis pinning — different code path (the Y-edge quad loop has
-            // a transposed winding to compensate for axis swap). This is the
-            // test that caught an earlier sign mistake in dev.
             const int dim = 8;
-            sbyte[] sdf = new sbyte[dim * dim * dim];
+            var sdf = AllocSdf(dim);
             for (int z = 0; z < dim; z++)
             for (int y = 0; y < dim; y++)
             for (int x = 0; x < dim; x++)
                 sdf[z * dim * dim + y * dim + x] = (sbyte)(y < 4 ? -100 : 100);
-            SurfaceNetsMesher.Buffers buffers = SurfaceNetsMesher.Allocate(dim);
+            var buffers = AllocBuffers(dim);
 
             SurfaceNetsMesher.Mesh(sdf, dim, buffers, out int vCount, out int iCount);
 
@@ -172,12 +182,12 @@ namespace Robogame.Tests.EditMode.Voxel
         public void Mesh_HalfSpaceAlongZ_ProducesFlatPlane()
         {
             const int dim = 8;
-            sbyte[] sdf = new sbyte[dim * dim * dim];
+            var sdf = AllocSdf(dim);
             for (int z = 0; z < dim; z++)
             for (int y = 0; y < dim; y++)
             for (int x = 0; x < dim; x++)
                 sdf[z * dim * dim + y * dim + x] = (sbyte)(z < 4 ? -100 : 100);
-            SurfaceNetsMesher.Buffers buffers = SurfaceNetsMesher.Allocate(dim);
+            var buffers = AllocBuffers(dim);
 
             SurfaceNetsMesher.Mesh(sdf, dim, buffers, out int vCount, out int iCount);
 
@@ -197,23 +207,17 @@ namespace Robogame.Tests.EditMode.Voxel
         }
 
         // ------------------------------------------------------------------
-        // Single negative corner — minimal active-cell topology. This is
-        // the smallest case that exercises Pass 1's vertex emission AND
-        // Pass 2's "incident cells don't all exist" guard.
+        // Single negative corner — minimal topology cases.
         // ------------------------------------------------------------------
 
         [Test]
         public void Mesh_SingleNegativeCornerAtChunkOrigin_EmitsOneVertexZeroTriangles()
         {
-            // Corner (0,0,0) negative — active cell is (0,0,0). The 3
-            // active edges all originate at sample (0,0,0); each is on
-            // the chunk boundary, so the 4 cells incident on each don't
-            // all exist (3 of them have negative cell-coords). Zero quads.
             const int dim = 4;
-            sbyte[] sdf = new sbyte[dim * dim * dim];
+            var sdf = AllocSdf(dim);
             for (int i = 0; i < sdf.Length; i++) sdf[i] = 100;
             sdf[0] = -100;
-            SurfaceNetsMesher.Buffers buffers = SurfaceNetsMesher.Allocate(dim);
+            var buffers = AllocBuffers(dim);
 
             SurfaceNetsMesher.Mesh(sdf, dim, buffers, out int vCount, out int iCount);
 
@@ -224,30 +228,22 @@ namespace Robogame.Tests.EditMode.Voxel
         [Test]
         public void Mesh_SingleNegativeCornerAtInteriorPoint_EmitsClosedSurface()
         {
-            // Corner (2,2,2) negative in a dim=5 grid. The 8 cells sharing
-            // this corner are all active (each has one negative corner).
-            // The 6 active edges fan out along ±X, ±Y, ±Z from (2,2,2),
-            // each with all 4 incident cells present → 6 quads.
             const int dim = 5;
-            sbyte[] sdf = new sbyte[dim * dim * dim];
+            var sdf = AllocSdf(dim);
             for (int i = 0; i < sdf.Length; i++) sdf[i] = 100;
             sdf[2 * dim * dim + 2 * dim + 2] = -100;
-            SurfaceNetsMesher.Buffers buffers = SurfaceNetsMesher.Allocate(dim);
+            var buffers = AllocBuffers(dim);
 
             SurfaceNetsMesher.Mesh(sdf, dim, buffers, out int vCount, out int iCount);
 
-            Assert.AreEqual(8, vCount, "The 8 cells sharing the negative corner are active.");
-            Assert.AreEqual(36, iCount, "6 active edges × 2 triangles × 3 indices = 36.");
-
+            Assert.AreEqual(8, vCount);
+            Assert.AreEqual(36, iCount);
             AssertSurfaceIsClosed(buffers.Indices, iCount,
                 "An isolated negative voxel must produce a watertight cube-topology mesh.");
         }
 
         // ------------------------------------------------------------------
-        // Sphere SDF — sanity on the smooth case the algorithm exists for.
-        // We don't pin exact triangle counts here (they depend on grid
-        // alignment with the sphere) but we DO pin a few invariants any
-        // valid Surface Nets output of a sphere must satisfy.
+        // Sphere SDF — closedness on a smooth iso-surface.
         // ------------------------------------------------------------------
 
         [Test]
@@ -257,35 +253,31 @@ namespace Robogame.Tests.EditMode.Voxel
             Vector3 centre = new Vector3(8f, 8f, 8f);
             const float radius = 5f;
 
-            sbyte[] sdf = new sbyte[dim * dim * dim];
+            var sdf = AllocSdf(dim);
             for (int z = 0; z < dim; z++)
             for (int y = 0; y < dim; y++)
             for (int x = 0; x < dim; x++)
             {
                 float d = Vector3.Distance(new Vector3(x, y, z), centre) - radius;
-                // Fixed-point scale of 64 units per cell-edge (1 unit ≈ 0.0156
-                // grid-cells); clamp into sbyte range.
                 int scaled = Mathf.RoundToInt(d * 64f);
                 if (scaled < -128) scaled = -128;
                 else if (scaled > 127) scaled = 127;
                 sdf[z * dim * dim + y * dim + x] = (sbyte)scaled;
             }
+            var buffers = AllocBuffers(dim);
 
-            SurfaceNetsMesher.Buffers buffers = SurfaceNetsMesher.Allocate(dim);
             SurfaceNetsMesher.Mesh(sdf, dim, buffers, out int vCount, out int iCount);
 
-            Assert.Greater(vCount, 0, "Sphere should produce vertices.");
-            Assert.Greater(iCount, 0, "Sphere should produce triangles.");
+            Assert.Greater(vCount, 0);
+            Assert.Greater(iCount, 0);
             Assert.AreEqual(0, iCount % 3, "Index count must be a multiple of 3.");
 
-            // Every vertex should be within ~1 cell of the target radius.
-            // Surface Nets snaps vertices to cell-grid resolution, so the
-            // tolerance is the cell size (1.0 in cell-grid units).
             for (int v = 0; v < vCount; v++)
             {
-                float r = Vector3.Distance(buffers.Vertices[v], centre);
+                Vector3 pos = buffers.Vertices[v];
+                float r = Vector3.Distance(pos, centre);
                 Assert.That(Mathf.Abs(r - radius), Is.LessThan(1f),
-                    $"Vertex {v} at {buffers.Vertices[v]} (radius {r}) deviates from target radius {radius} by more than one cell.");
+                    $"Vertex {v} at {pos} (radius {r}) deviates from target radius {radius} by more than one cell.");
             }
 
             AssertSurfaceIsClosed(buffers.Indices, iCount,
@@ -293,35 +285,31 @@ namespace Robogame.Tests.EditMode.Voxel
         }
 
         // ------------------------------------------------------------------
-        // Determinism — Phase 6 netcode requires that two clients meshing
-        // identical SDF input produce identical output (the brush-op
-        // commutativity argument depends on this, see TERRAFORMING_PLAN §2).
+        // Determinism + buffer reuse.
         // ------------------------------------------------------------------
 
         [Test]
         public void Mesh_DeterministicAcrossRuns()
         {
             const int dim = 12;
-            sbyte[] sdf = new sbyte[dim * dim * dim];
+            var sdf = AllocSdf(dim);
             for (int z = 0; z < dim; z++)
             for (int y = 0; y < dim; y++)
             for (int x = 0; x < dim; x++)
             {
-                // Wavy SDF, deterministic from coords. Mixes signs everywhere
-                // so the mesh is non-trivial.
                 float f = Mathf.Sin(x * 0.7f) + Mathf.Cos(y * 0.5f) + Mathf.Sin(z * 0.6f);
                 sdf[z * dim * dim + y * dim + x] = (sbyte)Mathf.Clamp(Mathf.RoundToInt(f * 32f), -128, 127);
             }
 
-            SurfaceNetsMesher.Buffers a = SurfaceNetsMesher.Allocate(dim);
-            SurfaceNetsMesher.Buffers b = SurfaceNetsMesher.Allocate(dim);
+            var a = AllocBuffers(dim);
+            var b = AllocBuffers(dim);
             SurfaceNetsMesher.Mesh(sdf, dim, a, out int vA, out int iA);
             SurfaceNetsMesher.Mesh(sdf, dim, b, out int vB, out int iB);
 
             Assert.AreEqual(vA, vB);
             Assert.AreEqual(iA, iB);
             for (int v = 0; v < vA; v++)
-                Assert.AreEqual(a.Vertices[v], b.Vertices[v], $"Vertex {v} drifted between runs.");
+                Assert.AreEqual((Vector3)a.Vertices[v], (Vector3)b.Vertices[v], $"Vertex {v} drifted between runs.");
             for (int i = 0; i < iA; i++)
                 Assert.AreEqual(a.Indices[i], b.Indices[i], $"Index {i} drifted between runs.");
         }
@@ -329,54 +317,71 @@ namespace Robogame.Tests.EditMode.Voxel
         [Test]
         public void Mesh_BufferReuse_ProducesSameOutputAsFreshAlloc()
         {
-            // Run the mesher twice with the same Buffers instance against
-            // two different SDFs, then re-run the second against a fresh
-            // Buffers. Outputs must match — the mesher is responsible for
-            // resetting CellToVertex sentinels on every call (Pass 1 does
-            // the reset loop). Otherwise stale entries from run 1 leak
-            // into run 2's quad-emission pass.
             const int dim = 6;
-            sbyte[] sdfA = MakeHalfSpaceX(dim, 3);
-            sbyte[] sdfB = MakeHalfSpaceX(dim, 4);
+            var sdfA = AllocSdf(dim);
+            FillHalfSpaceX(sdfA, dim, 3);
+            var sdfB = AllocSdf(dim);
+            FillHalfSpaceX(sdfB, dim, 4);
 
-            SurfaceNetsMesher.Buffers reused = SurfaceNetsMesher.Allocate(dim);
+            var reused = AllocBuffers(dim);
             SurfaceNetsMesher.Mesh(sdfA, dim, reused, out _, out _);
             SurfaceNetsMesher.Mesh(sdfB, dim, reused, out int vReused, out int iReused);
 
-            SurfaceNetsMesher.Buffers fresh = SurfaceNetsMesher.Allocate(dim);
+            var fresh = AllocBuffers(dim);
             SurfaceNetsMesher.Mesh(sdfB, dim, fresh, out int vFresh, out int iFresh);
 
             Assert.AreEqual(vFresh, vReused);
             Assert.AreEqual(iFresh, iReused);
             for (int v = 0; v < vFresh; v++)
-                Assert.AreEqual(fresh.Vertices[v], reused.Vertices[v]);
+                Assert.AreEqual((Vector3)fresh.Vertices[v], (Vector3)reused.Vertices[v]);
             for (int i = 0; i < iFresh; i++)
                 Assert.AreEqual(fresh.Indices[i], reused.Indices[i]);
+        }
+
+        // ------------------------------------------------------------------
+        // CellScale parameter — Phase 1c addition. Passing scale != 1 should
+        // multiply all output positions by that factor; with scale=1 the
+        // original cell-grid output is preserved.
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void Mesh_CellScale_ScalesVertexPositionsLinearly()
+        {
+            const int dim = 8;
+            var sdf = AllocSdf(dim);
+            FillHalfSpaceX(sdf, dim, 4);
+            var unscaled = AllocBuffers(dim);
+            var scaled   = AllocBuffers(dim);
+
+            SurfaceNetsMesher.Mesh(sdf, dim, unscaled, out int vU, out _, cellScale: 1.0f);
+            SurfaceNetsMesher.Mesh(sdf, dim, scaled,   out int vS, out _, cellScale: 0.5f);
+
+            Assert.AreEqual(vU, vS);
+            for (int v = 0; v < vU; v++)
+            {
+                Vector3 u = unscaled.Vertices[v];
+                Vector3 s = scaled.Vertices[v];
+                Assert.AreEqual(u.x * 0.5f, s.x, 1e-4f);
+                Assert.AreEqual(u.y * 0.5f, s.y, 1e-4f);
+                Assert.AreEqual(u.z * 0.5f, s.z, 1e-4f);
+            }
         }
 
         // ------------------------------------------------------------------
         // Helpers
         // ------------------------------------------------------------------
 
-        private static sbyte[] MakeHalfSpaceX(int dim, int splitSample)
+        private static void FillHalfSpaceX(NativeArray<sbyte> sdf, int dim, int splitSample)
         {
-            sbyte[] sdf = new sbyte[dim * dim * dim];
             for (int z = 0; z < dim; z++)
             for (int y = 0; y < dim; y++)
             for (int x = 0; x < dim; x++)
                 sdf[z * dim * dim + y * dim + x] = (sbyte)(x < splitSample ? -100 : 100);
-            return sdf;
         }
 
-        /// <summary>
-        /// A closed (watertight) triangle surface has every directed edge
-        /// shared with its reverse exactly once — i.e. for each edge (a→b)
-        /// in the mesh, there is exactly one matching (b→a) on an adjacent
-        /// triangle. Open boundary edges break this.
-        /// </summary>
-        private static void AssertSurfaceIsClosed(int[] indices, int indexCount, string failMessage)
+        private static void AssertSurfaceIsClosed(NativeArray<int> indices, int indexCount, string failMessage)
         {
-            var edgeCount = new System.Collections.Generic.Dictionary<long, int>();
+            var edgeCount = new Dictionary<long, int>();
             for (int t = 0; t < indexCount; t += 3)
             {
                 AddDirectedEdge(edgeCount, indices[t],     indices[t + 1]);
@@ -394,7 +399,7 @@ namespace Robogame.Tests.EditMode.Voxel
             }
         }
 
-        private static void AddDirectedEdge(System.Collections.Generic.Dictionary<long, int> map, int a, int b)
+        private static void AddDirectedEdge(Dictionary<long, int> map, int a, int b)
         {
             long key = ((long)a << 32) | (uint)b;
             map[key] = map.TryGetValue(key, out int n) ? n + 1 : 1;

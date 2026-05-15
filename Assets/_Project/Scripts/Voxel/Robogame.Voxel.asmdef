@@ -2,11 +2,14 @@
     "name": "Robogame.Voxel",
     "rootNamespace": "Robogame.Voxel",
     "references": [
-        "Robogame.Core"
+        "Robogame.Core",
+        "Unity.Burst",
+        "Unity.Collections",
+        "Unity.Mathematics"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
-    "allowUnsafeCode": false,
+    "allowUnsafeCode": true,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
