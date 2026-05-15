@@ -6,27 +6,27 @@ Run Window → Test Runner → EditMode → DumpAllPresets to refresh.
 ## Tank
 
 ```
-Blueprint 'Tank' (Ground, 19 cells)
+Blueprint 'Tank' (Ground, 25 cells)
 RotorsGenerateLift: False
-Bounds: x[-1..1] y[0..1] z[-2..3]
+Bounds: x[-2..2] y[0..1] z[-2..3]
 
 Layer y=1:
-      -1  0  1
-  3   .  .  . 
-  2   .  .  . 
-  1   .  .  . 
-  0   .  G  . 
- -1   .  .  . 
- -2   .  .  . 
+      -2 -1  0  1  2
+  3   .  .  .  .  . 
+  2   .  .  .  .  . 
+  1   .  .  .  .  . 
+  0   .  .  G  .  . 
+ -1   .  .  .  .  . 
+ -2   .  .  .  .  . 
 
 Layer y=0:
-      -1  0  1
-  3   S  #  S 
-  2   #  #  # 
-  1   #  #  # 
-  0   W  C  W 
- -1   #  #  # 
- -2   W  #  W 
+      -2 -1  0  1  2
+  3   S  #  #  #  S 
+  2   .  #  #  #  . 
+  1   .  #  #  #  . 
+  0   W  #  C  #  W 
+ -1   .  #  #  #  . 
+ -2   W  #  #  #  W 
 
 Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
 ```
@@ -36,78 +36,66 @@ Validation: OK
 ## Plane
 
 ```
-Blueprint 'Plane' (Plane, 28 cells)
+Blueprint 'Plane' (Plane, 19 cells)
 RotorsGenerateLift: False
-Bounds: x[-4..4] y[-1..2] z[-3..3]
+Bounds: x[-1..1] y[-2..2] z[-3..3]
 
 Layer y=2:
-      -4 -3 -2 -1  0  1  2  3  4
-  3   .  .  .  .  .  .  .  .  . 
-  2   .  .  .  .  .  .  .  .  . 
-  1   .  .  .  .  .  .  .  .  . 
-  0   .  .  .  .  .  .  .  .  . 
- -1   .  .  .  .  .  .  .  .  . 
- -2   .  .  .  .  .  .  .  .  . 
- -3   .  .  .  .  F  .  .  .  . 
+      -1  0  1
+  3   .  .  . 
+  2   .  .  . 
+  1   .  .  . 
+  0   .  .  . 
+ -1   .  .  . 
+ -2   .  F  . 
+ -3   .  .  . 
 
 Layer y=1:
-      -4 -3 -2 -1  0  1  2  3  4
-  3   .  .  .  .  G  .  .  .  . 
-  2   .  .  .  .  .  .  .  .  . 
-  1   .  .  .  .  .  .  .  .  . 
-  0   .  .  .  .  .  .  .  .  . 
- -1   .  .  .  .  .  .  .  .  . 
- -2   .  .  .  .  O  .  .  .  . 
- -3   .  .  .  .  #  .  .  .  . 
+      -1  0  1
+  3   .  G  . 
+  2   .  .  . 
+  1   .  .  . 
+  0   .  .  . 
+ -1   .  .  . 
+ -2   .  #  . 
+ -3   .  T  . 
 
 Layer y=0:
-      -4 -3 -2 -1  0  1  2  3  4
-  3   .  .  .  .  #  .  .  .  . 
-  2   .  .  .  .  #  .  .  .  . 
-  1   .  .  A  A  #  A  A  .  . 
-  0   A  A  A  A  C  A  A  A  A 
- -1   .  .  .  .  #  .  .  .  . 
- -2   .  .  .  .  #  .  .  .  . 
- -3   .  .  A  A  T  A  A  .  . 
+      -1  0  1
+  3   .  #  . 
+  2   .  #  . 
+  1   A  #  A 
+  0   A  C  A 
+ -1   .  #  . 
+ -2   A  #  A 
+ -3   .  #  . 
 
 Layer y=-1:
-      -4 -3 -2 -1  0  1  2  3  4
-  3   .  .  .  .  .  .  .  .  . 
-  2   .  .  .  .  .  .  .  .  . 
-  1   .  .  .  .  .  .  .  .  . 
-  0   .  .  .  .  .  .  .  .  . 
- -1   .  .  .  .  .  .  .  .  . 
- -2   .  .  .  .  .  .  .  .  . 
- -3   .  .  .  .  |  .  .  .  . 
-
-Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
-```
-
-Validation: OK
-
-## Buggy
-
-```
-Blueprint 'Buggy' (Ground, 10 cells)
-RotorsGenerateLift: False
-Bounds: x[-1..1] y[0..1] z[-1..1]
-
-Layer y=1:
       -1  0  1
+  3   .  .  . 
+  2   .  .  . 
   1   .  .  . 
-  0   .  G  . 
+  0   .  .  . 
  -1   .  .  . 
+ -2   .  |  . 
+ -3   .  .  . 
 
-Layer y=0:
+Layer y=-2:
       -1  0  1
-  1   S  #  S 
-  0   #  C  # 
- -1   W  #  W 
+  3   .  .  . 
+  2   .  .  . 
+  1   .  .  . 
+  0   .  .  . 
+ -1   .  .  . 
+ -2   .  h  . 
+ -3   .  .  . 
 
 Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
 ```
 
 Validation: OK
+
+## (missing: Assets/_Project/ScriptableObjects/Blueprints/Blueprint_DefaultBuggy.asset)
 
 ## Boat
 
@@ -154,49 +142,105 @@ Validation: OK
 ## Bomber
 
 ```
-Blueprint 'Bomber' (Plane, 26 cells)
+Blueprint 'Bomber' (Plane, 17 cells)
 RotorsGenerateLift: False
-Bounds: x[-4..4] y[-1..2] z[-3..3]
+Bounds: x[-1..1] y[-1..2] z[-3..3]
 
 Layer y=2:
-      -4 -3 -2 -1  0  1  2  3  4
-  3   .  .  .  .  .  .  .  .  . 
-  2   .  .  .  .  .  .  .  .  . 
-  1   .  .  .  .  .  .  .  .  . 
-  0   .  .  .  .  .  .  .  .  . 
- -1   .  .  .  .  .  .  .  .  . 
- -2   .  .  .  .  .  .  .  .  . 
- -3   .  .  .  .  F  .  .  .  . 
+      -1  0  1
+  3   .  .  . 
+  2   .  .  . 
+  1   .  .  . 
+  0   .  .  . 
+ -1   .  .  . 
+ -2   .  F  . 
+ -3   .  .  . 
 
 Layer y=1:
-      -4 -3 -2 -1  0  1  2  3  4
-  3   .  .  .  .  .  .  .  .  . 
-  2   .  .  .  .  .  .  .  .  . 
-  1   .  .  .  .  .  .  .  .  . 
-  0   .  .  .  .  .  .  .  .  . 
- -1   .  .  .  .  .  .  .  .  . 
- -2   .  .  .  .  .  .  .  .  . 
- -3   .  .  .  .  #  .  .  .  . 
+      -1  0  1
+  3   .  .  . 
+  2   .  .  . 
+  1   .  .  . 
+  0   .  .  . 
+ -1   .  .  . 
+ -2   .  #  . 
+ -3   .  T  . 
 
 Layer y=0:
-      -4 -3 -2 -1  0  1  2  3  4
-  3   .  .  .  .  #  .  .  .  . 
-  2   .  .  .  .  #  .  .  .  . 
-  1   .  .  A  A  #  A  A  .  . 
-  0   A  A  A  A  C  A  A  A  A 
- -1   .  .  .  .  #  .  .  .  . 
- -2   .  .  .  .  #  .  .  .  . 
- -3   .  .  A  A  T  A  A  .  . 
+      -1  0  1
+  3   .  #  . 
+  2   .  #  . 
+  1   A  #  A 
+  0   A  C  A 
+ -1   .  #  . 
+ -2   A  #  A 
+ -3   .  #  . 
 
 Layer y=-1:
-      -4 -3 -2 -1  0  1  2  3  4
-  3   .  .  .  .  .  .  .  .  . 
-  2   .  .  .  .  .  .  .  .  . 
-  1   .  .  .  .  .  .  .  .  . 
-  0   .  .  .  .  B  .  .  .  . 
- -1   .  .  .  .  .  .  .  .  . 
- -2   .  .  .  .  .  .  .  .  . 
- -3   .  .  .  .  .  .  .  .  . 
+      -1  0  1
+  3   .  .  . 
+  2   .  .  . 
+  1   .  .  . 
+  0   .  B  . 
+ -1   .  .  . 
+ -2   .  .  . 
+ -3   .  .  . 
+
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+```
+
+Validation: OK
+
+## Prop Plane
+
+```
+Blueprint 'Prop Plane' (Plane, 21 cells)
+RotorsGenerateLift: True
+Bounds: x[-1..1] y[-1..2] z[-2..5]
+
+Layer y=2:
+      -1  0  1
+  5   .  .  . 
+  4   .  .  . 
+  3   .  .  . 
+  2   .  .  . 
+  1   .  .  . 
+  0   .  .  . 
+ -1   .  .  . 
+ -2   .  F  . 
+
+Layer y=1:
+      -1  0  1
+  5   .  A  . 
+  4   .  .  . 
+  3   .  .  . 
+  2   .  .  . 
+  1   .  .  . 
+  0   .  G  . 
+ -1   .  .  . 
+ -2   .  #  . 
+
+Layer y=0:
+      -1  0  1
+  5   A  #  A 
+  4   .  O  . 
+  3   .  #  . 
+  2   .  #  . 
+  1   A  #  A 
+  0   A  C  A 
+ -1   .  #  . 
+ -2   A  #  A 
+
+Layer y=-1:
+      -1  0  1
+  5   .  A  . 
+  4   .  .  . 
+  3   .  .  . 
+  2   .  .  . 
+  1   .  .  . 
+  0   .  .  . 
+ -1   .  .  . 
+ -2   .  .  . 
 
 Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
 ```
@@ -206,7 +250,7 @@ Validation: OK
 ## Helicopter
 
 ```
-Blueprint 'Helicopter' (Ground, 39 cells)
+Blueprint 'Helicopter' (Ground, 38 cells)
 RotorsGenerateLift: True
 Bounds: x[-2..2] y[0..3] z[-5..3]
 
@@ -255,7 +299,7 @@ Layer y=0:
  -1   .  #  #  #  . 
  -2   .  .  #  .  . 
  -3   .  .  #  .  . 
- -4   .  .  #  O  . 
+ -4   .  .  #  .  . 
  -5   .  .  #  .  . 
 
 Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
@@ -334,9 +378,13 @@ Validation: OK
 ## Stress Rotor Tower
 
 ```
-Blueprint 'Stress Rotor Tower' (Ground, 10 cells)
-RotorsGenerateLift: False
-Bounds: x[0..0] y[0..9] z[0..0]
+Blueprint 'Stress Rotor Tower' (Ground, 11 cells)
+RotorsGenerateLift: True
+Bounds: x[0..0] y[0..10] z[0..0]
+
+Layer y=10:
+       0
+  0   # 
 
 Layer y=9:
        0
@@ -383,66 +431,122 @@ Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  R=R
 
 Validation: OK
 
-## Barbell Dummy
+## Stress Rope Tower
 
 ```
-Blueprint 'Barbell Dummy' (Ground, 63 cells)
-RotorsGenerateLift: False
-Bounds: x[-1..1] y[-1..1] z[-7..7]
+Blueprint 'Stress Rope Tower' (Ground, 31 cells)
+RotorsGenerateLift: True
+Bounds: x[-1..1] y[0..10] z[-1..1]
+
+Layer y=10:
+      -1  0  1
+  1   .  |  . 
+  0   |  #  | 
+ -1   .  |  . 
+
+Layer y=9:
+      -1  0  1
+  1   .  .  . 
+  0   .  O  . 
+ -1   .  .  . 
+
+Layer y=8:
+      -1  0  1
+  1   .  |  . 
+  0   |  #  | 
+ -1   .  |  . 
+
+Layer y=7:
+      -1  0  1
+  1   .  .  . 
+  0   .  O  . 
+ -1   .  .  . 
+
+Layer y=6:
+      -1  0  1
+  1   .  |  . 
+  0   |  #  | 
+ -1   .  |  . 
+
+Layer y=5:
+      -1  0  1
+  1   .  .  . 
+  0   .  O  . 
+ -1   .  .  . 
+
+Layer y=4:
+      -1  0  1
+  1   .  |  . 
+  0   |  #  | 
+ -1   .  |  . 
+
+Layer y=3:
+      -1  0  1
+  1   .  .  . 
+  0   .  O  . 
+ -1   .  .  . 
+
+Layer y=2:
+      -1  0  1
+  1   .  |  . 
+  0   |  #  | 
+ -1   .  |  . 
 
 Layer y=1:
       -1  0  1
-  7   #  #  # 
-  6   #  #  # 
-  5   #  #  # 
-  4   .  .  . 
-  3   .  .  . 
-  2   .  .  . 
   1   .  .  . 
-  0   .  .  . 
+  0   .  O  . 
  -1   .  .  . 
- -2   .  .  . 
- -3   .  .  . 
- -4   .  .  . 
- -5   #  #  # 
- -6   #  #  # 
- -7   #  #  # 
 
 Layer y=0:
       -1  0  1
-  7   #  #  # 
-  6   #  #  # 
-  5   #  #  # 
-  4   .  #  . 
-  3   .  #  . 
-  2   .  #  . 
-  1   .  #  . 
-  0   .  C  . 
- -1   .  #  . 
- -2   .  #  . 
- -3   .  #  . 
- -4   .  #  . 
- -5   #  #  # 
- -6   #  #  # 
- -7   #  #  # 
-
-Layer y=-1:
-      -1  0  1
-  7   #  #  # 
-  6   #  #  # 
-  5   #  #  # 
-  4   .  .  . 
-  3   .  .  . 
-  2   .  .  . 
   1   .  .  . 
-  0   .  .  . 
+  0   .  C  . 
  -1   .  .  . 
- -2   .  .  . 
- -3   .  .  . 
- -4   .  .  . 
- -5   #  #  # 
- -6   #  #  # 
- -7   #  #  # 
+
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+```
+
+Validation: OK
+
+## Arch Dummy
+
+```
+Blueprint 'Arch Dummy' (Ground, 19 cells)
+RotorsGenerateLift: False
+Bounds: x[-2..2] y[0..7] z[0..0]
+
+Layer y=7:
+      -2 -1  0  1  2
+  0   #  #  C  #  # 
+
+Layer y=6:
+      -2 -1  0  1  2
+  0   #  .  .  .  # 
+
+Layer y=5:
+      -2 -1  0  1  2
+  0   #  .  .  .  # 
+
+Layer y=4:
+      -2 -1  0  1  2
+  0   #  .  .  .  # 
+
+Layer y=3:
+      -2 -1  0  1  2
+  0   #  .  .  .  # 
+
+Layer y=2:
+      -2 -1  0  1  2
+  0   #  .  .  .  # 
+
+Layer y=1:
+      -2 -1  0  1  2
+  0   #  .  .  .  # 
+
+Layer y=0:
+      -2 -1  0  1  2
+  0   #  .  .  .  # 
 
 Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
 ```

@@ -22,6 +22,7 @@ Eventual goal: ship to Steam. Current state: singleplayer with garage + arenas (
 - **[docs/AUDIO_PLAN.md](docs/AUDIO_PLAN.md)** — audio plumbing rules; read before authoring sound clips or touching `AudioRouter`.
 - **[docs/ART_DIRECTION.md](docs/ART_DIRECTION.md)** — palette, art rules, imported assets.
 - **[docs/SPHERICAL_ARENAS.md](docs/SPHERICAL_ARENAS.md)** — planet-arena physics and gravity model.
+- **[docs/TERRAFORMING_PLAN.md](docs/TERRAFORMING_PLAN.md)** — smooth-voxel dig-only terrain. Read before any work on destructible terrain, drill blocks, bomb-crater behaviour, or underground POIs. § 2 (dig-only invariant) and § 7 (triangle budget) are the load-bearing constraints.
 - **[docs/ROBOCRAFT_REFERENCE.md](docs/ROBOCRAFT_REFERENCE.md)** — design research baseline.
 - **[docs/GAME_DESIGN_PILLARS.md](docs/GAME_DESIGN_PILLARS.md)** — committed design directions and open questions.
 
