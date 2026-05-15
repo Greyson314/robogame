@@ -28,6 +28,12 @@ namespace Robogame.Core
 
         /// <summary>True when <paramref name="worldPosition"/> is inside the zone's authored bounds.</summary>
         bool ContainsPoint(Vector3 worldPosition);
+
+        /// <summary>
+        /// Apply a brush op to the zone (max-fold per TERRAFORMING_PLAN
+        /// §2). Returns the number of SDF cells whose value changed.
+        /// </summary>
+        int ApplyBrush(BrushOp op);
     }
 
     /// <summary>

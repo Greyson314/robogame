@@ -7,6 +7,7 @@
         "Robogame.Input",
         "Robogame.Movement",
         "Robogame.Robots",
+        "Robogame.Voxel",
         "Unity.InputSystem"
     ],
     "includePlatforms": [],

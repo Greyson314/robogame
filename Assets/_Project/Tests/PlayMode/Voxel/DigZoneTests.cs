@@ -468,6 +468,53 @@ namespace Robogame.Tests.PlayMode.Voxel
             Object.DestroyImmediate(drillGo);
         }
 
+        // ------------------------------------------------------------------
+        // Phase 3c — bomb crater integration via TerrainCratering.
+        // OnBombDetonation looks up the DigZone at the world point and
+        // emits a SphereSubtract. Outside any zone, it's a no-op.
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void TerrainCratering_BombInsideZone_CarvesSphereCrater()
+        {
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+
+            // Detonate inside the lower (solid) half of the half-space.
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            Vector3 detonationPoint = new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f);
+
+            // Pre-condition: cell at detonation point is interior.
+            int dim = chunk.Dim;
+            int dimSq = dim * dim;
+            int cx = Mathf.RoundToInt(detonationPoint.x / zone.CellSize);
+            int cy = Mathf.RoundToInt(detonationPoint.y / zone.CellSize);
+            int cz = Mathf.RoundToInt(detonationPoint.z / zone.CellSize);
+            int testIdx = cz * dimSq + cy * dim + cx;
+            Assume.That(chunk.Sdf[testIdx], Is.LessThan(0));
+
+            int changed = TerrainCratering.OnBombDetonation(detonationPoint, radiusMeters: 2.0f);
+            Assert.Greater(changed, 0, "Bomb inside a dig zone must mutate SDF cells.");
+            Assert.GreaterOrEqual(chunk.Sdf[testIdx], 0,
+                "Cell at detonation point should be carved exterior by the SphereSubtract.");
+        }
+
+        [Test]
+        public void TerrainCratering_BombOutsideAnyZone_IsNoOp()
+        {
+            // No zone registered → no crater.
+            int changed = TerrainCratering.OnBombDetonation(new Vector3(1000f, 1000f, 1000f), radiusMeters: 2.0f);
+            Assert.AreEqual(0, changed);
+        }
+
+        [Test]
+        public void TerrainCratering_BombInsideZoneButZeroRadius_IsNoOp()
+        {
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            int changed = TerrainCratering.OnBombDetonation(zone.WorldBounds.center, radiusMeters: 0f);
+            Assert.AreEqual(0, changed);
+        }
+
         [Test]
         public void ChunkCount_MatchesGridSize()
         {

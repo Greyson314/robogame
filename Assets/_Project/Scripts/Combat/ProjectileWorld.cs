@@ -441,6 +441,9 @@ namespace Robogame.Combat
                     float shockScale = Mathf.Clamp(spec.SplashRadius * 0.5f, 0.6f, 3.0f);
                     VfxSpawner.Spawn(VfxKind.BombShockwave, pos, Quaternion.identity, shockScale);
                     AudioRouter.PlayOneShot(impactCue, pos);
+                    // Phase 3c: if the bomb detonated inside a dig zone,
+                    // emit a SphereSubtract crater. No-op outside any zone.
+                    Voxel.TerrainCratering.OnBombDetonation(pos, spec.SplashRadius);
                     break;
             }
         }
