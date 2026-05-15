@@ -62,6 +62,13 @@ namespace Robogame.Voxel
         private Material _perimeterMaterial;
 
         private DigChunk[] _chunks;
+        // Phase 5: coarse occupancy grid for AI pathfinding. Rebuilt
+        // per-chunk after each remesh.
+        private OccupancyGrid _occupancyGrid;
+
+        /// <summary>Coarse AI-navigation grid covering the zone. Null
+        /// until <see cref="EnsureInitialised"/> runs.</summary>
+        public OccupancyGrid OccupancyGrid => _occupancyGrid;
 
         public float CellSize
         {
@@ -229,6 +236,18 @@ namespace Robogame.Voxel
             {
                 InitializeHalfSpace();
             }
+
+            // Phase 5: occupancy grid covering the entire zone. The grid
+            // is allocated empty here; RebuildAllMeshes (below) populates
+            // it from each chunk's SDF.
+            int occPerChunk = _chunkSizeCells / OccupancyGrid.VoxelCellsPerOccupancyCell;
+            _occupancyGrid = new OccupancyGrid(
+                worldOrigin: transform.position,
+                sizeX: nx * occPerChunk,
+                sizeY: ny * occPerChunk,
+                sizeZ: nz * occPerChunk,
+                voxelCellSize: _cellSize);
+
             RebuildAllMeshes();
             BuildPerimeter();
         }
@@ -438,7 +457,8 @@ namespace Robogame.Voxel
         /// Rebuild aprons for every chunk and remesh every chunk. Phase 2b
         /// uses this whenever any chunk's SDF changes; Phase 2c will add
         /// proper dirty-set propagation so only the affected chunks +
-        /// their -face neighbours rebuild.
+        /// their -face neighbours rebuild. Phase 5 also rebuilds the
+        /// occupancy slice for each chunk.
         /// </summary>
         public void RebuildAllMeshes()
         {
@@ -447,6 +467,12 @@ namespace Robogame.Voxel
             {
                 BuildApronFor(_chunks[i]);
                 _chunks[i].RemeshNow();
+                if (_occupancyGrid != null)
+                {
+                    _occupancyGrid.BuildFromChunkSdf(
+                        _chunks[i].ChunkCoord, _chunkSizeCells,
+                        _chunks[i].Sdf, _chunks[i].Dim);
+                }
             }
         }
 
