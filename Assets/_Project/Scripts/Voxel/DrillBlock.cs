@@ -66,10 +66,11 @@ namespace Robogame.Voxel
                  "direction — that's the 'worm through terrain' feel: look up, the bit bites, the " +
                  "body gets dragged up after it. Only applies while biting solid voxels, never " +
                  "while drilling air, so it can't double as a free thruster. 0 disables the pull. " +
-                 "Sized so vertical digs overcome chassis weight + wheel friction + the ~30 Hz " +
-                 "emit duty cycle. This is the CEILING on the servo (see _digTargetSpeed) — the " +
-                 "pull tapers below this as the bot approaches the target dig speed, so it no " +
-                 "longer accelerates without bound.")]
+                 "This is the CEILING on the servo (see _digTargetSpeed) — the pull tapers below " +
+                 "this as the bot approaches the target dig speed, so it never accelerates without " +
+                 "bound. Weight opposing the aim is cancelled separately (full gravity comp), so " +
+                 "this only has to provide the slow crawl + beat wheel friction, not lift the " +
+                 "chassis's whole weight.")]
         [SerializeField, Min(0f)] private float _digPullForce = 1500f;
 
         [Tooltip("Target speed (m/s) the dig-pull servos the chassis toward along the aim " +
@@ -100,6 +101,16 @@ namespace Robogame.Voxel
         [SerializeField] private Camera _aimCamera;
 
         private float _lastEmitTime = float.NegativeInfinity;
+        // Dig-pull is applied every FixedUpdate while a recent carve is
+        // still "live", NOT only on the ~30 Hz emit tick. Decoupling the
+        // pull from the emit rate is load-bearing: gravity acts every
+        // physics step (50 Hz), so applying the pull at 30 Hz attenuated
+        // the average force ~40 % and the servo (whose math assumes
+        // per-step application) could no longer out-muscle gravity to
+        // climb. Drill() refreshes _pullActiveUntil + _pullAimDir on each
+        // carving emit; FixedUpdate applies the servo until it lapses.
+        private float _pullActiveUntil = float.NegativeInfinity;
+        private Vector3 _pullAimDir = Vector3.up;
         // Player input gate — drilling is held-fire continuous (mirrors the
         // BombBay / Cannon / ProjectileGun input pattern). The contact and
         // FixedUpdate auto-poll paths both check this; the public Drill(zone)
@@ -292,40 +303,16 @@ namespace Robogame.Voxel
                 Vector3 vfxAnchor = (p0 + p1) * 0.5f;
                 VfxSpawner.Spawn(VfxKind.DebrisDust, vfxAnchor, Quaternion.identity, scale: 0.5f);
 
-                // Dig-pull: drag the chassis after the bit so the player
-                // can worm through terrain. Applied at the drill cell
-                // (off-COM for a front mount) so it both translates the
-                // body toward the dig direction AND rotates the nose to
-                // follow — the "angular pull" feel. Gated on changed>0 so
-                // it only fires while biting solid voxels, never while
+                // Arm the dig-pull. The force itself is applied every
+                // FixedUpdate (see ApplyDigPull) while this stays live —
+                // not here, so the servo runs at the physics rate rather
+                // than the throttled ~30 Hz emit rate. Kept alive a touch
+                // past the next expected emit so a missed/throttled tick
+                // doesn't briefly drop the pull. Gated on changed>0 so it
+                // only arms while biting solid voxels, never while
                 // drilling air (no free-flight exploit).
-                //
-                // One-sided velocity servo, not a flat force: a constant
-                // force accelerates without bound, so the longer you dig
-                // the faster you go. Instead, push only enough to reach
-                // _digTargetSpeed along the aim axis, capped at
-                // _digPullForce. Never negative (we never brake), so a
-                // chassis already driving fast on wheels along the aim
-                // axis gets zero extra dig push — digging stays a slow,
-                // deliberate crawl while driving is untouched. Vertical
-                // digs hold a steady speed because the servo keeps
-                // exactly enough force on to balance gravity at the cap.
-                Rigidbody body = ChassisBody;
-                if (body != null && _digPullForce > 0f && !body.isKinematic)
-                {
-                    float vAlong = Vector3.Dot(body.linearVelocity, aimDir);
-                    float deficit = _digTargetSpeed - vAlong;
-                    if (deficit > 0f)
-                    {
-                        // Force that would close the speed deficit in one
-                        // physics step, clamped to the configured ceiling.
-                        float dt = Mathf.Max(Time.fixedDeltaTime, 1e-4f);
-                        float wanted = deficit * body.mass / dt;
-                        float force = Mathf.Min(_digPullForce, wanted);
-                        body.AddForceAtPosition(
-                            aimDir * force, transform.position, ForceMode.Force);
-                    }
-                }
+                _pullAimDir = aimDir;
+                _pullActiveUntil = Time.time + _emitInterval * 1.5f;
             }
             return changed;
         }
@@ -350,10 +337,71 @@ namespace Robogame.Voxel
             // registered DigZone's volume, emit a brush. Brushes on
             // already-exterior cells are no-ops (max-fold idempotent),
             // so this only costs work where it actually carves.
-            if (!IsFireHeld) return;
-            if (Time.time - _lastEmitTime < _emitInterval) return;
-            IDigZone zone = DigField.ZoneAt(transform.position);
-            if (zone is DigZone concrete) Drill(concrete);
+            if (IsFireHeld && Time.time - _lastEmitTime >= _emitInterval)
+            {
+                IDigZone zone = DigField.ZoneAt(transform.position);
+                if (zone is DigZone concrete) Drill(concrete);
+            }
+
+            // Dig-pull, applied every physics step while a recent carve
+            // is still live (armed by Drill on changed>0). Runs at the
+            // physics rate — independent of the throttled emit — so the
+            // servo can deliver sustained force against gravity.
+            if (Time.time <= _pullActiveUntil)
+            {
+                Rigidbody body = ChassisBody;
+                if (body != null && !body.isKinematic && _digPullForce > 0f)
+                    ApplyDigPull(body, _pullAimDir);
+            }
+        }
+
+        /// <summary>
+        /// One physics-step of the dig-pull: cancel the slice of gravity
+        /// opposing the aim (so an upward dig doesn't sag), then a one-
+        /// sided velocity servo toward <see cref="_digTargetSpeed"/> along
+        /// the aim axis, capped at <see cref="_digPullForce"/>.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Gravity compensation.</b> The servo alone can't reliably
+        /// climb: in steady state it only requests enough force to fix
+        /// the small recent speed deficit, which is far less than the
+        /// chassis weight, so a vertical dig nets ~zero. Cancelling the
+        /// weight component opposing the aim (only when it opposes — a
+        /// downward dig keeps gravity's help) lets the servo provide just
+        /// the slow crawl regardless of orientation. Applied at the COM
+        /// (plain <see cref="Rigidbody.AddForce"/>) so it adds no torque;
+        /// the propulsion stays at the drill cell for the angular feel.
+        /// </para>
+        /// <para>
+        /// <b>Servo.</b> Force that would close the speed deficit in one
+        /// physics step, clamped to the ceiling, never negative — so a
+        /// chassis already moving faster than target along the aim (e.g.
+        /// wheel-driving) gets zero extra dig push. Digging stays a slow,
+        /// deliberate crawl; driving is never braked.
+        /// </para>
+        /// </remarks>
+        private void ApplyDigPull(Rigidbody body, Vector3 aimDir)
+        {
+            // Gravity comp — only the part of weight opposing the aim,
+            // and only if the body is actually under gravity.
+            if (body.useGravity)
+            {
+                Vector3 weight = Physics.gravity * body.mass;     // points down
+                float weightAlongAim = Vector3.Dot(weight, aimDir);
+                if (weightAlongAim < 0f)                          // aim has an upward component
+                    body.AddForce(-aimDir * weightAlongAim, ForceMode.Force);
+            }
+
+            float vAlong = Vector3.Dot(body.linearVelocity, aimDir);
+            float deficit = _digTargetSpeed - vAlong;
+            if (deficit > 0f)
+            {
+                float dt = Mathf.Max(Time.fixedDeltaTime, 1e-4f);
+                float wanted = deficit * body.mass / dt;
+                float force = Mathf.Min(_digPullForce, wanted);
+                body.AddForceAtPosition(aimDir * force, transform.position, ForceMode.Force);
+            }
         }
 
         /// <summary>

@@ -968,6 +968,48 @@ namespace Robogame.Tests.PlayMode.Voxel
                 "A flat unbounded force would be far higher after 30 cycles.");
         }
 
+        [UnityTest]
+        public IEnumerator DrillBlock_DigUp_ClimbsAgainstGravity()
+        {
+            // Regression: with gravity ON, drilling straight up must
+            // actually gain altitude. The pre-fix servo only requested
+            // enough force to fix the small recent speed deficit — far
+            // less than chassis weight — so a vertical dig netted ~zero.
+            // Gravity comp (cancel the weight slice opposing the aim) +
+            // per-physics-step application must produce real upward
+            // progress against a gravity-subject body.
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            Vector3 startPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.3f, chunkSide * 0.5f);
+
+            var chassis = new GameObject("ClimbChassis");
+            chassis.transform.position = startPos;
+            var rb = chassis.AddComponent<Rigidbody>();
+            rb.useGravity = true;             // the whole point — must beat gravity
+            rb.mass = 15f;                    // realistic light DrillBot mass
+            rb.linearVelocity = Vector3.zero;
+            _ancillaryGameObjects.Add(chassis);
+
+            var drillGo = new GameObject("Drill");
+            drillGo.transform.SetParent(chassis.transform, worldPositionStays: false);
+            drillGo.transform.position = startPos;
+            var drill = drillGo.AddComponent<DrillBlock>();
+
+            float startY = chassis.transform.position.y;
+
+            for (int i = 0; i < 25; i++)
+            {
+                zone.InitializeHalfSpace();   // keep solid under the bit so it carves
+                drill.Drill(zone);
+                yield return new WaitForFixedUpdate();
+            }
+
+            float climbed = chassis.transform.position.y - startY;
+            Assert.Greater(climbed, 0.2f,
+                $"Drilling up must gain altitude against gravity; climbed only {climbed:F3} m. " +
+                "Gravity comp + per-step servo application is the load-bearing fix here.");
+        }
+
         // ------------------------------------------------------------------
         // Phase 5 visual-playtest gate: VoxelChaserBot uses the
         // OccupancyGrid to chase a target via A*. These tests cover the
