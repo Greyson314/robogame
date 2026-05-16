@@ -43,11 +43,17 @@ namespace Robogame.Voxel
                  "width; a true anisotropic-brush kind is a future ask (see handoff).")]
         [SerializeField, Min(0.05f)] private float _radius = 3.0f;
 
-        [Tooltip("How far past the cell center the brush emits, in metres, along the drill's mount-up. " +
-                 "A cell-mounted drill on a wheeled chassis floats above the terrain — without this offset " +
-                 "the brush only nicks the surface and idempotency kills repeat carving. 0.6m projects the " +
-                 "brush ahead/below into uncarved material so each tick advances the tunnel.")]
+        [Tooltip("How far past the cell center the audio/VFX anchor sits, in metres, along the aim direction. " +
+                 "Cosmetic only — gives the per-strike DrillContact cue and DebrisDust VFX a sensible " +
+                 "position near the drill bit. The brush itself extends much further (see _brushReach).")]
         [SerializeField, Min(0f)] private float _tipForwardOffset = 0.6f;
+
+        [Tooltip("Axial length of the brush capsule along the aim direction, in metres. The capsule's " +
+                 "p0 is the drill cell, p1 is the drill cell + aim * _brushReach. Must be ≥ _radius for " +
+                 "aim direction to feel directional — at _brushReach < _radius the capsule is dominated " +
+                 "by its hemisphere caps and aim barely shifts the carve volume. Default 4m with " +
+                 "_radius = 3m gives a noticeable ~10m elongated capsule along the aim direction.")]
+        [SerializeField, Min(0.1f)] private float _brushReach = 4.0f;
 
         [Tooltip("Minimum seconds between emitted brush ops. 0.033 ≈ 30 Hz, matching the design's drill tick rate.")]
         [SerializeField, Min(0.005f)] private float _emitInterval = 0.033f;
@@ -61,7 +67,7 @@ namespace Robogame.Voxel
         [SerializeField, Range(0f, 90f)] private float _maxAimAngle = 50f;
 
         [Tooltip("World-space length of the cone visual extending past the drill cell. " +
-                 "Cosmetic; brush emission distance is _tipForwardOffset.")]
+                 "Cosmetic; brush emission length along aim is _brushReach.")]
         [SerializeField, Min(0.05f)] private float _coneVisualLength = 1.0f;
 
         [Tooltip("World-space base radius of the cone visual. Cosmetic only.")]
@@ -70,8 +76,6 @@ namespace Robogame.Voxel
         [Tooltip("Camera used as the aim source. Falls back to Camera.main if unassigned.")]
         [SerializeField] private Camera _aimCamera;
 
-        private Vector3 _lastTipPosWorld;
-        private bool _haveLastTipPos;
         private float _lastEmitTime = float.NegativeInfinity;
         // Player input gate — drilling is held-fire continuous (mirrors the
         // BombBay / Cannon / ProjectileGun input pattern). The contact and
@@ -88,9 +92,9 @@ namespace Robogame.Voxel
         // Cone visual + aim — see _maxAimAngle, _coneVisualLength,
         // _coneVisualRadius. The bit is a procedural cone child whose
         // localRotation is updated each LateUpdate from the aim camera's
-        // forward direction (clamped to the cone). TipWorldPosition uses
-        // the bit's local +Y in world space so the brush emits along
-        // the aimed direction, not the cell's static mount-up.
+        // forward direction (clamped to the cone). Drill() uses the
+        // bit's local +Y in world space to project the brush capsule
+        // along the aimed direction (not the cell's static mount-up).
         private Transform _bitTransform;
 
         private void Awake()
@@ -183,11 +187,15 @@ namespace Robogame.Voxel
         }
 
         /// <summary>
-        /// World-space point the brush emits from. The direction follows
-        /// the aimed cone bit's local +Y, which is the cell's mount-up
-        /// when no aim camera is present and the camera-clamped aim
-        /// direction otherwise (within <see cref="_maxAimAngle"/>°).
-        /// Distance is <see cref="_tipForwardOffset"/> metres.
+        /// World-space anchor for per-strike audio + a passable point of
+        /// reference for tests that exercise "tip projects past the cell
+        /// center along aim." The direction follows the aimed cone bit's
+        /// local +Y (camera-clamped within <see cref="_maxAimAngle"/>°,
+        /// or the cell's mount-up when no aim camera is present), and the
+        /// offset is <see cref="_tipForwardOffset"/> metres — small, just
+        /// enough to seat the audio source near the drill bit rather than
+        /// at the cell center. The brush itself extends much further; see
+        /// <see cref="Drill"/> and <see cref="_brushReach"/>.
         /// </summary>
         public Vector3 TipWorldPosition
         {
@@ -201,44 +209,59 @@ namespace Robogame.Voxel
         public float Radius => _radius;
 
         /// <summary>
-        /// Emit a single <see cref="BrushKind.CapsuleSubtract"/> spanning
-        /// the drill tip's motion from the previous tick to the current
-        /// position. Returns the number of SDF cells changed across all
-        /// chunks the brush touched.
+        /// Emit a single <see cref="BrushKind.CapsuleSubtract"/> running
+        /// from the drill cell along the aim direction by
+        /// <see cref="_brushReach"/> metres, with radius
+        /// <see cref="_radius"/>. Returns the number of SDF cells changed
+        /// across all chunks the brush touched.
         /// </summary>
         /// <remarks>
+        /// <para>
+        /// The capsule is constructed from the current aim direction each
+        /// emit — not a swept-motion capsule between previous and current
+        /// tip positions. The aim-direction capsule is what makes looking
+        /// up / down produce an angled tunnel rather than a sphere
+        /// shifted by the small <see cref="_tipForwardOffset"/>. At
+        /// 30 Hz emit rate and any plausible chassis speed, consecutive
+        /// emits overlap by more than 90 % of the brush volume, so
+        /// dropping the swept-motion safeguard costs nothing in practice.
+        /// </para>
+        /// <para>
         /// Called by <see cref="OnCollisionStay"/> in game; also exposed
         /// so PlayMode tests can drive synthetic drill cycles without a
         /// full physics simulation.
+        /// </para>
         /// </remarks>
         public int Drill(DigZone zone)
         {
             if (zone == null) return 0;
 
-            Vector3 currentTip = TipWorldPosition;
-            Vector3 prevTip = _haveLastTipPos ? _lastTipPosWorld : currentTip;
+            Vector3 aimDir = _bitTransform != null ? _bitTransform.up : transform.up;
+            Vector3 p0 = transform.position;
+            Vector3 p1 = transform.position + aimDir * _brushReach;
 
             BrushOp op = new BrushOp
             {
                 kind = BrushKind.CapsuleSubtract,
                 serverTick = 0,
-                p0 = Vector3Fixed.FromVector3(prevTip),
-                p1 = Vector3Fixed.FromVector3(currentTip),
+                p0 = Vector3Fixed.FromVector3(p0),
+                p1 = Vector3Fixed.FromVector3(p1),
                 radiusFixed = (ushort)Mathf.Clamp(
                     Mathf.RoundToInt(_radius * Vector3Fixed.UnitsPerMeter),
                     0, ushort.MaxValue),
             };
 
             int changed = zone.ApplyBrush(op);
-
-            _lastTipPosWorld = currentTip;
-            _haveLastTipPos = true;
             _lastEmitTime = Time.time;
 
             if (changed > 0)
             {
-                AudioRouter.PlayOneShot(AudioCue.DrillContact, currentTip);
-                VfxSpawner.Spawn(VfxKind.DebrisDust, currentTip, Quaternion.identity, scale: 0.5f);
+                AudioRouter.PlayOneShot(AudioCue.DrillContact, TipWorldPosition);
+                // Dust anchored at the capsule midpoint so the effect
+                // sits where actual carving happens, not at the drill bit
+                // 0.6 m from the cell.
+                Vector3 vfxAnchor = (p0 + p1) * 0.5f;
+                VfxSpawner.Spawn(VfxKind.DebrisDust, vfxAnchor, Quaternion.identity, scale: 0.5f);
             }
             return changed;
         }
@@ -313,11 +336,10 @@ namespace Robogame.Voxel
 
         private void LateUpdate()
         {
-            // Track tip position even when not in contact so the first
-            // contact's swept capsule covers the actual motion (not a
-            // teleport from the previous contact point).
-            _lastTipPosWorld = TipWorldPosition;
-            _haveLastTipPos = true;
+            // Each emit builds a fresh aim-direction capsule from the
+            // current cell position, so the prev-tip tracking the swept
+            // motion approach needed is no longer load-bearing — only
+            // aim-bit reorientation runs here.
             AimCone();
         }
 
