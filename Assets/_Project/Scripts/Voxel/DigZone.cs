@@ -93,6 +93,15 @@ namespace Robogame.Voxel
         // Phase 5: coarse occupancy grid for AI pathfinding. Rebuilt
         // per-chunk after each remesh.
         private OccupancyGrid _occupancyGrid;
+        // Phase 6: cumulative log of every brush op that actually
+        // mutated the SDF. Late-join replay sends this list to a
+        // connecting client; the client replays in any order
+        // (commutativity per TERRAFORMING_PLAN § 2). Ops that touched
+        // zero cells (e.g., a sphere brush that fell entirely outside
+        // every chunk's AABB, or applied to an already-exterior region)
+        // aren't logged — the log is "real changes only" so its size
+        // tracks gameplay impact, not call rate.
+        private readonly List<BrushOp> _opLog = new();
 
         /// <summary>Coarse AI-navigation grid covering the zone. Null
         /// until <see cref="EnsureInitialised"/> runs.</summary>
@@ -548,6 +557,11 @@ namespace Robogame.Voxel
         /// (2) if anything changed, rebuild apron + remesh every chunk.
         /// Returns the total number of cells whose SDF changed.
         /// </summary>
+        /// <remarks>
+        /// Phase 6: ops that actually mutated the SDF append to the
+        /// cumulative <see cref="OpLog"/>. Use <see cref="ReplayLog"/>
+        /// on a fresh zone to converge to the same SDF (commutativity).
+        /// </remarks>
         public int ApplyBrush(BrushOp op)
         {
             EnsureInitialised();
@@ -555,8 +569,32 @@ namespace Robogame.Voxel
             for (int i = 0; i < _chunks.Length; i++)
                 totalChanged += _chunks[i].ApplyBrushNoRemesh(op);
 
-            if (totalChanged > 0) RebuildAllMeshes();
+            if (totalChanged > 0)
+            {
+                _opLog.Add(op);
+                RebuildAllMeshes();
+            }
             return totalChanged;
+        }
+
+        /// <summary>
+        /// Cumulative log of brush ops that actually mutated the SDF.
+        /// Late-join replication sends this list to a connecting client.
+        /// </summary>
+        public IReadOnlyList<BrushOp> OpLog => _opLog;
+
+        /// <summary>
+        /// Apply every op in <paramref name="log"/> in order. Equivalent
+        /// to calling <see cref="ApplyBrush"/> per entry, except the log
+        /// is appended to (not duplicated): only ops that change cells
+        /// land in the new <see cref="OpLog"/>. Commutativity guarantees
+        /// the SDF converges to the same state for any ordering of the
+        /// same op set.
+        /// </summary>
+        public void ReplayLog(IReadOnlyList<BrushOp> log)
+        {
+            if (log == null) return;
+            for (int i = 0; i < log.Count; i++) ApplyBrush(log[i]);
         }
 
         /// <summary>

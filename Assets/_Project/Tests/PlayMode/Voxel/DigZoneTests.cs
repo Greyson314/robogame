@@ -918,6 +918,121 @@ namespace Robogame.Tests.PlayMode.Voxel
                 $"(before={distBefore:F3} after={distAfter:F3}).");
         }
 
+        // ------------------------------------------------------------------
+        // Phase 6 machine gate (commutativity): apply the same set of
+        // brush ops to two fresh zones in DIFFERENT random orders and
+        // assert their SDFs converge byte-identical. This is the
+        // load-bearing invariant from TERRAFORMING_PLAN § 2 — out-of-
+        // order delivery (the worst case for the netcode) doesn't
+        // desync clients.
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void DigZone_ApplyBrushesInDifferentOrders_SdfsConvergeIdentical()
+        {
+            // 50 random sphere brushes inside a single-chunk zone.
+            const int opCount = 50;
+            BrushOp[] ops = new BrushOp[opCount];
+            var rng = new System.Random(42);
+            for (int i = 0; i < opCount; i++)
+            {
+                Vector3 c = new Vector3(
+                    (float)rng.NextDouble() * 16f,
+                    (float)rng.NextDouble() * 16f,
+                    (float)rng.NextDouble() * 16f);
+                float r = 0.5f + (float)rng.NextDouble() * 2f;   // 0.5 – 2.5 m
+                ops[i] = MakeSphereBrushOp(c, r);
+            }
+
+            // Zone A — apply in original order.
+            DigZone zoneA = MakeZone(new Vector3Int(1, 1, 1));
+            for (int i = 0; i < opCount; i++) zoneA.ApplyBrush(ops[i]);
+            sbyte[] sdfA = SnapshotChunkSdf(zoneA.GetChunk(0, 0, 0));
+
+            // Tear down to free the test-rig's chunk GameObjects before
+            // creating zone B.
+            Object.DestroyImmediate(_go);
+            _go = null;
+            _zone = null;
+
+            // Zone B — apply in a SHUFFLED order. Same ops, different
+            // sequence.
+            BrushOp[] shuffled = (BrushOp[])ops.Clone();
+            for (int i = shuffled.Length - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                (shuffled[i], shuffled[j]) = (shuffled[j], shuffled[i]);
+            }
+            DigZone zoneB = MakeZone(new Vector3Int(1, 1, 1));
+            for (int i = 0; i < opCount; i++) zoneB.ApplyBrush(shuffled[i]);
+            sbyte[] sdfB = SnapshotChunkSdf(zoneB.GetChunk(0, 0, 0));
+
+            // Byte-identical.
+            Assert.AreEqual(sdfA.Length, sdfB.Length, "SDF size must match.");
+            int diffCount = 0;
+            for (int i = 0; i < sdfA.Length; i++) if (sdfA[i] != sdfB[i]) diffCount++;
+            Assert.AreEqual(0, diffCount,
+                $"Commutativity violated — {diffCount}/{sdfA.Length} SDF bytes differ between in-order " +
+                "and shuffled application of the same ops.");
+        }
+
+        [Test]
+        public void DigZone_ReplayLog_OnFreshZone_ConvergesToOriginal()
+        {
+            // Source zone: 20 random ops.
+            const int opCount = 20;
+            DigZone source = MakeZone(new Vector3Int(1, 1, 1));
+            var rng = new System.Random(123);
+            for (int i = 0; i < opCount; i++)
+            {
+                Vector3 c = new Vector3(
+                    (float)rng.NextDouble() * 16f,
+                    (float)rng.NextDouble() * 16f,
+                    (float)rng.NextDouble() * 16f);
+                source.ApplyBrush(MakeSphereBrushOp(c, 1.5f));
+            }
+            sbyte[] sourceSdf = SnapshotChunkSdf(source.GetChunk(0, 0, 0));
+            BrushOp[] log = new BrushOp[source.OpLog.Count];
+            for (int i = 0; i < log.Length; i++) log[i] = source.OpLog[i];
+
+            Object.DestroyImmediate(_go);
+            _go = null;
+            _zone = null;
+
+            // Replay log on a fresh zone.
+            DigZone replayed = MakeZone(new Vector3Int(1, 1, 1));
+            replayed.ReplayLog(log);
+            sbyte[] replayedSdf = SnapshotChunkSdf(replayed.GetChunk(0, 0, 0));
+
+            Assert.AreEqual(sourceSdf.Length, replayedSdf.Length);
+            int diffCount = 0;
+            for (int i = 0; i < sourceSdf.Length; i++)
+                if (sourceSdf[i] != replayedSdf[i]) diffCount++;
+            Assert.AreEqual(0, diffCount,
+                $"ReplayLog must reproduce the source SDF exactly. {diffCount} bytes differ.");
+        }
+
+        private static BrushOp MakeSphereBrushOp(Vector3 center, float radius) => new BrushOp
+        {
+            kind = BrushKind.SphereSubtract,
+            serverTick = 0,
+            p0 = Vector3Fixed.FromVector3(center),
+            p1 = Vector3Fixed.FromVector3(center),
+            radiusFixed = (ushort)Mathf.Clamp(
+                Mathf.RoundToInt(radius * Vector3Fixed.UnitsPerMeter),
+                0, ushort.MaxValue),
+        };
+
+        private static sbyte[] SnapshotChunkSdf(DigChunk chunk)
+        {
+            int dim = chunk.Dim;
+            int total = dim * dim * dim;
+            sbyte[] copy = new sbyte[total];
+            var src = chunk.Sdf;
+            for (int i = 0; i < total; i++) copy[i] = src[i];
+            return copy;
+        }
+
         [Test]
         public void DigZone_InitialBrush_CarvesChamberBeforeOccupancyBuild()
         {
