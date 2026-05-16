@@ -49,11 +49,12 @@ namespace Robogame.Voxel
         [SerializeField, Min(0f)] private float _tipForwardOffset = 0.6f;
 
         [Tooltip("Axial length of the brush capsule along the aim direction, in metres. The capsule's " +
-                 "p0 is the drill cell, p1 is the drill cell + aim * _brushReach. Must be ≥ _radius for " +
-                 "aim direction to feel directional — at _brushReach < _radius the capsule is dominated " +
-                 "by its hemisphere caps and aim barely shifts the carve volume. Default 4m with " +
-                 "_radius = 3m gives a noticeable ~10m elongated capsule along the aim direction.")]
-        [SerializeField, Min(0.1f)] private float _brushReach = 4.0f;
+                 "p0 is the drill cell, p1 is the drill cell + aim * _brushReach. Higher values reach " +
+                 "further ahead and bite more uncarved material per tick (good for fast tunnelling); " +
+                 "lower values keep the carve tight around the bot so it doesn't over-excavate. Even " +
+                 "below _radius there's still an axial bias from the segment between the caps. Default " +
+                 "2.5m with _radius = 3m carves a snug tunnel that hugs the chassis.")]
+        [SerializeField, Min(0.1f)] private float _brushReach = 2.5f;
 
         [Tooltip("Minimum seconds between emitted brush ops. 0.033 ≈ 30 Hz, matching the design's drill tick rate.")]
         [SerializeField, Min(0.005f)] private float _emitInterval = 0.033f;
@@ -64,8 +65,11 @@ namespace Robogame.Voxel
                  "front-mounted (off-COM) drill also yaws/pitches the chassis to follow the dig " +
                  "direction — that's the 'worm through terrain' feel: look up, the bit bites, the " +
                  "body gets dragged up after it. Only applies while biting solid voxels, never " +
-                 "while drilling air, so it can't double as a free thruster. 0 disables the pull.")]
-        [SerializeField, Min(0f)] private float _digPullForce = 400f;
+                 "while drilling air, so it can't double as a free thruster. 0 disables the pull. " +
+                 "Sized so vertical digs overcome chassis weight + wheel friction + the ~30 Hz " +
+                 "emit duty cycle — forward digs (no gravity to fight) will feel proportionally " +
+                 "punchier; lower this if forward becomes too aggressive.")]
+        [SerializeField, Min(0f)] private float _digPullForce = 1500f;
 
         [Header("Cone aim")]
         [Tooltip("Maximum angle in degrees the drill bit can swivel away from its mount-up direction. " +
