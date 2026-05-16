@@ -67,9 +67,19 @@ namespace Robogame.Voxel
                  "body gets dragged up after it. Only applies while biting solid voxels, never " +
                  "while drilling air, so it can't double as a free thruster. 0 disables the pull. " +
                  "Sized so vertical digs overcome chassis weight + wheel friction + the ~30 Hz " +
-                 "emit duty cycle — forward digs (no gravity to fight) will feel proportionally " +
-                 "punchier; lower this if forward becomes too aggressive.")]
+                 "emit duty cycle. This is the CEILING on the servo (see _digTargetSpeed) — the " +
+                 "pull tapers below this as the bot approaches the target dig speed, so it no " +
+                 "longer accelerates without bound.")]
         [SerializeField, Min(0f)] private float _digPullForce = 1500f;
+
+        [Tooltip("Target speed (m/s) the dig-pull servos the chassis toward along the aim " +
+                 "direction. The pull is a one-sided velocity servo: it adds force (up to " +
+                 "_digPullForce) only while the chassis is moving SLOWER than this along the aim " +
+                 "axis, and nothing once at/above it — so digging settles at a steady slow crawl " +
+                 "instead of accelerating forever, while wheel-driving (typically much faster) is " +
+                 "never braked. Keep this notably below drive speed so tunnelling reads as the " +
+                 "slow, deliberate option.")]
+        [SerializeField, Min(0.1f)] private float _digTargetSpeed = 2.0f;
 
         [Header("Cone aim")]
         [Tooltip("Maximum angle in degrees the drill bit can swivel away from its mount-up direction. " +
@@ -283,17 +293,38 @@ namespace Robogame.Voxel
                 VfxSpawner.Spawn(VfxKind.DebrisDust, vfxAnchor, Quaternion.identity, scale: 0.5f);
 
                 // Dig-pull: drag the chassis after the bit so the player
-                // can worm through terrain. Force is applied at the drill
-                // cell (off-COM for a front mount), so it both translates
-                // the body toward the dig direction AND rotates the nose
-                // to follow — the "angular pull" feel. Gated on changed>0
-                // so it only fires while biting solid voxels, never while
+                // can worm through terrain. Applied at the drill cell
+                // (off-COM for a front mount) so it both translates the
+                // body toward the dig direction AND rotates the nose to
+                // follow — the "angular pull" feel. Gated on changed>0 so
+                // it only fires while biting solid voxels, never while
                 // drilling air (no free-flight exploit).
+                //
+                // One-sided velocity servo, not a flat force: a constant
+                // force accelerates without bound, so the longer you dig
+                // the faster you go. Instead, push only enough to reach
+                // _digTargetSpeed along the aim axis, capped at
+                // _digPullForce. Never negative (we never brake), so a
+                // chassis already driving fast on wheels along the aim
+                // axis gets zero extra dig push — digging stays a slow,
+                // deliberate crawl while driving is untouched. Vertical
+                // digs hold a steady speed because the servo keeps
+                // exactly enough force on to balance gravity at the cap.
                 Rigidbody body = ChassisBody;
                 if (body != null && _digPullForce > 0f && !body.isKinematic)
                 {
-                    body.AddForceAtPosition(
-                        aimDir * _digPullForce, transform.position, ForceMode.Force);
+                    float vAlong = Vector3.Dot(body.linearVelocity, aimDir);
+                    float deficit = _digTargetSpeed - vAlong;
+                    if (deficit > 0f)
+                    {
+                        // Force that would close the speed deficit in one
+                        // physics step, clamped to the configured ceiling.
+                        float dt = Mathf.Max(Time.fixedDeltaTime, 1e-4f);
+                        float wanted = deficit * body.mass / dt;
+                        float force = Mathf.Min(_digPullForce, wanted);
+                        body.AddForceAtPosition(
+                            aimDir * force, transform.position, ForceMode.Force);
+                    }
                 }
             }
             return changed;

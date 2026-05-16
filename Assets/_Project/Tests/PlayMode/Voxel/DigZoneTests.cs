@@ -925,6 +925,49 @@ namespace Robogame.Tests.PlayMode.Voxel
                 "No carve → no dig-pull. The drill must not move the chassis through air.");
         }
 
+        [UnityTest]
+        public IEnumerator DrillBlock_DigPull_IsSpeedCapped_NotUnboundedAcceleration()
+        {
+            // The dig-pull is a one-sided velocity servo, not a flat
+            // force: sustained drilling must settle at a slow crawl, not
+            // accelerate without bound. Run many drill + physics cycles
+            // and assert the aim-axis speed stays bounded well below what
+            // a constant 1500 N force on a ~1 kg test body would produce
+            // (tens of m/s within a handful of steps).
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            Vector3 startPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f);
+
+            var chassis = new GameObject("CrawlChassis");
+            chassis.transform.position = startPos;
+            var rb = chassis.AddComponent<Rigidbody>();
+            rb.useGravity = false;            // isolate the servo from free-fall
+            rb.linearVelocity = Vector3.zero;
+            _ancillaryGameObjects.Add(chassis);
+
+            var drillGo = new GameObject("Drill");
+            drillGo.transform.SetParent(chassis.transform, worldPositionStays: false);
+            drillGo.transform.position = startPos;
+            var drill = drillGo.AddComponent<DrillBlock>();
+
+            // Drive ~30 emit+step cycles. With a flat force this would be
+            // ~30 m/s+; the servo must hold it to a slow crawl.
+            for (int i = 0; i < 30; i++)
+            {
+                // Re-seed solid material under the bit each cycle so it
+                // keeps carving (changed > 0) as the chassis creeps up.
+                zone.InitializeHalfSpace();
+                drill.Drill(zone);
+                yield return new WaitForFixedUpdate();
+            }
+
+            float vAlong = rb.linearVelocity.y;   // aim = +Y with no camera
+            Assert.Greater(vAlong, 0.01f, "Servo must still produce upward dig motion.");
+            Assert.Less(vAlong, 5.0f,
+                $"Dig speed must stay capped (servo target ~2 m/s); got {vAlong:F2} m/s. " +
+                "A flat unbounded force would be far higher after 30 cycles.");
+        }
+
         // ------------------------------------------------------------------
         // Phase 5 visual-playtest gate: VoxelChaserBot uses the
         // OccupancyGrid to chase a target via A*. These tests cover the
