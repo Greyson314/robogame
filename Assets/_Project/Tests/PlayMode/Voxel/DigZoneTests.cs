@@ -890,6 +890,13 @@ namespace Robogame.Tests.PlayMode.Voxel
                 "Glide must be dominantly along the aim axis, not sideways.");
             Assert.Greater(moved.y, Mathf.Abs(moved.z),
                 "Glide must be dominantly along the aim axis, not sideways.");
+
+            // No aim camera → aim == mount-up, so the nose-into-bore
+            // rotation must be a no-op (FromToRotation of identical
+            // vectors). Pins that the glide turn doesn't introduce
+            // spurious spin / NaN when already aligned.
+            Assert.Less(Quaternion.Angle(chassis.transform.rotation, Quaternion.identity), 1f,
+                "Glide turn must not rotate the chassis when aim already equals mount-up.");
         }
 
         [UnityTest]

@@ -71,6 +71,13 @@ namespace Robogame.Voxel
                  "speed so tunnelling reads as the slow, deliberate option.")]
         [SerializeField, Min(0.1f)] private float _digTargetSpeed = 2.0f;
 
+        [Tooltip("How fast (deg/sec) the chassis swings to point along the bore while gliding. " +
+                 "Without this the kinematic body keeps its entry orientation and reads as " +
+                 "'suspended in space'; with it the bot noses into the dig direction. Rate-" +
+                 "capped so it banks in smoothly rather than snapping. 0 disables the turn " +
+                 "(translate only).")]
+        [SerializeField, Min(0f)] private float _glideTurnSpeed = 270f;
+
         [Header("Cone aim")]
         [Tooltip("Maximum angle in degrees the drill bit can swivel away from its mount-up direction. " +
                  "50° lets a forward-mounted drill dig nearly straight down or up — at 30° drilling " +
@@ -414,6 +421,23 @@ namespace Robogame.Voxel
                 // actually move up instead of being pinned to the floor.
                 body.MovePosition(
                     body.position + _pullAimDir * (_digTargetSpeed * Time.fixedDeltaTime));
+
+                // Nose into the bore. Rotate the chassis so the drill
+                // cell's mount-up (transform.up — convention-independent,
+                // works regardless of how the bot is built) swings onto
+                // the bore direction. Rate-capped so it banks in smoothly
+                // instead of snapping, and so a fast camera flick doesn't
+                // whip the body around. Without this the kinematic body
+                // keeps its entry pose and reads as "suspended in space".
+                if (_glideTurnSpeed > 0f &&
+                    _pullAimDir.sqrMagnitude > 1e-6f &&
+                    transform.up.sqrMagnitude > 1e-6f)
+                {
+                    Quaternion align = Quaternion.FromToRotation(transform.up, _pullAimDir);
+                    Quaternion target = align * body.rotation;
+                    body.MoveRotation(Quaternion.RotateTowards(
+                        body.rotation, target, _glideTurnSpeed * Time.fixedDeltaTime));
+                }
             }
             else if (_gliding)
             {
