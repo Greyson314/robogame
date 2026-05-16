@@ -73,13 +73,14 @@ namespace Robogame.Voxel
                  "chassis's whole weight.")]
         [SerializeField, Min(0f)] private float _digPullForce = 1500f;
 
-        [Tooltip("Target speed (m/s) the dig-pull servos the chassis toward along the aim " +
-                 "direction. The pull is a one-sided velocity servo: it adds force (up to " +
-                 "_digPullForce) only while the chassis is moving SLOWER than this along the aim " +
-                 "axis, and nothing once at/above it — so digging settles at a steady slow crawl " +
-                 "instead of accelerating forever, while wheel-driving (typically much faster) is " +
-                 "never braked. Keep this notably below drive speed so tunnelling reads as the " +
-                 "slow, deliberate option.")]
+        [Tooltip("Target speed (m/s) the dig-pull servos the chassis toward along the aim/" +
+                 "tunnel axis. Two-sided: while drilling, the drill regulates your tunnel-axis " +
+                 "speed to this value — pushing if slower, braking if faster (both capped at " +
+                 "_digPullForce). So digging is always a slow deliberate crawl regardless of how " +
+                 "fast you were moving when you started, and releasing fire frees full drive " +
+                 "speed again. Keep this notably below drive speed so tunnelling reads as the " +
+                 "slow option. Only the aim-axis speed is regulated; motion perpendicular to the " +
+                 "tunnel (e.g. lateral drift) is untouched.")]
         [SerializeField, Min(0.1f)] private float _digTargetSpeed = 2.0f;
 
         [Header("Cone aim")]
@@ -435,15 +436,33 @@ namespace Robogame.Voxel
                 }
             }
 
+            // Two-sided speed servo along the aim/tunnel axis. While the
+            // drill is biting, IT is the authority on how fast you travel
+            // along the tunnel: too slow → push toward target; too fast
+            // → brake toward target. The brake half is load-bearing —
+            // non-dig velocity (driving / sliding) projects onto the aim
+            // axis and, with a one-sided servo, made it conclude "already
+            // fast enough" and apply zero pull (the readout that exposed
+            // this: v·aim = 13 m/s from a 16 m/s sideways slide → 0 N).
+            // Regulating both directions also delivers the original ask:
+            // holding fire paces you to the slow dig crawl regardless of
+            // entry speed; releasing fire (pull lapses) frees full drive
+            // speed again.
             float vAlong = Vector3.Dot(body.linearVelocity, aimDir);
-            float deficit = _digTargetSpeed - vAlong;
-            float servoN = 0f;
-            if (deficit > 0f)
+            float dt = Mathf.Max(Time.fixedDeltaTime, 1e-4f);
+            float wantedN = (_digTargetSpeed - vAlong) * body.mass / dt;
+            float servoN = Mathf.Clamp(wantedN, -_digPullForce, _digPullForce);
+            if (servoN >= 0f)
             {
-                float dt = Mathf.Max(Time.fixedDeltaTime, 1e-4f);
-                float wanted = deficit * body.mass / dt;
-                servoN = Mathf.Min(_digPullForce, wanted);
+                // Propulsion: at the drill cell (off-COM) so the nose
+                // yaws/pitches to follow the dig — the "angular pull".
                 body.AddForceAtPosition(aimDir * servoN, transform.position, ForceMode.Force);
+            }
+            else
+            {
+                // Braking: at the COM so yanking a fast slide back to dig
+                // pace decelerates cleanly instead of inducing a spin.
+                body.AddForce(aimDir * servoN, ForceMode.Force);
             }
 
             if (_debugReadout)

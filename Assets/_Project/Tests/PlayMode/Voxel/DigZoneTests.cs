@@ -928,12 +928,12 @@ namespace Robogame.Tests.PlayMode.Voxel
         [UnityTest]
         public IEnumerator DrillBlock_DigPull_IsSpeedCapped_NotUnboundedAcceleration()
         {
-            // The dig-pull is a one-sided velocity servo, not a flat
-            // force: sustained drilling must settle at a slow crawl, not
-            // accelerate without bound. Run many drill + physics cycles
-            // and assert the aim-axis speed stays bounded well below what
-            // a constant 1500 N force on a ~1 kg test body would produce
-            // (tens of m/s within a handful of steps).
+            // The dig-pull is a velocity servo, not a flat force:
+            // sustained drilling from rest must settle at a slow crawl,
+            // not accelerate without bound. Run many drill + physics
+            // cycles and assert the aim-axis speed stays bounded well
+            // below what a constant 1500 N force on a ~1 kg test body
+            // would produce (tens of m/s within a handful of steps).
             DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
             float chunkSide = zone.ChunkSizeCells * zone.CellSize;
             Vector3 startPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f);
@@ -966,6 +966,50 @@ namespace Robogame.Tests.PlayMode.Voxel
             Assert.Less(vAlong, 5.0f,
                 $"Dig speed must stay capped (servo target ~2 m/s); got {vAlong:F2} m/s. " +
                 "A flat unbounded force would be far higher after 30 cycles.");
+        }
+
+        [UnityTest]
+        public IEnumerator DrillBlock_FastChassis_DrillingBrakesTowardDigSpeed()
+        {
+            // Regression for the readout that exposed the real bug: a
+            // chassis sliding fast (16 m/s) projected ~13 m/s onto the
+            // aim axis, and the OLD one-sided servo concluded "already
+            // fast enough" → 0 N → no dig at all. The two-sided servo
+            // must BRAKE excess aim-axis speed down toward the dig
+            // target while drilling, not give up.
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            Vector3 startPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f);
+
+            var chassis = new GameObject("FastChassis");
+            chassis.transform.position = startPos;
+            var rb = chassis.AddComponent<Rigidbody>();
+            rb.useGravity = false;
+            // Aim is +Y with no camera; seed a large velocity ALONG the
+            // aim axis (the poison case — would zero a one-sided servo).
+            rb.linearVelocity = new Vector3(0f, 14f, 0f);
+            rb.mass = 15f;
+            _ancillaryGameObjects.Add(chassis);
+
+            var drillGo = new GameObject("Drill");
+            drillGo.transform.SetParent(chassis.transform, worldPositionStays: false);
+            drillGo.transform.position = startPos;
+            var drill = drillGo.AddComponent<DrillBlock>();
+
+            float vStart = rb.linearVelocity.y;
+            for (int i = 0; i < 30; i++)
+            {
+                zone.InitializeHalfSpace();   // keep solid so it carves
+                drill.Drill(zone);
+                yield return new WaitForFixedUpdate();
+            }
+
+            float vEnd = rb.linearVelocity.y;
+            Assert.Less(vEnd, vStart - 5f,
+                $"Drilling must brake a fast aim-axis slide toward dig speed; " +
+                $"started {vStart:F1} m/s, still {vEnd:F1} m/s after 30 cycles.");
+            Assert.Less(vEnd, 5.0f,
+                $"Aim-axis speed must converge toward the ~2 m/s dig target; got {vEnd:F2}.");
         }
 
         [UnityTest]
