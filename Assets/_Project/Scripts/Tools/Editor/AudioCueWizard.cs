@@ -73,6 +73,18 @@ namespace Robogame.Tools.Editor
             // hook / mace makes when it actually lands a hit.
             new CueRow(AudioCue.TipImpact,         "IMPACTS/Metal/IMPACT_Metal_Cling_Deep_mono.wav",                                                            AudioBus.Sfx,   spatial: 1f, vol: 0.95f, jitter: 0.06f, solo: false),
             new CueRow(AudioCue.BombExplosion,     "EXPLOSIONS/Arcade/EXPLOSION_Arcade_03_mono.wav",                                                            AudioBus.Sfx,   spatial: 1f, vol: 1.20f, jitter: 0.04f, solo: false),
+            // DrillContact — the per-strike "bite" when a drill brush op
+            // actually carves cells (changed > 0). Pickaxe-into-dirt is
+            // the canonical "tool meeting terrain" cue. High jitter so
+            // 30 Hz held-fire doesn't read as a stuck note; not Solo so
+            // multiple drills on a single chassis stack naturally.
+            new CueRow(AudioCue.DrillContact,      "TOOLS/Pickaxe/PICKAXE_Impact_Dirt_Hard_01_RR4.wav",                                                        AudioBus.Sfx,   spatial: 1f, vol: 0.55f, jitter: 0.12f, solo: false),
+            // DrillActive — the looped motor bed under the bright
+            // per-strike DrillContact cue. Stone-crusher loop reads as
+            // aggressive industrial grinding; lower volume than
+            // DrillContact so the per-strike cue stays in focus. Solo
+            // (one motor per drill block); zero jitter on the loop.
+            new CueRow(AudioCue.DrillActive,       "MACHINES/Construction/MACHINE_Construction_Stone_Crusher_loop_mono.wav",                                   AudioBus.Sfx,   spatial: 1f, vol: 0.40f, jitter: 0f,    solo: true),
 
             // Movement
             new CueRow(AudioCue.ThrusterIgnite,    "CHARGE_UPS_DOWNS/CHARGE_Complex_Wet_12_Semi_Up_1000ms_mono.wav",                                            AudioBus.Sfx,   spatial: 1f, vol: 0.55f, jitter: 0.05f, solo: true),
@@ -112,6 +124,19 @@ namespace Robogame.Tools.Editor
             new CueRow(AudioCue.BlockPlace,        "TOOLS/Impact_Wrench/TOOL_Impact_Wrench_Comperssed_Air_Short_Burst_01_mono.wav",                             AudioBus.UI,    spatial: 0f, vol: 0.85f, jitter: 0.04f, solo: false),
             new CueRow(AudioCue.BlockRemove,       "ROBOTICS/Short_Bursts/ROBOTIC_Short_Burst_05_Shut_Down_mono.wav",                                           AudioBus.UI,    spatial: 0f, vol: 0.75f, jitter: 0.04f, solo: false),
             new CueRow(AudioCue.InvalidPlacement,  "USER_INTERFACES/Errors/UI_Error_Double_Tone_01_mono.wav",                                                   AudioBus.UI,    spatial: 0f, vol: 0.85f, jitter: 0f,    solo: true),
+
+            // Voxel terrain AI
+            // BotDetected — fires when a VoxelChaserBot's A* search
+            // flips no-path → path. Digital-worm robotic burst reads as
+            // a quiet target-acquisition lock-on. Solo so a flickering
+            // path edge doesn't double-trigger the cue.
+            new CueRow(AudioCue.BotDetected,       "ROBOTICS/Short_Bursts/ROBOTIC_Short_Burst_13_Digital_Worm_mono.wav",                                        AudioBus.Sfx,   spatial: 1f, vol: 0.50f, jitter: 0.05f, solo: true),
+            // BotStep — every other waypoint advance, so the cadence is
+            // roughly one cue per chunk of forward motion (not per
+            // physics step). Metal walk reads as a heavy mechanical
+            // footfall; jitter so successive steps sound varied rather
+            // than mechanical-repeat.
+            new CueRow(AudioCue.BotStep,           "HUMAN/Footsteps/_Metal_Footsteps/FOOTSTEP_Metal_Walk_01_RR06_mono.wav",                                     AudioBus.Sfx,   spatial: 1f, vol: 0.40f, jitter: 0.12f, solo: false),
         };
 
         private readonly struct CueRow

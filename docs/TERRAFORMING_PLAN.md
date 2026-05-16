@@ -662,12 +662,14 @@ Operationally split into four sub-phases — same pattern Phase 1 used:
 
 **Visual playtest:** 4-client MPPM session in a dig-zone arena. All clients see the same terrain after sustained drilling. No desyncs over 10 minutes of mixed bombing and drilling.
 
-### Phase 7 — Op-log checkpointing (deferred; when match length grows)
+### Phase 7 — Op-log checkpointing ✅ shipped session 82
 
-- Periodic per-chunk SDF snapshots.
-- Op-log compaction below the snapshot tick.
+- Periodic per-chunk SDF snapshots — `DigZone.Checkpoint(serverTick)` reuses the Phase 2d `.dig` wire format (`DigZoneFormat.Write`) for snapshot bytes, so a snapshot is byte-identical to a baked `.dig` of the current SDF.
+- Op-log compaction below the snapshot tick — `Checkpoint` drops `_opLog` entries whose tick is at-or-before the snapshot using serial-number arithmetic on the `ushort` tick (RFC 1982-style), so a snapshot at tick 65 530 still retains an op at tick 5.
 
-**Not v1.** Only needed when match length exceeds ~30 min or op rate exceeds the bandwidth budget.
+**Machine gate (shipped):** PlayMode test (`DigZone_SnapshotPlusReplay_OnFreshZone_ConvergesToOriginal`) applies ops 1–5, checkpoints at tick 5, applies ops 6–10, then on a fresh zone applies the snapshot and replays the post-snapshot OpLog — asserts the joiner's chunk SDF is byte-identical to the source's. Pinned: wire-format parseability (`DigZone_Checkpoint_SnapshotBytesParseableAsDigFormat`), compaction correctness (`DigZone_Checkpoint_DropsOpsAtOrBeforeSnapshotTick`), and wraparound safety (`DigZone_Checkpoint_TickWraparound_RetainsPostSnapshotOps`).
+
+**Not exercised in v1:** scheduler that decides *when* to checkpoint (every N seconds vs. every N ops) lives at the netcode transport layer, gated on NETCODE Phases 1–4. Phase 7 here is the data plumbing only — the same shape as session 81's Phase 6 data plumbing.
 
 ---
 

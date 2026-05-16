@@ -54,10 +54,11 @@ namespace Robogame.Voxel
 
         [Header("Cone aim")]
         [Tooltip("Maximum angle in degrees the drill bit can swivel away from its mount-up direction. " +
-                 "30° is enough to dig downward from a forward-mounted drill without losing the cell's " +
-                 "fundamental orientation. The brush emits along the AIMED direction, so the player can " +
-                 "look at the ground and drill toward it.")]
-        [SerializeField, Range(0f, 90f)] private float _maxAimAngle = 30f;
+                 "50° lets a forward-mounted drill dig nearly straight down or up — at 30° drilling " +
+                 "either direction was effectively impossible because the cone bottomed out before the " +
+                 "camera reached the floor. The brush emits along the AIMED direction, so the player " +
+                 "can look at the ground and drill toward it.")]
+        [SerializeField, Range(0f, 90f)] private float _maxAimAngle = 50f;
 
         [Tooltip("World-space length of the cone visual extending past the drill cell. " +
                  "Cosmetic; brush emission distance is _tipForwardOffset.")]

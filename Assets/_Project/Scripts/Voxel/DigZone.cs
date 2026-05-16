@@ -101,7 +101,20 @@ namespace Robogame.Voxel
         // every chunk's AABB, or applied to an already-exterior region)
         // aren't logged — the log is "real changes only" so its size
         // tracks gameplay impact, not call rate.
+        // Phase 7 compaction drops entries whose tick is at-or-before
+        // the latest Checkpoint's tick; see Checkpoint() and OpLog.
         private readonly List<BrushOp> _opLog = new();
+
+        // Phase 7 — op-log checkpointing. When the server calls
+        // Checkpoint(tick), we serialise the current chunk SDFs to the
+        // same wire format the .dig baker uses (DigZoneFormat) and drop
+        // ops at-or-before the snapshot from _opLog. Late-join replays
+        // (snapshot bytes + remaining ops) instead of the full from-
+        // match-start trail. The byte buffer lives in memory; transport
+        // hands it to the joining client over ClientRpc once that lands.
+        private byte[] _snapshotBytes;
+        private ushort _snapshotTick;
+        private bool _hasSnapshot;
 
         /// <summary>Coarse AI-navigation grid covering the zone. Null
         /// until <see cref="EnsureInitialised"/> runs.</summary>
@@ -581,6 +594,11 @@ namespace Robogame.Voxel
         /// Cumulative log of brush ops that actually mutated the SDF.
         /// Late-join replication sends this list to a connecting client.
         /// </summary>
+        /// <remarks>
+        /// Phase 7: after <see cref="Checkpoint"/>, this contains only ops
+        /// whose tick is strictly after <see cref="SnapshotTick"/> —
+        /// older entries are baked into <see cref="SnapshotBytes"/>.
+        /// </remarks>
         public IReadOnlyList<BrushOp> OpLog => _opLog;
 
         /// <summary>
@@ -596,6 +614,70 @@ namespace Robogame.Voxel
             if (log == null) return;
             for (int i = 0; i < log.Count; i++) ApplyBrush(log[i]);
         }
+
+        /// <summary>
+        /// Phase 7 — capture the current chunk SDFs as a snapshot tied to
+        /// <paramref name="serverTick"/>, then compact <see cref="OpLog"/>
+        /// by dropping entries whose tick is at-or-before the snapshot.
+        /// Late-join replication sends (<see cref="SnapshotBytes"/> +
+        /// <see cref="OpLog"/>) to a joining client; the joiner applies
+        /// the snapshot then replays the remaining ops to converge.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Snapshot bytes use the same wire format as the Phase 2d
+        /// <c>.dig</c> baker (<see cref="DigZoneFormat.Write"/>) — content-
+        /// hash protected, parseable by <see cref="DigZoneFormat.Read"/>,
+        /// applied via <see cref="ApplySnapshot"/>. Calling
+        /// <see cref="Checkpoint"/> twice replaces the prior snapshot.
+        /// </para>
+        /// <para>
+        /// Ticks are <see cref="ushort"/>; comparison uses serial-number
+        /// arithmetic (RFC 1982-style) so an op with tick = 5 after a
+        /// snapshot at tick 65530 is correctly retained. The comparison
+        /// stays correct as long as snapshots happen at least every
+        /// 2^15 = 32 768 ticks (~18 min at the 30 Hz drill rate).
+        /// </para>
+        /// </remarks>
+        public void Checkpoint(ushort serverTick)
+        {
+            EnsureInitialised();
+            _snapshotBytes = DigZoneFormat.Write(this);
+            _snapshotTick = serverTick;
+            _hasSnapshot = true;
+
+            int kept = 0;
+            for (int i = 0; i < _opLog.Count; i++)
+            {
+                if (IsTickAfter(_opLog[i].serverTick, _snapshotTick))
+                    _opLog[kept++] = _opLog[i];
+            }
+            if (kept < _opLog.Count) _opLog.RemoveRange(kept, _opLog.Count - kept);
+        }
+
+        /// <summary>True after the first <see cref="Checkpoint"/> call.</summary>
+        public bool HasSnapshot => _hasSnapshot;
+
+        /// <summary>Server tick the latest <see cref="Checkpoint"/> captured at, or 0 if none.</summary>
+        public ushort SnapshotTick => _hasSnapshot ? _snapshotTick : (ushort)0;
+
+        /// <summary>
+        /// Snapshot bytes from the latest <see cref="Checkpoint"/> in
+        /// <c>.dig</c> wire format. Null until a checkpoint has run.
+        /// Late-join transport sends this verbatim to the joining client,
+        /// which feeds it to <see cref="DigZoneFormat.Read"/> +
+        /// <see cref="ApplySnapshot"/>.
+        /// </summary>
+        public byte[] SnapshotBytes => _snapshotBytes;
+
+        /// <summary>
+        /// Serial-number-arithmetic "is <paramref name="a"/> after
+        /// <paramref name="b"/>" predicate for the <see cref="ushort"/>
+        /// tick space. Cast to signed so wraparound at 65535→0 is
+        /// handled correctly when the two ticks fall within half the
+        /// period of each other.
+        /// </summary>
+        private static bool IsTickAfter(ushort a, ushort b) => (short)(a - b) > 0;
 
         /// <summary>
         /// Rebuild aprons for every chunk and remesh every chunk. Phase 2b

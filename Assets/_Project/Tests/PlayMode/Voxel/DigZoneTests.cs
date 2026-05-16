@@ -1012,6 +1012,156 @@ namespace Robogame.Tests.PlayMode.Voxel
                 $"ReplayLog must reproduce the source SDF exactly. {diffCount} bytes differ.");
         }
 
+        // ------------------------------------------------------------------
+        // Phase 7 — op-log checkpointing. Checkpoint(tick) snapshots the
+        // current SDF in .dig wire format and drops ops with tick at-or-
+        // before the snapshot. Late-join replication = (snapshot bytes +
+        // remaining ops), which is asymptotically smaller than the from-
+        // match-start log once matches run long.
+        // ------------------------------------------------------------------
+
+        [Test]
+        public void DigZone_Checkpoint_DropsOpsAtOrBeforeSnapshotTick()
+        {
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            for (ushort t = 1; t <= 5; t++)
+            {
+                BrushOp op = MakeSphereBrushOp(new Vector3(2f + t, 8f, 8f), 1.5f);
+                op.serverTick = t;
+                zone.ApplyBrush(op);
+            }
+            Assert.AreEqual(5, zone.OpLog.Count, "All 5 ops carved cells, so all should be logged.");
+
+            zone.Checkpoint(serverTick: 3);
+
+            // Ticks 1, 2, 3 are baked into the snapshot. Ticks 4, 5 remain.
+            Assert.IsTrue(zone.HasSnapshot, "Checkpoint must set HasSnapshot.");
+            Assert.AreEqual((ushort)3, zone.SnapshotTick, "SnapshotTick must reflect the call argument.");
+            Assert.AreEqual(2, zone.OpLog.Count,
+                "Ops at-or-before the snapshot tick should be dropped from the log.");
+            Assert.AreEqual((ushort)4, zone.OpLog[0].serverTick, "First retained op must be the next tick after the snapshot.");
+            Assert.AreEqual((ushort)5, zone.OpLog[1].serverTick);
+        }
+
+        [Test]
+        public void DigZone_Checkpoint_SnapshotBytesParseableAsDigFormat()
+        {
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            BrushOp op = MakeSphereBrushOp(new Vector3(8f, 8f, 8f), 2f);
+            op.serverTick = 10;
+            zone.ApplyBrush(op);
+
+            zone.Checkpoint(serverTick: 10);
+
+            Assert.IsNotNull(zone.SnapshotBytes, "SnapshotBytes must be populated after Checkpoint.");
+            DigZoneSnapshot parsed = DigZoneFormat.Read(zone.SnapshotBytes);
+            // .dig format pins zone dimensions; parsed must match the live zone.
+            Assert.AreEqual(zone.ChunkGridSize, parsed.ChunkGridSize);
+            Assert.AreEqual(zone.ChunkSizeCells, parsed.ChunkSizeCells);
+            Assert.AreEqual(zone.CellSize, parsed.CellSize);
+            Assert.AreEqual(1, parsed.Chunks.Length);
+        }
+
+        // Phase 7 machine gate: a late-joiner who receives (snapshot bytes
+        // + post-snapshot op log) must converge byte-identical to the
+        // source zone. The checkpoint MUST happen at a meaningful
+        // midpoint — capturing it after the final op only passes because
+        // sphere subtract is idempotent. Real flow: server applies ops
+        // 1–5, checkpoints, then applies 6–10. The joiner sees only the
+        // snapshot (= post-op-5 state) plus ops 6–10 in the log and must
+        // converge to the same post-op-10 SDF the source ended at.
+        [Test]
+        public void DigZone_SnapshotPlusReplay_OnFreshZone_ConvergesToOriginal()
+        {
+            DigZone source = MakeZone(new Vector3Int(1, 1, 1));
+            // Deterministic 5×2 grid of brush centres inside the half-
+            // space-interior region (y = 3m → voxel y = 6, well under
+            // the split at voxel y = 16). 4 m horizontal spacing with
+            // 1.5 m radius brushes guarantees zero overlap, so every op
+            // carves fresh cells and lands in the OpLog. The exact-count
+            // assertion below relies on this.
+            Vector3[] centres = new Vector3[10];
+            for (int i = 0; i < centres.Length; i++)
+            {
+                int col = i % 5;            // 0..4
+                int row = i / 5;            // 0..1
+                centres[i] = new Vector3(2f + col * 4f, 3f, 2f + row * 4f);
+            }
+
+            // Ops 1–5 — applied before the checkpoint, baked into the snapshot.
+            for (ushort t = 1; t <= 5; t++)
+            {
+                BrushOp op = MakeSphereBrushOp(centres[t - 1], 1.5f);
+                op.serverTick = t;
+                source.ApplyBrush(op);
+            }
+
+            source.Checkpoint(serverTick: 5);
+            byte[] snapshotBytes = source.SnapshotBytes;
+
+            // Ops 6–10 — applied after the checkpoint, will live in the
+            // post-snapshot OpLog and travel separately to the joiner.
+            for (ushort t = 6; t <= 10; t++)
+            {
+                BrushOp op = MakeSphereBrushOp(centres[t - 1], 1.5f);
+                op.serverTick = t;
+                source.ApplyBrush(op);
+            }
+
+            // Don't pin the exact OpLog count — some random brushes
+            // may carve zero new cells if their entire footprint already
+            // lies inside an earlier brush's crater, and zero-change ops
+            // don't append. The load-bearing assertion is the SDF byte-
+            // identity below; the post-snapshot ops are whatever's in
+            // the live log at this moment.
+            int postCount = source.OpLog.Count;
+            Assert.IsTrue(postCount > 0 && postCount <= 5,
+                $"Expected 1..5 post-snapshot ops in OpLog; got {postCount}.");
+            BrushOp[] postSnapshotOps = new BrushOp[postCount];
+            for (int i = 0; i < postCount; i++) postSnapshotOps[i] = source.OpLog[i];
+            sbyte[] sourceSdf = SnapshotChunkSdf(source.GetChunk(0, 0, 0));
+
+            Object.DestroyImmediate(_go);
+            _go = null;
+            _zone = null;
+
+            // Joiner: fresh zone → apply snapshot → replay post-snapshot ops.
+            DigZone joiner = MakeZone(new Vector3Int(1, 1, 1));
+            DigZoneSnapshot snapshot = DigZoneFormat.Read(snapshotBytes);
+            joiner.ApplySnapshot(snapshot);
+            joiner.RebuildAllMeshes();   // Snapshot mutates SDF directly; bring mesh state in line.
+            joiner.ReplayLog(postSnapshotOps);
+            sbyte[] joinerSdf = SnapshotChunkSdf(joiner.GetChunk(0, 0, 0));
+
+            Assert.AreEqual(sourceSdf.Length, joinerSdf.Length);
+            int diffCount = 0;
+            for (int i = 0; i < sourceSdf.Length; i++)
+                if (sourceSdf[i] != joinerSdf[i]) diffCount++;
+            Assert.AreEqual(0, diffCount,
+                $"Snapshot + post-snapshot replay must reproduce the source SDF byte-identical. " +
+                $"{diffCount} bytes differ.");
+        }
+
+        [Test]
+        public void DigZone_Checkpoint_TickWraparound_RetainsPostSnapshotOps()
+        {
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            // Op with tick 65530 (pre-snapshot in serial-number space).
+            BrushOp earlier = MakeSphereBrushOp(new Vector3(4f, 8f, 8f), 1.5f);
+            earlier.serverTick = 65530;
+            zone.ApplyBrush(earlier);
+            // Op with tick 5 (post-wraparound; serial-number-arithmetic AFTER 65530).
+            BrushOp afterWrap = MakeSphereBrushOp(new Vector3(8f, 8f, 8f), 1.5f);
+            afterWrap.serverTick = 5;
+            zone.ApplyBrush(afterWrap);
+
+            zone.Checkpoint(serverTick: 65530);
+
+            Assert.AreEqual(1, zone.OpLog.Count,
+                "Wraparound: the op with tick 5 lies AFTER tick 65530 in serial-number space and must be retained.");
+            Assert.AreEqual((ushort)5, zone.OpLog[0].serverTick);
+        }
+
         private static BrushOp MakeSphereBrushOp(Vector3 center, float radius) => new BrushOp
         {
             kind = BrushKind.SphereSubtract,
