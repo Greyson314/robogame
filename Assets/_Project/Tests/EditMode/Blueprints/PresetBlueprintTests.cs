@@ -39,6 +39,7 @@ namespace Robogame.Tests.EditMode.Blueprints
             BlueprintFolder + "/Blueprint_DefaultBomber.asset",
             BlueprintFolder + "/Blueprint_DefaultPropPlane.asset",
             BlueprintFolder + "/Blueprint_DefaultHelicopter.asset",
+            BlueprintFolder + "/Blueprint_DefaultDrillBot.asset",
             BlueprintFolder + "/Blueprint_CombatDummy.asset",
             BlueprintFolder + "/Blueprint_StressRotorTower.asset",
             BlueprintFolder + "/Blueprint_StressRopeTower.asset",

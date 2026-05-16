@@ -36,6 +36,7 @@ namespace Robogame.Tools.Editor
         private const string DefaultBomberPath = BlueprintFolder + "/Blueprint_DefaultBomber.asset";
         private const string DefaultPropPlanePath = BlueprintFolder + "/Blueprint_DefaultPropPlane.asset";
         private const string DefaultHelicopterPath = BlueprintFolder + "/Blueprint_DefaultHelicopter.asset";
+        private const string DefaultDrillBotPath = BlueprintFolder + "/Blueprint_DefaultDrillBot.asset";
         private const string CombatDummyPath = BlueprintFolder + "/Blueprint_CombatDummy.asset";
         private const string StressTowerPath = BlueprintFolder + "/Blueprint_StressRotorTower.asset";
         private const string ArchDummyPath = BlueprintFolder + "/Blueprint_ArchDummy.asset";
@@ -110,6 +111,12 @@ namespace Robogame.Tools.Editor
             // RotorsGenerateLift. Ground-kind so it spawns on the pad;
             // forward-flight input is a separate session.
             CreateOrUpdateBlueprint(DefaultHelicopterPath, BuildHelicopterPlan(lib));
+            // DrillBot: ground rover with a front-mounted drill block.
+            // The drill carves voxel terrain when the player holds fire;
+            // tuned to actually reach the chunk surface, unlike a
+            // top-mounted drill that floats above the terrain on its
+            // wheels.
+            CreateOrUpdateBlueprint(DefaultDrillBotPath, BuildDrillBotPlan(lib));
             CreateOrUpdateBlueprint(CombatDummyPath, BuildCombatDummyPlan(lib));
             // Stress-test target: tall column of rotors. Spawn-gated by
             // Stress.RotorTower tweakable in the settings panel.
@@ -506,6 +513,47 @@ namespace Robogame.Tools.Editor
             finally { sb.Dispose(); }
         }
 
+        private static BlueprintPlan BuildDrillBotPlan(BlockDefinitionLibrary lib)
+        {
+            // Compact 3-wide × 3-long ground rover with a single drill cell
+            // protruding from the front spine. The drill mounts on the +Z
+            // face of the forward spine cube, so the chassis's natural
+            // forward direction pushes the drill into terrain ahead.
+            // Four wheels (2 steer front, 2 drive back) on the side
+            // strips; no weapon — left-click is dedicated to drilling.
+            Vector3Int forwardStep = new Vector3Int(0, 0, 1);
+            Vector3Int backStep    = new Vector3Int(0, 0, -1);
+            Vector3Int rightStep   = new Vector3Int(1, 0, 0);
+
+            var sb = ScriptedChassisBuilder.Create("DrillBot", ChassisKind.Ground, lib);
+            try
+            {
+                sb.Place(BlockIds.Cpu, 0, 0, 0);
+                // Z-axis spine, forward then back so each cube hosts on
+                // the previous one along the spine.
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  1), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -1), backStep);
+                // Side strips mirrored across X. Each x=1 cube mounts on
+                // the corresponding x=0 spine cube.
+                sb.MirrorX(b => b
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0,  0), rightStep)
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0,  1), rightStep)
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0, -1), rightStep));
+                // Drill on the +Z face of the front spine cube. up=+Z
+                // mounts on the host's +Z face; the drill cell sits at
+                // chassis (0, 0, 2), exactly one cell ahead of the front
+                // cube.
+                sb.Place(BlockIds.Drill, new Vector3Int(0, 0, 2), forwardStep);
+                // Wheels — side-mount stems extend ±X from the corner
+                // floor cubes. Steerers at front (+Z), drivers at back.
+                sb.MirrorX(b => b
+                    .Place(BlockIds.WheelSteer, new Vector3Int(2, 0,  1), rightStep)
+                    .Place(BlockIds.Wheel,      new Vector3Int(2, 0, -1), rightStep));
+                return sb.Build();
+            }
+            finally { sb.Dispose(); }
+        }
+
         private static BlueprintPlan BuildCombatDummyPlan(BlockDefinitionLibrary lib)
         {
             // Solid 5×5×6 fortress with a CPU head one cell above the
@@ -753,6 +801,7 @@ namespace Robogame.Tools.Editor
             ChassisBlueprint bomberBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultBomberPath);
             ChassisBlueprint propPlaneBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultPropPlanePath);
             ChassisBlueprint helicopterBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultHelicopterPath);
+            ChassisBlueprint drillBotBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultDrillBotPath);
             InputActionAsset actionsLive = AssetDatabase.LoadAssetAtPath<InputActionAsset>(ScaffoldUtils.InputActionsAsset);
 
             if (libLive == null)
@@ -765,12 +814,13 @@ namespace Robogame.Tools.Editor
             stateSO.FindProperty("_defaultBlueprint").objectReferenceValue = defaultBpLive;
             stateSO.FindProperty("_inputActions").objectReferenceValue = actionsLive;
 
-            // Populate the HUD-facing preset list (Tank / Plane / Grappler / Boat / Bomber / Prop Plane / Helicopter).
+            // Populate the HUD-facing preset list (Tank / Plane / Grappler / Boat / Bomber / Prop Plane / Helicopter / DrillBot).
             // Session 61: replaced Buggy slot with Grappler (utility plane).
+            // Session 78: added DrillBot at the tail of the list.
             SerializedProperty presets = stateSO.FindProperty("_presetBlueprints");
             if (presets != null)
             {
-                presets.arraySize = 7;
+                presets.arraySize = 8;
                 presets.GetArrayElementAtIndex(0).objectReferenceValue = defaultBpLive;
                 presets.GetArrayElementAtIndex(1).objectReferenceValue = planeBpLive;
                 presets.GetArrayElementAtIndex(2).objectReferenceValue = grapplerBpLive;
@@ -778,6 +828,7 @@ namespace Robogame.Tools.Editor
                 presets.GetArrayElementAtIndex(4).objectReferenceValue = bomberBpLive;
                 presets.GetArrayElementAtIndex(5).objectReferenceValue = propPlaneBpLive;
                 presets.GetArrayElementAtIndex(6).objectReferenceValue = helicopterBpLive;
+                presets.GetArrayElementAtIndex(7).objectReferenceValue = drillBotBpLive;
             }
             stateSO.ApplyModifiedPropertiesWithoutUndo();
 

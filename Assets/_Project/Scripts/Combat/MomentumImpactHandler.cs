@@ -3,6 +3,7 @@ using Robogame.Block;
 using Robogame.Core;
 using Robogame.Movement;
 using Robogame.Robots;
+using Robogame.Voxel;
 using UnityEngine;
 
 namespace Robogame.Combat
@@ -87,6 +88,20 @@ namespace Robogame.Combat
                 ? collision.collider.GetComponentInParent<Robot>()
                 : null;
             if (otherRobot != null && otherRobot == _robot) return;
+
+            // Voxel-terrain exemption: a chassis driving a drill (or any
+            // other block) into a dig zone shouldn't ramming-damage
+            // itself off the chunk's surface MeshCollider. Terrain has
+            // no HP, the drill's purpose is to *be* in contact with it,
+            // and other chassis blocks scraping terrain while tunneling
+            // would chew through the chassis faster than the drill can
+            // carve. "At least for now" per the playtest brief —
+            // tighten to drill-cell-only if needed later.
+            if (collision.collider != null &&
+                collision.collider.GetComponentInParent<DigChunk>() != null)
+            {
+                return;
+            }
 
             float minSpeed = Mathf.Max(0.01f, Tweakables.Get(Tweakables.ImpactMinSpeed));
             float damagePerKj = Mathf.Max(0f, Tweakables.Get(Tweakables.ImpactDamagePerKj));

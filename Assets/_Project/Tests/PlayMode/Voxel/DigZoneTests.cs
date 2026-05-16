@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
 using Robogame.Core;
+using Robogame.Input;
 using Robogame.Voxel;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -630,13 +631,33 @@ namespace Robogame.Tests.PlayMode.Voxel
             _chassisGo = null;
         }
 
-        private (DrillCollisionForwarder forwarder, DrillBlock drill, Collider drillCol) BuildChassisWithDrill(Vector3 drillWorldPos)
+        // Stub IInputSource for tests — DrillBlock now gates emission on
+        // FireHeld, so a chassis-like parent without an IInputSource
+        // can't fire the drill via the contact or auto-poll paths. The
+        // direct Drill(zone) method is unaffected and remains the
+        // path tests use when they want deterministic carving regardless
+        // of input state.
+        private sealed class FireHeldInputStub : MonoBehaviour, IInputSource
+        {
+            public bool ReportFireHeld = true;
+            public Vector2 Move => Vector2.zero;
+            public Vector2 Look => Vector2.zero;
+            public float Vertical => 0f;
+            public bool FireHeld => ReportFireHeld;
+            public bool FirePressed => false;
+            public bool ReloadPressed => false;
+        }
+
+        private (DrillCollisionForwarder forwarder, DrillBlock drill, Collider drillCol, FireHeldInputStub input)
+            BuildChassisWithDrill(Vector3 drillWorldPos, bool fireHeld = true)
         {
             _chassisGo = new GameObject("TestChassis");
             _chassisGo.transform.position = Vector3.zero;
             // Chassis root carries the Rigidbody so Unity routes physics
             // callbacks here.
             _chassisGo.AddComponent<Rigidbody>().isKinematic = true;
+            FireHeldInputStub input = _chassisGo.AddComponent<FireHeldInputStub>();
+            input.ReportFireHeld = fireHeld;
             var forwarder = _chassisGo.AddComponent<DrillCollisionForwarder>();
 
             var drillGo = new GameObject("TestDrill");
@@ -647,7 +668,7 @@ namespace Robogame.Tests.PlayMode.Voxel
             var drill = drillGo.AddComponent<DrillBlock>();
             forwarder.RefreshDrills();
 
-            return (forwarder, drill, drillCol);
+            return (forwarder, drill, drillCol, input);
         }
 
         [Test]
@@ -658,7 +679,7 @@ namespace Robogame.Tests.PlayMode.Voxel
             float chunkSide = zone.ChunkSizeCells * zone.CellSize;
             Vector3 inSolidHalf = new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f);
 
-            (DrillCollisionForwarder forwarder, _, Collider drillCol) = BuildChassisWithDrill(inSolidHalf);
+            (DrillCollisionForwarder forwarder, _, Collider drillCol, _) = BuildChassisWithDrill(inSolidHalf);
             Collider chunkCol = chunk.GetComponent<MeshCollider>();
             Assert.IsNotNull(chunkCol, "Test pre-condition: chunk must have a MeshCollider.");
 
@@ -685,7 +706,7 @@ namespace Robogame.Tests.PlayMode.Voxel
             DigChunk chunk = zone.GetChunk(0, 0, 0);
             float chunkSide = zone.ChunkSizeCells * zone.CellSize;
 
-            (DrillCollisionForwarder forwarder, _, _) = BuildChassisWithDrill(
+            (DrillCollisionForwarder forwarder, _, _, _) = BuildChassisWithDrill(
                 new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f));
 
             // Create a stray collider that the forwarder doesn't know about.
@@ -707,24 +728,19 @@ namespace Robogame.Tests.PlayMode.Voxel
         }
 
         [UnityTest]
-        public IEnumerator DrillBlock_InsideZone_AutoPollsViaFixedUpdate_CarvesSdf()
+        public IEnumerator DrillBlock_InsideZone_FireHeld_AutoPollsViaFixedUpdate_CarvesSdf()
         {
             // The contact-only drilling path only fires when the drill's
             // collider physically intersects a chunk's surface MeshCollider.
             // A body-mounted chassis drill rarely contacts the surface
             // (wheels keep the body above the terrain), so DrillBlock
-            // also polls DigField each FixedUpdate: if the drill's tip
-            // sits inside a registered DigZone, it emits a brush even
-            // without a contact event. This test pins that behaviour.
+            // polls DigField each FixedUpdate while FireHeld is true.
             DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
             DigChunk chunk = zone.GetChunk(0, 0, 0);
             float chunkSide = zone.ChunkSizeCells * zone.CellSize;
             Vector3 startPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f);
 
-            GameObject drillGo = new GameObject("AutoPollDrill");
-            drillGo.transform.position = startPos;
-            drillGo.AddComponent<DrillBlock>();
-            _ancillaryGameObjects.Add(drillGo);
+            BuildChassisWithDrill(startPos, fireHeld: true);
 
             int dim = chunk.Dim;
             int dimSq = dim * dim;
@@ -735,21 +751,48 @@ namespace Robogame.Tests.PlayMode.Voxel
             Assume.That(chunk.Sdf[probeIdx], Is.LessThan(0),
                 "Pre-condition: drill starts in solid material.");
 
-            // Two FixedUpdates: first to fire the auto-poll past the
-            // initial throttle, second as a safety margin if the first
-            // happens to coincide with _lastEmitTime = NegativeInfinity
-            // edge cases.
             yield return new WaitForFixedUpdate();
             yield return new WaitForFixedUpdate();
 
             Assert.GreaterOrEqual(chunk.Sdf[probeIdx], 0,
-                "Drill inside the zone must auto-carve through the FixedUpdate poll path.");
+                "Drill inside the zone with FireHeld=true must auto-carve via FixedUpdate poll.");
+        }
+
+        [UnityTest]
+        public IEnumerator DrillBlock_InsideZone_FireNotHeld_DoesNotCarve()
+        {
+            // The held-input gate: even when the drill sits inside a zone,
+            // the auto-poll path stays silent until the player presses
+            // fire. Mirrors BombBayBlock / CannonBlock / ProjectileGun's
+            // FireHeld gate so left-click consistently means "use
+            // primary tool".
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            Vector3 startPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f);
+
+            BuildChassisWithDrill(startPos, fireHeld: false);
+
+            int dim = chunk.Dim;
+            int dimSq = dim * dim;
+            int cx = Mathf.RoundToInt(startPos.x / zone.CellSize);
+            int cy = Mathf.RoundToInt(startPos.y / zone.CellSize);
+            int cz = Mathf.RoundToInt(startPos.z / zone.CellSize);
+            int probeIdx = cz * dimSq + cy * dim + cx;
+            sbyte before = chunk.Sdf[probeIdx];
+
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+
+            Assert.AreEqual(before, chunk.Sdf[probeIdx],
+                "FireHeld=false: auto-poll must not emit any brush.");
         }
 
         [Test]
         public void DrillForwarder_RefreshDrills_CountMatchesAttachedDrillBlocks()
         {
-            (DrillCollisionForwarder forwarder, _, _) = BuildChassisWithDrill(Vector3.zero);
+            (DrillCollisionForwarder forwarder, _, _, _) = BuildChassisWithDrill(Vector3.zero);
             Assert.AreEqual(1, forwarder.BoundDrillCount, "One DrillBlock attached on construction.");
 
             // Add a second drill block on the chassis.

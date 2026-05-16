@@ -1,4 +1,5 @@
 using Robogame.Core;
+using Robogame.Input;
 using UnityEngine;
 
 namespace Robogame.Voxel
@@ -36,7 +37,7 @@ namespace Robogame.Voxel
     public sealed class DrillBlock : MonoBehaviour
     {
         [Tooltip("Drill-bit radius in metres. Defines the carved tunnel's cross-section.")]
-        [SerializeField, Min(0.05f)] private float _radius = 0.5f;
+        [SerializeField, Min(0.05f)] private float _radius = 0.8f;
 
         [Tooltip("Minimum seconds between emitted brush ops. 0.033 ≈ 30 Hz, matching the design's drill tick rate.")]
         [SerializeField, Min(0.005f)] private float _emitInterval = 0.033f;
@@ -44,6 +45,16 @@ namespace Robogame.Voxel
         private Vector3 _lastTipPosWorld;
         private bool _haveLastTipPos;
         private float _lastEmitTime = float.NegativeInfinity;
+        // Player input gate — drilling is held-fire continuous (mirrors the
+        // BombBay / Cannon / ProjectileGun input pattern). The contact and
+        // FixedUpdate auto-poll paths both check this; the public Drill(zone)
+        // method does NOT, so tests + scripted callers can fire deterministically.
+        private IInputSource _input;
+
+        private void Awake()
+        {
+            _input = GetComponentInParent<IInputSource>();
+        }
 
         /// <summary>The world-space point that drives capsule emission. Defaults to <c>transform.position</c>.</summary>
         public Vector3 TipWorldPosition => transform.position;
@@ -113,6 +124,7 @@ namespace Robogame.Voxel
             // registered DigZone's volume, emit a brush. Brushes on
             // already-exterior cells are no-ops (max-fold idempotent),
             // so this only costs work where it actually carves.
+            if (!IsFireHeld) return;
             if (Time.time - _lastEmitTime < _emitInterval) return;
             IDigZone zone = DigField.ZoneAt(transform.position);
             if (zone is DigZone concrete) Drill(concrete);
@@ -134,6 +146,7 @@ namespace Robogame.Voxel
         public bool HandleContact(Collider otherCollider)
         {
             if (otherCollider == null) return false;
+            if (!IsFireHeld) return false;
             if (Time.time - _lastEmitTime < _emitInterval) return false;
 
             DigChunk chunk = otherCollider.GetComponentInParent<DigChunk>();
@@ -143,6 +156,20 @@ namespace Robogame.Voxel
 
             Drill(zone);
             return true;
+        }
+
+        // FireHeld gate, with a late lookup fallback for cases where the
+        // DrillBlock is instantiated and later re-parented under a chassis
+        // root that carries the IInputSource — the cached _input from
+        // Awake would be stale. The lookup is cheap and only runs while
+        // _input is still null.
+        private bool IsFireHeld
+        {
+            get
+            {
+                if (_input == null) _input = GetComponentInParent<IInputSource>();
+                return _input != null && _input.FireHeld;
+            }
         }
 
         private void LateUpdate()
