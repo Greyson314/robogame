@@ -36,8 +36,16 @@ namespace Robogame.Voxel
     [DisallowMultipleComponent]
     public sealed class DrillBlock : MonoBehaviour
     {
-        [Tooltip("Drill-bit radius in metres. Defines the carved tunnel's cross-section.")]
-        [SerializeField, Min(0.05f)] private float _radius = 0.8f;
+        [Tooltip("Drill-bit radius in metres. Defines the carved tunnel's cross-section. " +
+                 "Must be wide enough that the chassis fits through what gets carved — " +
+                 "for a 3×3 chassis (≈2.5m incl. wheels) 1.5m gives a 3m diameter tunnel with margin.")]
+        [SerializeField, Min(0.05f)] private float _radius = 1.5f;
+
+        [Tooltip("How far past the cell center the brush emits, in metres, along the drill's mount-up. " +
+                 "A cell-mounted drill on a wheeled chassis floats above the terrain — without this offset " +
+                 "the brush only nicks the surface and idempotency kills repeat carving. 0.6m projects the " +
+                 "brush ahead/below into uncarved material so each tick advances the tunnel.")]
+        [SerializeField, Min(0f)] private float _tipForwardOffset = 0.6f;
 
         [Tooltip("Minimum seconds between emitted brush ops. 0.033 ≈ 30 Hz, matching the design's drill tick rate.")]
         [SerializeField, Min(0.005f)] private float _emitInterval = 0.033f;
@@ -56,8 +64,15 @@ namespace Robogame.Voxel
             _input = GetComponentInParent<IInputSource>();
         }
 
-        /// <summary>The world-space point that drives capsule emission. Defaults to <c>transform.position</c>.</summary>
-        public Vector3 TipWorldPosition => transform.position;
+        /// <summary>
+        /// World-space point the brush emits from. For a chassis-mounted
+        /// drill block, this is the cell center plus <see cref="_tipForwardOffset"/>
+        /// metres along the mount-up direction (<c>transform.up</c>). The
+        /// mount-up follows the cell's placement orientation, so a +Z-up
+        /// front-mounted drill carves ahead, a -Y-up bottom-mounted drill
+        /// carves down.
+        /// </summary>
+        public Vector3 TipWorldPosition => transform.position + transform.up * _tipForwardOffset;
 
         public float Radius => _radius;
 

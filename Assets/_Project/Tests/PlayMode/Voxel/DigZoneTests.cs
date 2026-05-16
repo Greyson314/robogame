@@ -727,6 +727,40 @@ namespace Robogame.Tests.PlayMode.Voxel
                 "Drill must not have fired — SDF must be untouched.");
         }
 
+        [Test]
+        public void Drill_TipWorldPosition_AppliesForwardOffsetAlongTransformUp()
+        {
+            // The tip projects past the cell center along the block's
+            // mount-up direction so a chassis-mounted drill carves ahead
+            // (or below, for a -Y-up mount) of itself. Without the offset,
+            // a cell-sized drill on a wheeled chassis only nicks the
+            // surface plane and idempotency stops repeat carving — see
+            // session 79 for the playtest report this fixes.
+            GameObject drillGo = new GameObject("Drill");
+            drillGo.transform.position = new Vector3(1f, 2f, 3f);
+            DrillBlock drill = drillGo.AddComponent<DrillBlock>();
+            _ancillaryGameObjects.Add(drillGo);
+
+            // Default transform.up == world +Y. Tip offset should be a
+            // pure +Y displacement.
+            Vector3 tipDefault = drill.TipWorldPosition;
+            Vector3 offsetDefault = tipDefault - drillGo.transform.position;
+            Assert.AreEqual(0f, offsetDefault.x, 1e-4f);
+            Assert.AreEqual(0f, offsetDefault.z, 1e-4f);
+            Assert.Greater(offsetDefault.y, 0.1f,
+                "Default-orientation drill must offset its tip along +Y; otherwise the tip = cell center.");
+
+            // Rotate so transform.up == world +Z (the orientation a front-
+            // mounted drill ends up at after BlockGrid.OrientationFromUp).
+            drillGo.transform.rotation = Quaternion.LookRotation(Vector3.up, Vector3.forward);
+            Vector3 tipRotated = drill.TipWorldPosition;
+            Vector3 offsetRotated = tipRotated - drillGo.transform.position;
+            Assert.AreEqual(0f, offsetRotated.x, 1e-4f);
+            Assert.AreEqual(0f, offsetRotated.y, 1e-4f);
+            Assert.Greater(offsetRotated.z, 0.1f,
+                "After rotating so transform.up = +Z, the tip offset must track to +Z.");
+        }
+
         [UnityTest]
         public IEnumerator DrillBlock_InsideZone_FireHeld_AutoPollsViaFixedUpdate_CarvesSdf()
         {
