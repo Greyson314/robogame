@@ -38,8 +38,10 @@ namespace Robogame.Voxel
     {
         [Tooltip("Drill-bit radius in metres. Defines the carved tunnel's cross-section. " +
                  "Must be wide enough that the chassis fits through what gets carved — " +
-                 "for a 3×3 chassis (≈2.5m incl. wheels) 2.0m gives a 4m diameter tunnel with margin.")]
-        [SerializeField, Min(0.05f)] private float _radius = 2.0f;
+                 "for a 3×3 chassis (≈2.5m incl. wheels) 3.0m gives a 6m diameter tunnel " +
+                 "with comfortable margin. NOTE: brush is currently a sphere so depth = " +
+                 "width; a true anisotropic-brush kind is a future ask (see handoff).")]
+        [SerializeField, Min(0.05f)] private float _radius = 3.0f;
 
         [Tooltip("How far past the cell center the brush emits, in metres, along the drill's mount-up. " +
                  "A cell-mounted drill on a wheeled chassis floats above the terrain — without this offset " +
