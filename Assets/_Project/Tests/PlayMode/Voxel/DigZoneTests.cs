@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using NUnit.Framework;
 using Robogame.Core;
 using Robogame.Voxel;
@@ -608,6 +609,118 @@ namespace Robogame.Tests.PlayMode.Voxel
             for (int y = 0; y < 2; y++)
             for (int x = 0; x < 2; x++)
                 Assert.IsNotNull(zone.GetChunk(x, y, z), $"Chunk ({x},{y},{z}) must exist.");
+        }
+
+        // ------------------------------------------------------------------
+        // DrillCollisionForwarder — when a DrillBlock lives on a child of a
+        // chassis-root Rigidbody, Unity's physics callbacks fire on the
+        // root, not the child. The forwarder dispatches contact pairs
+        // from the root to the correct drill block.
+        // ------------------------------------------------------------------
+
+        private GameObject _chassisGo;
+        private List<GameObject> _ancillaryGameObjects = new();
+
+        [TearDown]
+        public void TearDownAncillary()
+        {
+            foreach (GameObject g in _ancillaryGameObjects) if (g != null) Object.DestroyImmediate(g);
+            _ancillaryGameObjects.Clear();
+            if (_chassisGo != null) Object.DestroyImmediate(_chassisGo);
+            _chassisGo = null;
+        }
+
+        private (DrillCollisionForwarder forwarder, DrillBlock drill, Collider drillCol) BuildChassisWithDrill(Vector3 drillWorldPos)
+        {
+            _chassisGo = new GameObject("TestChassis");
+            _chassisGo.transform.position = Vector3.zero;
+            // Chassis root carries the Rigidbody so Unity routes physics
+            // callbacks here.
+            _chassisGo.AddComponent<Rigidbody>().isKinematic = true;
+            var forwarder = _chassisGo.AddComponent<DrillCollisionForwarder>();
+
+            var drillGo = new GameObject("TestDrill");
+            drillGo.transform.SetParent(_chassisGo.transform, worldPositionStays: false);
+            drillGo.transform.position = drillWorldPos;
+            var drillCol = drillGo.AddComponent<BoxCollider>();
+            drillCol.size = Vector3.one * 0.5f;
+            var drill = drillGo.AddComponent<DrillBlock>();
+            forwarder.RefreshDrills();
+
+            return (forwarder, drill, drillCol);
+        }
+
+        [Test]
+        public void DrillForwarder_DispatchContact_FromOwningDrillCollider_CarvesSdf()
+        {
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            Vector3 inSolidHalf = new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f);
+
+            (DrillCollisionForwarder forwarder, _, Collider drillCol) = BuildChassisWithDrill(inSolidHalf);
+            Collider chunkCol = chunk.GetComponent<MeshCollider>();
+            Assert.IsNotNull(chunkCol, "Test pre-condition: chunk must have a MeshCollider.");
+
+            int dim = chunk.Dim;
+            int dimSq = dim * dim;
+            int cx = Mathf.RoundToInt(inSolidHalf.x / zone.CellSize);
+            int cy = Mathf.RoundToInt(inSolidHalf.y / zone.CellSize);
+            int cz = Mathf.RoundToInt(inSolidHalf.z / zone.CellSize);
+            int probeIdx = cz * dimSq + cy * dim + cx;
+            Assume.That(chunk.Sdf[probeIdx], Is.LessThan(0),
+                "Test pre-condition: drill must start in solid material.");
+
+            bool fired = forwarder.DispatchContact(drillCol, chunkCol);
+
+            Assert.IsTrue(fired, "DispatchContact must return true when the chassis-side collider belongs to a drill.");
+            Assert.GreaterOrEqual(chunk.Sdf[probeIdx], 0,
+                "Drill at this position should have carved the cell to exterior via the forwarder.");
+        }
+
+        [Test]
+        public void DrillForwarder_DispatchContact_FromUnknownCollider_Noop()
+        {
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+
+            (DrillCollisionForwarder forwarder, _, _) = BuildChassisWithDrill(
+                new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f));
+
+            // Create a stray collider that the forwarder doesn't know about.
+            var strayGo = new GameObject("StrayCollider");
+            strayGo.AddComponent<BoxCollider>();
+            _ancillaryGameObjects.Add(strayGo);
+
+            Collider chunkCol = chunk.GetComponent<MeshCollider>();
+            int dim = chunk.Dim;
+            int dimSq = dim * dim;
+            int probeIdx = (dim / 2) * dimSq + (dim / 4) * dim + (dim / 2);
+            sbyte before = chunk.Sdf[probeIdx];
+
+            bool fired = forwarder.DispatchContact(strayGo.GetComponent<Collider>(), chunkCol);
+
+            Assert.IsFalse(fired, "DispatchContact from a non-drill collider must return false.");
+            Assert.AreEqual(before, chunk.Sdf[probeIdx],
+                "Drill must not have fired — SDF must be untouched.");
+        }
+
+        [Test]
+        public void DrillForwarder_RefreshDrills_CountMatchesAttachedDrillBlocks()
+        {
+            (DrillCollisionForwarder forwarder, _, _) = BuildChassisWithDrill(Vector3.zero);
+            Assert.AreEqual(1, forwarder.BoundDrillCount, "One DrillBlock attached on construction.");
+
+            // Add a second drill block on the chassis.
+            var drillGo2 = new GameObject("TestDrill2");
+            drillGo2.transform.SetParent(_chassisGo.transform, worldPositionStays: false);
+            drillGo2.AddComponent<BoxCollider>();
+            drillGo2.AddComponent<DrillBlock>();
+            forwarder.RefreshDrills();
+
+            Assert.AreEqual(2, forwarder.BoundDrillCount,
+                "RefreshDrills must pick up the newly-added drill block.");
         }
 
         // ------------------------------------------------------------------

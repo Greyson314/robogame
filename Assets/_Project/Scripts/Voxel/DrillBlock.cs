@@ -95,14 +95,39 @@ namespace Robogame.Voxel
 
         private void OnCollisionStay(Collision collision)
         {
-            if (Time.time - _lastEmitTime < _emitInterval) return;
+            // Standalone-drill path (rare in production: drill not under a
+            // chassis Rigidbody). When the drill IS under a chassis,
+            // Unity routes physics callbacks to the chassis-root
+            // Rigidbody GameObject, not this child — see
+            // <see cref="DrillCollisionForwarder"/>.
+            HandleContact(collision.collider);
+        }
 
-            DigChunk chunk = collision.collider.GetComponentInParent<DigChunk>();
-            if (chunk == null) return;
+        /// <summary>
+        /// Process a single physics contact with <paramref name="otherCollider"/>.
+        /// If the other collider belongs to a <see cref="DigChunk"/>, emits
+        /// one <see cref="BrushKind.CapsuleSubtract"/> through the chunk's
+        /// parent <see cref="DigZone"/> (throttled to <see cref="_emitInterval"/>).
+        /// Returns <c>true</c> if a brush was actually emitted.
+        /// </summary>
+        /// <remarks>
+        /// Public so <see cref="DrillCollisionForwarder"/> can forward
+        /// chassis-root <c>OnCollisionStay</c> events to drill blocks
+        /// living on child GameObjects (Unity's physics-message routing
+        /// only fires on the Rigidbody's GameObject, not children).
+        /// </remarks>
+        public bool HandleContact(Collider otherCollider)
+        {
+            if (otherCollider == null) return false;
+            if (Time.time - _lastEmitTime < _emitInterval) return false;
+
+            DigChunk chunk = otherCollider.GetComponentInParent<DigChunk>();
+            if (chunk == null) return false;
             DigZone zone = chunk.GetComponentInParent<DigZone>();
-            if (zone == null) return;
+            if (zone == null) return false;
 
             Drill(zone);
+            return true;
         }
 
         private void LateUpdate()

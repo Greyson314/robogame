@@ -26,6 +26,15 @@ namespace Robogame.Voxel
         {
             if (block.GetComponent<DrillBlock>() == null)
                 block.gameObject.AddComponent<DrillBlock>();
+
+            // Unity routes OnCollisionStay to the GameObject hosting the
+            // Rigidbody — the chassis root, not this child cell. Add a
+            // forwarder on the chassis root (where this binder lives) so
+            // contacts reach the drill blocks. Idempotent via
+            // DisallowMultipleComponent.
+            DrillCollisionForwarder forwarder = GetComponent<DrillCollisionForwarder>();
+            if (forwarder == null) forwarder = gameObject.AddComponent<DrillCollisionForwarder>();
+            forwarder.RefreshDrills();
         }
     }
 }
