@@ -169,6 +169,51 @@ namespace Robogame.Tools.Editor
             so.ApplyModifiedPropertiesWithoutUndo();
 
             zoneObj.SetActive(true);
+
+            // Phase 5 visual playtest gate: drop a VoxelChaserBot on the
+            // zone surface so the OccupancyGrid + A* pipeline has a
+            // visible consumer. The bot pathfinds toward the player
+            // Robot whenever one exists; without a target it just sits
+            // idle. As the player drills trenches, the trench cells get
+            // re-classified OpenWithFloor and the bot can follow into
+            // them.
+            BuildArenaDigZoneChaser(zoneObj.transform);
+        }
+
+        private static void BuildArenaDigZoneChaser(Transform digZoneRoot)
+        {
+            // Surface corner of the zone (zoneOrigin + ~80% across in X/Z,
+            // ~0.5m above the half-space surface plane). Bot lives on
+            // the surface, not in a pre-carved chamber — that's a
+            // future authoring pass.
+            Vector3 zoneOrigin = digZoneRoot.position;
+            Vector3 spawn = zoneOrigin + new Vector3(26f, 8.5f, 26f);
+
+            GameObject botGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            botGo.name = "VoxelChaserBot";
+            botGo.transform.SetParent(digZoneRoot.parent, worldPositionStays: true);
+            botGo.transform.position = spawn;
+            botGo.transform.localScale = Vector3.one * 1.0f;
+
+            // Strip the auto-added SphereCollider — the bot doesn't
+            // participate in physics (kinematic movement only).
+            Object.DestroyImmediate(botGo.GetComponent<Collider>());
+
+            // Mark visually distinct via the existing palette's "enemy"
+            // accent if available; fall back to a tinted instance of
+            // ArenaPillar so the sphere doesn't render with the default
+            // diffuse-pink missing-material fallback.
+            Material enemyMat = WorldPalette.ArenaPillar;
+            if (enemyMat != null)
+            {
+                Material tinted = new Material(enemyMat);
+                tinted.color = new Color(0.85f, 0.25f, 0.20f, 1f);
+                if (tinted.HasProperty("_BaseColor"))
+                    tinted.SetColor("_BaseColor", new Color(0.85f, 0.25f, 0.20f, 1f));
+                botGo.GetComponent<MeshRenderer>().sharedMaterial = tinted;
+            }
+
+            botGo.AddComponent<Robogame.Gameplay.VoxelChaserBot>();
         }
 
         private static void TintTerrain()

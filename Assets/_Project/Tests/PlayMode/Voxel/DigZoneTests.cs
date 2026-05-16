@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
 using Robogame.Core;
+using Robogame.Gameplay;
 using Robogame.Input;
 using Robogame.Voxel;
 using UnityEngine;
@@ -821,6 +822,102 @@ namespace Robogame.Tests.PlayMode.Voxel
 
             Assert.AreEqual(before, chunk.Sdf[probeIdx],
                 "FireHeld=false: auto-poll must not emit any brush.");
+        }
+
+        // ------------------------------------------------------------------
+        // Phase 5 visual-playtest gate: VoxelChaserBot uses the
+        // OccupancyGrid to chase a target via A*. These tests cover the
+        // bind + pathfind + step behaviour with a deterministic half-
+        // space SDF (no brush events, so the grid state is known up-front).
+        // ------------------------------------------------------------------
+
+        private VoxelChaserBot SpawnChaser(Vector3 worldPos)
+        {
+            var go = new GameObject("ChaserBot");
+            go.transform.position = worldPos;
+            _ancillaryGameObjects.Add(go);
+            return go.AddComponent<VoxelChaserBot>();
+        }
+
+        private Transform SpawnTargetMarker(Vector3 worldPos)
+        {
+            var go = new GameObject("TargetMarker");
+            go.transform.position = worldPos;
+            _ancillaryGameObjects.Add(go);
+            return go.transform;
+        }
+
+        [Test]
+        public void VoxelChaserBot_FindsPathBetweenSurfaceCells_AcrossHalfSpace()
+        {
+            // 2×1×1 zone: surface plane at world y=0 across world x=0..16
+            // and z=0..32. Both endpoints land on surface (OpenWithFloor)
+            // cells, so a Cardinal6 path must exist.
+            DigZone zone = MakeZone(new Vector3Int(2, 1, 1));
+            OccupancyGrid grid = zone.OccupancyGrid;
+            Assume.That(grid, Is.Not.Null);
+
+            Vector3 startWorld = grid.GridToWorld(2, 4, 4);
+            Vector3 targetWorld = grid.GridToWorld(13, 4, 4);
+
+            VoxelChaserBot bot = SpawnChaser(startWorld);
+            bot.BindZone(zone);
+            bot.BindTarget(SpawnTargetMarker(targetWorld));
+
+            Assert.IsTrue(bot.RefreshPath(),
+                "A path must exist between two OpenWithFloor cells in the same row.");
+            Assert.Greater(bot.PathLength, 0);
+        }
+
+        [UnityTest]
+        public IEnumerator VoxelChaserBot_FollowsPath_MovesTowardTarget()
+        {
+            // Place the bot a few cells away from the target on the
+            // surface, run a handful of FixedUpdates, and confirm the
+            // bot's world-space distance to the target decreased.
+            DigZone zone = MakeZone(new Vector3Int(2, 1, 1));
+            OccupancyGrid grid = zone.OccupancyGrid;
+
+            Vector3 startWorld = grid.GridToWorld(2, 4, 4);
+            Vector3 targetWorld = grid.GridToWorld(10, 4, 4);
+
+            VoxelChaserBot bot = SpawnChaser(startWorld);
+            bot.BindZone(zone);
+            bot.BindTarget(SpawnTargetMarker(targetWorld));
+
+            float distBefore = Vector3.Distance(bot.transform.position, targetWorld);
+
+            // Five fixed steps at default ~50 Hz = 0.1s. At walk speed
+            // 2 m/s that's ~0.2m progress — well within the noise floor
+            // but reliably > 0.
+            for (int i = 0; i < 10; i++) yield return new WaitForFixedUpdate();
+
+            float distAfter = Vector3.Distance(bot.transform.position, targetWorld);
+            Assert.Less(distAfter, distBefore,
+                $"After 10 FixedUpdates the bot should have moved closer to its target " +
+                $"(before={distBefore:F3} after={distAfter:F3}).");
+        }
+
+        [Test]
+        public void VoxelChaserBot_NoPath_RefreshReturnsFalse_PathStaysEmpty()
+        {
+            // Start in a Solid cell — A* fails closed. RefreshPath
+            // returns false and the bot's HasPath stays false.
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            OccupancyGrid grid = zone.OccupancyGrid;
+
+            // gy=1 (voxel y=4..7) is solid in the half-space init.
+            Vector3 stuckPos = grid.GridToWorld(4, 1, 4);
+            Vector3 targetPos = grid.GridToWorld(4, 5, 4);
+
+            VoxelChaserBot bot = SpawnChaser(stuckPos);
+            bot.BindZone(zone);
+            bot.BindTarget(SpawnTargetMarker(targetPos));
+
+            Assert.IsFalse(bot.RefreshPath(),
+                "Start cell is Solid — A* must fail closed.");
+            Assert.IsFalse(bot.HasPath,
+                "No path means HasPath is false even if a previous refresh seeded the list.");
         }
 
         [Test]
