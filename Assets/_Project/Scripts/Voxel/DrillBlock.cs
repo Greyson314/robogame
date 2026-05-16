@@ -100,6 +100,34 @@ namespace Robogame.Voxel
         [Tooltip("Camera used as the aim source. Falls back to Camera.main if unassigned.")]
         [SerializeField] private Camera _aimCamera;
 
+        [Header("Diagnostics")]
+        [Tooltip("Draw a live on-screen readout of the drill physics state (aim, carve, " +
+                 "force, velocity) so dig-feel problems can be diagnosed from real gameplay " +
+                 "instead of guessed at. Off in shipping; toggle on for a playtest.")]
+        [SerializeField] private bool _debugReadout;
+
+        // Last-tick diagnostic snapshot, populated by Drill()/ApplyDigPull
+        // and rendered by OnGUI when _debugReadout is on. Pure
+        // instrumentation — never read by gameplay code.
+        private struct DigDiag
+        {
+            public float Time;          // Time.time of the snapshot
+            public int LastChanged;     // cells carved on the last emit
+            public Vector3 AimDir;      // world-space aim
+            public float ElevationDeg;  // aim angle above horizontal
+            public bool HaveBody;
+            public bool Kinematic;
+            public bool UseGravity;
+            public float Mass;
+            public float VAlong;        // chassis speed along aim
+            public float GravCompN;     // gravity-comp force this step
+            public float ServoN;        // servo force this step
+            public Vector3 Velocity;    // chassis linearVelocity
+            public float ChassisY;      // chassis world Y (is it rising?)
+            public bool PullArmed;      // Time.time <= _pullActiveUntil
+        }
+        private DigDiag _diag;
+
         private float _lastEmitTime = float.NegativeInfinity;
         // Dig-pull is applied every FixedUpdate while a recent carve is
         // still "live", NOT only on the ~30 Hz emit tick. Decoupling the
@@ -294,6 +322,15 @@ namespace Robogame.Voxel
             int changed = zone.ApplyBrush(op);
             _lastEmitTime = Time.time;
 
+            if (_debugReadout)
+            {
+                _diag.Time = Time.time;
+                _diag.LastChanged = changed;
+                _diag.AimDir = aimDir;
+                _diag.ElevationDeg = Mathf.Asin(Mathf.Clamp(aimDir.normalized.y, -1f, 1f))
+                                     * Mathf.Rad2Deg;
+            }
+
             if (changed > 0)
             {
                 AudioRouter.PlayOneShot(AudioCue.DrillContact, TipWorldPosition);
@@ -385,23 +422,72 @@ namespace Robogame.Voxel
         {
             // Gravity comp — only the part of weight opposing the aim,
             // and only if the body is actually under gravity.
+            float gravCompN = 0f;
             if (body.useGravity)
             {
                 Vector3 weight = Physics.gravity * body.mass;     // points down
                 float weightAlongAim = Vector3.Dot(weight, aimDir);
                 if (weightAlongAim < 0f)                          // aim has an upward component
-                    body.AddForce(-aimDir * weightAlongAim, ForceMode.Force);
+                {
+                    gravCompN = -weightAlongAim;
+                    body.AddForce(aimDir * gravCompN, ForceMode.Force);
+                }
             }
 
             float vAlong = Vector3.Dot(body.linearVelocity, aimDir);
             float deficit = _digTargetSpeed - vAlong;
+            float servoN = 0f;
             if (deficit > 0f)
             {
                 float dt = Mathf.Max(Time.fixedDeltaTime, 1e-4f);
                 float wanted = deficit * body.mass / dt;
-                float force = Mathf.Min(_digPullForce, wanted);
-                body.AddForceAtPosition(aimDir * force, transform.position, ForceMode.Force);
+                servoN = Mathf.Min(_digPullForce, wanted);
+                body.AddForceAtPosition(aimDir * servoN, transform.position, ForceMode.Force);
             }
+
+            if (_debugReadout)
+            {
+                _diag.HaveBody = true;
+                _diag.Kinematic = body.isKinematic;
+                _diag.UseGravity = body.useGravity;
+                _diag.Mass = body.mass;
+                _diag.VAlong = vAlong;
+                _diag.GravCompN = gravCompN;
+                _diag.ServoN = servoN;
+                _diag.Velocity = body.linearVelocity;
+                _diag.ChassisY = body.position.y;
+                _diag.PullArmed = true;
+            }
+        }
+
+        private void OnGUI()
+        {
+            if (!_debugReadout) return;
+
+            const float w = 320f, h = 240f, pad = 10f;
+            var rect = new Rect(Screen.width - w - pad, pad, w, h);
+            GUI.Box(rect, "DrillBlock diag");
+
+            float staleFor = Time.time - _diag.Time;
+            string body = _diag.HaveBody
+                ? $"mass={_diag.Mass:0.0}kg kin={_diag.Kinematic} grav={_diag.UseGravity}"
+                : "<no chassis Rigidbody resolved>";
+
+            string text =
+                $"FireHeld:   {IsFireHeld}\n" +
+                $"last emit:  {staleFor:0.00}s ago\n" +
+                $"changed:    {_diag.LastChanged} cells  (0 = carving air!)\n" +
+                $"aim:        {_diag.AimDir:F2}\n" +
+                $"elevation:  {_diag.ElevationDeg:0.0}° above horizontal\n" +
+                $"pull armed: {_diag.PullArmed}\n" +
+                $"body:       {body}\n" +
+                $"v·aim:      {_diag.VAlong:0.00} m/s  (target {_digTargetSpeed:0.0})\n" +
+                $"gravComp:   {_diag.GravCompN:0} N\n" +
+                $"servo:      {_diag.ServoN:0} N  (ceiling {_digPullForce:0})\n" +
+                $"velocity:   {_diag.Velocity:F2}\n" +
+                $"chassis Y:  {_diag.ChassisY:0.00} m";
+
+            GUI.Label(new Rect(rect.x + 8f, rect.y + 22f, w - 16f, h - 30f), text);
         }
 
         /// <summary>
