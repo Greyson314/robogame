@@ -64,6 +64,12 @@ namespace Robogame.Voxel
                  "of POI chambers — runtime-only, regenerates each scene load.")]
         [SerializeField] private List<InitialBrushSpec> _initialBrushes = new();
 
+        [Tooltip("When true, every cell inside the zone is interior (solid) at init time — " +
+                 "ignoring the half-space split. Use for zones authored as a 'block of dirt' " +
+                 "the player tunnels into, vs. the default half-space 'plane of ground'. The " +
+                 "outer-layer-exterior rule still applies, so the zone reads as a watertight cube.")]
+        [SerializeField] private bool _initFullySolid;
+
         /// <summary>
         /// Editor-authored / scaffolder-authored brush to apply once at
         /// zone init, after SDF seeding but before occupancy + mesh
@@ -472,15 +478,22 @@ namespace Robogame.Voxel
         }
 
         /// <summary>
-        /// Seed every chunk's SDF with a global half-space: lower half of
-        /// the entire zone (gy &lt; totalCellsY / 2) is solid, upper half
-        /// is exterior.
+        /// Seed every chunk's SDF. Default behaviour is a global half-space
+        /// (lower half of the zone solid, upper half exterior). When
+        /// <see cref="_initFullySolid"/> is true the entire zone interior
+        /// is solid instead. In both modes, the outermost sample layer
+        /// of the zone (the six face planes at globalX/Y/Z = 0 or =
+        /// totalCells*) is forced exterior — that's what makes the zone
+        /// read as a watertight cube in the surface-nets output, instead
+        /// of a single floating half-space plane.
         /// </summary>
         public void InitializeHalfSpace()
         {
             EnsureInitialised();
 
+            int totalCellsX = _chunkGridSize.x * _chunkSizeCells;
             int totalCellsY = _chunkGridSize.y * _chunkSizeCells;
+            int totalCellsZ = _chunkGridSize.z * _chunkSizeCells;
             int splitGlobal = totalCellsY / 2;
             int dim = _chunkSizeCells + 1;
             int dimSq = dim * dim;
@@ -495,11 +508,37 @@ namespace Robogame.Voxel
                 for (int y = 0; y < dim; y++)
                 for (int x = 0; x < dim; x++)
                 {
+                    int globalX = coord.x * _chunkSizeCells + x;
                     int globalY = coord.y * _chunkSizeCells + y;
-                    int v = (globalY - splitGlobal) * 64;
-                    if (v < sbyte.MinValue) v = sbyte.MinValue;
-                    else if (v > sbyte.MaxValue) v = sbyte.MaxValue;
-                    sdf[z * dimSq + y * dim + x] = (sbyte)v;
+                    int globalZ = coord.z * _chunkSizeCells + z;
+
+                    sbyte sample;
+                    bool isZoneBoundary =
+                        globalX == 0 || globalX == totalCellsX ||
+                        globalY == 0 || globalY == totalCellsY ||
+                        globalZ == 0 || globalZ == totalCellsZ;
+
+                    if (isZoneBoundary)
+                    {
+                        // Force exterior at the zone's outer face planes
+                        // so the mesher emits a watertight cube boundary
+                        // rather than running the SDF off into empty
+                        // space.
+                        sample = sbyte.MaxValue;
+                    }
+                    else if (_initFullySolid)
+                    {
+                        sample = sbyte.MinValue;
+                    }
+                    else
+                    {
+                        int v = (globalY - splitGlobal) * 64;
+                        if (v < sbyte.MinValue) v = sbyte.MinValue;
+                        else if (v > sbyte.MaxValue) v = sbyte.MaxValue;
+                        sample = (sbyte)v;
+                    }
+
+                    sdf[z * dimSq + y * dim + x] = sample;
                 }
             }
         }

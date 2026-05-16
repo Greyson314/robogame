@@ -166,14 +166,22 @@ namespace Robogame.Tools.Editor
             // perpendicular axis but in-plane spacing still differs at
             // an LOD seam, which reads visibly on a four-chunk grid.
             so.FindProperty("_enableLod").boolValue = false;
+            // Session 81: the arena dig zone is a solid cube of dirt the
+            // player tunnels into, not a half-space plane on the ground.
+            // Initially this read as just a flat plane slightly above
+            // the arena floor because the half-space init only emitted
+            // the midplane transition; full-solid + outer-layer-exterior
+            // gives a watertight 32×16×32m cube with 6 visible faces.
+            so.FindProperty("_initFullySolid").boolValue = true;
 
-            // Phase 5 POI authoring stand-in: carve a small underground
-            // chamber so the chaser bot has somewhere to live. The
-            // chamber is a single SphereSubtract at the zone's centre
-            // ~4m below the surface plane (world y=-4 for the zone at
-            // y=-8). Radius 2m carves a ~3-cell-tall room that
-            // classifies as OpenWithFloor in the occupancy grid; the
-            // cells around it stay Solid until the player drills down.
+            // Phase 5 POI authoring stand-in: carve a small chamber
+            // inside the cube so the chaser bot has somewhere to live.
+            // With the full-solid init the entire zone interior is
+            // solid, so the chamber can sit anywhere inside the 16m of
+            // cube depth. Place at world (77, 4, 77) — 12m above the
+            // cube's bottom (Y=-8), 4m above the arena floor (Y=0),
+            // ~4m below the cube's top (Y=8). Cell-center-aligned to
+            // pass the majority-Open occupancy threshold.
             //
             // Wired via the _initialBrushes serialized list — applied
             // at DigZone.EnsureInitialised AFTER SDF seeding and BEFORE
@@ -182,13 +190,7 @@ namespace Robogame.Tools.Editor
             brushes.arraySize = 1;
             SerializedProperty brush = brushes.GetArrayElementAtIndex(0);
             brush.FindPropertyRelative("Kind").enumValueIndex = (int)Robogame.Core.BrushKind.SphereSubtract;
-            // Align to occupancy-cell center so the brush fully covers
-            // its host cell (corner-anchored brushes only overlap ~1/8
-            // of the cell and fail the majority-Open threshold). Zone
-            // at world (60, -8, 60), cell size 2m → cell centers at
-            // (61+2k, -7+2k, 61+2k). (77, -3, 77) = cell (8, 2, 8)
-            // center, ~3m below surface, mid-zone in XZ.
-            Vector3 chamberCenter = new Vector3(77f, -3f, 77f);
+            Vector3 chamberCenter = new Vector3(77f, 5f, 77f);
             brush.FindPropertyRelative("CenterWorld").vector3Value = chamberCenter;
             brush.FindPropertyRelative("EndWorld").vector3Value = chamberCenter;
             brush.FindPropertyRelative("RadiusMeters").floatValue = 2.5f;

@@ -38,8 +38,8 @@ namespace Robogame.Voxel
     {
         [Tooltip("Drill-bit radius in metres. Defines the carved tunnel's cross-section. " +
                  "Must be wide enough that the chassis fits through what gets carved — " +
-                 "for a 3×3 chassis (≈2.5m incl. wheels) 1.5m gives a 3m diameter tunnel with margin.")]
-        [SerializeField, Min(0.05f)] private float _radius = 1.5f;
+                 "for a 3×3 chassis (≈2.5m incl. wheels) 2.0m gives a 4m diameter tunnel with margin.")]
+        [SerializeField, Min(0.05f)] private float _radius = 2.0f;
 
         [Tooltip("How far past the cell center the brush emits, in metres, along the drill's mount-up. " +
                  "A cell-mounted drill on a wheeled chassis floats above the terrain — without this offset " +
@@ -50,6 +50,23 @@ namespace Robogame.Voxel
         [Tooltip("Minimum seconds between emitted brush ops. 0.033 ≈ 30 Hz, matching the design's drill tick rate.")]
         [SerializeField, Min(0.005f)] private float _emitInterval = 0.033f;
 
+        [Header("Cone aim")]
+        [Tooltip("Maximum angle in degrees the drill bit can swivel away from its mount-up direction. " +
+                 "30° is enough to dig downward from a forward-mounted drill without losing the cell's " +
+                 "fundamental orientation. The brush emits along the AIMED direction, so the player can " +
+                 "look at the ground and drill toward it.")]
+        [SerializeField, Range(0f, 90f)] private float _maxAimAngle = 30f;
+
+        [Tooltip("World-space length of the cone visual extending past the drill cell. " +
+                 "Cosmetic; brush emission distance is _tipForwardOffset.")]
+        [SerializeField, Min(0.05f)] private float _coneVisualLength = 1.0f;
+
+        [Tooltip("World-space base radius of the cone visual. Cosmetic only.")]
+        [SerializeField, Min(0.05f)] private float _coneVisualRadius = 0.22f;
+
+        [Tooltip("Camera used as the aim source. Falls back to Camera.main if unassigned.")]
+        [SerializeField] private Camera _aimCamera;
+
         private Vector3 _lastTipPosWorld;
         private bool _haveLastTipPos;
         private float _lastEmitTime = float.NegativeInfinity;
@@ -58,21 +75,125 @@ namespace Robogame.Voxel
         // FixedUpdate auto-poll paths both check this; the public Drill(zone)
         // method does NOT, so tests + scripted callers can fire deterministically.
         private IInputSource _input;
+        // Looped AudioCue.DrillActive while FireHeld — the "motor spinning"
+        // bed that the per-emit AudioCue.DrillContact "bite" cue plays over.
+        // Owned by the block, started on FireHeld true → false → true
+        // edges and stopped on the opposite edge (or OnDisable).
+        private AudioLoopHandle _activeLoop = AudioLoopHandle.Invalid;
+        private bool _loopActive;
+
+        // Cone visual + aim — see _maxAimAngle, _coneVisualLength,
+        // _coneVisualRadius. The bit is a procedural cone child whose
+        // localRotation is updated each LateUpdate from the aim camera's
+        // forward direction (clamped to the cone). TipWorldPosition uses
+        // the bit's local +Y in world space so the brush emits along
+        // the aimed direction, not the cell's static mount-up.
+        private Transform _bitTransform;
 
         private void Awake()
         {
             _input = GetComponentInParent<IInputSource>();
+            BuildConeBit();
+        }
+
+        private void BuildConeBit()
+        {
+            var bitGo = new GameObject("DrillBit");
+            bitGo.transform.SetParent(transform, worldPositionStays: false);
+            // Sit the cone's base at the cube's top face (parent-local
+            // y=0.5 — Unity primitive cubes are ±0.5 around origin). The
+            // cell's localScale is the dig-zone cell size (0.5m by
+            // default), so compensate so the cone reads at its serialized
+            // world dimensions regardless of cell scale.
+            float invParentScale = transform.lossyScale.y > 0.001f
+                ? 1f / transform.lossyScale.y
+                : 1f;
+            bitGo.transform.localPosition = new Vector3(0f, 0.5f, 0f);
+            bitGo.transform.localScale = Vector3.one * invParentScale;
+
+            var mf = bitGo.AddComponent<MeshFilter>();
+            mf.sharedMesh = BuildConeMesh(_coneVisualRadius, _coneVisualLength, segments: 12);
+
+            var mr = bitGo.AddComponent<MeshRenderer>();
+            var ownMr = GetComponent<MeshRenderer>();
+            if (ownMr != null && ownMr.sharedMaterial != null)
+                mr.sharedMaterial = ownMr.sharedMaterial;
+
+            _bitTransform = bitGo.transform;
+        }
+
+        private static Mesh BuildConeMesh(float baseRadius, float length, int segments)
+        {
+            var mesh = new Mesh { name = "DrillBitCone" };
+            var verts = new Vector3[segments + 1];
+            var tris = new int[segments * 3];
+            for (int i = 0; i < segments; i++)
+            {
+                float a = (i / (float)segments) * Mathf.PI * 2f;
+                verts[i] = new Vector3(Mathf.Cos(a) * baseRadius, 0f, Mathf.Sin(a) * baseRadius);
+            }
+            // Apex along +Y so the cone's "point" tracks the cell's
+            // mount-up by default; aim rotation reorients from there.
+            verts[segments] = new Vector3(0f, length, 0f);
+            for (int i = 0; i < segments; i++)
+            {
+                int next = (i + 1) % segments;
+                tris[i * 3 + 0] = segments;
+                tris[i * 3 + 1] = i;
+                tris[i * 3 + 2] = next;
+            }
+            mesh.vertices = verts;
+            mesh.triangles = tris;
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        private void OnDisable()
+        {
+            // Defensive: a block destroyed mid-drill must not leave the
+            // active-spin loop running on a dead GameObject.
+            StopActiveLoop();
+        }
+
+        private void Update()
+        {
+            // Pure audio bookkeeping — start / stop the spin loop on the
+            // FireHeld edges. FixedUpdate's drilling path is independent.
+            bool nowHeld = IsFireHeld;
+            if (nowHeld && !_loopActive)
+            {
+                _activeLoop = AudioRouter.PlayLoop(AudioCue.DrillActive, transform);
+                _loopActive = true;
+            }
+            else if (!nowHeld && _loopActive)
+            {
+                StopActiveLoop();
+            }
+        }
+
+        private void StopActiveLoop()
+        {
+            if (_activeLoop.IsValid) _activeLoop.Stop();
+            _activeLoop = AudioLoopHandle.Invalid;
+            _loopActive = false;
         }
 
         /// <summary>
-        /// World-space point the brush emits from. For a chassis-mounted
-        /// drill block, this is the cell center plus <see cref="_tipForwardOffset"/>
-        /// metres along the mount-up direction (<c>transform.up</c>). The
-        /// mount-up follows the cell's placement orientation, so a +Z-up
-        /// front-mounted drill carves ahead, a -Y-up bottom-mounted drill
-        /// carves down.
+        /// World-space point the brush emits from. The direction follows
+        /// the aimed cone bit's local +Y, which is the cell's mount-up
+        /// when no aim camera is present and the camera-clamped aim
+        /// direction otherwise (within <see cref="_maxAimAngle"/>°).
+        /// Distance is <see cref="_tipForwardOffset"/> metres.
         /// </summary>
-        public Vector3 TipWorldPosition => transform.position + transform.up * _tipForwardOffset;
+        public Vector3 TipWorldPosition
+        {
+            get
+            {
+                Vector3 aimUp = _bitTransform != null ? _bitTransform.up : transform.up;
+                return transform.position + aimUp * _tipForwardOffset;
+            }
+        }
 
         public float Radius => _radius;
 
@@ -194,6 +315,39 @@ namespace Robogame.Voxel
             // teleport from the previous contact point).
             _lastTipPosWorld = TipWorldPosition;
             _haveLastTipPos = true;
+            AimCone();
+        }
+
+        private void AimCone()
+        {
+            if (_bitTransform == null) return;
+            if (_aimCamera == null) _aimCamera = Camera.main;
+            if (_aimCamera == null)
+            {
+                // Headless / no main camera (e.g., PlayMode tests). Keep
+                // the bit at its mount-up so contact + auto-poll behave
+                // exactly like the pre-cone build.
+                _bitTransform.localRotation = Quaternion.identity;
+                return;
+            }
+
+            Vector3 worldAim = _aimCamera.transform.forward;
+            Vector3 localAim = transform.InverseTransformDirection(worldAim);
+            float sqr = localAim.sqrMagnitude;
+            if (sqr < 1e-6f)
+            {
+                _bitTransform.localRotation = Quaternion.identity;
+                return;
+            }
+            localAim /= Mathf.Sqrt(sqr);
+
+            Vector3 localMountUp = Vector3.up;
+            float angle = Vector3.Angle(localMountUp, localAim);
+            Vector3 clampedDir = (angle <= _maxAimAngle)
+                ? localAim
+                : Vector3.Slerp(localMountUp, localAim, _maxAimAngle / angle).normalized;
+
+            _bitTransform.localRotation = Quaternion.FromToRotation(Vector3.up, clampedDir);
         }
     }
 }
