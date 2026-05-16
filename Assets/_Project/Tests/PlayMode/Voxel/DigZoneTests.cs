@@ -34,6 +34,26 @@ namespace Robogame.Tests.PlayMode.Voxel
             return _zone;
         }
 
+        private DigZone MakeZoneWithChamber(Vector3 chamberCenter, float radius, Vector3Int chunkGridSize)
+        {
+            _go = new GameObject("TestDigZone");
+            _go.transform.position = Vector3.zero;
+            _go.SetActive(false);
+            _zone = _go.AddComponent<DigZone>();
+            _zone.ChunkGridSize = chunkGridSize;
+            _zone.ChunkSizeCells = 32;
+            _zone.CellSize = 0.5f;
+            _zone.AddInitialBrush(new DigZone.InitialBrushSpec
+            {
+                Kind = BrushKind.SphereSubtract,
+                CenterWorld = chamberCenter,
+                EndWorld = chamberCenter,
+                RadiusMeters = radius,
+            });
+            _go.SetActive(true);
+            return _zone;
+        }
+
         [TearDown]
         public void TearDown()
         {
@@ -896,6 +916,34 @@ namespace Robogame.Tests.PlayMode.Voxel
             Assert.Less(distAfter, distBefore,
                 $"After 10 FixedUpdates the bot should have moved closer to its target " +
                 $"(before={distBefore:F3} after={distAfter:F3}).");
+        }
+
+        [Test]
+        public void DigZone_InitialBrush_CarvesChamberBeforeOccupancyBuild()
+        {
+            // The chamber is pre-carved before the occupancy grid is
+            // built, so the cells inside the carved sphere classify as
+            // OpenWithFloor / OpenNoFloor (depending on -Y neighbour)
+            // even though the zone otherwise uses the half-space init.
+            //
+            // Brush centered on a cell's CENTER (not corner) so the cell
+            // is fully within the radius. A corner-anchored brush only
+            // overlaps ~1/8 of the cell and fails the majority-interior
+            // threshold; ask me how I know.
+            //
+            // Zone 1×1×1 at world origin: half-space split at world y=8
+            // (totalCellsY=32, split=16 sample, *0.5m cellSize). Solid
+            // is y<8. Cell (4, 2, 4) centre = world (9, 5, 9), inside
+            // the solid half.
+            Vector3 chamberCenter = new Vector3(9f, 5f, 9f);
+            DigZone zone = MakeZoneWithChamber(chamberCenter, radius: 2f, new Vector3Int(1, 1, 1));
+            OccupancyGrid grid = zone.OccupancyGrid;
+            Assume.That(grid, Is.Not.Null);
+
+            Vector3Int chamberCell = grid.WorldToGrid(chamberCenter);
+            OccupancyCell at = grid.GetCell(chamberCell);
+            Assert.AreNotEqual(OccupancyCell.Solid, at,
+                $"Chamber center {chamberCenter} should classify Open after the initial brush; got {at}.");
         }
 
         [Test]

@@ -166,28 +166,53 @@ namespace Robogame.Tools.Editor
             // perpendicular axis but in-plane spacing still differs at
             // an LOD seam, which reads visibly on a four-chunk grid.
             so.FindProperty("_enableLod").boolValue = false;
+
+            // Phase 5 POI authoring stand-in: carve a small underground
+            // chamber so the chaser bot has somewhere to live. The
+            // chamber is a single SphereSubtract at the zone's centre
+            // ~4m below the surface plane (world y=-4 for the zone at
+            // y=-8). Radius 2m carves a ~3-cell-tall room that
+            // classifies as OpenWithFloor in the occupancy grid; the
+            // cells around it stay Solid until the player drills down.
+            //
+            // Wired via the _initialBrushes serialized list — applied
+            // at DigZone.EnsureInitialised AFTER SDF seeding and BEFORE
+            // the occupancy grid is built.
+            SerializedProperty brushes = so.FindProperty("_initialBrushes");
+            brushes.arraySize = 1;
+            SerializedProperty brush = brushes.GetArrayElementAtIndex(0);
+            brush.FindPropertyRelative("Kind").enumValueIndex = (int)Robogame.Core.BrushKind.SphereSubtract;
+            // Align to occupancy-cell center so the brush fully covers
+            // its host cell (corner-anchored brushes only overlap ~1/8
+            // of the cell and fail the majority-Open threshold). Zone
+            // at world (60, -8, 60), cell size 2m → cell centers at
+            // (61+2k, -7+2k, 61+2k). (77, -3, 77) = cell (8, 2, 8)
+            // center, ~3m below surface, mid-zone in XZ.
+            Vector3 chamberCenter = new Vector3(77f, -3f, 77f);
+            brush.FindPropertyRelative("CenterWorld").vector3Value = chamberCenter;
+            brush.FindPropertyRelative("EndWorld").vector3Value = chamberCenter;
+            brush.FindPropertyRelative("RadiusMeters").floatValue = 2.5f;
+
             so.ApplyModifiedPropertiesWithoutUndo();
 
             zoneObj.SetActive(true);
 
-            // Phase 5 visual playtest gate: drop a VoxelChaserBot on the
-            // zone surface so the OccupancyGrid + A* pipeline has a
-            // visible consumer. The bot pathfinds toward the player
-            // Robot whenever one exists; without a target it just sits
-            // idle. As the player drills trenches, the trench cells get
-            // re-classified OpenWithFloor and the bot can follow into
-            // them.
-            BuildArenaDigZoneChaser(zoneObj.transform);
+            // Phase 5 visual playtest gate: drop a VoxelChaserBot inside
+            // the pre-carved chamber so the OccupancyGrid + A* pipeline
+            // has a visible consumer. The bot can't reach the player
+            // until the player drills a connection down through the
+            // ~4m of solid above the chamber — at which point A* picks
+            // up the new tunnel and the bot pursues.
+            BuildArenaDigZoneChaser(zoneObj.transform, chamberCenter);
         }
 
-        private static void BuildArenaDigZoneChaser(Transform digZoneRoot)
+        private static void BuildArenaDigZoneChaser(Transform digZoneRoot, Vector3 chamberCenter)
         {
-            // Surface corner of the zone (zoneOrigin + ~80% across in X/Z,
-            // ~0.5m above the half-space surface plane). Bot lives on
-            // the surface, not in a pre-carved chamber — that's a
-            // future authoring pass.
-            Vector3 zoneOrigin = digZoneRoot.position;
-            Vector3 spawn = zoneOrigin + new Vector3(26f, 8.5f, 26f);
+            // Spawn inside the pre-carved chamber. Slightly offset above
+            // chamber centre so the bot sits on the chamber floor in the
+            // OpenWithFloor cell rather than dead-centre in the open
+            // volume.
+            Vector3 spawn = chamberCenter + new Vector3(0f, 0.5f, 0f);
 
             GameObject botGo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             botGo.name = "VoxelChaserBot";

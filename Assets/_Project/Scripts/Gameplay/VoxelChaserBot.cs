@@ -59,6 +59,10 @@ namespace Robogame.Gameplay
         private readonly List<Vector3Int> _path = new(64);
         private int _pathIndex;
         private float _nextRefreshTime;
+        // Track whether the bot currently has a valid path so we can fire
+        // BotDetected exactly once at the no-path → path edge instead of
+        // every refresh tick.
+        private bool _hadPathLastRefresh;
 
         // Test-friendly setters — let PlayMode tests inject a specific
         // zone + target instead of relying on the scene-search heuristics
@@ -131,6 +135,17 @@ namespace Robogame.Gameplay
             Vector3Int to = _grid.WorldToGrid(_target.position);
             bool found = _grid.TryFindPath(from, to, _connectivity, _allowFlying, _path);
             _pathIndex = 0;
+            // BotDetected: fire on the no-path → path edge. This is the
+            // gameplay moment — the bot just acquired a route to the
+            // player, e.g., because the player drilled a connecting
+            // tunnel. The cue is missing-by-default per AUDIO_PLAN's
+            // declared-then-authored pipeline; the no-clip warning
+            // surfaces it for the audio pass.
+            if (found && !_hadPathLastRefresh)
+            {
+                AudioRouter.PlayOneShot(AudioCue.BotDetected, transform.position);
+            }
+            _hadPathLastRefresh = found;
             return found;
         }
 
@@ -142,7 +157,7 @@ namespace Robogame.Gameplay
             float sqr = delta.sqrMagnitude;
             if (sqr < _waypointReachedDistance * _waypointReachedDistance)
             {
-                _pathIndex++;
+                AdvanceWaypoint();
                 return;
             }
             // Step toward the waypoint at a fixed speed. Don't normalise
@@ -152,11 +167,25 @@ namespace Robogame.Gameplay
             if (sqr <= maxStep * maxStep)
             {
                 transform.position = waypointWorld;
-                _pathIndex++;
+                AdvanceWaypoint();
             }
             else
             {
                 transform.position += delta.normalized * maxStep;
+            }
+        }
+
+        // Footstep cue + minor dust puff on every other waypoint, so a
+        // long path doesn't spam the audio mixer or VFX pool. The cue is
+        // declared but unmapped per AUDIO_PLAN's missing-clip path; VFX
+        // reuses DebrisDust at low scale until a dedicated kind lands.
+        private void AdvanceWaypoint()
+        {
+            _pathIndex++;
+            if ((_pathIndex & 1) == 0)
+            {
+                AudioRouter.PlayOneShot(AudioCue.BotStep, transform.position);
+                VfxSpawner.Spawn(VfxKind.DebrisDust, transform.position, Quaternion.identity, scale: 0.25f);
             }
         }
     }

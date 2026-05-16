@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Robogame.Core;
 using Unity.Collections;
 using UnityEngine;
@@ -56,6 +57,27 @@ namespace Robogame.Voxel
         [SerializeField, Min(0f)] private float _lodDistance2 = 64f;
         [Tooltip("Disable to lock every chunk at LOD 0.")]
         [SerializeField] private bool _enableLod = true;
+
+        [Header("Initial Carving (Phase 5 POI authoring stand-in)")]
+        [Tooltip("Brushes applied to the SDF at init time, AFTER half-space / snapshot seeding " +
+                 "but BEFORE the occupancy grid is built. Stand-in for the .dig baker's pre-carve " +
+                 "of POI chambers — runtime-only, regenerates each scene load.")]
+        [SerializeField] private List<InitialBrushSpec> _initialBrushes = new();
+
+        /// <summary>
+        /// Editor-authored / scaffolder-authored brush to apply once at
+        /// zone init, after SDF seeding but before occupancy + mesh
+        /// builds. Used to pre-carve POI chambers without going through
+        /// the full Phase 2d .dig baker pipeline.
+        /// </summary>
+        [System.Serializable]
+        public struct InitialBrushSpec
+        {
+            public BrushKind Kind;
+            public Vector3 CenterWorld;
+            public Vector3 EndWorld;        // ignored for SphereSubtract; capsule end for CapsuleSubtract
+            [Min(0.1f)] public float RadiusMeters;
+        }
 
         private GameObject _perimeterObj;
         private Mesh _perimeterMesh;
@@ -237,6 +259,12 @@ namespace Robogame.Voxel
                 InitializeHalfSpace();
             }
 
+            // Phase 5: bake the scaffolder-authored initial brushes
+            // (POI chambers, pre-dug tunnels). Must run AFTER the SDF
+            // is seeded and BEFORE the occupancy grid is built — the
+            // grid classifies cells from the post-brush SDF.
+            ApplyInitialBrushesToSdf();
+
             // Phase 5: occupancy grid covering the entire zone. The grid
             // is allocated empty here; RebuildAllMeshes (below) populates
             // it from each chunk's SDF.
@@ -250,6 +278,31 @@ namespace Robogame.Voxel
 
             RebuildAllMeshes();
             BuildPerimeter();
+        }
+
+        private void ApplyInitialBrushesToSdf()
+        {
+            if (_initialBrushes == null || _initialBrushes.Count == 0) return;
+            for (int i = 0; i < _initialBrushes.Count; i++)
+            {
+                InitialBrushSpec spec = _initialBrushes[i];
+                BrushOp op = new BrushOp
+                {
+                    kind = spec.Kind,
+                    serverTick = 0,
+                    p0 = Vector3Fixed.FromVector3(spec.CenterWorld),
+                    p1 = Vector3Fixed.FromVector3(spec.Kind == BrushKind.SphereSubtract
+                        ? spec.CenterWorld : spec.EndWorld),
+                    radiusFixed = (ushort)Mathf.Clamp(
+                        Mathf.RoundToInt(spec.RadiusMeters * Vector3Fixed.UnitsPerMeter),
+                        0, ushort.MaxValue),
+                };
+                // Apply per-chunk WITHOUT routing through ApplyBrush —
+                // ApplyBrush would call RebuildAllMeshes mid-init when
+                // the occupancy grid + mesh pipeline aren't ready yet.
+                for (int c = 0; c < _chunks.Length; c++)
+                    _chunks[c].ApplyBrushNoRemesh(op);
+            }
         }
 
         // -----------------------------------------------------------------
@@ -376,6 +429,20 @@ namespace Robogame.Voxel
         {
             get => _digAsset;
             set { ThrowIfInitialised(nameof(DigAsset)); _digAsset = value; }
+        }
+
+        /// <summary>
+        /// Append an initial brush spec to be applied at <see cref="EnsureInitialised"/>
+        /// time, after SDF seeding but before the occupancy grid is built.
+        /// Throws once the zone is initialised. Test/scaffolder helper —
+        /// in shipping content these are authored via the SerializedField
+        /// inspector or by <c>EnvironmentBuilder</c>.
+        /// </summary>
+        public void AddInitialBrush(InitialBrushSpec spec)
+        {
+            ThrowIfInitialised(nameof(AddInitialBrush));
+            if (_initialBrushes == null) _initialBrushes = new List<InitialBrushSpec>();
+            _initialBrushes.Add(spec);
         }
 
         private void DestroyChildChunks()

@@ -74,5 +74,9 @@ namespace Robogame.Core
         BlockPlace,
         BlockRemove,
         InvalidPlacement,
+
+        // Voxel terrain AI
+        BotDetected,       // a VoxelChaserBot acquires a fresh A* path to its target — quiet "I see you" tone
+        BotStep,           // a VoxelChaserBot advances a waypoint — soft mechanical footfall
     }
 }
