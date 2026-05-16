@@ -1054,6 +1054,54 @@ namespace Robogame.Tests.PlayMode.Voxel
                 "Gravity comp + per-step servo application is the load-bearing fix here.");
         }
 
+        [UnityTest]
+        public IEnumerator DrillBlock_DigUp_WithLateralMomentum_StillClimbs()
+        {
+            // Regression for the second readout: the chassis was sliding
+            // +X at 2.6 m/s while aiming up, and the scalar-projection
+            // servo was "satisfied" (v·aim = 2.0 met entirely by the
+            // horizontal slide) so it never climbed (chassis Y sinking).
+            // The full-vector servo must brake the lateral drift AND
+            // force real altitude gain even when significant non-dig
+            // horizontal momentum is present.
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            Vector3 startPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.3f, chunkSide * 0.5f);
+
+            var chassis = new GameObject("LateralChassis");
+            chassis.transform.position = startPos;
+            var rb = chassis.AddComponent<Rigidbody>();
+            rb.useGravity = true;
+            rb.mass = 15f;
+            // Aim is +Y (no camera). Seed a strong horizontal slide — the
+            // exact poison case: this WOULD satisfy a scalar v·aim servo
+            // (dot with +Y ≈ 0, but in the real readout the shallow aim
+            // let the slide satisfy it) yet must not substitute for
+            // climbing.
+            rb.linearVelocity = new Vector3(6f, 0f, 0f);
+            _ancillaryGameObjects.Add(chassis);
+
+            var drillGo = new GameObject("Drill");
+            drillGo.transform.SetParent(chassis.transform, worldPositionStays: false);
+            drillGo.transform.position = startPos;
+            var drill = drillGo.AddComponent<DrillBlock>();
+
+            float startY = chassis.transform.position.y;
+            for (int i = 0; i < 30; i++)
+            {
+                zone.InitializeHalfSpace();
+                drill.Drill(zone);
+                yield return new WaitForFixedUpdate();
+            }
+
+            float climbed = chassis.transform.position.y - startY;
+            Assert.Greater(climbed, 0.2f,
+                $"Must climb even with lateral momentum present; climbed {climbed:F3} m.");
+            Assert.Less(Mathf.Abs(rb.linearVelocity.x), 3.0f,
+                $"The lateral slide must be braked out by the vector servo; " +
+                $"vx still {rb.linearVelocity.x:F2} m/s.");
+        }
+
         // ------------------------------------------------------------------
         // Phase 5 visual-playtest gate: VoxelChaserBot uses the
         // OccupancyGrid to chase a target via A*. These tests cover the

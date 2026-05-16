@@ -73,14 +73,12 @@ namespace Robogame.Voxel
                  "chassis's whole weight.")]
         [SerializeField, Min(0f)] private float _digPullForce = 1500f;
 
-        [Tooltip("Target speed (m/s) the dig-pull servos the chassis toward along the aim/" +
-                 "tunnel axis. Two-sided: while drilling, the drill regulates your tunnel-axis " +
-                 "speed to this value — pushing if slower, braking if faster (both capped at " +
-                 "_digPullForce). So digging is always a slow deliberate crawl regardless of how " +
-                 "fast you were moving when you started, and releasing fire frees full drive " +
-                 "speed again. Keep this notably below drive speed so tunnelling reads as the " +
-                 "slow option. Only the aim-axis speed is regulated; motion perpendicular to the " +
-                 "tunnel (e.g. lateral drift) is untouched.")]
+        [Tooltip("Dig speed (m/s). While drilling, the drill commands the chassis's WHOLE " +
+                 "velocity vector toward (aim direction × this speed) — so you travel up/through " +
+                 "the tunnel at exactly this pace and lateral drift is braked out. Holding fire " +
+                 "is a slow deliberate crawl regardless of entry speed; releasing fire frees " +
+                 "full drive speed. Keep this notably below drive speed so tunnelling reads as " +
+                 "the slow, deliberate option.")]
         [SerializeField, Min(0.1f)] private float _digTargetSpeed = 2.0f;
 
         [Header("Cone aim")]
@@ -436,34 +434,31 @@ namespace Robogame.Voxel
                 }
             }
 
-            // Two-sided speed servo along the aim/tunnel axis. While the
-            // drill is biting, IT is the authority on how fast you travel
-            // along the tunnel: too slow → push toward target; too fast
-            // → brake toward target. The brake half is load-bearing —
-            // non-dig velocity (driving / sliding) projects onto the aim
-            // axis and, with a one-sided servo, made it conclude "already
-            // fast enough" and apply zero pull (the readout that exposed
-            // this: v·aim = 13 m/s from a 16 m/s sideways slide → 0 N).
-            // Regulating both directions also delivers the original ask:
-            // holding fire paces you to the slow dig crawl regardless of
-            // entry speed; releasing fire (pull lapses) frees full drive
-            // speed again.
-            float vAlong = Vector3.Dot(body.linearVelocity, aimDir);
+            // Full-vector velocity servo. While the drill is biting, IT
+            // owns the chassis velocity: it commands the WHOLE velocity
+            // vector toward `aim * digSpeed`, not merely the scalar
+            // projection onto aim. Regulating the projection alone was
+            // the bug — with a shallow (35°) aim a purely horizontal
+            // slide of 2.6 m/s satisfied "v·aim = 2.0" while the chassis
+            // never gained any altitude (readout: velocity (2.6,-0.1,
+            // 0.23), chassis Y sinking). Driving the full vector brakes
+            // the lateral drift AND forces real travel up the tunnel.
+            // Clamped to _digPullForce so physics still resolves contacts
+            // (the drill carves a pocket around the cell, so there's room
+            // to rise into). Applied at the COM: with a varying mixed
+            // brake+climb force, an off-COM application would spin the
+            // chassis; clean translation matters more than the angular
+            // flourish here. Releasing fire lapses the pull → full drive
+            // control returns.
             float dt = Mathf.Max(Time.fixedDeltaTime, 1e-4f);
-            float wantedN = (_digTargetSpeed - vAlong) * body.mass / dt;
-            float servoN = Mathf.Clamp(wantedN, -_digPullForce, _digPullForce);
-            if (servoN >= 0f)
-            {
-                // Propulsion: at the drill cell (off-COM) so the nose
-                // yaws/pitches to follow the dig — the "angular pull".
-                body.AddForceAtPosition(aimDir * servoN, transform.position, ForceMode.Force);
-            }
-            else
-            {
-                // Braking: at the COM so yanking a fast slide back to dig
-                // pace decelerates cleanly instead of inducing a spin.
-                body.AddForce(aimDir * servoN, ForceMode.Force);
-            }
+            Vector3 desiredVel = aimDir * _digTargetSpeed;
+            Vector3 deltaV = desiredVel - body.linearVelocity;
+            Vector3 servoForce = Vector3.ClampMagnitude(
+                deltaV * body.mass / dt, _digPullForce);
+            body.AddForce(servoForce, ForceMode.Force);
+
+            float vAlong = Vector3.Dot(body.linearVelocity, aimDir);
+            float servoN = servoForce.magnitude;
 
             if (_debugReadout)
             {
