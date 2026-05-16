@@ -157,6 +157,15 @@ namespace Robogame.Tools.Editor
             so.FindProperty("_chunkSizeCells").intValue = 32;
             so.FindProperty("_chunkGridSize").vector3IntValue = new Vector3Int(2, 1, 2);
             so.FindProperty("_chunkMaterial").objectReferenceValue = WorldPalette.ArenaGround;
+            // The arena dig zone is small (4 chunks total) — well under
+            // the LOD-needed triangle threshold. Disable LOD so all
+            // chunks mesh at the full resolution; this eliminates the
+            // chunk-boundary seams players were seeing from LOD-mismatch
+            // transitions when standing at varying distances from the
+            // zone. Phase 4c's transition handling closes the
+            // perpendicular axis but in-plane spacing still differs at
+            // an LOD seam, which reads visibly on a four-chunk grid.
+            so.FindProperty("_enableLod").boolValue = false;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             zoneObj.SetActive(true);

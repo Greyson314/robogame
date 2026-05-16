@@ -119,6 +119,16 @@ namespace Robogame.Combat
         // is in flight at any moment (FixedUpdate is single-threaded).
         private static readonly RaycastHit[] s_hits = new RaycastHit[16];
 
+        /// <summary>
+        /// Multiplier mapping a bomb's combat-splash radius to its
+        /// terrain-crater radius. Combat splash sizes are balanced for
+        /// chassis damage (default ~18m); using the same value as a
+        /// crater radius would erase a small dig zone outright. 0.3×
+        /// is the empirical floor that still produces a visible crater
+        /// while leaving room for repeated bombing to actually tunnel.
+        /// </summary>
+        public const float TerrainCraterScale = 0.3f;
+
         // Visual pools (separate per kind because the underlying GO
         // shape differs: trail-only vs mesh vs both).
         private readonly Stack<ProjectileVisual> _trailPool = new(32);
@@ -443,7 +453,14 @@ namespace Robogame.Combat
                     AudioRouter.PlayOneShot(impactCue, pos);
                     // Phase 3c: if the bomb detonated inside a dig zone,
                     // emit a SphereSubtract crater. No-op outside any zone.
-                    Voxel.TerrainCratering.OnBombDetonation(pos, spec.SplashRadius);
+                    // The terrain crater radius is the combat splash
+                    // scaled by `TerrainCraterScale` — a default-18m
+                    // bomb splash is balanced for chassis damage and
+                    // would obliterate a small dig zone (16m deep)
+                    // outright. 0.3× gives a proportional crater
+                    // (~5–6m for the default bomb) and leaves room to
+                    // see tunneling as the player keeps bombing.
+                    Voxel.TerrainCratering.OnBombDetonation(pos, spec.SplashRadius * TerrainCraterScale);
                     break;
             }
         }

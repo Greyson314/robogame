@@ -103,6 +103,21 @@ namespace Robogame.Voxel
             HandleContact(collision.collider);
         }
 
+        private void FixedUpdate()
+        {
+            // Surface-contact-only drilling fails for a body-mounted
+            // chassis drill: wheels keep the chassis above the terrain
+            // surface, so the drill's BoxCollider doesn't physically
+            // intersect the chunk's surface MeshCollider. Poll
+            // DigField each fixed step: if the tip sits inside ANY
+            // registered DigZone's volume, emit a brush. Brushes on
+            // already-exterior cells are no-ops (max-fold idempotent),
+            // so this only costs work where it actually carves.
+            if (Time.time - _lastEmitTime < _emitInterval) return;
+            IDigZone zone = DigField.ZoneAt(transform.position);
+            if (zone is DigZone concrete) Drill(concrete);
+        }
+
         /// <summary>
         /// Process a single physics contact with <paramref name="otherCollider"/>.
         /// If the other collider belongs to a <see cref="DigChunk"/>, emits

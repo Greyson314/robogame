@@ -706,6 +706,46 @@ namespace Robogame.Tests.PlayMode.Voxel
                 "Drill must not have fired — SDF must be untouched.");
         }
 
+        [UnityTest]
+        public IEnumerator DrillBlock_InsideZone_AutoPollsViaFixedUpdate_CarvesSdf()
+        {
+            // The contact-only drilling path only fires when the drill's
+            // collider physically intersects a chunk's surface MeshCollider.
+            // A body-mounted chassis drill rarely contacts the surface
+            // (wheels keep the body above the terrain), so DrillBlock
+            // also polls DigField each FixedUpdate: if the drill's tip
+            // sits inside a registered DigZone, it emits a brush even
+            // without a contact event. This test pins that behaviour.
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            Vector3 startPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f);
+
+            GameObject drillGo = new GameObject("AutoPollDrill");
+            drillGo.transform.position = startPos;
+            drillGo.AddComponent<DrillBlock>();
+            _ancillaryGameObjects.Add(drillGo);
+
+            int dim = chunk.Dim;
+            int dimSq = dim * dim;
+            int cx = Mathf.RoundToInt(startPos.x / zone.CellSize);
+            int cy = Mathf.RoundToInt(startPos.y / zone.CellSize);
+            int cz = Mathf.RoundToInt(startPos.z / zone.CellSize);
+            int probeIdx = cz * dimSq + cy * dim + cx;
+            Assume.That(chunk.Sdf[probeIdx], Is.LessThan(0),
+                "Pre-condition: drill starts in solid material.");
+
+            // Two FixedUpdates: first to fire the auto-poll past the
+            // initial throttle, second as a safety margin if the first
+            // happens to coincide with _lastEmitTime = NegativeInfinity
+            // edge cases.
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+
+            Assert.GreaterOrEqual(chunk.Sdf[probeIdx], 0,
+                "Drill inside the zone must auto-carve through the FixedUpdate poll path.");
+        }
+
         [Test]
         public void DrillForwarder_RefreshDrills_CountMatchesAttachedDrillBlocks()
         {
