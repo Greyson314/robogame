@@ -844,6 +844,87 @@ namespace Robogame.Tests.PlayMode.Voxel
                 "FireHeld=false: auto-poll must not emit any brush.");
         }
 
+        [UnityTest]
+        public IEnumerator DrillBlock_CarvingPullsChassisAlongAimDirection()
+        {
+            // The dig-pull: while the drill is biting solid voxels it
+            // drags the chassis along the aim direction so the player can
+            // worm through terrain. With no aim camera the bit stays at
+            // mount-up (= transform.up = +Y here), so a successful carve
+            // must add +Y velocity to the chassis body.
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            Vector3 startPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f);
+
+            // Dynamic Rigidbody (BuildChassisWithDrill uses a kinematic
+            // body, which ignores AddForce). Gravity off so the assertion
+            // isolates the dig-pull from free-fall.
+            var chassis = new GameObject("PullChassis");
+            chassis.transform.position = startPos;
+            var rb = chassis.AddComponent<Rigidbody>();
+            rb.useGravity = false;
+            rb.linearVelocity = Vector3.zero;
+            _ancillaryGameObjects.Add(chassis);
+
+            var drillGo = new GameObject("Drill");
+            drillGo.transform.SetParent(chassis.transform, worldPositionStays: false);
+            drillGo.transform.position = startPos;
+            var drill = drillGo.AddComponent<DrillBlock>();
+
+            int dim = chunk.Dim;
+            int dimSq = dim * dim;
+            int cx = Mathf.RoundToInt(startPos.x / zone.CellSize);
+            int cy = Mathf.RoundToInt(startPos.y / zone.CellSize);
+            int cz = Mathf.RoundToInt(startPos.z / zone.CellSize);
+            Assume.That(chunk.Sdf[cz * dimSq + cy * dim + cx], Is.LessThan(0),
+                "Pre-condition: drill starts in solid material so it actually carves.");
+
+            int changed = drill.Drill(zone);
+            Assume.That(changed, Is.GreaterThan(0), "Drill must carve for the pull to apply.");
+
+            yield return new WaitForFixedUpdate();
+
+            Assert.Greater(rb.linearVelocity.y, 0.01f,
+                "Carving must pull the chassis along the aim direction (+Y with no aim camera).");
+            Assert.Greater(rb.linearVelocity.y, Mathf.Abs(rb.linearVelocity.x),
+                "Pull must be dominantly along the aim axis, not sideways.");
+            Assert.Greater(rb.linearVelocity.y, Mathf.Abs(rb.linearVelocity.z),
+                "Pull must be dominantly along the aim axis, not sideways.");
+        }
+
+        [UnityTest]
+        public IEnumerator DrillBlock_DrillingAir_DoesNotPullChassis()
+        {
+            // The pull is gated on changed > 0 — drilling air (already-
+            // exterior cells) carves nothing, so it must NOT translate the
+            // chassis. Prevents the drill doubling as a free thruster.
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            // Upper half of the half-space init is exterior (air).
+            Vector3 airPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.9f, chunkSide * 0.5f);
+
+            var chassis = new GameObject("AirChassis");
+            chassis.transform.position = airPos;
+            var rb = chassis.AddComponent<Rigidbody>();
+            rb.useGravity = false;
+            rb.linearVelocity = Vector3.zero;
+            _ancillaryGameObjects.Add(chassis);
+
+            var drillGo = new GameObject("Drill");
+            drillGo.transform.SetParent(chassis.transform, worldPositionStays: false);
+            drillGo.transform.position = airPos;
+            var drill = drillGo.AddComponent<DrillBlock>();
+
+            int changed = drill.Drill(zone);
+            Assume.That(changed, Is.EqualTo(0), "Drilling air must carve nothing.");
+
+            yield return new WaitForFixedUpdate();
+
+            Assert.Less(rb.linearVelocity.magnitude, 1e-3f,
+                "No carve → no dig-pull. The drill must not move the chassis through air.");
+        }
+
         // ------------------------------------------------------------------
         // Phase 5 visual-playtest gate: VoxelChaserBot uses the
         // OccupancyGrid to chase a target via A*. These tests cover the

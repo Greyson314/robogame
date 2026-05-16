@@ -106,3 +106,36 @@ load.
   (pre-existing `HookGrappleTests` + `RotorBlockTests`, unrelated).
 - All 4 new Phase 7 PlayMode tests pass; the SDF byte-identity machine
   gate is the load-bearing assertion.
+
+## Drill-feel follow-ups (same session)
+
+Two playtest-driven follow-ups after the aim-cone widen didn't land the
+"drill up/down" feel:
+
+1. **Aim-direction capsule** (commit `ff757ffd`). The brush was a
+   `CapsuleSubtract` from prev-tip to current-tip — for a stationary
+   chassis that collapsed to a 3 m-radius sphere shifted only 0.6 m by
+   `_tipForwardOffset`, so aim direction barely moved the carve volume.
+   `Drill()` now builds a fresh capsule each emit: `p0` = drill cell,
+   `p1` = cell + aim · `_brushReach` (new SerializeField, default 4 m).
+   Looking up 50° carves a ~10 m elongated capsule along the aim
+   direction. Swept-motion tracking dropped (consecutive 30 Hz emits
+   overlap > 90 % at any plausible chassis speed). Audio still anchors
+   near the cell; VFX dust moved to the capsule midpoint.
+
+2. **Dig-pull.** Even with a directional capsule, a wheeled chassis
+   stayed ground-locked. `DrillBlock` now applies
+   `AddForceAtPosition(aim · _digPullForce, drillCell, Force)` to the
+   chassis Rigidbody whenever `changed > 0`. Applied at the off-COM
+   drill cell, it both translates the body toward the dig direction and
+   yaws/pitches the nose to follow — the "worm through terrain" feel.
+   `_digPullForce` is a SerializeField (default 400 N; not a Tweakable —
+   gameplay-outcome rule). Gated on `changed > 0` so it never acts as a
+   free thruster in air. Single chassis Rigidbody resolved lazily via
+   `GetComponentInParent<Rigidbody>()`, mirroring the `_input` pattern
+   (PHYSICS_PLAN § 1.4).
+
+2 new PlayMode tests: `DrillBlock_CarvingPullsChassisAlongAimDirection`
+(carve → +aim velocity) and `DrillBlock_DrillingAir_DoesNotPullChassis`
+(no carve → no motion). PlayMode after follow-ups: 70/72, same 2
+pre-existing failures.

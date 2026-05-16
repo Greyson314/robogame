@@ -58,6 +58,15 @@ namespace Robogame.Voxel
         [Tooltip("Minimum seconds between emitted brush ops. 0.033 ≈ 30 Hz, matching the design's drill tick rate.")]
         [SerializeField, Min(0.005f)] private float _emitInterval = 0.033f;
 
+        [Header("Dig pull")]
+        [Tooltip("Force (N) pulling the chassis along the aim direction whenever the drill is " +
+                 "actively carving material (changed > 0). Applied at the drill cell, so a " +
+                 "front-mounted (off-COM) drill also yaws/pitches the chassis to follow the dig " +
+                 "direction — that's the 'worm through terrain' feel: look up, the bit bites, the " +
+                 "body gets dragged up after it. Only applies while biting solid voxels, never " +
+                 "while drilling air, so it can't double as a free thruster. 0 disables the pull.")]
+        [SerializeField, Min(0f)] private float _digPullForce = 400f;
+
         [Header("Cone aim")]
         [Tooltip("Maximum angle in degrees the drill bit can swivel away from its mount-up direction. " +
                  "50° lets a forward-mounted drill dig nearly straight down or up — at 30° drilling " +
@@ -82,6 +91,12 @@ namespace Robogame.Voxel
         // FixedUpdate auto-poll paths both check this; the public Drill(zone)
         // method does NOT, so tests + scripted callers can fire deterministically.
         private IInputSource _input;
+        // Chassis Rigidbody the dig-pull pushes. Lazily resolved (mirrors
+        // _input) because the drill block may be AddComponent'd before
+        // it's parented under the chassis root that owns the Rigidbody.
+        // Single Rigidbody per chassis (PHYSICS_PLAN § 1.4) — this is
+        // always the chassis body, never a per-block one.
+        private Rigidbody _rb;
         // Looped AudioCue.DrillActive while FireHeld — the "motor spinning"
         // bed that the per-emit AudioCue.DrillContact "bite" cue plays over.
         // Owned by the block, started on FireHeld true → false → true
@@ -262,6 +277,20 @@ namespace Robogame.Voxel
                 // 0.6 m from the cell.
                 Vector3 vfxAnchor = (p0 + p1) * 0.5f;
                 VfxSpawner.Spawn(VfxKind.DebrisDust, vfxAnchor, Quaternion.identity, scale: 0.5f);
+
+                // Dig-pull: drag the chassis after the bit so the player
+                // can worm through terrain. Force is applied at the drill
+                // cell (off-COM for a front mount), so it both translates
+                // the body toward the dig direction AND rotates the nose
+                // to follow — the "angular pull" feel. Gated on changed>0
+                // so it only fires while biting solid voxels, never while
+                // drilling air (no free-flight exploit).
+                Rigidbody body = ChassisBody;
+                if (body != null && _digPullForce > 0f && !body.isKinematic)
+                {
+                    body.AddForceAtPosition(
+                        aimDir * _digPullForce, transform.position, ForceMode.Force);
+                }
             }
             return changed;
         }
@@ -331,6 +360,20 @@ namespace Robogame.Voxel
             {
                 if (_input == null) _input = GetComponentInParent<IInputSource>();
                 return _input != null && _input.FireHeld;
+            }
+        }
+
+        // Chassis Rigidbody, lazily resolved + cached. Same late-lookup
+        // rationale as IsFireHeld: the drill may be AddComponent'd before
+        // it's re-parented under the chassis root. Null for a standalone
+        // drill (e.g., a unit test driving Drill(zone) directly) — callers
+        // null-check before applying the dig-pull.
+        private Rigidbody ChassisBody
+        {
+            get
+            {
+                if (_rb == null) _rb = GetComponentInParent<Rigidbody>();
+                return _rb;
             }
         }
 
