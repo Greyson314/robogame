@@ -59,26 +59,16 @@ namespace Robogame.Voxel
         [Tooltip("Minimum seconds between emitted brush ops. 0.033 ≈ 30 Hz, matching the design's drill tick rate.")]
         [SerializeField, Min(0.005f)] private float _emitInterval = 0.033f;
 
-        [Header("Dig pull")]
-        [Tooltip("Force (N) pulling the chassis along the aim direction whenever the drill is " +
-                 "actively carving material (changed > 0). Applied at the drill cell, so a " +
-                 "front-mounted (off-COM) drill also yaws/pitches the chassis to follow the dig " +
-                 "direction — that's the 'worm through terrain' feel: look up, the bit bites, the " +
-                 "body gets dragged up after it. Only applies while biting solid voxels, never " +
-                 "while drilling air, so it can't double as a free thruster. 0 disables the pull. " +
-                 "This is the CEILING on the servo (see _digTargetSpeed) — the pull tapers below " +
-                 "this as the bot approaches the target dig speed, so it never accelerates without " +
-                 "bound. Weight opposing the aim is cancelled separately (full gravity comp), so " +
-                 "this only has to provide the slow crawl + beat wheel friction, not lift the " +
-                 "chassis's whole weight.")]
-        [SerializeField, Min(0f)] private float _digPullForce = 1500f;
-
-        [Tooltip("Dig speed (m/s). While drilling, the drill commands the chassis's WHOLE " +
-                 "velocity vector toward (aim direction × this speed) — so you travel up/through " +
-                 "the tunnel at exactly this pace and lateral drift is braked out. Holding fire " +
-                 "is a slow deliberate crawl regardless of entry speed; releasing fire frees " +
-                 "full drive speed. Keep this notably below drive speed so tunnelling reads as " +
-                 "the slow, deliberate option.")]
+        [Header("Drill-glide")]
+        [Tooltip("Bore speed (m/s). While the drill is actively cutting solid voxels, the " +
+                 "chassis enters 'glide': gravity + wheel grip are suspended and the body is " +
+                 "moved along the aim/tunnel direction at exactly this speed (kinematic move — " +
+                 "terrain collision can't pin it, which is why a wheeled bot can finally bore " +
+                 "straight up). Glide is gated strictly on real cutting: the instant the drill " +
+                 "stops removing material (broke into air, released fire), normal dynamic " +
+                 "physics + gravity resume within ~1.5 emit intervals — it is NOT an " +
+                 "anti-gravity button you can hold mid-air. Keep this notably below drive " +
+                 "speed so tunnelling reads as the slow, deliberate option.")]
         [SerializeField, Min(0.1f)] private float _digTargetSpeed = 2.0f;
 
         [Header("Cone aim")]
@@ -106,8 +96,9 @@ namespace Robogame.Voxel
                  "revert to false (off in shipping) once the readout has been captured.")]
         [SerializeField] private bool _debugReadout = true;
 
-        // Last-tick diagnostic snapshot, populated by Drill()/ApplyDigPull
-        // and rendered by OnGUI when _debugReadout is on. Pure
+        // Last-tick diagnostic snapshot, populated by Drill()/
+        // UpdateDrillGlide and rendered by OnGUI when _debugReadout is
+        // on. Pure
         // instrumentation — never read by gameplay code.
         private struct DigDiag
         {
@@ -116,29 +107,34 @@ namespace Robogame.Voxel
             public Vector3 AimDir;      // world-space aim
             public float ElevationDeg;  // aim angle above horizontal
             public bool HaveBody;
-            public bool Kinematic;
-            public bool UseGravity;
-            public float Mass;
-            public float VAlong;        // chassis speed along aim
-            public float GravCompN;     // gravity-comp force this step
-            public float ServoN;        // servo force this step
+            public float MassKg;
+            public bool Gliding;        // drill-glide engaged this step
             public Vector3 Velocity;    // chassis linearVelocity
             public float ChassisY;      // chassis world Y (is it rising?)
-            public bool PullArmed;      // Time.time <= _pullActiveUntil
+            public bool PullArmed;      // Time.time <= _pullActiveUntil (real cutting)
         }
         private DigDiag _diag;
 
         private float _lastEmitTime = float.NegativeInfinity;
-        // Dig-pull is applied every FixedUpdate while a recent carve is
-        // still "live", NOT only on the ~30 Hz emit tick. Decoupling the
-        // pull from the emit rate is load-bearing: gravity acts every
-        // physics step (50 Hz), so applying the pull at 30 Hz attenuated
-        // the average force ~40 % and the servo (whose math assumes
-        // per-step application) could no longer out-muscle gravity to
-        // climb. Drill() refreshes _pullActiveUntil + _pullAimDir on each
-        // carving emit; FixedUpdate applies the servo until it lapses.
+        // Drill-glide is active every FixedUpdate while a recent carve is
+        // still "live". Drill() refreshes _pullActiveUntil + _pullAimDir
+        // ONLY on a cutting emit (changed > 0); FixedUpdate glides the
+        // chassis along _pullAimDir until the window lapses (~1.5 emit
+        // intervals after the last material was removed). That gate is
+        // what keeps glide honest — it cannot engage in open air, so it
+        // is not an anti-gravity toggle.
         private float _pullActiveUntil = float.NegativeInfinity;
         private Vector3 _pullAimDir = Vector3.up;
+        // Drill-glide state. While gliding, the chassis Rigidbody is held
+        // kinematic so terrain collision can't pin a wheeled bot trying
+        // to bore upward, gravity + wheel grip are suspended, and the
+        // body is MovePosition'd along the aim at _digTargetSpeed.
+        // _glidePrevKinematic remembers the body's pre-glide kinematic
+        // flag so disengage restores it exactly. NOTE: assumes one drill
+        // per chassis (the DrillBot case); multiple drills toggling the
+        // shared body's kinematic flag is not coordinated — future work.
+        private bool _gliding;
+        private bool _glidePrevKinematic;
         // Player input gate — drilling is held-fire continuous (mirrors the
         // BombBay / Cannon / ProjectileGun input pattern). The contact and
         // FixedUpdate auto-poll paths both check this; the public Drill(zone)
@@ -222,13 +218,6 @@ namespace Robogame.Voxel
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             return mesh;
-        }
-
-        private void OnDisable()
-        {
-            // Defensive: a block destroyed mid-drill must not leave the
-            // active-spin loop running on a dead GameObject.
-            StopActiveLoop();
         }
 
         private void Update()
@@ -340,14 +329,13 @@ namespace Robogame.Voxel
                 Vector3 vfxAnchor = (p0 + p1) * 0.5f;
                 VfxSpawner.Spawn(VfxKind.DebrisDust, vfxAnchor, Quaternion.identity, scale: 0.5f);
 
-                // Arm the dig-pull. The force itself is applied every
-                // FixedUpdate (see ApplyDigPull) while this stays live —
-                // not here, so the servo runs at the physics rate rather
-                // than the throttled ~30 Hz emit rate. Kept alive a touch
-                // past the next expected emit so a missed/throttled tick
-                // doesn't briefly drop the pull. Gated on changed>0 so it
-                // only arms while biting solid voxels, never while
-                // drilling air (no free-flight exploit).
+                // Arm drill-glide. The glide itself runs every
+                // FixedUpdate (see UpdateDrillGlide) while this window
+                // stays live — kept alive a touch past the next expected
+                // emit so a missed/throttled tick doesn't drop it. Set
+                // ONLY here, inside changed>0, so glide engages strictly
+                // while biting solid voxels and never in open air (not an
+                // anti-gravity toggle).
                 _pullAimDir = aimDir;
                 _pullActiveUntil = Time.time + _emitInterval * 1.5f;
             }
@@ -380,99 +368,91 @@ namespace Robogame.Voxel
                 if (zone is DigZone concrete) Drill(concrete);
             }
 
-            // Dig-pull, applied every physics step while a recent carve
-            // is still live (armed by Drill on changed>0). Runs at the
-            // physics rate — independent of the throttled emit — so the
-            // servo can deliver sustained force against gravity.
-            if (Time.time <= _pullActiveUntil)
-            {
-                Rigidbody body = ChassisBody;
-                if (body != null && !body.isKinematic && _digPullForce > 0f)
-                    ApplyDigPull(body, _pullAimDir);
-            }
+            // Drill-glide. Active only while a recent CUTTING emit keeps
+            // the window fresh (Drill arms it on changed>0 only), so it
+            // can never engage in open air. While active the chassis is
+            // kinematic and slid along the bore — terrain collision can't
+            // pin it, so a wheeled bot finally climbs straight up.
+            bool boring = Time.time <= _pullActiveUntil;
+            UpdateDrillGlide(boring);
         }
 
         /// <summary>
-        /// One physics-step of the dig-pull: cancel the slice of gravity
-        /// opposing the aim (so an upward dig doesn't sag), then a one-
-        /// sided velocity servo toward <see cref="_digTargetSpeed"/> along
-        /// the aim axis, capped at <see cref="_digPullForce"/>.
+        /// Drill-glide state machine. While the drill is actively cutting
+        /// solid voxels (<paramref name="boring"/>), the chassis enters a
+        /// kinematic "glide": gravity + wheel grip are suspended and the
+        /// body is <see cref="Rigidbody.MovePosition"/>'d along the aim at
+        /// <see cref="_digTargetSpeed"/>. The instant cutting stops the
+        /// body is restored to its prior (dynamic) state with the bore
+        /// momentum carried out, so gravity resumes — it is not an
+        /// anti-gravity hover.
         /// </summary>
         /// <remarks>
-        /// <para>
-        /// <b>Gravity compensation.</b> The servo alone can't reliably
-        /// climb: in steady state it only requests enough force to fix
-        /// the small recent speed deficit, which is far less than the
-        /// chassis weight, so a vertical dig nets ~zero. Cancelling the
-        /// weight component opposing the aim (only when it opposes — a
-        /// downward dig keeps gravity's help) lets the servo provide just
-        /// the slow crawl regardless of orientation. Applied at the COM
-        /// (plain <see cref="Rigidbody.AddForce"/>) so it adds no torque;
-        /// the propulsion stays at the drill cell for the angular feel.
-        /// </para>
-        /// <para>
-        /// <b>Servo.</b> Force that would close the speed deficit in one
-        /// physics step, clamped to the ceiling, never negative — so a
-        /// chassis already moving faster than target along the aim (e.g.
-        /// wheel-driving) gets zero extra dig push. Digging stays a slow,
-        /// deliberate crawl; driving is never braked.
-        /// </para>
+        /// Kinematic motion is the load-bearing trick: a dynamic body
+        /// pushed up against the still-solid (async-baked) terrain
+        /// MeshCollider just gets its upward component cancelled by the
+        /// contact solver — which is exactly why every force-based
+        /// attempt failed to climb. A kinematic body is not stopped by
+        /// static colliders, so it glides through the carved SDF along
+        /// the tunnel the drill is opening ahead of it.
         /// </remarks>
-        private void ApplyDigPull(Rigidbody body, Vector3 aimDir)
+        private void UpdateDrillGlide(bool boring)
         {
-            // Gravity comp — only the part of weight opposing the aim,
-            // and only if the body is actually under gravity.
-            float gravCompN = 0f;
-            if (body.useGravity)
+            Rigidbody body = ChassisBody;
+            if (body == null) return;
+
+            if (boring)
             {
-                Vector3 weight = Physics.gravity * body.mass;     // points down
-                float weightAlongAim = Vector3.Dot(weight, aimDir);
-                if (weightAlongAim < 0f)                          // aim has an upward component
+                if (!_gliding)
                 {
-                    gravCompN = -weightAlongAim;
-                    body.AddForce(aimDir * gravCompN, ForceMode.Force);
+                    _glidePrevKinematic = body.isKinematic;
+                    body.isKinematic = true;        // suspends gravity + wheel grip
+                    _gliding = true;
                 }
+                // Slide along the bore. Kinematic MovePosition isn't
+                // blocked by the terrain MeshCollider, so vertical bores
+                // actually move up instead of being pinned to the floor.
+                body.MovePosition(
+                    body.position + _pullAimDir * (_digTargetSpeed * Time.fixedDeltaTime));
             }
-
-            // Full-vector velocity servo. While the drill is biting, IT
-            // owns the chassis velocity: it commands the WHOLE velocity
-            // vector toward `aim * digSpeed`, not merely the scalar
-            // projection onto aim. Regulating the projection alone was
-            // the bug — with a shallow (35°) aim a purely horizontal
-            // slide of 2.6 m/s satisfied "v·aim = 2.0" while the chassis
-            // never gained any altitude (readout: velocity (2.6,-0.1,
-            // 0.23), chassis Y sinking). Driving the full vector brakes
-            // the lateral drift AND forces real travel up the tunnel.
-            // Clamped to _digPullForce so physics still resolves contacts
-            // (the drill carves a pocket around the cell, so there's room
-            // to rise into). Applied at the COM: with a varying mixed
-            // brake+climb force, an off-COM application would spin the
-            // chassis; clean translation matters more than the angular
-            // flourish here. Releasing fire lapses the pull → full drive
-            // control returns.
-            float dt = Mathf.Max(Time.fixedDeltaTime, 1e-4f);
-            Vector3 desiredVel = aimDir * _digTargetSpeed;
-            Vector3 deltaV = desiredVel - body.linearVelocity;
-            Vector3 servoForce = Vector3.ClampMagnitude(
-                deltaV * body.mass / dt, _digPullForce);
-            body.AddForce(servoForce, ForceMode.Force);
-
-            float vAlong = Vector3.Dot(body.linearVelocity, aimDir);
-            float servoN = servoForce.magnitude;
+            else if (_gliding)
+            {
+                EndGlide(body);
+            }
 
             if (_debugReadout)
             {
                 _diag.HaveBody = true;
-                _diag.Kinematic = body.isKinematic;
-                _diag.UseGravity = body.useGravity;
-                _diag.Mass = body.mass;
-                _diag.VAlong = vAlong;
-                _diag.GravCompN = gravCompN;
-                _diag.ServoN = servoN;
+                _diag.MassKg = body.mass;
+                _diag.Gliding = _gliding;
                 _diag.Velocity = body.linearVelocity;
                 _diag.ChassisY = body.position.y;
-                _diag.PullArmed = true;
+                _diag.PullArmed = boring;
             }
+        }
+
+        // Restore dynamic physics and carry the bore momentum out so the
+        // chassis doesn't dead-stop on exit (it pops out moving, then
+        // gravity takes over). Robust to being called from OnDisable.
+        private void EndGlide(Rigidbody body)
+        {
+            body.isKinematic = _glidePrevKinematic;
+            _gliding = false;
+            if (!body.isKinematic)
+                body.linearVelocity = _pullAimDir * _digTargetSpeed;
+        }
+
+        private void OnDisable()
+        {
+            // A drill destroyed / disabled mid-bore must not leave the
+            // chassis stuck kinematic forever.
+            if (_gliding)
+            {
+                Rigidbody body = ChassisBody;
+                if (body != null) EndGlide(body);
+                else _gliding = false;
+            }
+            StopActiveLoop();
         }
 
         private void OnGUI()
@@ -485,7 +465,7 @@ namespace Robogame.Voxel
 
             float staleFor = Time.time - _diag.Time;
             string body = _diag.HaveBody
-                ? $"mass={_diag.Mass:0.0}kg kin={_diag.Kinematic} grav={_diag.UseGravity}"
+                ? $"mass={_diag.MassKg:0.0}kg"
                 : "<no chassis Rigidbody resolved>";
 
             string text =
@@ -494,11 +474,10 @@ namespace Robogame.Voxel
                 $"changed:    {_diag.LastChanged} cells  (0 = carving air!)\n" +
                 $"aim:        {_diag.AimDir:F2}\n" +
                 $"elevation:  {_diag.ElevationDeg:0.0}° above horizontal\n" +
-                $"pull armed: {_diag.PullArmed}\n" +
+                $"boring:     {_diag.PullArmed}  (real cutting → glide)\n" +
+                $"GLIDING:    {_diag.Gliding}  (kinematic, grav off)\n" +
                 $"body:       {body}\n" +
-                $"v·aim:      {_diag.VAlong:0.00} m/s  (target {_digTargetSpeed:0.0})\n" +
-                $"gravComp:   {_diag.GravCompN:0} N\n" +
-                $"servo:      {_diag.ServoN:0} N  (ceiling {_digPullForce:0})\n" +
+                $"digSpeed:   {_digTargetSpeed:0.0} m/s\n" +
                 $"velocity:   {_diag.Velocity:F2}\n" +
                 $"chassis Y:  {_diag.ChassisY:0.00} m";
 

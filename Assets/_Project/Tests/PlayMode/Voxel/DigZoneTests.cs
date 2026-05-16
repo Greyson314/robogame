@@ -845,26 +845,22 @@ namespace Robogame.Tests.PlayMode.Voxel
         }
 
         [UnityTest]
-        public IEnumerator DrillBlock_CarvingPullsChassisAlongAimDirection()
+        public IEnumerator DrillBlock_CarvingGlidesChassisAlongAim()
         {
-            // The dig-pull: while the drill is biting solid voxels it
-            // drags the chassis along the aim direction so the player can
-            // worm through terrain. With no aim camera the bit stays at
-            // mount-up (= transform.up = +Y here), so a successful carve
-            // must add +Y velocity to the chassis body.
+            // Drill-glide: while biting solid voxels the chassis goes
+            // kinematic and is slid along the aim. With no aim camera the
+            // bit stays at mount-up (= transform.up = +Y here), so a
+            // successful carve must move the chassis +Y (position-based —
+            // a kinematic body reports ~0 linearVelocity by design).
             DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
             DigChunk chunk = zone.GetChunk(0, 0, 0);
             float chunkSide = zone.ChunkSizeCells * zone.CellSize;
             Vector3 startPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f);
 
-            // Dynamic Rigidbody (BuildChassisWithDrill uses a kinematic
-            // body, which ignores AddForce). Gravity off so the assertion
-            // isolates the dig-pull from free-fall.
-            var chassis = new GameObject("PullChassis");
+            var chassis = new GameObject("GlideChassis");
             chassis.transform.position = startPos;
             var rb = chassis.AddComponent<Rigidbody>();
             rb.useGravity = false;
-            rb.linearVelocity = Vector3.zero;
             _ancillaryGameObjects.Add(chassis);
 
             var drillGo = new GameObject("Drill");
@@ -881,34 +877,36 @@ namespace Robogame.Tests.PlayMode.Voxel
                 "Pre-condition: drill starts in solid material so it actually carves.");
 
             int changed = drill.Drill(zone);
-            Assume.That(changed, Is.GreaterThan(0), "Drill must carve for the pull to apply.");
+            Assume.That(changed, Is.GreaterThan(0), "Drill must carve for glide to engage.");
 
+            Vector3 p0 = chassis.transform.position;
             yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+            Vector3 moved = chassis.transform.position - p0;
 
-            Assert.Greater(rb.linearVelocity.y, 0.01f,
-                "Carving must pull the chassis along the aim direction (+Y with no aim camera).");
-            Assert.Greater(rb.linearVelocity.y, Mathf.Abs(rb.linearVelocity.x),
-                "Pull must be dominantly along the aim axis, not sideways.");
-            Assert.Greater(rb.linearVelocity.y, Mathf.Abs(rb.linearVelocity.z),
-                "Pull must be dominantly along the aim axis, not sideways.");
+            Assert.Greater(moved.y, 0.01f,
+                "Carving must glide the chassis along the aim (+Y with no aim camera).");
+            Assert.Greater(moved.y, Mathf.Abs(moved.x),
+                "Glide must be dominantly along the aim axis, not sideways.");
+            Assert.Greater(moved.y, Mathf.Abs(moved.z),
+                "Glide must be dominantly along the aim axis, not sideways.");
         }
 
         [UnityTest]
-        public IEnumerator DrillBlock_DrillingAir_DoesNotPullChassis()
+        public IEnumerator DrillBlock_DrillingAir_DoesNotMoveChassis()
         {
-            // The pull is gated on changed > 0 — drilling air (already-
-            // exterior cells) carves nothing, so it must NOT translate the
-            // chassis. Prevents the drill doubling as a free thruster.
+            // Glide is gated on changed > 0 — drilling air carves nothing,
+            // so glide never engages and the chassis stays put (gravity
+            // off here so "no movement" is unambiguous). This is the
+            // not-an-anti-gravity-button guarantee.
             DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
             float chunkSide = zone.ChunkSizeCells * zone.CellSize;
-            // Upper half of the half-space init is exterior (air).
             Vector3 airPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.9f, chunkSide * 0.5f);
 
             var chassis = new GameObject("AirChassis");
             chassis.transform.position = airPos;
             var rb = chassis.AddComponent<Rigidbody>();
             rb.useGravity = false;
-            rb.linearVelocity = Vector3.zero;
             _ancillaryGameObjects.Add(chassis);
 
             var drillGo = new GameObject("Drill");
@@ -919,21 +917,21 @@ namespace Robogame.Tests.PlayMode.Voxel
             int changed = drill.Drill(zone);
             Assume.That(changed, Is.EqualTo(0), "Drilling air must carve nothing.");
 
+            Vector3 p0 = chassis.transform.position;
+            yield return new WaitForFixedUpdate();
             yield return new WaitForFixedUpdate();
 
-            Assert.Less(rb.linearVelocity.magnitude, 1e-3f,
-                "No carve → no dig-pull. The drill must not move the chassis through air.");
+            Assert.Less((chassis.transform.position - p0).magnitude, 1e-3f,
+                "No carve → no glide. The drill must not move the chassis through air.");
         }
 
         [UnityTest]
-        public IEnumerator DrillBlock_DigPull_IsSpeedCapped_NotUnboundedAcceleration()
+        public IEnumerator DrillBlock_DigGlide_AdvancesAtDigSpeed_NotFaster()
         {
-            // The dig-pull is a velocity servo, not a flat force:
-            // sustained drilling from rest must settle at a slow crawl,
-            // not accelerate without bound. Run many drill + physics
-            // cycles and assert the aim-axis speed stays bounded well
-            // below what a constant 1500 N force on a ~1 kg test body
-            // would produce (tens of m/s within a handful of steps).
+            // Glide moves the chassis at exactly _digTargetSpeed (≈2 m/s),
+            // not the runaway speeds the old force servos could reach.
+            // Assert the average advance rate sits in a band around the
+            // dig speed, not tens of m/s.
             DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
             float chunkSide = zone.ChunkSizeCells * zone.CellSize;
             Vector3 startPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f);
@@ -941,8 +939,7 @@ namespace Robogame.Tests.PlayMode.Voxel
             var chassis = new GameObject("CrawlChassis");
             chassis.transform.position = startPos;
             var rb = chassis.AddComponent<Rigidbody>();
-            rb.useGravity = false;            // isolate the servo from free-fall
-            rb.linearVelocity = Vector3.zero;
+            rb.useGravity = false;
             _ancillaryGameObjects.Add(chassis);
 
             var drillGo = new GameObject("Drill");
@@ -950,33 +947,31 @@ namespace Robogame.Tests.PlayMode.Voxel
             drillGo.transform.position = startPos;
             var drill = drillGo.AddComponent<DrillBlock>();
 
-            // Drive ~30 emit+step cycles. With a flat force this would be
-            // ~30 m/s+; the servo must hold it to a slow crawl.
+            float startY = chassis.transform.position.y;
+            float tStart = Time.time;
             for (int i = 0; i < 30; i++)
             {
-                // Re-seed solid material under the bit each cycle so it
-                // keeps carving (changed > 0) as the chassis creeps up.
-                zone.InitializeHalfSpace();
+                zone.InitializeHalfSpace();   // keep solid so it keeps carving
                 drill.Drill(zone);
                 yield return new WaitForFixedUpdate();
             }
+            float elapsed = Time.time - tStart;
+            float climbed = chassis.transform.position.y - startY;
+            float avgSpeed = climbed / Mathf.Max(elapsed, 1e-3f);
 
-            float vAlong = rb.linearVelocity.y;   // aim = +Y with no camera
-            Assert.Greater(vAlong, 0.01f, "Servo must still produce upward dig motion.");
-            Assert.Less(vAlong, 5.0f,
-                $"Dig speed must stay capped (servo target ~2 m/s); got {vAlong:F2} m/s. " +
-                "A flat unbounded force would be far higher after 30 cycles.");
+            Assert.Greater(climbed, 0.2f, "Glide must produce real upward progress.");
+            Assert.That(avgSpeed, Is.InRange(0.5f, 4.0f),
+                $"Glide must advance at ~dig speed (≈2 m/s), not a runaway rate; " +
+                $"avg {avgSpeed:F2} m/s over {elapsed:F2}s.");
         }
 
         [UnityTest]
-        public IEnumerator DrillBlock_FastChassis_DrillingBrakesTowardDigSpeed()
+        public IEnumerator DrillBlock_FastChassis_GlideOverridesEntryVelocity()
         {
-            // Regression for the readout that exposed the real bug: a
-            // chassis sliding fast (16 m/s) projected ~13 m/s onto the
-            // aim axis, and the OLD one-sided servo concluded "already
-            // fast enough" → 0 N → no dig at all. The two-sided servo
-            // must BRAKE excess aim-axis speed down toward the dig
-            // target while drilling, not give up.
+            // The original failure: a chassis carrying large non-dig
+            // velocity. Glide makes the body kinematic, so entry momentum
+            // is suspended and motion is purely the dig-speed slide along
+            // aim — not the seeded 14 m/s.
             DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
             float chunkSide = zone.ChunkSizeCells * zone.CellSize;
             Vector3 startPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f);
@@ -985,9 +980,7 @@ namespace Robogame.Tests.PlayMode.Voxel
             chassis.transform.position = startPos;
             var rb = chassis.AddComponent<Rigidbody>();
             rb.useGravity = false;
-            // Aim is +Y with no camera; seed a large velocity ALONG the
-            // aim axis (the poison case — would zero a one-sided servo).
-            rb.linearVelocity = new Vector3(0f, 14f, 0f);
+            rb.linearVelocity = new Vector3(0f, 14f, 0f);   // poison: huge entry speed
             rb.mass = 15f;
             _ancillaryGameObjects.Add(chassis);
 
@@ -996,32 +989,29 @@ namespace Robogame.Tests.PlayMode.Voxel
             drillGo.transform.position = startPos;
             var drill = drillGo.AddComponent<DrillBlock>();
 
-            float vStart = rb.linearVelocity.y;
+            float startY = chassis.transform.position.y;
             for (int i = 0; i < 30; i++)
             {
-                zone.InitializeHalfSpace();   // keep solid so it carves
+                zone.InitializeHalfSpace();
                 drill.Drill(zone);
                 yield return new WaitForFixedUpdate();
             }
 
-            float vEnd = rb.linearVelocity.y;
-            Assert.Less(vEnd, vStart - 5f,
-                $"Drilling must brake a fast aim-axis slide toward dig speed; " +
-                $"started {vStart:F1} m/s, still {vEnd:F1} m/s after 30 cycles.");
-            Assert.Less(vEnd, 5.0f,
-                $"Aim-axis speed must converge toward the ~2 m/s dig target; got {vEnd:F2}.");
+            float climbed = chassis.transform.position.y - startY;
+            Assert.Greater(climbed, 0.2f, "Glide must still advance up the bore.");
+            Assert.Less(climbed, 4.0f,
+                $"Entry velocity (14 m/s) must be suspended by glide — climbed {climbed:F2} m; " +
+                "if momentum carried, this would be ~8 m+ over 30 steps.");
         }
 
         [UnityTest]
         public IEnumerator DrillBlock_DigUp_ClimbsAgainstGravity()
         {
             // Regression: with gravity ON, drilling straight up must
-            // actually gain altitude. The pre-fix servo only requested
-            // enough force to fix the small recent speed deficit — far
-            // less than chassis weight — so a vertical dig netted ~zero.
-            // Gravity comp (cancel the weight slice opposing the aim) +
-            // per-physics-step application must produce real upward
-            // progress against a gravity-subject body.
+            // actually gain altitude. Force-based attempts all failed
+            // because the terrain contact / gravity cancelled the upward
+            // motion. Kinematic drill-glide is not blocked by either, so
+            // it must climb.
             DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
             float chunkSide = zone.ChunkSizeCells * zone.CellSize;
             Vector3 startPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.3f, chunkSide * 0.5f);
@@ -1030,8 +1020,7 @@ namespace Robogame.Tests.PlayMode.Voxel
             chassis.transform.position = startPos;
             var rb = chassis.AddComponent<Rigidbody>();
             rb.useGravity = true;             // the whole point — must beat gravity
-            rb.mass = 15f;                    // realistic light DrillBot mass
-            rb.linearVelocity = Vector3.zero;
+            rb.mass = 15f;
             _ancillaryGameObjects.Add(chassis);
 
             var drillGo = new GameObject("Drill");
@@ -1051,19 +1040,17 @@ namespace Robogame.Tests.PlayMode.Voxel
             float climbed = chassis.transform.position.y - startY;
             Assert.Greater(climbed, 0.2f,
                 $"Drilling up must gain altitude against gravity; climbed only {climbed:F3} m. " +
-                "Gravity comp + per-step servo application is the load-bearing fix here.");
+                "Kinematic glide (gravity + collision suspended while cutting) is the fix.");
         }
 
         [UnityTest]
         public IEnumerator DrillBlock_DigUp_WithLateralMomentum_StillClimbs()
         {
-            // Regression for the second readout: the chassis was sliding
-            // +X at 2.6 m/s while aiming up, and the scalar-projection
-            // servo was "satisfied" (v·aim = 2.0 met entirely by the
-            // horizontal slide) so it never climbed (chassis Y sinking).
-            // The full-vector servo must brake the lateral drift AND
-            // force real altitude gain even when significant non-dig
-            // horizontal momentum is present.
+            // Regression for the readout that exposed the deepest bug: a
+            // shallow-aim horizontal slide satisfied the scalar servo so
+            // the bot never climbed. Glide is kinematic and moves purely
+            // along aim, so lateral entry momentum cannot substitute for
+            // climbing.
             DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
             float chunkSide = zone.ChunkSizeCells * zone.CellSize;
             Vector3 startPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.3f, chunkSide * 0.5f);
@@ -1073,12 +1060,7 @@ namespace Robogame.Tests.PlayMode.Voxel
             var rb = chassis.AddComponent<Rigidbody>();
             rb.useGravity = true;
             rb.mass = 15f;
-            // Aim is +Y (no camera). Seed a strong horizontal slide — the
-            // exact poison case: this WOULD satisfy a scalar v·aim servo
-            // (dot with +Y ≈ 0, but in the real readout the shallow aim
-            // let the slide satisfy it) yet must not substitute for
-            // climbing.
-            rb.linearVelocity = new Vector3(6f, 0f, 0f);
+            rb.linearVelocity = new Vector3(6f, 0f, 0f);   // strong lateral slide
             _ancillaryGameObjects.Add(chassis);
 
             var drillGo = new GameObject("Drill");
@@ -1086,6 +1068,7 @@ namespace Robogame.Tests.PlayMode.Voxel
             drillGo.transform.position = startPos;
             var drill = drillGo.AddComponent<DrillBlock>();
 
+            float startX = chassis.transform.position.x;
             float startY = chassis.transform.position.y;
             for (int i = 0; i < 30; i++)
             {
@@ -1095,11 +1078,12 @@ namespace Robogame.Tests.PlayMode.Voxel
             }
 
             float climbed = chassis.transform.position.y - startY;
+            float slid = Mathf.Abs(chassis.transform.position.x - startX);
             Assert.Greater(climbed, 0.2f,
                 $"Must climb even with lateral momentum present; climbed {climbed:F3} m.");
-            Assert.Less(Mathf.Abs(rb.linearVelocity.x), 3.0f,
-                $"The lateral slide must be braked out by the vector servo; " +
-                $"vx still {rb.linearVelocity.x:F2} m/s.");
+            Assert.Less(slid, climbed,
+                $"Glide ignores lateral entry momentum: sideways drift ({slid:F2} m) " +
+                $"must stay under the climb ({climbed:F2} m).");
         }
 
         // ------------------------------------------------------------------
