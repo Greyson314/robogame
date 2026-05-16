@@ -900,6 +900,47 @@ namespace Robogame.Tests.PlayMode.Voxel
         }
 
         [UnityTest]
+        public IEnumerator DrillBlock_EjectionGlide_CarriesBodyClearAfterCuttingStops()
+        {
+            // "Pop out of your own hole" assist: when cutting stops, glide
+            // keeps carrying the body along the last bore for a bounded
+            // extra distance so it clears the shaft before physics resume.
+            // Gravity off, so any post-cut climb is unambiguously the
+            // ejection (not a fall).
+            DigZone zone = MakeZone(new Vector3Int(1, 1, 1));
+            float chunkSide = zone.ChunkSizeCells * zone.CellSize;
+            Vector3 startPos = new Vector3(chunkSide * 0.5f, chunkSide * 0.25f, chunkSide * 0.5f);
+
+            var chassis = new GameObject("EjectChassis");
+            chassis.transform.position = startPos;
+            var rb = chassis.AddComponent<Rigidbody>();
+            rb.useGravity = false;
+            _ancillaryGameObjects.Add(chassis);
+
+            var drillGo = new GameObject("Drill");
+            drillGo.transform.SetParent(chassis.transform, worldPositionStays: false);
+            drillGo.transform.position = startPos;
+            var drill = drillGo.AddComponent<DrillBlock>();
+
+            // Cut for a few steps (glide engages, +Y with no camera).
+            for (int i = 0; i < 5; i++)
+            {
+                zone.InitializeHalfSpace();
+                drill.Drill(zone);
+                yield return new WaitForFixedUpdate();
+            }
+            float yAtCutStop = chassis.transform.position.y;
+
+            // Stop cutting entirely; let the ejection play out.
+            for (int i = 0; i < 12; i++) yield return new WaitForFixedUpdate();
+            float yAfterEject = chassis.transform.position.y;
+
+            Assert.Greater(yAfterEject, yAtCutStop + 0.05f,
+                $"Ejection must carry the body further along the bore after cutting stops; " +
+                $"only moved {(yAfterEject - yAtCutStop):F3} m.");
+        }
+
+        [UnityTest]
         public IEnumerator DrillBlock_DrillingAir_DoesNotMoveChassis()
         {
             // Glide is gated on changed > 0 — drilling air carves nothing,

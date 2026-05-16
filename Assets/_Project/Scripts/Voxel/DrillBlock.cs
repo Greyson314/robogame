@@ -78,13 +78,21 @@ namespace Robogame.Voxel
                  "(translate only).")]
         [SerializeField, Min(0f)] private float _glideTurnSpeed = 270f;
 
+        [Tooltip("When cutting stops (broke into air / a cavity / released fire), glide keeps " +
+                 "carrying the chassis along the last bore direction for this many extra metres " +
+                 "before dynamic physics + gravity resume. This is the 'pop out of your own " +
+                 "hole' assist: without it the body drops back to physics still down a narrow " +
+                 "shaft and gets stuck. Only triggers after genuine cutting (one-shot, bounded), " +
+                 "so it isn't an air-dash. 0 disables (physics resumes the instant cutting ends).")]
+        [SerializeField, Min(0f)] private float _glideEjectDistance = 3.0f;
+
         [Header("Cone aim")]
-        [Tooltip("Maximum angle in degrees the drill bit can swivel away from its mount-up direction. " +
-                 "50° lets a forward-mounted drill dig nearly straight down or up — at 30° drilling " +
-                 "either direction was effectively impossible because the cone bottomed out before the " +
-                 "camera reached the floor. The brush emits along the AIMED direction, so the player " +
-                 "can look at the ground and drill toward it.")]
-        [SerializeField, Range(0f, 90f)] private float _maxAimAngle = 50f;
+        [Tooltip("Maximum angle in degrees the drill bit can swivel away from its (front-mounted = " +
+                 "horizontal) mount-up direction. 85° is nearly a full hemisphere: you can aim almost " +
+                 "straight down to dive or straight up to surface, while the <90° clamp still stops " +
+                 "the bit aiming sideways/backward into the chassis. The brush emits along the AIMED " +
+                 "direction, so the player can look where they want to bore and drill toward it.")]
+        [SerializeField, Range(0f, 90f)] private float _maxAimAngle = 85f;
 
         [Tooltip("World-space length of the cone visual extending past the drill cell. " +
                  "Cosmetic; brush emission length along aim is _brushReach.")]
@@ -142,6 +150,10 @@ namespace Robogame.Voxel
         // shared body's kinematic flag is not coordinated — future work.
         private bool _gliding;
         private bool _glidePrevKinematic;
+        // Metres of post-cut "ejection" glide still owed — refilled to
+        // _glideEjectDistance every cutting step, spent down once cutting
+        // stops so the whole body clears the hole before physics resumes.
+        private float _ejectRemaining;
         // Player input gate — drilling is held-fire continuous (mirrors the
         // BombBay / Cannon / ProjectileGun input pattern). The contact and
         // FixedUpdate auto-poll paths both check this; the public Drill(zone)
@@ -262,13 +274,12 @@ namespace Robogame.Voxel
         /// <see cref="Drill"/> and <see cref="_brushReach"/>.
         /// </summary>
         public Vector3 TipWorldPosition
-        {
-            get
-            {
-                Vector3 aimUp = _bitTransform != null ? _bitTransform.up : transform.up;
-                return transform.position + aimUp * _tipForwardOffset;
-            }
-        }
+            => transform.position + CurrentAimDir * _tipForwardOffset;
+
+        // World-space bore direction: the cone bit's aimed +Y (camera-
+        // clamped) when present, else the cell's static mount-up.
+        private Vector3 CurrentAimDir
+            => _bitTransform != null ? _bitTransform.up : transform.up;
 
         public float Radius => _radius;
 
@@ -300,7 +311,7 @@ namespace Robogame.Voxel
         {
             if (zone == null) return 0;
 
-            Vector3 aimDir = _bitTransform != null ? _bitTransform.up : transform.up;
+            Vector3 aimDir = CurrentAimDir;
             Vector3 p0 = transform.position;
             Vector3 p1 = transform.position + aimDir * _brushReach;
 
@@ -364,14 +375,19 @@ namespace Robogame.Voxel
             // Surface-contact-only drilling fails for a body-mounted
             // chassis drill: wheels keep the chassis above the terrain
             // surface, so the drill's BoxCollider doesn't physically
-            // intersect the chunk's surface MeshCollider. Poll
-            // DigField each fixed step: if the tip sits inside ANY
-            // registered DigZone's volume, emit a brush. Brushes on
-            // already-exterior cells are no-ops (max-fold idempotent),
-            // so this only costs work where it actually carves.
+            // intersect the chunk's surface MeshCollider. Poll DigField
+            // each fixed step. Probe BOTH the drill cell and the far end
+            // of the brush along the aim — standing on top of a dig zone
+            // and looking down, the cell itself is just ABOVE the zone
+            // AABB (so a cell-only check misses), but the projected bore
+            // point is inside it. Brushes on already-exterior cells are
+            // no-ops (max-fold idempotent), so this only costs work where
+            // it actually carves.
             if (IsFireHeld && Time.time - _lastEmitTime >= _emitInterval)
             {
-                IDigZone zone = DigField.ZoneAt(transform.position);
+                Vector3 aimDir = CurrentAimDir;
+                IDigZone zone = DigField.ZoneAt(transform.position)
+                                ?? DigField.ZoneAt(transform.position + aimDir * _brushReach);
                 if (zone is DigZone concrete) Drill(concrete);
             }
 
@@ -416,32 +432,23 @@ namespace Robogame.Voxel
                     body.isKinematic = true;        // suspends gravity + wheel grip
                     _gliding = true;
                 }
-                // Slide along the bore. Kinematic MovePosition isn't
-                // blocked by the terrain MeshCollider, so vertical bores
-                // actually move up instead of being pinned to the floor.
-                body.MovePosition(
-                    body.position + _pullAimDir * (_digTargetSpeed * Time.fixedDeltaTime));
-
-                // Nose into the bore. Rotate the chassis so the drill
-                // cell's mount-up (transform.up — convention-independent,
-                // works regardless of how the bot is built) swings onto
-                // the bore direction. Rate-capped so it banks in smoothly
-                // instead of snapping, and so a fast camera flick doesn't
-                // whip the body around. Without this the kinematic body
-                // keeps its entry pose and reads as "suspended in space".
-                if (_glideTurnSpeed > 0f &&
-                    _pullAimDir.sqrMagnitude > 1e-6f &&
-                    transform.up.sqrMagnitude > 1e-6f)
-                {
-                    Quaternion align = Quaternion.FromToRotation(transform.up, _pullAimDir);
-                    Quaternion target = align * body.rotation;
-                    body.MoveRotation(Quaternion.RotateTowards(
-                        body.rotation, target, _glideTurnSpeed * Time.fixedDeltaTime));
-                }
+                GlideStep(body);
+                // Keep the post-cut ejection budget topped up while we're
+                // still actually cutting; it's spent down once cutting
+                // stops (below) to carry the body clear of its own hole.
+                _ejectRemaining = _glideEjectDistance;
             }
             else if (_gliding)
             {
-                EndGlide(body);
+                if (_ejectRemaining > 0f)
+                {
+                    GlideStep(body);
+                    _ejectRemaining -= _digTargetSpeed * Time.fixedDeltaTime;
+                }
+                else
+                {
+                    EndGlide(body);
+                }
             }
 
             if (_debugReadout)
@@ -452,6 +459,31 @@ namespace Robogame.Voxel
                 _diag.Velocity = body.linearVelocity;
                 _diag.ChassisY = body.position.y;
                 _diag.PullArmed = boring;
+            }
+        }
+
+        // One kinematic glide step: slide along the bore + nose into it.
+        // Shared by the active-cutting phase and the post-cut ejection so
+        // both move identically. Kinematic MovePosition isn't blocked by
+        // the terrain MeshCollider, so vertical bores actually move
+        // instead of being pinned to the floor.
+        private void GlideStep(Rigidbody body)
+        {
+            body.MovePosition(
+                body.position + _pullAimDir * (_digTargetSpeed * Time.fixedDeltaTime));
+
+            // Nose into the bore: rotate so the drill cell's mount-up
+            // (transform.up — convention-independent) swings onto the
+            // bore direction, rate-capped so it banks in smoothly and a
+            // fast camera flick can't whip the body.
+            if (_glideTurnSpeed > 0f &&
+                _pullAimDir.sqrMagnitude > 1e-6f &&
+                transform.up.sqrMagnitude > 1e-6f)
+            {
+                Quaternion align = Quaternion.FromToRotation(transform.up, _pullAimDir);
+                Quaternion target = align * body.rotation;
+                body.MoveRotation(Quaternion.RotateTowards(
+                    body.rotation, target, _glideTurnSpeed * Time.fixedDeltaTime));
             }
         }
 
