@@ -102,6 +102,15 @@ namespace Robogame.Voxel
             /// <summary>Output vertex positions in cell-grid units.</summary>
             public NativeArray<float3> Vertices;
 
+            /// <summary>
+            /// Output per-vertex normals — the normalised SDF gradient at
+            /// each active cell. Lets the caller skip the main-thread
+            /// <c>Mesh.RecalculateNormals()</c> entirely (computed for free
+            /// inside the Burst job from the 8 corner samples Pass 1
+            /// already loaded).
+            /// </summary>
+            public NativeArray<float3> Normals;
+
             /// <summary>Output triangle indices (3 per triangle).</summary>
             public NativeArray<int> Indices;
 
@@ -117,6 +126,7 @@ namespace Robogame.Voxel
             {
                 if (CellToVertex.IsCreated) CellToVertex.Dispose();
                 if (Vertices.IsCreated)     Vertices.Dispose();
+                if (Normals.IsCreated)      Normals.Dispose();
                 if (Indices.IsCreated)      Indices.Dispose();
                 if (Counts.IsCreated)       Counts.Dispose();
             }
@@ -128,6 +138,7 @@ namespace Robogame.Voxel
             {
                 CellToVertex = new NativeArray<int>(MaxCellsForDim(dim),     allocator, NativeArrayOptions.UninitializedMemory),
                 Vertices     = new NativeArray<float3>(MaxVerticesForDim(dim), allocator, NativeArrayOptions.UninitializedMemory),
+                Normals      = new NativeArray<float3>(MaxVerticesForDim(dim), allocator, NativeArrayOptions.UninitializedMemory),
                 Indices      = new NativeArray<int>(MaxIndicesForDim(dim),   allocator, NativeArrayOptions.UninitializedMemory),
                 Counts       = new NativeArray<int>(2,                       allocator, NativeArrayOptions.ClearMemory),
             };
@@ -170,6 +181,7 @@ namespace Robogame.Voxel
                 StrideNegZ = strides.NegZ, StridePosZ = strides.PosZ,
                 CellToVertex = buffers.CellToVertex,
                 Vertices = buffers.Vertices,
+                Normals = buffers.Normals,
                 Indices = buffers.Indices,
                 Counts = buffers.Counts,
             }.Run();
@@ -201,6 +213,7 @@ namespace Robogame.Voxel
                 StrideNegZ = strides.NegZ, StridePosZ = strides.PosZ,
                 CellToVertex = buffers.CellToVertex,
                 Vertices = buffers.Vertices,
+                Normals = buffers.Normals,
                 Indices = buffers.Indices,
                 Counts = buffers.Counts,
             }.Schedule(dependency);
@@ -228,6 +241,7 @@ namespace Robogame.Voxel
 
             public NativeArray<int> CellToVertex;
             public NativeArray<float3> Vertices;
+            [WriteOnly] public NativeArray<float3> Normals;
             public NativeArray<int> Indices;
             public NativeArray<int> Counts;
 
@@ -331,8 +345,21 @@ namespace Robogame.Voxel
                     if (cz == 0          && StrideNegZ > 1) pos.z = SnapCoarseCenter(pos.z, StrideNegZ);
                     if (cz == boundaryCx && StridePosZ > 1) pos.z = SnapCoarseCenter(pos.z, StridePosZ);
 
+                    // Analytic normal = normalised SDF gradient at the
+                    // cell, from the 8 corner samples already in registers.
+                    // sdf increases toward exterior, so +gradient is the
+                    // outward surface normal — no main-thread
+                    // RecalculateNormals needed. normalizesafe handles the
+                    // degenerate all-equal-corner case (mask 0/0xFF cells
+                    // are already skipped, so this is rare).
+                    float gx = (s100 + s110 + s101 + s111) - (s000 + s010 + s001 + s011);
+                    float gy = (s010 + s110 + s011 + s111) - (s000 + s100 + s001 + s101);
+                    float gz = (s001 + s101 + s011 + s111) - (s000 + s100 + s010 + s110);
+                    float3 normal = math.normalizesafe(new float3(gx, gy, gz), new float3(0f, 1f, 0f));
+
                     int cellIdx = cz * cellDimSq + cy * cellDim + cx;
                     CellToVertex[cellIdx] = vCount;
+                    Normals[vCount] = normal;
                     Vertices[vCount++] = pos * CellScale;
                 }
 

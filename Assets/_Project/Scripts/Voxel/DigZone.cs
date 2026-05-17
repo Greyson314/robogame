@@ -116,6 +116,34 @@ namespace Robogame.Voxel
         // must remesh (changed chunks + the -dir apron consumers).
         private bool[] _chunkChanged;
         private bool[] _chunkRemesh;
+
+        // Pass 1 — deferred dirty flush. A drill emits ~30 ops/s; each
+        // mutates the SDF immediately (cheap, keeps the authoritative
+        // state + op-log current) but accumulates here, and the expensive
+        // remesh / bake / occupancy / mask only runs at the throttled
+        // flush rate. Bombs keep using the immediate ApplyBrush path so
+        // craters feel instant (TERRAFORMING_PLAN §6).
+        private bool[] _pendingDirty;
+        private bool _hasPendingDirty;
+        private float _lastFlushTime;
+        [SerializeField, Min(0.005f)]
+        [Tooltip("Min seconds between deferred-dig remeshes (~0.04 = 25 Hz, " +
+                 "TERRAFORMING_PLAN §6). The drill carves the SDF every tick; " +
+                 "the mesh catches up at this rate. Sub-perceptual lag.")]
+        private float _flushInterval = 0.04f;
+
+        // Pass 3 — dig-mask upload throttle. The 192² R-float texture is
+        // re-uploaded whole on Apply(); the grass clip is cosmetic so the
+        // GPU upload runs slower than the remesh. CPU slab data stays
+        // current every flush; only the Texture2D.Apply + globals are
+        // rate-limited, with a trailing upload so it always converges.
+        private bool _maskDirty;
+        private float _lastMaskUpload;
+        [SerializeField, Min(0.02f)]
+        [Tooltip("Min seconds between dig-mask GPU uploads (grass-clip is " +
+                 "cosmetic; ~0.1 = 10 Hz). Lower = snappier grass cut, more " +
+                 "texture bandwidth.")]
+        private float _maskUploadInterval = 0.1f;
         // Phase 5: coarse occupancy grid for AI pathfinding. Rebuilt
         // per-chunk after each remesh.
         private OccupancyGrid _occupancyGrid;
@@ -226,6 +254,9 @@ namespace Robogame.Voxel
 
         private void OnDisable()
         {
+            // Don't strand SDF mutations that were carved but never
+            // remeshed (the mesh would silently lag the collider/SDF).
+            if (_hasPendingDirty) FlushPendingDirty();
             DigField.Unregister(this);
             DisableDigMaskGlobal();
         }
@@ -243,6 +274,14 @@ namespace Robogame.Voxel
             // refresh collider sharedMesh.
             // Phase 4b: refresh per-chunk LOD from main-camera distance.
             if (_chunks == null) return;
+
+            // Pass 1 — throttled deferred-dig flush.
+            if (_hasPendingDirty && Time.time - _lastFlushTime >= _flushInterval)
+                FlushPendingDirty();
+            // Pass 3 — trailing dig-mask upload (last carve before the
+            // drill stopped still converges within the upload interval).
+            if (_maskDirty) MaybeUploadDigMask();
+
             if (_enableLod)
             {
                 Camera cam = Camera.main;
@@ -310,6 +349,7 @@ namespace Robogame.Voxel
             _chunks = new DigChunk[nx * ny * nz];
             _chunkChanged = new bool[_chunks.Length];
             _chunkRemesh = new bool[_chunks.Length];
+            _pendingDirty = new bool[_chunks.Length];
 
             float chunkSideMeters = _chunkSizeCells * _cellSize;
 
@@ -416,7 +456,11 @@ namespace Robogame.Voxel
             for (int i = 0; i < _digMaskDepth.Length; i++) _digMaskDepth[i] = float.MaxValue;
             for (int ci = 0; ci < _chunks.Length; ci++)
                 if (_chunks[ci] != null) WriteMaskSlab(_chunks[ci], minMerge: true);
+            // Seed path uploads immediately (one-time init) and resets the
+            // throttle window so the first dig isn't double-charged.
             PushDigMask();
+            _maskDirty = false;
+            _lastMaskUpload = Time.time;
         }
 
         /// <summary>
@@ -887,6 +931,54 @@ namespace Robogame.Voxel
         }
 
         /// <summary>
+        /// Deferred-flush variant of <see cref="ApplyBrush"/> for
+        /// high-frequency emitters (the drill, ~30 ops/s). Mutates the SDF
+        /// + op-log immediately — so the authoritative state, commutativity
+        /// and checkpointing are unaffected — but defers the expensive
+        /// remesh / bake / occupancy / mask to the throttled flush in
+        /// <see cref="Update"/>. Returns the cells changed this op (the SDF
+        /// is already mutated), so callers gating feedback on the carve
+        /// (audio, VFX, drill-glide) keep working per-tick.
+        /// </summary>
+        public int ApplyBrushDeferred(BrushOp op)
+        {
+            EnsureInitialised();
+            int totalChanged = 0;
+            for (int i = 0; i < _chunks.Length; i++)
+            {
+                int c = _chunks[i].ApplyBrushNoRemesh(op);
+                if (c > 0) _pendingDirty[i] = true;
+                totalChanged += c;
+            }
+            if (totalChanged > 0)
+            {
+                _opLog.Add(op);
+                _hasPendingDirty = true;
+            }
+            return totalChanged;
+        }
+
+        /// <summary>
+        /// Flush accumulated <see cref="ApplyBrushDeferred"/> mutations:
+        /// run one scoped rebuild for every chunk dirtied since the last
+        /// flush. Called throttled from <see cref="Update"/>; also exposed
+        /// so tests (and zone teardown) can force a synchronous flush.
+        /// </summary>
+        public void FlushPendingDirty()
+        {
+            if (!_hasPendingDirty) return;
+            for (int i = 0; i < _chunkChanged.Length; i++)
+                _chunkChanged[i] = _pendingDirty[i];
+            System.Array.Clear(_pendingDirty, 0, _pendingDirty.Length);
+            _hasPendingDirty = false;
+            _lastFlushTime = Time.time;
+            RebuildChangedChunks();
+        }
+
+        /// <summary>True while deferred dig mutations await a flush.</summary>
+        public bool HasPendingDirty => _hasPendingDirty;
+
+        /// <summary>
         /// Scoped rebuild for the per-dig path: only chunks a brush
         /// actually mutated (plus the few neighbours that read them through
         /// the apron) remesh / re-cook. A drill or bomb touches 1–2 of the
@@ -942,10 +1034,27 @@ namespace Robogame.Voxel
 
             if (_maskActive && _digMask != null)
             {
+                // Slab CPU data is recomputed every flush (cheap); the
+                // GPU upload itself is throttled (Pass 3).
                 for (int i = 0; i < _chunks.Length; i++)
                     if (_chunkChanged[i]) WriteMaskSlab(_chunks[i], minMerge: false);
-                PushDigMask();
+                _maskDirty = true;
+                MaybeUploadDigMask();
             }
+        }
+
+        /// <summary>
+        /// Upload the dig-mask texture + globals, but no more often than
+        /// <see cref="_maskUploadInterval"/>. <see cref="Update"/> retries
+        /// while <see cref="_maskDirty"/> so the final carve always lands.
+        /// </summary>
+        private void MaybeUploadDigMask()
+        {
+            if (!_maskDirty || _digMask == null) return;
+            if (Time.time - _lastMaskUpload < _maskUploadInterval) return;
+            PushDigMask();
+            _maskDirty = false;
+            _lastMaskUpload = Time.time;
         }
 
         /// <summary>

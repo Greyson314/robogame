@@ -325,7 +325,10 @@ namespace Robogame.Voxel
                     0, ushort.MaxValue),
             };
 
-            int changed = zone.ApplyBrush(op);
+            // Deferred: the SDF carves this tick (changed reflects it, so
+            // audio / VFX / glide stay per-tick), but the remesh + bake
+            // coalesce to DigZone's ~25 Hz flush instead of ~30 Hz here.
+            int changed = zone.ApplyBrushDeferred(op);
             _lastEmitTime = Time.time;
 
             if (_debugReadout)

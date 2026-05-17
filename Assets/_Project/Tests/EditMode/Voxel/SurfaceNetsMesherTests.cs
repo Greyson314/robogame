@@ -179,6 +179,31 @@ namespace Robogame.Tests.EditMode.Voxel
         }
 
         [Test]
+        public void Mesh_AnalyticNormals_HalfSpaceAlongY_PointUp()
+        {
+            // Pass 2: the mesher emits per-vertex normals from the SDF
+            // gradient so the chunk skips main-thread RecalculateNormals.
+            // Solid below, exterior above → outward normal is +Y.
+            const int dim = 8;
+            var sdf = AllocSdf(dim);
+            for (int z = 0; z < dim; z++)
+            for (int y = 0; y < dim; y++)
+            for (int x = 0; x < dim; x++)
+                sdf[z * dim * dim + y * dim + x] = (sbyte)(y < 4 ? -100 : 100);
+            var buffers = AllocBuffers(dim);
+
+            SurfaceNetsMesher.Mesh(sdf, dim, buffers, out int vCount, out _);
+
+            Assert.Greater(vCount, 0);
+            for (int v = 0; v < vCount; v++)
+            {
+                Vector3 n = buffers.Normals[v];
+                Assert.AreEqual(1f, n.magnitude, 1e-3f, "Normals must be unit length.");
+                Assert.Greater(n.y, 0.99f, "Outward normal of a solid-below half-space is +Y.");
+            }
+        }
+
+        [Test]
         public void Mesh_HalfSpaceAlongZ_ProducesFlatPlane()
         {
             const int dim = 8;

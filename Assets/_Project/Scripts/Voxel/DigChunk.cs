@@ -253,6 +253,8 @@ namespace Robogame.Voxel
 
             var vertsAsVec3 = _meshBuffers.Vertices.Reinterpret<Vector3>();
             _mesh.SetVertices(vertsAsVec3, 0, vCount);
+            var normalsAsVec3 = _meshBuffers.Normals.Reinterpret<Vector3>();
+            _mesh.SetNormals(normalsAsVec3, 0, vCount);
             _mesh.SetIndices(_meshBuffers.Indices.GetSubArray(0, iCount),
                 MeshTopology.Triangles, submesh: 0, calculateBounds: false);
 
@@ -261,7 +263,8 @@ namespace Robogame.Voxel
             float side = (_chunkSizeCells + 1) * _cellSize;
             _mesh.bounds = new Bounds(new Vector3(side * 0.5f, side * 0.5f, side * 0.5f),
                                       new Vector3(side, side, side));
-            _mesh.RecalculateNormals();
+            // Normals come from the Burst mesher (SDF gradient) — no
+            // main-thread RecalculateNormals.
 
             // Schedule the collider cook on a worker. The collider keeps
             // pointing at _mesh (its cached cooked data is the previous

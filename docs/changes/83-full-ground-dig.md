@@ -97,3 +97,22 @@ both fixed:
   path overwrites just the touched slabs. Pre-sized scratch buffers,
   zero per-op allocation. New `DigChunk.RemeshCount` + machine-gate
   test `InteriorBrush_OnlyRemeshesTouchedChunks` pins the scoping.
+
+## Perf pass 2 (three coalescing/throughput wins)
+
+- **Deferred dirty flush.** New `DigZone.ApplyBrushDeferred` (the drill
+  uses it; bombs keep immediate `ApplyBrush` so craters feel instant).
+  The SDF + op-log mutate every tick (state stays authoritative) but
+  the remesh/bake/occupancy/mask coalesce to a throttled
+  `FlushPendingDirty` in `Update` (`_flushInterval`, ~25 Hz). A 30 Hz
+  drill now remeshes ~25 Hz instead of per-tick. `HasPendingDirty` +
+  `DeferredBrush_MutatesSdfNow_RemeshesOnFlush` test.
+- **Analytic normals.** The Burst mesher emits per-vertex normals from
+  the SDF gradient (8 corner samples already in registers), so
+  `DigChunk.RemeshNow` drops the main-thread `Mesh.RecalculateNormals`
+  entirely. `Buffers.Normals` + `Mesh_AnalyticNormals_HalfSpaceAlongY_PointUp`
+  test; existing winding tests unaffected.
+- **Dig-mask upload throttle.** Slab CPU data still recomputes every
+  flush, but the full-texture `Texture2D.Apply` + globals are
+  rate-limited (`_maskUploadInterval`, ~10 Hz) with a trailing upload
+  in `Update` so the cosmetic grass cut always converges.

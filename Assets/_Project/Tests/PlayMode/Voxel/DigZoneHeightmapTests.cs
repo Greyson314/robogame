@@ -237,5 +237,29 @@ namespace Robogame.Tests.PlayMode.Voxel
                 $"Scoped rebuild touched {remeshed}/9 chunks; expected ≤ 4 (the changed " +
                 "chunk + its -dir apron consumers), not a full-zone rebuild.");
         }
+
+        [Test]
+        public void DeferredBrush_MutatesSdfNow_RemeshesOnFlush()
+        {
+            // Pass 1: the drill path carves the SDF every tick but coalesces
+            // the expensive remesh to the throttled flush.
+            DigZone zone = MakeZone(new Vector3(0f, -4f, 0f),
+                new Vector3Int(1, 1, 1), chunkCells: 8, cellSize: 1.0f, Flat());
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+            int remeshAtStart = chunk.RemeshCount;
+
+            int changed = zone.ApplyBrushDeferred(Sphere(new Vector3(4f, -1f, 4f), 2f));
+
+            Assert.Greater(changed, 0, "SDF must be carved immediately (this tick).");
+            Assert.IsTrue(zone.HasPendingDirty, "Remesh must be pending, not done.");
+            Assert.AreEqual(remeshAtStart, chunk.RemeshCount,
+                "Deferred brush must NOT remesh synchronously.");
+
+            zone.FlushPendingDirty();
+
+            Assert.IsFalse(zone.HasPendingDirty, "Flush clears the pending state.");
+            Assert.AreEqual(remeshAtStart + 1, chunk.RemeshCount,
+                "Flush remeshes the dirtied chunk exactly once.");
+        }
     }
 }
