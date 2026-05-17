@@ -33,8 +33,16 @@ namespace Robogame.Block
         private static readonly int s_legacyColorId = Shader.PropertyToID("_Color");
 
         private Light _light;
-        private MaterialPropertyBlock _mpb;
         private Renderer[] _renderers;
+
+        // One shared beacon material for every CPU marker in the game.
+        // The emissive is static (only the point light pulses), so a
+        // single shared Material is visually identical to the old
+        // per-renderer MaterialPropertyBlock — and, unlike an MPB, it
+        // stays SRP-Batcher-compatible AND isn't clobbered by
+        // BlockBehaviour clearing the host block's property block at
+        // full health (PERFORMANCE.md §8.2 consolidation).
+        private static Material s_beaconMaterial;
 
         private void Awake()
         {
@@ -65,14 +73,13 @@ namespace Robogame.Block
             tip.localScale = new Vector3(0.32f, 0.32f, 0.32f);
             tip.localPosition = new Vector3(0f, 0.5f + 0.45f * 2f + 0.16f, 0f);
 
-            // Apply emissive cyan to both.
+            // Apply emissive cyan to both via one shared material.
             _renderers = new[]
             {
                 mast.GetComponent<Renderer>(),
                 tip.GetComponent<Renderer>(),
             };
-            _mpb = new MaterialPropertyBlock();
-            ApplyEmissive(_renderers, _mpb);
+            ApplyEmissive(_renderers);
 
             // Point light at the tip — this is the bit that screams "kill me"
             // from across the arena.
@@ -86,28 +93,58 @@ namespace Robogame.Block
             _light.shadows = LightShadows.None;
         }
 
-        private static void ApplyEmissive(Renderer[] renderers, MaterialPropertyBlock mpb)
+        private static void ApplyEmissive(Renderer[] renderers)
         {
-            // HDR-ish boost: emission colour scaled past 1 so URP/Lit
-            // actually glows in bloom rather than just looking flat-cyan.
-            Color emission = s_beaconColor * 4f;
+            Material beacon = GetSharedBeaconMaterial(renderers);
+            if (beacon == null) return;
             for (int i = 0; i < renderers.Length; i++)
             {
-                Renderer r = renderers[i];
-                if (r == null) continue;
-                r.GetPropertyBlock(mpb);
-                mpb.SetColor(s_baseColorId, s_beaconColor);
-                mpb.SetColor(s_albedoColorId, s_beaconColor); // MK Toon
-                mpb.SetColor(s_legacyColorId, s_beaconColor);
-                mpb.SetColor(s_emissionColorId, emission);
-                r.SetPropertyBlock(mpb);
-                // Toggle the global emission keyword on the per-instance
-                // material so URP actually samples _EmissionColor.
-                if (r.sharedMaterial != null && r.sharedMaterial.HasProperty(s_emissionColorId))
+                if (renderers[i] != null) renderers[i].sharedMaterial = beacon;
+            }
+        }
+
+        // Build the shared beacon material once, cloned from whatever
+        // shader the spawned primitives use so it matches the project's
+        // render pipeline. One Material instance for every CPU beacon →
+        // SRP Batcher collapses them all into the same pass.
+        private static Material GetSharedBeaconMaterial(Renderer[] renderers)
+        {
+            if (s_beaconMaterial != null) return s_beaconMaterial;
+
+            Material src = null;
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                if (renderers[i] != null && renderers[i].sharedMaterial != null)
                 {
-                    r.sharedMaterial.EnableKeyword("_EMISSION");
+                    src = renderers[i].sharedMaterial;
+                    break;
                 }
             }
+            if (src == null || src.shader == null) return null;
+
+            // HDR-ish boost: emission scaled past 1 so URP/Lit glows in
+            // bloom rather than reading as flat cyan.
+            Color emission = s_beaconColor * 4f;
+            var m = new Material(src.shader) { name = "CpuBeacon (shared)" };
+            if (m.HasProperty(s_baseColorId)) m.SetColor(s_baseColorId, s_beaconColor);
+            if (m.HasProperty(s_albedoColorId)) m.SetColor(s_albedoColorId, s_beaconColor); // MK Toon
+            if (m.HasProperty(s_legacyColorId)) m.SetColor(s_legacyColorId, s_beaconColor);
+            if (m.HasProperty(s_emissionColorId))
+            {
+                m.SetColor(s_emissionColorId, emission);
+                m.EnableKeyword("_EMISSION");
+            }
+            s_beaconMaterial = m;
+            return s_beaconMaterial;
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            // Statics survive domain reload but the Material (a Unity
+            // object) does not — drop the stale ref so the next CPU
+            // block rebuilds it (project failure-mode rule).
+            s_beaconMaterial = null;
         }
     }
 }

@@ -197,10 +197,28 @@ namespace Robogame.Block
             if (_renderers == null || _renderers.Length == 0) return;
             float darken = Mathf.Lerp(_minDamageBrightness, 1f, HealthFraction);
 
+            // At (near) full health the tint is baseColor × 1 — a visual
+            // no-op. Setting a MaterialPropertyBlock anyway makes the
+            // renderer SRP-Batcher-incompatible for its whole life, and
+            // because this runs in Awake it means EVERY block on EVERY
+            // chassis is excluded from the batcher from frame one
+            // (~150 individual draws per chassis — PERFORMANCE.md §8.2,
+            // the measured "look away from bots = +40 fps" delta).
+            // Only carry an MPB while the block is actually darkened;
+            // clear it (SetPropertyBlock(null) → rejoin the batch) the
+            // moment it returns to full. Visually identical; the only
+            // change is not setting a no-op override.
+            bool needsTint = darken < 0.999f;
+
             for (int i = 0; i < _renderers.Length; i++)
             {
                 Renderer r = _renderers[i];
                 if (r == null) continue;
+                if (!needsTint)
+                {
+                    r.SetPropertyBlock(null);
+                    continue;
+                }
                 r.GetPropertyBlock(_mpb);
                 Color baseCol = _baseColors[i];
                 Color tinted = new Color(baseCol.r * darken, baseCol.g * darken, baseCol.b * darken, baseCol.a);
