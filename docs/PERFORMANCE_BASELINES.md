@@ -112,6 +112,32 @@ scans are facts in the code, not vibes. Verdicts:
 | WaterMeshAnimator `RecalculateNormals` | **already safe (Arena)** | amplitude-gated `if (_recalculateNormals && amplitude > 0.005f)`. WaterArena-only and de-scoped. Analytic-normals (Phase 5 #2) **not landed** — trigger needs a water-path profile this pass can't produce. |
 | MK Toon outline pass | **measurement-gated — NOT landed** | `m_LayerMask: 4294967295` (all layers) in PC_Renderer.asset. Phase 5 #1. Trigger is a Frame-Debugger SetPass count the idle harness cannot produce, and layer-masking is a visible change unverifiable without a human. Per the plan's own "no big rock without measurement" gate, deliberately deferred — not blind-landed despite Phase-5 approval. |
 
+### 2026-05-17 — in-game bisect findings (user-measured, ~330–385 fps, 9800X3D/9070XT)
+
+Empirical deltas from the new `Settings → Perf Bisect` switches:
+
+| Lever | Δ fps | Verdict |
+|---|---|---|
+| Disable 2 AI bots (of 4; dummy + arch bot remain) | ~+15 | AI/physics cost modest |
+| Camera away from ALL bots+dummies | ~+40 | **chassis block *rendering*** is the cost, not AI |
+| Disable Fluff grass | ~+40 | matches §5.3 (#1 GPU). `_ShellCount` 7→6 landed; `HillsSettings.resolution` 121→81 is the big remaining lever (needs a rebake) |
+| Disable dig chunk renderers | ~+5–10 | ruled out — session 83 culling holds |
+
+**Chassis-render root cause + fix (session 84, commit 44cf5a1).**
+`BlockBehaviour.UpdateDamageVisual` ran in `Awake`, setting a
+per-renderer `MaterialPropertyBlock` on every block → every block
+SRP-Batcher-excluded for life, even undamaged (~150 individual
+draws/chassis). This is the §8.2 predicted hotspot, live. Fixed:
+MPB skipped at full health (`SetPropertyBlock(null)` → rejoin
+batch; visually identical — full-health tint was `baseColor×1`);
+`CpuBlockMarker` beacon moved from per-renderer MPB to one shared
+static `Material` (emission is static; only the light pulses) so
+it's SRP-batchable and not wiped by the full-health clear.
+`BlockGrid.ApplyTint` left as-is (no-ops on the untinted chassis in
+play today; MP team-colour conversion is documented future work,
+not landed — Rule 2). Confirmed Δ to be filled by the next in-game
+F3 read.
+
 **Conclusion matches the plan's "honest picture":** the codebase's
 per-frame hygiene is good. There is no single 16 ms bottleneck. The
 two real findings are steady-state OnGUI GC in two always-on Arena
