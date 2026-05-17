@@ -178,7 +178,7 @@ Material:
     - _ReceiveShadowsEnabled: 1
     - _ShapeNoiseScale: 5.5
     - _ShapeNoiseStrength: 0.15
-    - _ShellCount: 7
+    - _ShellCount: 6
     - _ShellsEnabled: 1
     - _Smoothness: 0.5
     - _SmoothnessTextureChannel: 0
