@@ -239,6 +239,43 @@ namespace Robogame.Tests.PlayMode.Voxel
         }
 
         [Test]
+        public void UndugChunkRenderers_CulledUntilCarved()
+        {
+            // Heightmap zone (grass overlay) → undug chunks' dirt is fully
+            // occluded, so their renderers start OFF and switch ON only
+            // once carved. This is the idle-FPS regression fix.
+            DigZone zone = MakeZone(new Vector3(0f, -4f, 0f),
+                new Vector3Int(2, 1, 2), chunkCells: 8, cellSize: 1.0f, Flat());
+
+            for (int cx = 0; cx < 2; cx++)
+            for (int cz = 0; cz < 2; cz++)
+            {
+                var r = zone.GetChunk(cx, 0, cz).GetComponent<MeshRenderer>();
+                Assert.IsFalse(r.enabled, $"Undug chunk ({cx},{cz}) must not render.");
+            }
+
+            zone.ApplyBrush(Sphere(new Vector3(12f, -1f, 12f), 2f)); // chunk (1,0,1)
+
+            Assert.IsTrue(zone.GetChunk(1, 0, 1).GetComponent<MeshRenderer>().enabled,
+                "A carved chunk must start rendering its dirt.");
+            Assert.IsFalse(zone.GetChunk(0, 0, 0).GetComponent<MeshRenderer>().enabled,
+                "An untouched far chunk must stay culled.");
+        }
+
+        [Test]
+        public void NonHeightmapZone_RenderersAlwaysOn()
+        {
+            // No grass overlay → the dirt IS the visible surface; the cull
+            // must not apply (test cubes, DigZone_Test scenes).
+            DigZone zone = MakeZone(new Vector3(0f, -4f, 0f),
+                new Vector3Int(1, 1, 1), chunkCells: 8, cellSize: 1.0f,
+                HeightmapParams.Disabled);
+
+            Assert.IsTrue(zone.GetChunk(0, 0, 0).GetComponent<MeshRenderer>().enabled,
+                "Without a grass overlay the chunk renderer must stay on.");
+        }
+
+        [Test]
         public void DeferredBrush_MutatesSdfNow_RemeshesOnFlush()
         {
             // Pass 1: the drill path carves the SDF every tick but coalesces

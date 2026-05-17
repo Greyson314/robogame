@@ -118,6 +118,19 @@ namespace Robogame.Voxel
         private bool[] _chunkChanged;
         private bool[] _chunkRemesh;
 
+        // Undug-renderer cull. When a grass overlay hides the dirt
+        // (heightmap arena), an unexcavated chunk's surface is 100 %
+        // occluded by the grass mesh — drawing it is pure waste (it was
+        // the bulk of the idle triangle + draw-call regression). Each
+        // chunk's MeshRenderer starts disabled and is enabled the first
+        // time the chunk is carved (monotonic, matches the dig-only
+        // invariant). The MeshCollider is untouched — you still drive on
+        // undug ground. Non-heightmap zones (test cubes, where the dirt
+        // IS the visible surface) keep all renderers on.
+        private MeshRenderer[] _chunkRenderers;
+        private bool[] _chunkDug;
+        private bool _cullUndugRenderers;
+
         // Pass 1 — deferred dirty flush. A drill emits ~30 ops/s; each
         // mutates the SDF immediately (cheap, keeps the authoritative
         // state + op-log current) but accumulates here, and the expensive
@@ -358,6 +371,8 @@ namespace Robogame.Voxel
             _chunkChanged = new bool[_chunks.Length];
             _chunkRemesh = new bool[_chunks.Length];
             _pendingDirty = new bool[_chunks.Length];
+            _chunkRenderers = new MeshRenderer[_chunks.Length];
+            _chunkDug = new bool[_chunks.Length];
 
             float chunkSideMeters = _chunkSizeCells * _cellSize;
 
@@ -378,6 +393,13 @@ namespace Robogame.Voxel
                 chunkObj.AddComponent<MeshFilter>();
                 var renderer = chunkObj.AddComponent<MeshRenderer>();
                 if (_chunkMaterial != null) renderer.sharedMaterial = _chunkMaterial;
+                // Voxel terrain never casts shadows (TERRAFORMING_PLAN
+                // §7; the profile capture confirmed 36 chunk shadow
+                // casters re-rendering ~200 K tris/frame was a large
+                // chunk of the idle regression). The grass mesh already
+                // runs ShadowCastingMode.Off.
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                _chunkRenderers[idx] = renderer;
                 chunkObj.AddComponent<MeshCollider>();
 
                 var chunk = chunkObj.AddComponent<DigChunk>();
@@ -416,6 +438,18 @@ namespace Robogame.Voxel
                 voxelCellSize: _cellSize);
 
             AllocateDigMask();
+
+            // Cull undug chunk renderers only where a grass overlay hides
+            // them (same condition as the dig mask). Disabled renderers
+            // still mesh + collide; they just aren't drawn until carved.
+            _cullUndugRenderers = _maskActive;
+            if (_cullUndugRenderers)
+            {
+                for (int i = 0; i < _chunks.Length; i++)
+                    if (_chunkRenderers[i] != null)
+                        _chunkRenderers[i].enabled = _chunkDug[i];
+            }
+
             RebuildAllMeshes();
             BuildPerimeter();
         }
@@ -590,8 +624,10 @@ namespace Robogame.Voxel
                 // Apply per-chunk WITHOUT routing through ApplyBrush —
                 // ApplyBrush would call RebuildAllMeshes mid-init when
                 // the occupancy grid + mesh pipeline aren't ready yet.
+                // A pre-carved chunk (POI chamber) has visible dirt, so
+                // mark it dug → its renderer stays on through the cull.
                 for (int c = 0; c < _chunks.Length; c++)
-                    _chunks[c].ApplyBrushNoRemesh(op);
+                    if (_chunks[c].ApplyBrushNoRemesh(op) > 0) _chunkDug[c] = true;
             }
         }
 
@@ -1034,6 +1070,19 @@ namespace Robogame.Voxel
                 if (!_chunkRemesh[i]) continue;
                 BuildApronFor(_chunks[i]);
                 _chunks[i].RemeshNow();
+            }
+
+            // First carve into a chunk reveals its dirt — turn its
+            // renderer on (and leave it on; the dig-only invariant means
+            // a chunk never goes back to fully-grass-covered).
+            if (_cullUndugRenderers)
+            {
+                for (int i = 0; i < _chunks.Length; i++)
+                {
+                    if (!_chunkChanged[i] || _chunkDug[i]) continue;
+                    _chunkDug[i] = true;
+                    if (_chunkRenderers[i] != null) _chunkRenderers[i].enabled = true;
+                }
             }
 
             if (_occupancyGrid != null)

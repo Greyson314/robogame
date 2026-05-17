@@ -128,6 +128,26 @@ both fixed:
   `UpdateDrillGlide` now ends the glide immediately when fire is
   released (the eject coast is only for boring *through* while still
   holding). Was ~1.5 s of kinematic float after every release.
+## Idle-FPS pass (the real regression)
+
+Profiler capture: drilling cost only ~30 fps; the 300→200 was *idle*.
+Stats showed ~200 K tris / 328 SetPass / 1186 draw calls at rest — the
+36 undug chunks were the bulk of it, and they were also all casting
+shadows (never set `shadowCastingMode`). At idle nothing is dug, so
+the dirt is 100 % occluded by the grass mesh — pure waste.
+
+- **Chunk shadow casting off** (`ShadowCastingMode.Off` on every chunk
+  renderer, TERRAFORMING_PLAN §7 — the profile is the "worth it" check
+  it asked for). Kills 36 shadow-pass draws + the ~200 K-tri shadowmap
+  re-render every frame.
+- **Undug-renderer cull.** Chunk `MeshRenderer`s start disabled and
+  enable on first carve (monotonic, dig-only invariant). Collider
+  untouched — you still drive on undug ground. Gated to heightmap
+  zones (`_cullUndugRenderers = _maskActive`); non-heightmap test cubes
+  where the dirt IS the visible surface keep renderers on. At idle the
+  voxel render cost ≈ original (grass only); dirt costs GPU only where
+  actually dug. 2 new tests pin both the cull and the gating.
+
 - **Profiler markers.** `Robogame.DigZone.{ApplyBrushDeferred,
   FlushPendingDirty,RebuildChangedChunks,DigMaskUpload}` +
   `Robogame.DigChunk.Remesh` so a CPU capture apportions the dig cost.
