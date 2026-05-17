@@ -69,14 +69,26 @@ namespace Robogame.Gameplay
         private GUIStyle _timerStyle;      // 1:24
         private GUIStyle _fragsStyle;      // FRAGS 3 — 1
         private GUIStyle _targetStyle;     // / 20
+        // Per-draw alignment/colour variants. Pre-built once in EnsureStyles
+        // rather than `new GUIStyle` per OnGUI call — OnGUI runs 2–6× per
+        // displayed frame and the Arena scene always has a live match, so
+        // the old per-call construction was a steady-state GC source.
+        private GUIStyle _headerRightStyle;  // "ENEMY" right-aligned, danger
+        private GUIStyle _leftScoreStyle;    // player scrap, right-aligned
+        private GUIStyle _rightScoreStyle;   // enemy scrap, left-aligned
+        private GUIStyle _timerCentreStyle;  // timer pill (colour set per draw)
+        private GUIStyle _leftTargetStyle;   // "/ target" under player score
+        private GUIStyle _rightTargetStyle;  // "/ target" under enemy score
         private bool _stylesBuilt;
 
         private readonly StringBuilder _scratch = new(32);
         private string _renderedTimer = "—:—";
         private string _renderedFrags = "";
+        private string _renderedTarget = "/ 0";
         private int _lastTimerSecs = -1;
         private int _lastPlayerKills = -1;
         private int _lastEnemyKills = -1;
+        private int _lastTarget = -1;
 
         // -----------------------------------------------------------------
         // Public API
@@ -148,6 +160,15 @@ namespace Robogame.Gameplay
                     .Append("<color=").Append(HudStyles.TagDanger).Append('>').Append(ek).Append("</color>");
                 _renderedFrags = _scratch.ToString();
             }
+
+            int tgt = _match.TargetTeamScrap;
+            if (tgt != _lastTarget)
+            {
+                _lastTarget = tgt;
+                _scratch.Clear();
+                _scratch.Append("/ ").Append(tgt);
+                _renderedTarget = _scratch.ToString();
+            }
         }
 
         // -----------------------------------------------------------------
@@ -173,7 +194,6 @@ namespace Robogame.Gameplay
             float padX = 18f;
             int playerScrap = _match.ScoreForSide(MatchSide.Player);
             int enemyScrap = _match.ScoreForSide(MatchSide.Enemy);
-            int target = _match.TargetTeamScrap;
 
             // Row 1: team labels — "YOU" on left, "ENEMY" on right.
             float headerY = y + 6f;
@@ -182,21 +202,17 @@ namespace Robogame.Gameplay
                 "YOU", _headerStyle);
             // Manually right-align "ENEMY" because the header style has a
             // separate alignment instance reused for "YOU".
-            GUIStyle right = new GUIStyle(_headerStyle) { alignment = TextAnchor.MiddleRight };
-            right.normal.textColor = HudStyles.Danger;
             GUI.Label(new Rect(x + _panelWidth * 0.5f, headerY, _panelWidth * 0.5f - padX, headerH),
-                "ENEMY", right);
+                "ENEMY", _headerRightStyle);
 
             // Row 2: scrap totals (big), timer centred between them.
             float scoreY = headerY + headerH + 4f;
             float scoreH = 36f;
             // Player scrap — left half, right-aligned to the centreline so
             // both team numbers visually flank the timer.
-            GUIStyle leftScore = new GUIStyle(_scoreStyle) { alignment = TextAnchor.MiddleRight };
-            leftScore.normal.textColor = HudStyles.Accent;
             float halfW = _panelWidth * 0.5f;
             GUI.Label(new Rect(x + padX, scoreY, halfW - padX - 60f, scoreH),
-                playerScrap.ToString(), leftScore);
+                playerScrap.ToString(), _leftScoreStyle);
 
             // Timer centred in a fixed-width pill between the two scores.
             float timerSecsRemaining = _match.TimeRemaining;
@@ -204,29 +220,22 @@ namespace Robogame.Gameplay
                               && timerSecsRemaining > 0f
                               && timerSecsRemaining < _timerLowSeconds;
             Color timerColor = timerAlert ? HudStyles.Danger : HudStyles.TextPrimary;
-            GUIStyle timer = new GUIStyle(_timerStyle) { alignment = TextAnchor.MiddleCenter };
-            timer.normal.textColor = timerColor;
+            _timerCentreStyle.normal.textColor = timerColor;
             const float timerW = 120f;
             GUI.Label(new Rect(x + halfW - timerW * 0.5f, scoreY, timerW, scoreH),
-                _renderedTimer, timer);
+                _renderedTimer, _timerCentreStyle);
 
             // Enemy scrap — right half, left-aligned to the centreline.
-            GUIStyle rightScore = new GUIStyle(_scoreStyle) { alignment = TextAnchor.MiddleLeft };
-            rightScore.normal.textColor = HudStyles.Danger;
             GUI.Label(new Rect(x + halfW + 60f, scoreY, halfW - padX - 60f, scoreH),
-                enemyScrap.ToString(), rightScore);
+                enemyScrap.ToString(), _rightScoreStyle);
 
             // Sub-text: "/ target" tucked under each score in muted text.
             float targetY = scoreY + scoreH - 4f;
             float targetH = 14f;
-            GUIStyle leftTarget = new GUIStyle(_targetStyle) { alignment = TextAnchor.MiddleRight };
-            leftTarget.normal.textColor = HudStyles.TextMuted;
             GUI.Label(new Rect(x + padX, targetY, halfW - padX - 60f, targetH),
-                "/ " + target, leftTarget);
-            GUIStyle rightTarget = new GUIStyle(_targetStyle) { alignment = TextAnchor.MiddleLeft };
-            rightTarget.normal.textColor = HudStyles.TextMuted;
+                _renderedTarget, _leftTargetStyle);
             GUI.Label(new Rect(x + halfW + 60f, targetY, halfW - padX - 60f, targetH),
-                "/ " + target, rightTarget);
+                _renderedTarget, _rightTargetStyle);
 
             // Row 3: frags + HP bar share the bottom strip.
             float fragsY = targetY + targetH + 4f;
@@ -269,6 +278,24 @@ namespace Robogame.Gameplay
             _timerStyle = HudStyles.Bold(24, HudStyles.TextPrimary, TextAnchor.MiddleCenter);
             _fragsStyle = HudStyles.Label(13, HudStyles.TextMuted, TextAnchor.MiddleCenter, FontStyle.Bold);
             _targetStyle = HudStyles.Label(12, HudStyles.TextMuted, TextAnchor.MiddleRight);
+
+            _headerRightStyle = new GUIStyle(_headerStyle) { alignment = TextAnchor.MiddleRight };
+            _headerRightStyle.normal.textColor = HudStyles.Danger;
+
+            _leftScoreStyle = new GUIStyle(_scoreStyle) { alignment = TextAnchor.MiddleRight };
+            _leftScoreStyle.normal.textColor = HudStyles.Accent;
+
+            _rightScoreStyle = new GUIStyle(_scoreStyle) { alignment = TextAnchor.MiddleLeft };
+            _rightScoreStyle.normal.textColor = HudStyles.Danger;
+
+            // Colour is set per draw (alert vs normal); alignment is fixed.
+            _timerCentreStyle = new GUIStyle(_timerStyle) { alignment = TextAnchor.MiddleCenter };
+
+            _leftTargetStyle = new GUIStyle(_targetStyle) { alignment = TextAnchor.MiddleRight };
+            _leftTargetStyle.normal.textColor = HudStyles.TextMuted;
+
+            _rightTargetStyle = new GUIStyle(_targetStyle) { alignment = TextAnchor.MiddleLeft };
+            _rightTargetStyle.normal.textColor = HudStyles.TextMuted;
         }
     }
 }

@@ -69,8 +69,8 @@ namespace Robogame.UI
         [Tooltip("Width of the panel in pixels.")]
         [SerializeField, Min(120f)] private float _width = 280f;
 
-        [Tooltip("Seconds between expensive samples (active Rigidbody count, robot scan). Frame-time stats update every frame regardless.")]
-        [SerializeField, Range(0.1f, 5f)] private float _resampleInterval = 1f;
+        [Tooltip("Seconds between expensive samples (active Rigidbody count, robot scan). Frame-time stats update every frame regardless. 2.5 s keeps the HUD's own 3× FindObjectsByType scan from contaminating measurements when F3 is left on (PERFORMANCE_PASS_PLAN §7.1).")]
+        [SerializeField, Range(0.1f, 5f)] private float _resampleInterval = 2.5f;
 
         // -----------------------------------------------------------------
         // Frame-time accumulation

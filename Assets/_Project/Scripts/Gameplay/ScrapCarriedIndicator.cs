@@ -45,6 +45,14 @@ namespace Robogame.Gameplay
         private float _nextRefresh;
         private GUIStyle _labelStyle;
         private GUIStyle _shadowStyle;
+        private Camera _cam;
+
+        // Scrap value → formatted label. OnGUI runs 2–6× per displayed
+        // frame; building "⛁ {n}" via interpolation per robot per event
+        // was a steady-state GC source. Scrap is a small bounded int, so
+        // the cache saturates within the first second and never allocates
+        // again.
+        private readonly Dictionary<int, string> _scrapText = new();
 
         // Cached side-lookup so the indicator can colour by team without
         // re-scanning every frame. Built once per robot via the bound
@@ -54,6 +62,21 @@ namespace Robogame.Gameplay
         public void BindSideLookup(System.Func<Robot, MatchSide> lookup)
         {
             _sideLookup = lookup;
+        }
+
+        private void Awake()
+        {
+            _cam = GetComponent<Camera>();
+        }
+
+        private string ScrapText(int scrap)
+        {
+            if (!_scrapText.TryGetValue(scrap, out string s))
+            {
+                s = $"⛁ {scrap}";
+                _scrapText[scrap] = s;
+            }
+            return s;
         }
 
         private void Update()
@@ -80,8 +103,7 @@ namespace Robogame.Gameplay
 
         private void OnGUI()
         {
-            Camera cam = GetComponent<Camera>();
-            if (cam == null) cam = Camera.main;
+            Camera cam = _cam != null ? _cam : Camera.main;
             if (cam == null) return;
 
             EnsureStyle();
@@ -112,7 +134,7 @@ namespace Robogame.Gameplay
                 // GUI's y axis is flipped relative to screen-space y.
                 float guiY = Screen.height - screenPos.y;
                 // Approximate text width for centring.
-                string text = $"⛁ {scrap}";
+                string text = ScrapText(scrap);
                 float w = 80f;
                 float h = _fontSize + 6f;
                 Rect r2 = new Rect(screenPos.x - w * 0.5f, guiY - h * 0.5f, w, h);
