@@ -35,9 +35,6 @@ namespace Robogame.Tools.Editor
             // MK Toon material. Build them BEFORE the definitions so the
             // wizard can wire the references in a single SerializedObject pass.
             BlockMaterials.BuildAll();
-            // Plain (no-outline) counterparts + the outline→plain runtime
-            // registry, for relevance-gated chassis outlines (perf).
-            BlockMaterialsPlain.BuildAll();
 
             // Tints are all white now: the per-category MK Toon material
             // (BlockMaterials.ForBlockId) carries the authored colour. Tint

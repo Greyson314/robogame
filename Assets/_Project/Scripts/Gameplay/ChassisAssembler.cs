@@ -139,7 +139,7 @@ namespace Robogame.Gameplay
             bool wasActive = root.activeSelf;
             root.SetActive(false);
             BlockGrid grid;
-            Robot robot = null;
+            Robot robot;
             try
             {
                 // Phase 1 — always-on substrate.
@@ -228,9 +228,6 @@ namespace Robogame.Gameplay
                 // Phase 3b: attach DrillBlock components to placed
                 // "block.tool.drill" cells. Lives in Robogame.Voxel.
                 EnsureComponent<Voxel.RobotDrillBinder>(root);
-                // Relevance-gated outline: built here so its OnEnable
-                // (at SetActive below) caches the post-Phase-4 grid.
-                EnsureComponent<Robogame.Player.ChassisOutlineController>(root);
 
                 if (options.AddPlayerInputs)
                 {
@@ -268,14 +265,6 @@ namespace Robogame.Gameplay
             finally
             {
                 root.SetActive(wasActive);
-
-                // Relevance-gated outline registration. After SetActive
-                // so ChassisOutlineController.OnEnable has cached the
-                // built grid. Player chassis stays outlined; bots run
-                // plain materials until targeted (the draw-call win).
-                if (robot != null)
-                    Robogame.Player.OutlineRelevanceManager.Get()
-                        .RegisterChassis(robot, options.AddPlayerInputs);
 
                 // Phase 5 — post-activation. Helicopters flip their
                 // cosmetic rotors into lift mode (kinematic hub + ring
