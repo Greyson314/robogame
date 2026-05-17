@@ -69,132 +69,160 @@ MonoBehaviour:
     Volume: 1.2
     PitchJitter: 0.04
     Solo: 0
+  - Cue: 8
+    Clip: {fileID: 8300000, guid: 236a3e6dea969574e9a4b2edb6bc1dbe, type: 3}
+    Bus: 1
+    SpatialBlend: 1
+    Volume: 0.55
+    PitchJitter: 0.12
+    Solo: 0
   - Cue: 9
+    Clip: {fileID: 8300000, guid: 75498b30f64928241bcd5b953f9868c4, type: 3}
+    Bus: 1
+    SpatialBlend: 1
+    Volume: 0.4
+    PitchJitter: 0
+    Solo: 1
+  - Cue: 10
     Clip: {fileID: 8300000, guid: 71daf360893bba84291b8783833dacdc, type: 3}
     Bus: 1
     SpatialBlend: 1
     Volume: 0.55
     PitchJitter: 0.05
     Solo: 1
-  - Cue: 10
+  - Cue: 11
     Clip: {fileID: 8300000, guid: 894d2711dbf29f14f9e1daadc2dbae40, type: 3}
     Bus: 1
     SpatialBlend: 1
     Volume: 0.5
     PitchJitter: 0.05
     Solo: 1
-  - Cue: 11
+  - Cue: 12
     Clip: {fileID: 8300000, guid: eb55f8d595048924983160788bb4f30e, type: 3}
     Bus: 1
     SpatialBlend: 1
     Volume: 0.55
     PitchJitter: 0
     Solo: 1
-  - Cue: 12
+  - Cue: 13
     Clip: {fileID: 8300000, guid: 1a9fee6e149086f49ab6a56fb295c5d3, type: 3}
     Bus: 1
     SpatialBlend: 1
     Volume: 0.45
     PitchJitter: 0
     Solo: 1
-  - Cue: 13
+  - Cue: 14
     Clip: {fileID: 8300000, guid: acb485cee7093da49b8ead41e0bdd8c8, type: 3}
     Bus: 1
     SpatialBlend: 1
     Volume: 0.55
     PitchJitter: 0
     Solo: 1
-  - Cue: 14
+  - Cue: 15
     Clip: {fileID: 8300000, guid: 1a7985bb07f1e6a41b20b788024f6e9a, type: 3}
     Bus: 1
     SpatialBlend: 1
     Volume: 0.5
     PitchJitter: 0
     Solo: 0
-  - Cue: 15
+  - Cue: 16
     Clip: {fileID: 8300000, guid: b56d08e355f936f4788a5905f0786f63, type: 3}
     Bus: 1
     SpatialBlend: 1
     Volume: 0.85
     PitchJitter: 0.05
     Solo: 0
-  - Cue: 27
+  - Cue: 28
     Clip: {fileID: 8300000, guid: c9539d5b7e5775a4f9ff5693fa9d4639, type: 3}
     Bus: 3
     SpatialBlend: 0
     Volume: 0.4
     PitchJitter: 0
     Solo: 0
-  - Cue: 28
+  - Cue: 29
     Clip: {fileID: 8300000, guid: e3448981b492c6740b70e1aac752e070, type: 3}
     Bus: 3
     SpatialBlend: 0
     Volume: 0.85
     PitchJitter: 0
     Solo: 0
-  - Cue: 29
+  - Cue: 30
     Clip: {fileID: 8300000, guid: 983f1e6d46751374c9bec809c6694e05, type: 3}
     Bus: 3
     SpatialBlend: 0
     Volume: 0.85
     PitchJitter: 0
     Solo: 0
-  - Cue: 30
+  - Cue: 31
     Clip: {fileID: 8300000, guid: b60d4d186119ff341ad674aea9bd8c6d, type: 3}
     Bus: 3
     SpatialBlend: 0
     Volume: 1
     PitchJitter: 0
     Solo: 1
-  - Cue: 31
+  - Cue: 32
     Clip: {fileID: 8300000, guid: acf4ff693dea02a48b9d808f16ef5987, type: 3}
     Bus: 3
     SpatialBlend: 0
     Volume: 1
     PitchJitter: 0
     Solo: 1
-  - Cue: 32
+  - Cue: 33
     Clip: {fileID: 8300000, guid: 31e53c64c3dacb24a9c64c60cb936592, type: 3}
     Bus: 3
     SpatialBlend: 0
     Volume: 1
     PitchJitter: 0
     Solo: 1
-  - Cue: 33
+  - Cue: 34
     Clip: {fileID: 8300000, guid: ce06a9112fc73cd49b295889f3306052, type: 3}
     Bus: 3
     SpatialBlend: 0
     Volume: 1
     PitchJitter: 0
     Solo: 1
-  - Cue: 34
+  - Cue: 35
     Clip: {fileID: 8300000, guid: 453addd541cfbf0439dca337c16cece5, type: 3}
     Bus: 3
     SpatialBlend: 0
     Volume: 0.85
     PitchJitter: 0
     Solo: 1
-  - Cue: 35
+  - Cue: 36
     Clip: {fileID: 8300000, guid: 9b1fbd0725a63d041a456cc8da6976ae, type: 3}
     Bus: 3
     SpatialBlend: 0
     Volume: 0.85
     PitchJitter: 0.04
     Solo: 0
-  - Cue: 36
+  - Cue: 37
     Clip: {fileID: 8300000, guid: 39e0aafb9bdb4d24895c8a88c02778ca, type: 3}
     Bus: 3
     SpatialBlend: 0
     Volume: 0.75
     PitchJitter: 0.04
     Solo: 0
-  - Cue: 37
+  - Cue: 38
     Clip: {fileID: 8300000, guid: 048b663b076844d4ab02247f79861ce4, type: 3}
     Bus: 3
     SpatialBlend: 0
     Volume: 0.85
     PitchJitter: 0
     Solo: 1
+  - Cue: 39
+    Clip: {fileID: 8300000, guid: 401d69fc5976158418afe541df530844, type: 3}
+    Bus: 1
+    SpatialBlend: 1
+    Volume: 0.5
+    PitchJitter: 0.05
+    Solo: 1
+  - Cue: 40
+    Clip: {fileID: 8300000, guid: 00f598b230f11dd46bd6a27f29cf0dc2, type: 3}
+    Bus: 1
+    SpatialBlend: 1
+    Volume: 0.4
+    PitchJitter: 0.12
+    Solo: 0
   _masterGroup: {fileID: 0}
   _sfxGroup: {fileID: 0}
   _musicGroup: {fileID: 0}

@@ -326,6 +326,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: ba45cc32ea2f7c54686c8b423c237d20, type: 2}
   - {fileID: 11400000, guid: 712869dba827bd1499722f22ddb3db53, type: 2}
   - {fileID: 11400000, guid: 06b4f8f63cea89847afc27e5437a0399, type: 2}
+  - {fileID: 11400000, guid: 922ccfa6138c6af45881596e876fbfc5, type: 2}
   _inputActions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
 --- !u!114 &1385793197
 MonoBehaviour:
