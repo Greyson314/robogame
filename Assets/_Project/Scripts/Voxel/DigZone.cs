@@ -70,6 +70,27 @@ namespace Robogame.Voxel
                  "outer-layer-exterior rule still applies, so the zone reads as a watertight cube.")]
         [SerializeField] private bool _initFullySolid;
 
+        [Header("Heightmap Surface (full-footprint arena ground)")]
+        [Tooltip("When Enabled, the SDF surface is seeded per-column to this heightmap — the " +
+                 "same curve the visual grass mesh is baked from — instead of the half-space / " +
+                 "full-solid split. EnvironmentBuilder pushes this in from HillsSettings so the " +
+                 "whole arena floor becomes diggable terrain that follows the rolling hills.")]
+        [SerializeField] private HeightmapParams _surfaceHeightmap;
+
+        [Tooltip("Metres the voxel surface is seeded BELOW the true heightmap so the opaque " +
+                 "grass mesh cleanly occludes it (no coplanar z-fighting) while undug. Kept " +
+                 "small — Fluff's grass shells (~1.7 m) hide the gap, and the chassis rests on " +
+                 "the voxel collider this far into the grass, which reads as 'driving through " +
+                 "grass'.")]
+        [SerializeField, Min(0f)] private float _surfaceSinkMeters = 0.25f;
+
+        [Tooltip("Drop (m) below the SEEDED surface at which the grass mesh is clipped to " +
+                 "reveal the dirt voxels underneath. Must comfortably exceed the cell size — " +
+                 "voxel quantisation alone can put an undug column's top up to ~1 cell low, " +
+                 "and we mustn't clip grass over ground that was never dug. A real drill / " +
+                 "bomb removes several metres, well past this.")]
+        [SerializeField, Min(0.05f)] private float _grassClipDepth = 2.0f;
+
         /// <summary>
         /// Editor-authored / scaffolder-authored brush to apply once at
         /// zone init, after SDF seeding but before occupancy + mesh
@@ -115,6 +136,24 @@ namespace Robogame.Voxel
         private byte[] _snapshotBytes;
         private ushort _snapshotTick;
         private bool _hasSnapshot;
+
+        // P4 — top-down dig mask. One R-float texel per surface column
+        // holding "metres dug below the original heightmap" at that
+        // column. The modified Fluff grass shader samples this by world-XZ
+        // and discards grass fragments over columns dug deeper than
+        // _grassClipDepth, so the decoupled grass layer stays consistent
+        // with the carved voxel surface. Only allocated when the surface
+        // heightmap is enabled (the full-footprint arena ground); the
+        // shader globals default off so other scenes' Fluff is untouched.
+        private Texture2D _digMask;
+        private float[] _digMaskDepth;          // row-major: gz * _maskW + gx
+        private int _maskW, _maskH;
+        private bool _maskActive;
+        private static readonly int s_digMaskId          = Shader.PropertyToID("_DigMask");
+        private static readonly int s_digMaskWorldMinId  = Shader.PropertyToID("_DigMaskWorldMin");
+        private static readonly int s_digMaskWorldInvId  = Shader.PropertyToID("_DigMaskWorldInvSize");
+        private static readonly int s_digMaskEnabledId   = Shader.PropertyToID("_DigMaskEnabled");
+        private static readonly int s_digMaskClipDepthId = Shader.PropertyToID("_DigMaskClipDepth");
 
         /// <summary>Coarse AI-navigation grid covering the zone. Null
         /// until <see cref="EnsureInitialised"/> runs.</summary>
@@ -170,14 +209,27 @@ namespace Robogame.Voxel
         {
             EnsureInitialised();
             DigField.Register(this);
+            // Re-assert the mask globals if we were toggled off/on without
+            // a re-init (EnsureInitialised early-returns when already built,
+            // so UpdateDigMask wouldn't otherwise run).
+            if (_maskActive && _digMask != null)
+            {
+                Shader.SetGlobalTexture(s_digMaskId, _digMask);
+                Shader.SetGlobalFloat(s_digMaskEnabledId, 1f);
+            }
         }
 
-        private void OnDisable() => DigField.Unregister(this);
+        private void OnDisable()
+        {
+            DigField.Unregister(this);
+            DisableDigMaskGlobal();
+        }
 
         private void OnDestroy()
         {
             DestroyChildChunks();
             DestroyPerimeter();
+            DestroyDigMask();
         }
 
         private void Update()
@@ -282,6 +334,10 @@ namespace Robogame.Voxel
             {
                 ApplySnapshot(snapshot);
             }
+            else if (_surfaceHeightmap.Enabled)
+            {
+                InitializeHeightmapSurface();
+            }
             else
             {
                 InitializeHalfSpace();
@@ -304,8 +360,139 @@ namespace Robogame.Voxel
                 sizeZ: nz * occPerChunk,
                 voxelCellSize: _cellSize);
 
+            AllocateDigMask();
             RebuildAllMeshes();
             BuildPerimeter();
+        }
+
+        // -----------------------------------------------------------------
+        // P4 — top-down dig mask (decoupled-grass consistency).
+        // -----------------------------------------------------------------
+
+        private void AllocateDigMask()
+        {
+            _maskActive = _surfaceHeightmap.Enabled;
+            if (!_maskActive) return;
+
+            _maskW = _chunkGridSize.x * _chunkSizeCells;
+            _maskH = _chunkGridSize.z * _chunkSizeCells;
+            _digMaskDepth = new float[_maskW * _maskH];
+
+            _digMask = new Texture2D(_maskW, _maskH, TextureFormat.RFloat, mipChain: false, linear: true)
+            {
+                name = $"{name}_DigMask",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.DontSave,
+            };
+        }
+
+        /// <summary>
+        /// Recompute, per surface column, "metres dug below the original
+        /// heightmap" and push it to the shader globals the modified Fluff
+        /// grass shader reads. Called from <see cref="RebuildAllMeshes"/>
+        /// so the visible grass stays in lock-step with the carved voxel
+        /// surface.
+        /// </summary>
+        private void UpdateDigMask()
+        {
+            if (!_maskActive || _digMask == null) return;
+
+            // Highest solid sample across the whole Y extent wins (min dig
+            // depth). Seed every column "fully dug" so columns with no
+            // solid anywhere read as clipped.
+            for (int i = 0; i < _digMaskDepth.Length; i++) _digMaskDepth[i] = float.MaxValue;
+
+            int chunkCells = _chunkSizeCells;
+            int dim = chunkCells + 1;
+            int dimSq = dim * dim;
+            float baseY = transform.position.y;
+
+            for (int ci = 0; ci < _chunks.Length; ci++)
+            {
+                DigChunk chunk = _chunks[ci];
+                if (chunk == null) continue;
+                Vector3Int coord = chunk.ChunkCoord;
+                NativeArray<sbyte> sdf = chunk.Sdf;
+
+                for (int z = 0; z < dim; z++)
+                {
+                    int gz = coord.z * chunkCells + z;
+                    if (gz >= _maskH) continue;
+                    for (int x = 0; x < dim; x++)
+                    {
+                        int gx = coord.x * chunkCells + x;
+                        if (gx >= _maskW) continue;
+
+                        // Highest solid (sdf < 0) sample in this column.
+                        int topY = -1;
+                        for (int y = dim - 1; y >= 0; y--)
+                        {
+                            if (sdf[z * dimSq + y * dim + x] < 0) { topY = y; break; }
+                        }
+
+                        float worldX = transform.position.x + gx * _cellSize;
+                        float worldZ = transform.position.z + gz * _cellSize;
+                        // Reference is the SEEDED surface (true height minus
+                        // the sink), so an undug column reads ~0 dug depth
+                        // regardless of voxel quantisation — only an actual
+                        // carve drops topY meaningfully below it.
+                        float seededSurfaceY =
+                            HeightmapField.Sample(_surfaceHeightmap, worldX, worldZ)
+                            - _surfaceSinkMeters;
+
+                        float depth;
+                        if (topY < 0)
+                        {
+                            // No solid in this chunk's slice of the column;
+                            // candidate is "everything down to the zone
+                            // floor is gone".
+                            depth = seededSurfaceY - baseY;
+                        }
+                        else
+                        {
+                            int globalY = coord.y * chunkCells + topY;
+                            float topWorldY = baseY + globalY * _cellSize;
+                            depth = seededSurfaceY - topWorldY;
+                        }
+                        if (depth < 0f) depth = 0f;
+
+                        int idx = gz * _maskW + gx;
+                        if (depth < _digMaskDepth[idx]) _digMaskDepth[idx] = depth;
+                    }
+                }
+            }
+
+            _digMask.SetPixelData(_digMaskDepth, 0);
+            _digMask.Apply(updateMipmaps: false);
+
+            float sizeX = _maskW * _cellSize;
+            float sizeZ = _maskH * _cellSize;
+            Shader.SetGlobalTexture(s_digMaskId, _digMask);
+            Shader.SetGlobalVector(s_digMaskWorldMinId,
+                new Vector4(transform.position.x, transform.position.z, 0f, 0f));
+            Shader.SetGlobalVector(s_digMaskWorldInvId,
+                new Vector4(1f / sizeX, 1f / sizeZ, 0f, 0f));
+            Shader.SetGlobalFloat(s_digMaskClipDepthId, _grassClipDepth);
+            Shader.SetGlobalFloat(s_digMaskEnabledId, 1f);
+        }
+
+        private void DisableDigMaskGlobal()
+        {
+            if (_maskActive) Shader.SetGlobalFloat(s_digMaskEnabledId, 0f);
+        }
+
+        private void DestroyDigMask()
+        {
+            DisableDigMaskGlobal();
+            if (_digMask != null)
+            {
+                if (Application.isPlaying) Destroy(_digMask);
+                else DestroyImmediate(_digMask);
+                _digMask = null;
+            }
+            _digMaskDepth = null;
+            _maskActive = false;
         }
 
         private void ApplyInitialBrushesToSdf()
@@ -460,6 +647,19 @@ namespace Robogame.Voxel
         }
 
         /// <summary>
+        /// Heightmap that the SDF surface is seeded from when
+        /// <see cref="HeightmapParams.Enabled"/>. Set on an inactive
+        /// GameObject before <c>SetActive(true)</c>; throws once
+        /// initialised. EnvironmentBuilder pushes this in from
+        /// <c>HillsSettings</c>; tests set it directly.
+        /// </summary>
+        public HeightmapParams SurfaceHeightmap
+        {
+            get => _surfaceHeightmap;
+            set { ThrowIfInitialised(nameof(SurfaceHeightmap)); _surfaceHeightmap = value; }
+        }
+
+        /// <summary>
         /// Append an initial brush spec to be applied at <see cref="EnsureInitialised"/>
         /// time, after SDF seeding but before the occupancy grid is built.
         /// Throws once the zone is initialised. Test/scaffolder helper —
@@ -555,6 +755,77 @@ namespace Robogame.Voxel
                     else
                     {
                         int v = (globalY - splitGlobal) * 64;
+                        if (v < sbyte.MinValue) v = sbyte.MinValue;
+                        else if (v > sbyte.MaxValue) v = sbyte.MaxValue;
+                        sample = (sbyte)v;
+                    }
+
+                    sdf[z * dimSq + y * dim + x] = sample;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Seed every chunk's SDF so the solid/exterior boundary follows
+        /// <see cref="_surfaceHeightmap"/> per surface column (the same
+        /// curve the visual grass mesh is baked from), sunk
+        /// <see cref="_surfaceSinkMeters"/> below the true height so the
+        /// opaque grass mesh occludes the voxel surface while undug. The
+        /// outer face planes of the zone are still forced exterior so the
+        /// sides + floor read as a watertight dirt box; the top is exterior
+        /// naturally because the surface sits well below the zone ceiling.
+        /// </summary>
+        public void InitializeHeightmapSurface()
+        {
+            EnsureInitialised();
+
+            int totalCellsX = _chunkGridSize.x * _chunkSizeCells;
+            int totalCellsY = _chunkGridSize.y * _chunkSizeCells;
+            int totalCellsZ = _chunkGridSize.z * _chunkSizeCells;
+            int dim = _chunkSizeCells + 1;
+            int dimSq = dim * dim;
+            const float SbyteUnitsPerCell = 64f;
+            float baseY = transform.position.y;
+
+            for (int i = 0; i < _chunks.Length; i++)
+            {
+                DigChunk chunk = _chunks[i];
+                Vector3Int coord = chunk.ChunkCoord;
+                NativeArray<sbyte> sdf = chunk.Sdf;
+
+                for (int z = 0; z < dim; z++)
+                for (int y = 0; y < dim; y++)
+                for (int x = 0; x < dim; x++)
+                {
+                    int globalX = coord.x * _chunkSizeCells + x;
+                    int globalY = coord.y * _chunkSizeCells + y;
+                    int globalZ = coord.z * _chunkSizeCells + z;
+
+                    sbyte sample;
+                    bool isZoneBoundary =
+                        globalX == 0 || globalX == totalCellsX ||
+                        globalY == 0 || globalY == totalCellsY ||
+                        globalZ == 0 || globalZ == totalCellsZ;
+
+                    if (isZoneBoundary)
+                    {
+                        sample = sbyte.MaxValue;
+                    }
+                    else
+                    {
+                        float worldX = transform.position.x + globalX * _cellSize;
+                        float worldY = baseY + globalY * _cellSize;
+                        float worldZ = transform.position.z + globalZ * _cellSize;
+                        float surfaceY =
+                            HeightmapField.Sample(_surfaceHeightmap, worldX, worldZ)
+                            - _surfaceSinkMeters;
+
+                        // sdf < 0 = solid (below surface), >= 0 = empty.
+                        // One cell of vertical travel == 64 sbyte units,
+                        // matching the brush applicator's scale so dug and
+                        // seeded geometry mesh identically.
+                        float deltaCells = (worldY - surfaceY) / _cellSize;
+                        int v = Mathf.RoundToInt(deltaCells * SbyteUnitsPerCell);
                         if (v < sbyte.MinValue) v = sbyte.MinValue;
                         else if (v > sbyte.MaxValue) v = sbyte.MaxValue;
                         sample = (sbyte)v;
@@ -700,6 +971,8 @@ namespace Robogame.Voxel
                         _chunks[i].Sdf, _chunks[i].Dim);
                 }
             }
+
+            UpdateDigMask();
         }
 
         /// <summary>

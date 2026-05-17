@@ -121,6 +121,21 @@ CBUFFER_START(UnityPerMaterial)
 CBUFFER_END
 
 
+// [robogame mod] Top-down dig mask. GLOBAL (Shader.SetGlobal*) — not a
+// material property — set by Robogame.Voxel.DigZone. Holds, per surface
+// column, "metres dug below the original heightmap" so the decoupled
+// grass layer stays consistent with the carved voxel terrain: grass over
+// a dug column is discarded, revealing the dirt voxels. Defaults are
+// inert (_DigMaskEnabled = 0) so scenes without a heightmap dig zone are
+// unaffected. See docs/PACKAGE_MODIFICATIONS.md.
+TEXTURE2D(_DigMask);
+SAMPLER(sampler_DigMask);
+float2 _DigMaskWorldMin;       // (worldMinX, worldMinZ)
+float2 _DigMaskWorldInvSize;   // (1/footprintX, 1/footprintZ)
+float _DigMaskEnabled;
+float _DigMaskClipDepth;       // metres below original surface to clip at
+
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //                      Global Vars                                          //
@@ -530,7 +545,22 @@ float3 Fragment(Geoms IN) : SV_Target
     _GrassDirectionStrength *= 0.01;
     
     IN.normalWS = normalize(IN.normalWS);
-    
+
+    // [robogame mod] Dig-mask clip. Discard grass over columns the player
+    // has dug more than _DigMaskClipDepth below the original heightmap so
+    // the decoupled grass layer matches the carved voxel surface. Early
+    // out skips all the shell/wind/lighting work for clipped fragments.
+    // See docs/PACKAGE_MODIFICATIONS.md.
+    if (_DigMaskEnabled > 0.5)
+    {
+        float2 dmUV = (IN.positionWS.xz - _DigMaskWorldMin) * _DigMaskWorldInvSize;
+        if (dmUV.x >= 0.0 && dmUV.x <= 1.0 && dmUV.y >= 0.0 && dmUV.y <= 1.0)
+        {
+            float dugDepth = SAMPLE_TEXTURE2D(_DigMask, sampler_DigMask, dmUV).r;
+            if (dugDepth > _DigMaskClipDepth) discard;
+        }
+    }
+
     float2 uv = IN.uv.xy;
     if(_TextureSamplingMethod == 1)
     {

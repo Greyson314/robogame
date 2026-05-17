@@ -1,4 +1,5 @@
 using System.IO;
+using Robogame.Voxel;
 using UnityEditor;
 using UnityEngine;
 
@@ -56,7 +57,15 @@ namespace Robogame.Tools.Editor
         /// (sharing the same mesh) so vehicles can drive on it. Returns
         /// the GameObject so the caller can wire grass / palette / etc.
         /// </summary>
-        public static GameObject Build(Transform parent, string name = "Ground")
+        /// <param name="addCollider">
+        /// When true (default) the ground mesh gets its own
+        /// <c>MeshCollider</c> so vehicles drive on it. The full-footprint
+        /// arena dig zone passes <c>false</c>: the voxel chunks are the
+        /// sole ground collider there, so a dug column actually drops the
+        /// chassis instead of resting it on an invisible grass-mesh
+        /// collider floating over the hole.
+        /// </param>
+        public static GameObject Build(Transform parent, string name = "Ground", bool addCollider = true)
         {
             HillsSettings settings = LoadOrCreateSettings();
             Mesh mesh = GetOrBuildMesh(settings);
@@ -77,8 +86,11 @@ namespace Robogame.Tools.Editor
             // FluffGround call.
             mr.sharedMaterial = WorldPalette.ArenaGround;
 
-            var mc = go.AddComponent<MeshCollider>();
-            mc.sharedMesh = mesh;
+            if (addCollider)
+            {
+                var mc = go.AddComponent<MeshCollider>();
+                mc.sharedMesh = mesh;
+            }
 
             return go;
         }
@@ -116,6 +128,16 @@ namespace Robogame.Tools.Editor
         // -----------------------------------------------------------------
         // Settings loader
         // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Load (or first-run create) the hills settings and project them
+        /// onto the runtime <see cref="HeightmapParams"/> the arena dig
+        /// zone seeds its diggable surface from. Single call-site for
+        /// EnvironmentBuilder so the grass mesh and voxel surface can't
+        /// drift apart.
+        /// </summary>
+        public static HeightmapParams LoadHeightmapParams()
+            => ToHeightmapParams(LoadOrCreateSettings());
 
         private static HillsSettings LoadOrCreateSettings()
         {
@@ -209,38 +231,38 @@ namespace Robogame.Tools.Editor
         }
 
         /// <summary>
+        /// Project the inspector-authored <see cref="HillsSettings"/> onto
+        /// the runtime <see cref="HeightmapParams"/> the voxel zone seeds
+        /// from. Keeping the conversion here (and routing
+        /// <see cref="SampleHeight"/> through the same struct) is what
+        /// guarantees the grass mesh and the diggable voxel surface use
+        /// byte-identical height math — the alignment risk flagged in
+        /// docs/changes/83.
+        /// </summary>
+        public static HeightmapParams ToHeightmapParams(HillsSettings s)
+        {
+            return new HeightmapParams
+            {
+                Enabled       = true,
+                NoiseOffset   = s.noiseOffset,
+                HillFreqLow   = s.hillFreqLow,
+                HillAmpLow    = s.hillAmpLow,
+                HillFreqHigh  = s.hillFreqHigh,
+                HillAmpHigh   = s.hillAmpHigh,
+                FlatRadius    = s.flatRadius,
+                RampOuter     = s.rampOuter,
+                EdgeFlatStart = s.edgeFlatStart,
+                EdgeFlatEnd   = s.edgeFlatEnd,
+            };
+        }
+
+        /// <summary>
         /// World-space height at <paramref name="x"/>, <paramref name="z"/>.
-        /// Two-octave Perlin noise centred on zero, modulated by a
-        /// central-flat falloff and an edge-flat falloff.
+        /// Delegates to the shared runtime <see cref="HeightmapField"/> so
+        /// the baked grass mesh matches the voxel SDF surface exactly.
         /// </summary>
         private static float SampleHeight(float x, float z, HillsSettings s)
-        {
-            // Two-octave Perlin, both centred on 0 (Mathf.PerlinNoise is
-            // [0,1] so we shift by -0.5 first).
-            float n1 = Mathf.PerlinNoise((x + s.noiseOffset.x) * s.hillFreqLow,
-                                          (z + s.noiseOffset.y) * s.hillFreqLow) - 0.5f;
-            float n2 = Mathf.PerlinNoise((x - s.noiseOffset.y) * s.hillFreqHigh,
-                                          (z + s.noiseOffset.x) * s.hillFreqHigh) - 0.5f;
-            float h = n1 * s.hillAmpLow * 2f + n2 * s.hillAmpHigh * 2f;
-
-            // Distance from origin in the XZ plane.
-            float r = Mathf.Sqrt(x * x + z * z);
-
-            // Inner falloff: 0 inside the spawn zone, ramps to 1 by rampOuter.
-            float inner = Smoothstep(s.flatRadius, s.rampOuter, r);
-
-            // Outer falloff: 1 in the playable region, ramps back to 0 by
-            // edgeFlatEnd so boundary walls sit on flat ground.
-            float outer = 1f - Smoothstep(s.edgeFlatStart, s.edgeFlatEnd, r);
-
-            return h * inner * outer;
-        }
-
-        private static float Smoothstep(float edge0, float edge1, float x)
-        {
-            float t = Mathf.Clamp01((x - edge0) / Mathf.Max(1e-5f, edge1 - edge0));
-            return t * t * (3f - 2f * t);
-        }
+            => HeightmapField.Sample(ToHeightmapParams(s), x, z);
 
         // -----------------------------------------------------------------
         // Folder helper

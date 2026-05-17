@@ -14,6 +14,100 @@
 
 ---
 
+## com.occasoftware.fluff (v2.1.0) — Top-down dig-mask grass clip
+
+### What
+
+Added a global (not per-material) dig mask the modified grass fragment
+samples by world-XZ to `discard` grass over columns the player has dug
+below the original heightmap. This keeps the decoupled Fluff grass
+layer consistent with the carved voxel terrain (the whole arena ground
+is now diggable — see `docs/changes/83-*` and `docs/TERRAFORMING_PLAN.md`).
+
+### Why
+
+The full-footprint arena dig zone seeds its voxel SDF surface to the
+same Perlin heightmap the Fluff grass mesh is baked from, sunk a small
+amount so the opaque grass occludes the voxels while undug. When the
+player drills, the voxel surface drops metres below the grass mesh, but
+the grass mesh itself doesn't move — so without a clip the grass would
+visibly float over the hole. `Robogame.Voxel.DigZone` maintains an
+`RFloat` texture (one texel per surface column = "metres dug below the
+original surface") and pushes it + a world-XZ→UV mapping as **global**
+shader uniforms. The grass fragment discards where the column is dug
+deeper than a threshold. Globals (not material properties) mean no
+per-scene material wiring, and the defaults are inert so any scene
+without a heightmap dig zone renders Fluff exactly as before.
+
+### Files changed
+
+1. **[`Packages/com.occasoftware.fluff/Runtime/Shaders/Grass.hlsl`](../Packages/com.occasoftware.fluff/Runtime/Shaders/Grass.hlsl)**
+   — two edits, both bracketed with `// [robogame mod]`:
+
+   - Right **after** `CBUFFER_END` (file scope, OUTSIDE the
+     `UnityPerMaterial` cbuffer because these are globals): declared
+     `TEXTURE2D(_DigMask)` + `SAMPLER(sampler_DigMask)`,
+     `float2 _DigMaskWorldMin`, `float2 _DigMaskWorldInvSize`,
+     `float _DigMaskEnabled`, `float _DigMaskClipDepth`.
+   - In `Fragment(...)`, right after `IN.normalWS = normalize(IN.normalWS);`:
+     an early `if (_DigMaskEnabled > 0.5)` block that maps
+     `IN.positionWS.xz` into mask UV, samples the dug depth, and
+     `discard`s when it exceeds `_DigMaskClipDepth`. Placed early so
+     clipped fragments skip all shell/wind/lighting work.
+
+2. **`Grass.shader`** — *not* modified. Unlike the `_TileWarpStrength`
+   mod, these are global uniforms, so no `Properties` entry is needed.
+
+### How to re-apply after a Fluff package upgrade
+
+1. In `Grass.hlsl`, immediately after the `CBUFFER_END` that closes
+   `UnityPerMaterial`, paste:
+   ```hlsl
+   TEXTURE2D(_DigMask);
+   SAMPLER(sampler_DigMask);
+   float2 _DigMaskWorldMin;
+   float2 _DigMaskWorldInvSize;
+   float _DigMaskEnabled;
+   float _DigMaskClipDepth;
+   ```
+2. In `Grass.hlsl`'s `Fragment` function, right after
+   `IN.normalWS = normalize(IN.normalWS);`, insert:
+   ```hlsl
+   if (_DigMaskEnabled > 0.5)
+   {
+       float2 dmUV = (IN.positionWS.xz - _DigMaskWorldMin) * _DigMaskWorldInvSize;
+       if (dmUV.x >= 0.0 && dmUV.x <= 1.0 && dmUV.y >= 0.0 && dmUV.y <= 1.0)
+       {
+           float dugDepth = SAMPLE_TEXTURE2D(_DigMask, sampler_DigMask, dmUV).r;
+           if (dugDepth > _DigMaskClipDepth) discard;
+       }
+   }
+   ```
+3. No material asset changes — the uniforms are set at runtime by
+   `DigZone.UpdateDigMask()` via `Shader.SetGlobal*`.
+
+### Cost
+
+- **One texture sample + a branch** per grass fragment, *only* in
+  scenes with a heightmap dig zone (`_DigMaskEnabled` gate). Clipped
+  fragments early-out before the shell/wind/lighting work, a net win
+  over a dug area.
+- **Zero** cost in every other scene (branch not taken).
+- **No vertex/geometry shader change. No URP variant change.**
+
+### Tuning
+
+- `_DigMaskClipDepth` (global, set from `DigZone._grassClipDepth`,
+  default 2.0 m) — the dug depth is measured from the *seeded* surface,
+  so it must comfortably exceed the voxel cell size (1 m in the arena):
+  quantisation alone can put an undug column's top ~1 cell low, and
+  clipping there would punch grass holes in ground nobody dug. A real
+  drill / bomb removes several metres, well past 2 m. Raise it for a
+  softer "grass hangs over the lip" look; lower it (but keep > cell
+  size) for a crisper dug edge.
+
+---
+
 ## com.occasoftware.fluff (v2.1.0) — Stochastic-tile UV warp
 
 ### What

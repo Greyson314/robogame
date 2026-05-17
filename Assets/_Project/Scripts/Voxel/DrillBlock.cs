@@ -107,9 +107,8 @@ namespace Robogame.Voxel
         [Header("Diagnostics")]
         [Tooltip("Draw a live on-screen readout of the drill physics state (aim, carve, " +
                  "force, velocity) so dig-feel problems can be diagnosed from real gameplay " +
-                 "instead of guessed at. TEMPORARILY defaulted ON for the up-dig diagnosis — " +
-                 "revert to false (off in shipping) once the readout has been captured.")]
-        [SerializeField] private bool _debugReadout = true;
+                 "instead of guessed at. Off in shipping; flip on in the inspector to debug.")]
+        [SerializeField] private bool _debugReadout;
 
         // Last-tick diagnostic snapshot, populated by Drill()/
         // UpdateDrillGlide and rendered by OnGUI when _debugReadout is

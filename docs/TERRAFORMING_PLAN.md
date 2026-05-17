@@ -380,6 +380,16 @@ LOD-on-edit: if a low-LOD chunk gets edited (a remote player drilling far away),
 
 The arena ground (Fluff'd) and the dig zone (non-Fluff) abut at an authored seam — typically a low retaining wall, a rim of rock, or a transition mesh. The Fluff ground's `_MaximumDistance` doesn't extend into the dig zone because Fluff samples from the original ground mesh, which doesn't exist inside the dig-zone volume. No special shader work needed; it falls out of the authoring rules.
 
+> **Update (session 83 — full-ground dig).** The combat arena's dig
+> zone is now the *entire* playable floor (192 × 192 m), so there is
+> no authored boundary. T8 still holds: the voxel chunks render
+> `Mat_DigZoneEarth` only — Fluff is **not** on the voxel mesh. The
+> grass stays a *separate* mesh, seeded to the same heightmap and kept
+> consistent by a top-down dig-mask the modified Fluff shader samples
+> to `discard` grass over dug columns. See
+> [docs/changes/83](changes/83-full-ground-dig.md) and
+> [PACKAGE_MODIFICATIONS.md](PACKAGE_MODIFICATIONS.md).
+
 ---
 
 ## 8. AI pathing on voxel terrain

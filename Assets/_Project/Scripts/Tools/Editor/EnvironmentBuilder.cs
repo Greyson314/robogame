@@ -118,7 +118,13 @@ namespace Robogame.Tools.Editor
             // tinted), or falls back to GroundMaterial's procedural tile
             // texture if the package is missing. Both layers are
             // palette-locked to WorldPalette.Grass.
-            GameObject ground = HillsGround.Build(env.transform, "Ground");
+            // addCollider:false — the full-footprint dig zone's voxel
+            // chunks are the sole ground collider, so a dug column
+            // actually drops the chassis instead of resting it on an
+            // invisible grass-mesh collider floating over the hole. The
+            // grass mesh stays as the visual layer; the modified Fluff
+            // shader clips it per-column where the player has dug (P4).
+            GameObject ground = HillsGround.Build(env.transform, "Ground", addCollider: false);
             FluffGround.ApplyToGround(ground);
 
             // Wall ring + scenic mountain ring via SceneScaffolder.
@@ -138,59 +144,68 @@ namespace Robogame.Tools.Editor
         }
 
         /// <summary>
-        /// Spawn a small dig zone in the arena. 2×1×2 chunks at default
-        /// settings = 32 m × 16 m × 32 m. Positioned 60 m off-spawn with
-        /// its half-space surface plane sitting flush with the arena
-        /// ground (y = 0).
+        /// Spawn the full-footprint diggable ground. 6×1×6 chunks of 32
+        /// cells at 1.0 m = 192 m × 32 m × 192 m, covering the whole
+        /// playable arena. The SDF surface is seeded per-column to the
+        /// SAME Perlin heightmap the visual grass mesh is baked from, so
+        /// the entire rolling ground is carveable terrain. Worst-case
+        /// (fully excavated) is ~36 chunks × ~20 K ≈ 0.7 M tris — under
+        /// the 1.5 M target, with LOD on for headroom. The 0.5 m / naive
+        /// approach was ~15 M and was ruled out.
         /// </summary>
         private static void BuildArenaDigZone(Transform envRoot)
         {
             GameObject zoneObj = new GameObject("DigZone");
             zoneObj.transform.SetParent(envRoot, worldPositionStays: false);
-            // Surface plane at world y=0 (chunkSide × gridY × 0.5 below transform).
-            zoneObj.transform.position = new Vector3(60f, -8f, 60f);
+            // 192 m footprint, 32 m tall. transform.y = -16 puts the
+            // zone's vertical centre at y=0 so the heightmap surface
+            // (which averages ~0 and peaks a few metres) lands on the
+            // arena floor, with ~16 m of diggable depth beneath it.
+            // X/Z = -96 centres the 192 m footprint on the arena origin
+            // (walls/mountains ring ~±100 m).
+            zoneObj.transform.position = new Vector3(-96f, -16f, -96f);
             zoneObj.SetActive(false);   // configure before Awake.
 
             Robogame.Voxel.DigZone zone = zoneObj.AddComponent<Robogame.Voxel.DigZone>();
             SerializedObject so = new SerializedObject(zone);
-            so.FindProperty("_cellSize").floatValue = 0.5f;
+            so.FindProperty("_cellSize").floatValue = 1.0f;
             so.FindProperty("_chunkSizeCells").intValue = 32;
-            so.FindProperty("_chunkGridSize").vector3IntValue = new Vector3Int(2, 1, 2);
-            so.FindProperty("_chunkMaterial").objectReferenceValue = WorldPalette.ArenaGround;
-            // The arena dig zone is small (4 chunks total) — well under
-            // the LOD-needed triangle threshold. Disable LOD so all
-            // chunks mesh at the full resolution; this eliminates the
-            // chunk-boundary seams players were seeing from LOD-mismatch
-            // transitions when standing at varying distances from the
-            // zone. Phase 4c's transition handling closes the
-            // perpendicular axis but in-plane spacing still differs at
-            // an LOD seam, which reads visibly on a four-chunk grid.
-            so.FindProperty("_enableLod").boolValue = false;
-            // Session 81: the arena dig zone is a solid cube of dirt the
-            // player tunnels into, not a half-space plane on the ground.
-            // Initially this read as just a flat plane slightly above
-            // the arena floor because the half-space init only emitted
-            // the midplane transition; full-solid + outer-layer-exterior
-            // gives a watertight 32×16×32m cube with 6 visible faces.
-            so.FindProperty("_initFullySolid").boolValue = true;
+            so.FindProperty("_chunkGridSize").vector3IntValue = new Vector3Int(6, 1, 6);
+            so.FindProperty("_chunkMaterial").objectReferenceValue = DigZoneEarthMaterial.GetOrBuild();
+            // LOD ON (32 / 64 m) — 36 chunks at worst case needs the far
+            // bands meshing coarse to keep the triangle budget.
+            so.FindProperty("_enableLod").boolValue = true;
+            // Heightmap-seeded surface, not full-solid / half-space.
+            so.FindProperty("_initFullySolid").boolValue = false;
+            // The whole arena is the zone now; a yellow wireframe cube
+            // around the entire playfield would be absurd.
+            so.FindProperty("_drawPerimeter").boolValue = false;
 
-            // Phase 5 POI authoring stand-in: carve a small chamber
-            // inside the cube so the chaser bot has somewhere to live.
-            // With the full-solid init the entire zone interior is
-            // solid, so the chamber can sit anywhere inside the 16m of
-            // cube depth. Place at world (77, 4, 77) — 12m above the
-            // cube's bottom (Y=-8), 4m above the arena floor (Y=0),
-            // ~4m below the cube's top (Y=8). Cell-center-aligned to
-            // pass the majority-Open occupancy threshold.
-            //
-            // Wired via the _initialBrushes serialized list — applied
-            // at DigZone.EnsureInitialised AFTER SDF seeding and BEFORE
-            // the occupancy grid is built.
+            // Push the SAME heightmap the grass mesh is baked from so the
+            // voxel surface follows the hills and the two layers align.
+            Robogame.Voxel.HeightmapParams hp = HillsGround.LoadHeightmapParams();
+            SerializedProperty shp = so.FindProperty("_surfaceHeightmap");
+            shp.FindPropertyRelative("Enabled").boolValue       = hp.Enabled;
+            shp.FindPropertyRelative("NoiseOffset").vector2Value = hp.NoiseOffset;
+            shp.FindPropertyRelative("HillFreqLow").floatValue   = hp.HillFreqLow;
+            shp.FindPropertyRelative("HillAmpLow").floatValue    = hp.HillAmpLow;
+            shp.FindPropertyRelative("HillFreqHigh").floatValue  = hp.HillFreqHigh;
+            shp.FindPropertyRelative("HillAmpHigh").floatValue   = hp.HillAmpHigh;
+            shp.FindPropertyRelative("FlatRadius").floatValue    = hp.FlatRadius;
+            shp.FindPropertyRelative("RampOuter").floatValue     = hp.RampOuter;
+            shp.FindPropertyRelative("EdgeFlatStart").floatValue = hp.EdgeFlatStart;
+            shp.FindPropertyRelative("EdgeFlatEnd").floatValue   = hp.EdgeFlatEnd;
+
+            // POI chamber, now seeded UNDER the heightmap surface so the
+            // player has to drill DOWN to reach the bot. (77,77) sits in
+            // the edge-flat band where the surface is ≈ y=0, so a chamber
+            // centred at y=-8 is ~8 m of solid below the grass and ~8 m
+            // above the zone floor — a proper "dig down to it" POI.
             SerializedProperty brushes = so.FindProperty("_initialBrushes");
             brushes.arraySize = 1;
             SerializedProperty brush = brushes.GetArrayElementAtIndex(0);
             brush.FindPropertyRelative("Kind").enumValueIndex = (int)Robogame.Core.BrushKind.SphereSubtract;
-            Vector3 chamberCenter = new Vector3(77f, 5f, 77f);
+            Vector3 chamberCenter = new Vector3(77f, -8f, 77f);
             brush.FindPropertyRelative("CenterWorld").vector3Value = chamberCenter;
             brush.FindPropertyRelative("EndWorld").vector3Value = chamberCenter;
             brush.FindPropertyRelative("RadiusMeters").floatValue = 2.5f;
@@ -199,12 +214,9 @@ namespace Robogame.Tools.Editor
 
             zoneObj.SetActive(true);
 
-            // Phase 5 visual playtest gate: drop a VoxelChaserBot inside
-            // the pre-carved chamber so the OccupancyGrid + A* pipeline
-            // has a visible consumer. The bot can't reach the player
-            // until the player drills a connection down through the
-            // ~4m of solid above the chamber — at which point A* picks
-            // up the new tunnel and the bot pursues.
+            // VoxelChaserBot lives in the pre-carved underground chamber;
+            // it can only path to the player once the player drills a
+            // tunnel down to it (A* picks up the new opening).
             BuildArenaDigZoneChaser(zoneObj.transform, chamberCenter);
         }
 
