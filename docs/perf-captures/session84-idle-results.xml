@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="2" result="Passed" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-05-17 21:20:52Z" end-time="2026-05-17 21:21:01Z" duration="9.3946851">
+  <test-suite type="TestSuite" id="1108" name="Robogame" fullname="Robogame" runstate="Runnable" testcasecount="88" result="Passed" start-time="2026-05-17 21:20:52Z" end-time="2026-05-17 21:21:01Z" duration="9.394685" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1097" name="Robogame.Tests.PlayMode.dll" fullname="C:/Users/Grey/Desktop/mutedtuple/robogame/Library/ScriptAssemblies/Robogame.Tests.PlayMode.dll" runstate="Runnable" testcasecount="88" result="Passed" start-time="2026-05-17 21:20:52Z" end-time="2026-05-17 21:21:01Z" duration="9.388884" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="28416" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1098" name="Robogame" fullname="Robogame" runstate="Runnable" testcasecount="88" result="Passed" start-time="2026-05-17 21:20:52Z" end-time="2026-05-17 21:21:01Z" duration="9.387974" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1099" name="Tests" fullname="Robogame.Tests" runstate="Runnable" testcasecount="88" result="Passed" start-time="2026-05-17 21:20:52Z" end-time="2026-05-17 21:21:01Z" duration="9.387322" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1100" name="PlayMode" fullname="Robogame.Tests.PlayMode" runstate="Runnable" testcasecount="88" result="Passed" start-time="2026-05-17 21:20:52Z" end-time="2026-05-17 21:21:01Z" duration="9.386573" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1102" name="Perf" fullname="Robogame.Tests.PlayMode.Perf" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-05-17 21:20:52Z" end-time="2026-05-17 21:21:01Z" duration="9.385733" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestFixture" id="1065" name="PerfBaselineHarness" fullname="Robogame.Tests.PlayMode.Perf.PerfBaselineHarness" classname="Robogame.Tests.PlayMode.Perf.PerfBaselineHarness" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-05-17 21:20:52Z" end-time="2026-05-17 21:21:01Z" duration="9.384812" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties>
+                  <property name="Category" value="Perf" />
+                </properties>
+                <test-case id="1066" name="Arena_Idle_Baseline" fullname="Robogame.Tests.PlayMode.Perf.PerfBaselineHarness.Arena_Idle_Baseline" methodname="Arena_Idle_Baseline" classname="Robogame.Tests.PlayMode.Perf.PerfBaselineHarness" runstate="Runnable" seed="1797647262" result="Passed" start-time="2026-05-17 21:20:52Z" end-time="2026-05-17 21:20:57Z" duration="5.040959" asserts="0">
+                  <properties>
+                    <property name="_JOINTYPE" value="UnityCombinatorial" />
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[
+IgnoreFailingMessages:true
+[Robogame] Bootstrap starting…
+[Robogame] Loading first scene: MainMenu
+[Robogame] Combat dummy spawned at (0.00, 0.50, 18.00) with 0 blocks.
+[Robogame] Arch dummy spawned at (-25.00, 0.50, 18.00) with 0 blocks.
+[Robogame] RepairPad spawned at (35.00, 0.10, 35.00). Drive onto the cyan pillar to repair.
+[Robogame] Friendly tank spawned at (-12.00, 2.00, 4.00) (blueprint='Blueprint_DefaultGround').
+[Robogame] Scrap depots spawned: Player@(0.00, 0.20, -30.00), Enemy@(0.00, 0.20, 40.00). Target = 20 team scrap.
+[PERF-BASELINE] scene=Arena state=idle frames=600 avg=0.338ms median=0.321ms min=0.268ms p99=0.581ms p99.9=0.686ms fps=2962.8 gcTotal=0B gcPerFrame=0.0B
+]]></output>
+                </test-case>
+                <test-case id="1067" name="Garage_Idle_Baseline" fullname="Robogame.Tests.PlayMode.Perf.PerfBaselineHarness.Garage_Idle_Baseline" methodname="Garage_Idle_Baseline" classname="Robogame.Tests.PlayMode.Perf.PerfBaselineHarness" runstate="Runnable" seed="705329612" result="Passed" start-time="2026-05-17 21:20:57Z" end-time="2026-05-17 21:21:01Z" duration="4.335298" asserts="0">
+                  <properties>
+                    <property name="_JOINTYPE" value="UnityCombinatorial" />
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[
+IgnoreFailingMessages:true
+[Robogame] Bootstrap starting…
+[PERF-BASELINE] scene=Garage state=idle frames=600 avg=0.203ms median=0.187ms min=0.142ms p99=0.344ms p99.9=0.513ms fps=4933.1 gcTotal=0B gcPerFrame=0.0B
+Saving results to: C:/Users/Grey/AppData/LocalLow/MutedTuple/Robogame\TestResults.xml
+]]></output>
+                </test-case>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

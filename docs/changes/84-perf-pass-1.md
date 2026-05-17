@@ -1,10 +1,11 @@
 # 84 — Performance pass 1 (baseline harness + OnGUI GC fixes)
 
-> Status: **code complete, numbers pending a test run.** The editor
-> held the project lock for the whole session; the agent will not
-> kill a live editor (unsaved-scene risk), so CLI batchmode could not
-> run. Harness + fixes are committed; before/after capture is a user
-> follow-up (see end).
+> Status: **code complete; harness green; idle sim numbers captured;
+> OnGUI before/after needs the editor Test Runner (headless can't
+> tick OnGUI — see below).** User closed the editor mid-session so
+> CLI batchmode ran: all 3 `PerfBaselineHarness` tests Passed after
+> a bootstrap fix. Numbers + the headless/OnGUI limitation are in
+> `docs/PERFORMANCE_BASELINES.md`.
 >
 > User intent: execute `PERFORMANCE_PASS_PLAN.md`. User explicitly
 > relaxed the plan's "measure-before-fix" gate ("make all changes

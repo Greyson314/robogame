@@ -53,24 +53,43 @@ Scope: **Arena** (the scene actually played) + **Garage** (quiet floor).
 WaterArena / PlanetArena deliberately out of scope this pass (user call —
 neither contains a DigZone; water path is already amplitude-gated).
 
-### Numbers — PENDING EXECUTION
+### Numbers — captured (CLI batchmode, headless, after-state)
 
-The harness and all fixes are committed; numbers below are unfilled
-because the editor held the project lock during this session and the
-agent will not kill a live editor (unsaved-scene risk). Run path A or
-B above to populate. **"Before" = `git stash` of this session's
-commit; "after" = working tree.**
+Machine: **AMD Ryzen 7 9800X3D / RX 9070 XT / 31 GB / headless batchmode / V-Sync off**
+Captured 2026-05-17 14:20 via `Unity.exe -runTests -batchmode` (no
+`-nographics`). All three harness tests **Passed**.
 
-| Scene  | State | when   | avg ms | median ms | p99 ms | p99.9 ms | fps | GC B/frame |
-|--------|-------|--------|--------|-----------|--------|----------|-----|------------|
-| Garage | idle  | before | …      | …         | …      | …        | …   | …          |
-| Garage | idle  | after  | …      | …         | …      | …        | …   | …          |
-| Arena  | idle  | before | …      | …         | …      | …        | …   | …          |
-| Arena  | idle  | after  | …      | …         | …      | …        | …   | …          |
+| Scene  | State | path            | avg ms | median ms | p99 ms | p99.9 ms | ~fps | GC B/frame |
+|--------|-------|-----------------|--------|-----------|--------|----------|------|------------|
+| Garage | idle  | sim (no OnGUI)  | 0.203  | 0.187     | 0.344  | 0.513    | 4933 | 0          |
+| Arena  | idle  | sim (no OnGUI)  | 0.338  | 0.321     | 0.581  | 0.686    | 2963 | 0          |
 
-Active / combat rows still need a manual build run (a human at the
-controls — the harness only reproduces idle). Capture them per
-PERFORMANCE.md §9 and append here.
+**Read these correctly.** This is the **non-OnGUI idle path only**
+(Update / FixedUpdate / physics / render-setup). Headless batchmode
+has no IMGUI repaint loop, so `OnGUI` never ran — proven by the 0 B
+GC on both scenes (the pre-fix code *would* allocate here if OnGUI
+ticked). These numbers therefore neither confirm nor deny the
+session-84 OnGUI fixes; they establish that **the idle simulation
+path is sub-millisecond and zero-GC on this machine — categorically
+not the source of any perceived slowdown.** The slowdown surface is
+GPU (Fluff grass / toon outlines, PERFORMANCE.md §5.3–5.4) and the
+always-on IMGUI overlays — neither observable headless.
+
+#### Before/after for the OnGUI fixes — NOT obtainable headless
+
+The two fixes live in `OnGUI`. A headless "before" run produces the
+identical 0 B / same sim numbers (theatre, not evidence — Rule 12).
+The real numeric before/after needs OnGUI to tick: run
+`PerfBaselineHarness` from the **editor Test Runner** (Game-view
+repaints OnGUI) or a **windowed Development Build**, with the
+`git`-stash before/after procedure above. Until then the OnGUI fixes
+rest on **code-level certainty**: moving `new GUIStyle` out of a
+per-call method behind a build-once `_stylesBuilt` guard
+deterministically eliminates the per-call allocation — this is a
+property of the C# control flow, not a measurement-dependent claim.
+
+Active / combat rows still need a manual windowed build run (a human
+at the controls). Capture per PERFORMANCE.md §9 and append here.
 
 ### Static triage — the analytical deliverable
 

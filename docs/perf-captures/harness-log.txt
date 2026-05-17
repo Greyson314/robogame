@@ -1,0 +1,2 @@
+2026-05-17 14:20:57  [PERF-BASELINE] scene=Arena state=idle frames=600 avg=0.338ms median=0.321ms min=0.268ms p99=0.581ms p99.9=0.686ms fps=2962.8 gcTotal=0B gcPerFrame=0.0B
+2026-05-17 14:21:01  [PERF-BASELINE] scene=Garage state=idle frames=600 avg=0.203ms median=0.187ms min=0.142ms p99=0.344ms p99.9=0.513ms fps=4933.1 gcTotal=0B gcPerFrame=0.0B
