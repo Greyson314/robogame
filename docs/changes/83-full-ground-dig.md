@@ -116,3 +116,20 @@ both fixed:
   flush, but the full-texture `Texture2D.Apply` + globals are
   rate-limited (`_maskUploadInterval`, ~10 Hz) with a trailing upload
   in `Update` so the cosmetic grass cut always converges.
+
+## Feel + profiling follow-up
+
+- **Drill feedback de-spam.** `DrillContact` one-shot + `DebrisDust`
+  VFX were firing every ~30 Hz carve emit on top of the `DrillActive`
+  motor loop (machine-gun audio + voice/particle churn). New
+  `DrillBlock._feedbackInterval` (~8 Hz) throttles only the cosmetic
+  feedback; carving stays 30 Hz; glide arming stays per-emit.
+- **Glide-eject levitation fix.** `_glideEjectDistance` 3 → 1 m, and
+  `UpdateDrillGlide` now ends the glide immediately when fire is
+  released (the eject coast is only for boring *through* while still
+  holding). Was ~1.5 s of kinematic float after every release.
+- **Profiler markers.** `Robogame.DigZone.{ApplyBrushDeferred,
+  FlushPendingDirty,RebuildChangedChunks,DigMaskUpload}` +
+  `Robogame.DigChunk.Remesh` so a CPU capture apportions the dig cost.
+  No per-tick force exists anymore (the servo was replaced by the
+  kinematic glide in 90416910), so it was ruled out as a cost.

@@ -1,6 +1,7 @@
 using Robogame.Core;
 using Unity.Collections;
 using Unity.Jobs;
+using Unity.Profiling;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -86,6 +87,10 @@ namespace Robogame.Voxel
         /// the chunks it touched, not the whole zone.
         /// </summary>
         public int RemeshCount { get; private set; }
+
+        // Profiler marker — "Robogame.DigChunk.Remesh" wraps the mesher
+        // job + zero-alloc mesh upload + async bake schedule.
+        private static readonly ProfilerMarker s_mRemesh = new("Robogame.DigChunk.Remesh");
 
         /// <summary>Own SDF samples. Brush-mutable, persistent. Index z*Dim²+y*Dim+x.</summary>
         public NativeArray<sbyte> Sdf => _sdf;
@@ -214,6 +219,7 @@ namespace Robogame.Voxel
         {
             if (!_initialised) throw new System.InvalidOperationException("DigChunk used before Initialize.");
             RemeshCount++;
+            s_mRemesh.Begin();
 
             // Drain any previously-scheduled bake. If a brush fires faster
             // than the worker can keep up, the prior bake must complete
@@ -271,6 +277,7 @@ namespace Robogame.Voxel
             // state); PollBakeAndSwap re-assigns once the new cook is in.
             _bakeHandle = new BakeMeshJob { MeshEntityID = _mesh.GetEntityId() }.Schedule();
             _hasPendingBake = true;
+            s_mRemesh.End();
         }
 
         /// <summary>

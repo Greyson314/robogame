@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Robogame.Core;
 using Unity.Collections;
+using Unity.Profiling;
 using UnityEngine;
 
 namespace Robogame.Voxel
@@ -187,6 +188,13 @@ namespace Robogame.Voxel
         private static readonly int s_digMaskWorldInvId  = Shader.PropertyToID("_DigMaskWorldInvSize");
         private static readonly int s_digMaskEnabledId   = Shader.PropertyToID("_DigMaskEnabled");
         private static readonly int s_digMaskClipDepthId = Shader.PropertyToID("_DigMaskClipDepth");
+
+        // Profiler markers — search "Robogame.Dig" in the Profiler's CPU
+        // module (Timeline or Hierarchy) to apportion the dig cost.
+        private static readonly ProfilerMarker s_mApplyDeferred = new("Robogame.DigZone.ApplyBrushDeferred");
+        private static readonly ProfilerMarker s_mFlush         = new("Robogame.DigZone.FlushPendingDirty");
+        private static readonly ProfilerMarker s_mRebuild       = new("Robogame.DigZone.RebuildChangedChunks");
+        private static readonly ProfilerMarker s_mMaskUpload    = new("Robogame.DigZone.DigMaskUpload");
 
         /// <summary>Coarse AI-navigation grid covering the zone. Null
         /// until <see cref="EnsureInitialised"/> runs.</summary>
@@ -528,6 +536,7 @@ namespace Robogame.Voxel
 
         private void PushDigMask()
         {
+            s_mMaskUpload.Begin();
             _digMask.SetPixelData(_digMaskDepth, 0);
             _digMask.Apply(updateMipmaps: false);
 
@@ -540,6 +549,7 @@ namespace Robogame.Voxel
                 new Vector4(1f / sizeX, 1f / sizeZ, 0f, 0f));
             Shader.SetGlobalFloat(s_digMaskClipDepthId, _grassClipDepth);
             Shader.SetGlobalFloat(s_digMaskEnabledId, 1f);
+            s_mMaskUpload.End();
         }
 
         private void DisableDigMaskGlobal()
@@ -944,12 +954,14 @@ namespace Robogame.Voxel
         {
             EnsureInitialised();
             int totalChanged = 0;
+            s_mApplyDeferred.Begin();
             for (int i = 0; i < _chunks.Length; i++)
             {
                 int c = _chunks[i].ApplyBrushNoRemesh(op);
                 if (c > 0) _pendingDirty[i] = true;
                 totalChanged += c;
             }
+            s_mApplyDeferred.End();
             if (totalChanged > 0)
             {
                 _opLog.Add(op);
@@ -967,12 +979,14 @@ namespace Robogame.Voxel
         public void FlushPendingDirty()
         {
             if (!_hasPendingDirty) return;
+            s_mFlush.Begin();
             for (int i = 0; i < _chunkChanged.Length; i++)
                 _chunkChanged[i] = _pendingDirty[i];
             System.Array.Clear(_pendingDirty, 0, _pendingDirty.Length);
             _hasPendingDirty = false;
             _lastFlushTime = Time.time;
             RebuildChangedChunks();
+            s_mFlush.End();
         }
 
         /// <summary>True while deferred dig mutations await a flush.</summary>
@@ -997,6 +1011,7 @@ namespace Robogame.Voxel
         /// </remarks>
         private void RebuildChangedChunks()
         {
+            s_mRebuild.Begin();
             for (int i = 0; i < _chunkRemesh.Length; i++) _chunkRemesh[i] = false;
 
             for (int cz = 0; cz < _chunkGridSize.z; cz++)
@@ -1041,6 +1056,7 @@ namespace Robogame.Voxel
                 _maskDirty = true;
                 MaybeUploadDigMask();
             }
+            s_mRebuild.End();
         }
 
         /// <summary>

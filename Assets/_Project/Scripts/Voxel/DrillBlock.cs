@@ -59,6 +59,12 @@ namespace Robogame.Voxel
         [Tooltip("Minimum seconds between emitted brush ops. 0.033 ≈ 30 Hz, matching the design's drill tick rate.")]
         [SerializeField, Min(0.005f)] private float _emitInterval = 0.033f;
 
+        [Tooltip("Min seconds between the per-strike DrillContact one-shot + DebrisDust burst. " +
+                 "Decoupled from the ~30 Hz carve: firing cosmetic feedback every emit, on top " +
+                 "of the DrillActive motor loop, reads as a machine-gun and churns voices / " +
+                 "particles. ~0.12 = ~8 Hz chunky bites. Carving stays 30 Hz for smooth tunnels.")]
+        [SerializeField, Min(0.02f)] private float _feedbackInterval = 0.12f;
+
         [Header("Drill-glide")]
         [Tooltip("Bore speed (m/s). While the drill is actively cutting solid voxels, the " +
                  "chassis enters 'glide': gravity + wheel grip are suspended and the body is " +
@@ -78,13 +84,13 @@ namespace Robogame.Voxel
                  "(translate only).")]
         [SerializeField, Min(0f)] private float _glideTurnSpeed = 270f;
 
-        [Tooltip("When cutting stops (broke into air / a cavity / released fire), glide keeps " +
-                 "carrying the chassis along the last bore direction for this many extra metres " +
-                 "before dynamic physics + gravity resume. This is the 'pop out of your own " +
-                 "hole' assist: without it the body drops back to physics still down a narrow " +
-                 "shaft and gets stuck. Only triggers after genuine cutting (one-shot, bounded), " +
-                 "so it isn't an air-dash. 0 disables (physics resumes the instant cutting ends).")]
-        [SerializeField, Min(0f)] private float _glideEjectDistance = 3.0f;
+        [Tooltip("When cutting stops because the drill broke THROUGH into air while you're " +
+                 "still holding fire, glide carries the chassis this many extra metres along " +
+                 "the bore so it pops clear instead of dropping back down its own shaft. " +
+                 "Releasing fire ends glide immediately (no coast — that's the levitation " +
+                 "bug). Keep short: at _digTargetSpeed 2 m/s, 1 m ≈ 0.5 s of assist. 0 " +
+                 "disables (physics resumes the instant cutting ends).")]
+        [SerializeField, Min(0f)] private float _glideEjectDistance = 1.0f;
 
         [Header("Cone aim")]
         [Tooltip("Maximum angle in degrees the drill bit can swivel away from its (front-mounted = " +
@@ -130,6 +136,7 @@ namespace Robogame.Voxel
         private DigDiag _diag;
 
         private float _lastEmitTime = float.NegativeInfinity;
+        private float _lastFeedbackTime = float.NegativeInfinity;
         // Drill-glide is active every FixedUpdate while a recent carve is
         // still "live". Drill() refreshes _pullActiveUntil + _pullAimDir
         // ONLY on a cutting emit (changed > 0); FixedUpdate glides the
@@ -342,20 +349,29 @@ namespace Robogame.Voxel
 
             if (changed > 0)
             {
-                AudioRouter.PlayOneShot(AudioCue.DrillContact, TipWorldPosition);
-                // Dust anchored at the capsule midpoint so the effect
-                // sits where actual carving happens, not at the drill bit
-                // 0.6 m from the cell.
-                Vector3 vfxAnchor = (p0 + p1) * 0.5f;
-                VfxSpawner.Spawn(VfxKind.DebrisDust, vfxAnchor, Quaternion.identity, scale: 0.5f);
+                // Cosmetic feedback is throttled independently of the
+                // ~30 Hz carve (see _feedbackInterval): a sharp impact +
+                // dust burst every emit, over the DrillActive motor loop,
+                // reads as a machine-gun and churns audio voices /
+                // particles. Carving itself stays per-emit for smooth
+                // tunnel geometry.
+                if (Time.time - _lastFeedbackTime >= _feedbackInterval)
+                {
+                    AudioRouter.PlayOneShot(AudioCue.DrillContact, TipWorldPosition);
+                    // Dust anchored at the capsule midpoint so the effect
+                    // sits where actual carving happens, not at the drill
+                    // bit 0.6 m from the cell.
+                    Vector3 vfxAnchor = (p0 + p1) * 0.5f;
+                    VfxSpawner.Spawn(VfxKind.DebrisDust, vfxAnchor, Quaternion.identity, scale: 0.5f);
+                    _lastFeedbackTime = Time.time;
+                }
 
-                // Arm drill-glide. The glide itself runs every
-                // FixedUpdate (see UpdateDrillGlide) while this window
-                // stays live — kept alive a touch past the next expected
-                // emit so a missed/throttled tick doesn't drop it. Set
-                // ONLY here, inside changed>0, so glide engages strictly
-                // while biting solid voxels and never in open air (not an
-                // anti-gravity toggle).
+                // Arm drill-glide EVERY cutting emit (not throttled) so
+                // the kinematic bore stays smooth. The window is kept
+                // alive a touch past the next expected emit so a
+                // missed/throttled tick doesn't drop it. Set ONLY inside
+                // changed>0, so glide engages strictly while biting solid
+                // voxels and never in open air (not an anti-gravity toggle).
                 _pullAimDir = aimDir;
                 _pullActiveUntil = Time.time + _emitInterval * 1.5f;
             }
@@ -442,14 +458,18 @@ namespace Robogame.Voxel
             }
             else if (_gliding)
             {
-                if (_ejectRemaining > 0f)
+                // Player released fire → restore dynamic physics + gravity
+                // NOW. The eject coast only makes sense when you bored
+                // THROUGH into air while still holding (pop out the far
+                // side); letting go should not leave the bot floating.
+                if (!IsFireHeld || _ejectRemaining <= 0f)
                 {
-                    GlideStep(body);
-                    _ejectRemaining -= _digTargetSpeed * Time.fixedDeltaTime;
+                    EndGlide(body);
                 }
                 else
                 {
-                    EndGlide(body);
+                    GlideStep(body);
+                    _ejectRemaining -= _digTargetSpeed * Time.fixedDeltaTime;
                 }
             }
 
