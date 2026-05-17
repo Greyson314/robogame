@@ -138,6 +138,54 @@ play today; MP team-colour conversion is documented future work,
 not landed — Rule 2). Confirmed Δ to be filled by the next in-game
 F3 read.
 
+### 2026-05-17 — render-cost probe + GPU-blind finding (key methodology note)
+
+`PerfRenderProbe` (CLI, headless, Arena, camera framing 227 chassis
+block renderers vs empty sky):
+
+```
+away=0.317ms  baseline=0.323ms  noChassisShadowCast=0.314ms  noSunShadows=0.315ms
+chassis-in-view = 0.006ms | chassis-shadowcast = 0.009ms | all-shadow = 0.009ms
+```
+
+Headless ran ~3000 fps vs the user's 300–400 in play. **Conclusion:
+CLI batchmode does not do representative GPU shading.** It measures
+CPU render *submission* (227 blocks = 6 µs, genuinely free) and is
+**blind to the GPU costs that actually matter here** — grass shell
+expansion, chassis fragment/overdraw, shadow shading. Same class of
+limit as OnGUI. This also explains why the SRP/MPB chassis fix
+(commit 44cf5a1) did not move the user's fps: CPU submission was
+already free; that fix is correct hygiene + MP-relevant and was
+kept, but it was never this machine's lever.
+
+**What the harness IS good for going forward:** a CPU-time / GC /
+render-submission regression guard (idle + chassis-in-view), run
+headless in CI reach. It is *not* a GPU-cost tool — GPU deltas need
+the editor Game-view or a windowed Development Build (the user's
+play sessions are the GPU measurement loop).
+
+**Landed this pass (documented best-practice GPU reductions, commit 8bc532a):**
+shadow cascades 4→2 (§6); hills resolution 121→81 + rebake (grass
+input tris 28800→12800, ×~22 in the geom shader — §5.3's biggest
+grass lever); Fluff `_ShellCount` 7→6; `_FinsEnabled` 1→0 (§5.3 #5,
+the one visible knob — revert by setting it back to 1). All
+reversible asset values. GPU impact unverifiable autonomously;
+user verifies in play.
+
+**Biggest remaining lever — needs design sign-off, NOT blind-landed.**
+227 individual block renderers means 227 draws × MK Toon fragment +
+overdraw + (now 2-cascade) shadow shading on the real GPU. The
+canonical fix is per-chassis **mesh-combining** (or GPU instancing
+of the shared cube mesh) — collapsing ~150 draws/chassis to a
+handful. This is a real architecture change: combined meshes break
+per-block damage/removal unless rebuilt on the connectivity event,
+so it touches destructible-block gameplay (§8.2). Recommended as
+the next major work item with the architect, not an unattended
+edit. Two user-decision items also deferred: the player-only
+outline layer-mask (§5.4 — user wants outlines on their own
+chassis long-term) and disabling the CPU-beacon point lights
+(readability tradeoff).
+
 **Conclusion matches the plan's "honest picture":** the codebase's
 per-frame hygiene is good. There is no single 16 ms bottleneck. The
 two real findings are steady-state OnGUI GC in two always-on Arena
