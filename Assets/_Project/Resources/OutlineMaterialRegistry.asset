@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ffd3de96cbc9cfe428ee25240941d822, type: 3}
+  m_Name: OutlineMaterialRegistry
+  m_EditorClassIdentifier: Robogame.Player::Robogame.Player.OutlineMaterialRegistry
+  _pairs:
+  - Outline: {fileID: 2100000, guid: 4654b993fe492c94c8fc9359b69c852a, type: 2}
+    Plain: {fileID: 2100000, guid: ef22b2dce0f21c24cbc984480a413b61, type: 2}
+  - Outline: {fileID: 2100000, guid: 0f5cff0d50f5a4245ae317f4ca1661b4, type: 2}
+    Plain: {fileID: 2100000, guid: 17d7ff9b4ea3c1145890cc90ed0ed42a, type: 2}
+  - Outline: {fileID: 2100000, guid: 7d9ea8e2146e83040a1a5d76f01505d5, type: 2}
+    Plain: {fileID: 2100000, guid: 332088efb13c82847af7f6d7e954da3f, type: 2}
+  - Outline: {fileID: 2100000, guid: 799a882d77be5374393b5a55927275df, type: 2}
+    Plain: {fileID: 2100000, guid: 3d892adc766333045ab648dba066dba7, type: 2}
+  - Outline: {fileID: 2100000, guid: c41e1d60a9ad8b24fbe675634e83396e, type: 2}
+    Plain: {fileID: 2100000, guid: ee9eb57398cfc4944900b6e9512463fd, type: 2}
