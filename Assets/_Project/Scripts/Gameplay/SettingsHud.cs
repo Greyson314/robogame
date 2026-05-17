@@ -66,6 +66,9 @@ namespace Robogame.Gameplay
         }
         private readonly Dictionary<string, GroupSection> _groups = new();
         private readonly List<RowEntry> _allRows = new();
+        // Re-sync closures for the Perf Bisect toggle buttons so
+        // "Restore all" updates their labels too.
+        private readonly List<System.Action> _bisectSyncs = new();
 
         private void Awake()
         {
@@ -285,6 +288,7 @@ namespace Robogame.Gameplay
 
             _content = contentGO;
             BuildActionRows();
+            BuildPerfBisectSection();
             BuildTweakRows();
             BuildKeybindsSection();
         }
@@ -425,6 +429,71 @@ namespace Robogame.Gameplay
             var btn = AddButton(rowGO.transform, buttonLabel, new Vector2(-12f, 0f), new Vector2(180f, 32f),
                 anchor: new Vector2(1f, 0.5f), pivot: new Vector2(1f, 0.5f));
             btn.onClick.AddListener(() => onClick?.Invoke());
+        }
+
+        // -----------------------------------------------------------------
+        // Perf Bisect (non-destructive subsystem A/B switches)
+        // -----------------------------------------------------------------
+
+        // Diagnostic switches that disable a whole Arena-only subsystem so
+        // the F3 perf HUD shows its real cost. Backed by the persistent
+        // Robogame.Core.PerfBisect; resolved at click-time because that
+        // singleton bootstraps after scene load, not at panel-build time.
+        private void BuildPerfBisectSection()
+        {
+            AddPlainGroupHeader("Perf Bisect");
+            AddBisectToggleRow("AI bots (Arena↔Planet delta)",
+                () => PerfBisect.Instance != null && PerfBisect.Instance.BotsOff,
+                off => { if (PerfBisect.Instance != null) PerfBisect.Instance.SetBotsOff(off); });
+            AddBisectToggleRow("Fluff grass (GPU #1)",
+                () => PerfBisect.Instance != null && PerfBisect.Instance.GrassOff,
+                off => { if (PerfBisect.Instance != null) PerfBisect.Instance.SetGrassOff(off); });
+            AddBisectToggleRow("Dig chunk renderers",
+                () => PerfBisect.Instance != null && PerfBisect.Instance.DigOff,
+                off => { if (PerfBisect.Instance != null) PerfBisect.Instance.SetDigOff(off); });
+            AddActionRow("Restore all subsystems", "Restore", () =>
+            {
+                if (PerfBisect.Instance != null) PerfBisect.Instance.RestoreAll();
+                for (int i = 0; i < _bisectSyncs.Count; i++) _bisectSyncs[i]?.Invoke();
+            });
+        }
+
+        // A row whose button shows the live state ("ON" = subsystem
+        // present, "DISABLED" = bisected out) and flips it on click.
+        private void AddBisectToggleRow(string label, System.Func<bool> isOff, System.Action<bool> setOff)
+        {
+            var rowGO = NewChild($"Bisect_{label}", _content.transform);
+            var le = rowGO.AddComponent<LayoutElement>();
+            le.preferredHeight = 44f;
+            rowGO.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.03f);
+
+            var labelGO = NewChild("Label", rowGO.transform);
+            var labelRT = labelGO.GetComponent<RectTransform>();
+            labelRT.anchorMin = new Vector2(0f, 0f);
+            labelRT.anchorMax = new Vector2(0f, 1f);
+            labelRT.pivot = new Vector2(0f, 0.5f);
+            labelRT.sizeDelta = new Vector2(420f, 0f);
+            labelRT.anchoredPosition = new Vector2(12f, 0f);
+            var labelText = labelGO.AddComponent<Text>();
+            labelText.text = label;
+            labelText.font = UIFont;
+            labelText.fontSize = 18;
+            labelText.color = s_textColor;
+            labelText.alignment = TextAnchor.MiddleLeft;
+
+            var btn = AddButton(rowGO.transform, "", new Vector2(-12f, 0f), new Vector2(180f, 32f),
+                anchor: new Vector2(1f, 0.5f), pivot: new Vector2(1f, 0.5f));
+            Text btnText = btn.GetComponentInChildren<Text>();
+
+            void Sync()
+            {
+                bool off = isOff();
+                btnText.text = off ? "DISABLED" : "ON";
+                btnText.color = off ? new Color(1f, 0.44f, 0.26f, 1f) : Color.white;
+            }
+            Sync();
+            _bisectSyncs.Add(Sync);
+            btn.onClick.AddListener(() => { setOff(!isOff()); Sync(); });
         }
 
         // -----------------------------------------------------------------
