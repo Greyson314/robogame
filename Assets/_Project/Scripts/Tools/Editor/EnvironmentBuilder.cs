@@ -172,9 +172,15 @@ namespace Robogame.Tools.Editor
             so.FindProperty("_chunkSizeCells").intValue = 32;
             so.FindProperty("_chunkGridSize").vector3IntValue = new Vector3Int(6, 1, 6);
             so.FindProperty("_chunkMaterial").objectReferenceValue = DigZoneEarthMaterial.GetOrBuild();
-            // LOD ON (32 / 64 m) — 36 chunks at worst case needs the far
-            // bands meshing coarse to keep the triangle budget.
-            so.FindProperty("_enableLod").boolValue = true;
+            // LOD OFF. 36 chunks at 1 m worst-case is ~0.7 M tris — under
+            // the 1.5 M target without any LOD — so LOD buys nothing here
+            // but costs a lot: DigZone.Update() runs RefreshLod every
+            // frame, and the moment the follow-camera crosses a 32/64 m
+            // band on this 192 m zone it triggered a FULL 36-chunk
+            // RebuildAllMeshes (remesh + occupancy + dig-mask, all 36).
+            // That recurring hitch was the 300→120 fps idle regression.
+            // Off = chunks stay LOD0, RefreshLod never runs.
+            so.FindProperty("_enableLod").boolValue = false;
             // Heightmap-seeded surface, not full-solid / half-space.
             so.FindProperty("_initFullySolid").boolValue = false;
             // The whole arena is the zone now; a yellow wireframe cube

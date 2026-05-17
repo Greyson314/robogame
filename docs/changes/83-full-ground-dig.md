@@ -76,6 +76,24 @@ default (was `TEMP:` ON since 5d3caf04). Tests below.
    vanishes cleanly over a fresh drill/bomb hole; the 0.25 m sink
    isn't a visible lip at dig edges; dirt triplanar scale (3 m) reads
    right; the bot is reachable by drilling down to `(77,-8,77)`.
-3. **Perf debt.** `UpdateDigMask` recomputes the 192² mask every
-   `RebuildAllMeshes` (i.e. every dig). Bounded and SP-only for v1;
-   dirty-chunk scoping is the obvious optimisation if a profile says so.
+## Perf pass (same session, follow-up commit)
+
+Playtest showed idle FPS 300→120 and 120→60 while digging. Two holes,
+both fixed:
+
+- **LOD-on regression (idle).** The old 4-chunk arena ran
+  `_enableLod=false`; I'd flipped it to `true` for the triangle budget
+  the budget doesn't actually need (0.7 M < 1.5 M). With LOD on,
+  `DigZone.Update()`→`RefreshLod()` triggered a **full 36-chunk**
+  `RebuildAllMeshes` every time the follow-camera crossed a 32/64 m
+  band on the 192 m zone. Reverted to `_enableLod=false`.
+- **Full-zone remesh per dig (dig dip).** `ApplyBrush` called
+  `RebuildAllMeshes` (all 36 chunks remesh + occupancy + full 192²
+  mask) on every brush op. New `RebuildChangedChunks` scopes the
+  remesh to the chunks a brush actually mutated plus their −Δ apron
+  consumers (a drill hits 1–2 of 36); occupancy + dig-mask update only
+  the genuinely changed chunks. `WriteMaskSlab`/`PushDigMask` factor
+  the mask so the seed path keeps the full min-merge and the per-dig
+  path overwrites just the touched slabs. Pre-sized scratch buffers,
+  zero per-op allocation. New `DigChunk.RemeshCount` + machine-gate
+  test `InteriorBrush_OnlyRemeshesTouchedChunks` pins the scoping.

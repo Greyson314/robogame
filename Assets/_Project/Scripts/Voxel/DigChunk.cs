@@ -80,6 +80,13 @@ namespace Robogame.Voxel
         public bool IsInitialised => _initialised;
         public Mesh CurrentMesh => _mesh;
 
+        /// <summary>
+        /// Number of times <see cref="RemeshNow"/> has run. Test hook for
+        /// the per-dig scoping machine gate — proves a brush only remeshes
+        /// the chunks it touched, not the whole zone.
+        /// </summary>
+        public int RemeshCount { get; private set; }
+
         /// <summary>Own SDF samples. Brush-mutable, persistent. Index z*Dim²+y*Dim+x.</summary>
         public NativeArray<sbyte> Sdf => _sdf;
 
@@ -206,6 +213,7 @@ namespace Robogame.Voxel
         public void RemeshNow()
         {
             if (!_initialised) throw new System.InvalidOperationException("DigChunk used before Initialize.");
+            RemeshCount++;
 
             // Drain any previously-scheduled bake. If a brush fires faster
             // than the worker can keep up, the prior bake must complete

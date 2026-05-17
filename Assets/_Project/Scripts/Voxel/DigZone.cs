@@ -111,6 +111,11 @@ namespace Robogame.Voxel
         private Material _perimeterMaterial;
 
         private DigChunk[] _chunks;
+        // Per-dig scratch (pre-sized at init, no per-op allocation):
+        // which chunks a brush actually mutated, and the superset that
+        // must remesh (changed chunks + the -dir apron consumers).
+        private bool[] _chunkChanged;
+        private bool[] _chunkRemesh;
         // Phase 5: coarse occupancy grid for AI pathfinding. Rebuilt
         // per-chunk after each remesh.
         private OccupancyGrid _occupancyGrid;
@@ -303,6 +308,8 @@ namespace Robogame.Voxel
 
             int nx = _chunkGridSize.x, ny = _chunkGridSize.y, nz = _chunkGridSize.z;
             _chunks = new DigChunk[nx * ny * nz];
+            _chunkChanged = new bool[_chunks.Length];
+            _chunkRemesh = new bool[_chunks.Length];
 
             float chunkSideMeters = _chunkSizeCells * _cellSize;
 
@@ -394,75 +401,89 @@ namespace Robogame.Voxel
         /// so the visible grass stays in lock-step with the carved voxel
         /// surface.
         /// </summary>
+        /// <summary>
+        /// Full mask rebuild — every column, min-merged across the Y
+        /// extent. Used by the seed path (<see cref="RebuildAllMeshes"/>);
+        /// the per-dig path uses <see cref="WriteMaskSlab"/> on just the
+        /// changed chunks.
+        /// </summary>
         private void UpdateDigMask()
         {
             if (!_maskActive || _digMask == null) return;
 
-            // Highest solid sample across the whole Y extent wins (min dig
-            // depth). Seed every column "fully dug" so columns with no
-            // solid anywhere read as clipped.
+            // Seed every column "fully dug" so columns with no solid
+            // anywhere read as clipped; chunks then min-merge their slabs.
             for (int i = 0; i < _digMaskDepth.Length; i++) _digMaskDepth[i] = float.MaxValue;
+            for (int ci = 0; ci < _chunks.Length; ci++)
+                if (_chunks[ci] != null) WriteMaskSlab(_chunks[ci], minMerge: true);
+            PushDigMask();
+        }
 
+        /// <summary>
+        /// Recompute one chunk's XZ slab of the dig-mask. <paramref name="minMerge"/>
+        /// keeps the shallowest (highest-solid) value across overlapping Y
+        /// chunks — used by the full rebuild. The per-dig path passes
+        /// <c>false</c> (plain overwrite), which is exact for the shipping
+        /// single-Y-chunk arena zone where each column belongs to one
+        /// chunk; multi-Y zones don't enable the heightmap mask.
+        /// </summary>
+        private void WriteMaskSlab(DigChunk chunk, bool minMerge)
+        {
             int chunkCells = _chunkSizeCells;
             int dim = chunkCells + 1;
             int dimSq = dim * dim;
             float baseY = transform.position.y;
+            Vector3Int coord = chunk.ChunkCoord;
+            NativeArray<sbyte> sdf = chunk.Sdf;
 
-            for (int ci = 0; ci < _chunks.Length; ci++)
+            for (int z = 0; z < dim; z++)
             {
-                DigChunk chunk = _chunks[ci];
-                if (chunk == null) continue;
-                Vector3Int coord = chunk.ChunkCoord;
-                NativeArray<sbyte> sdf = chunk.Sdf;
-
-                for (int z = 0; z < dim; z++)
+                int gz = coord.z * chunkCells + z;
+                if (gz >= _maskH) continue;
+                for (int x = 0; x < dim; x++)
                 {
-                    int gz = coord.z * chunkCells + z;
-                    if (gz >= _maskH) continue;
-                    for (int x = 0; x < dim; x++)
+                    int gx = coord.x * chunkCells + x;
+                    if (gx >= _maskW) continue;
+
+                    // Highest solid (sdf < 0) sample in this column.
+                    int topY = -1;
+                    for (int y = dim - 1; y >= 0; y--)
                     {
-                        int gx = coord.x * chunkCells + x;
-                        if (gx >= _maskW) continue;
+                        if (sdf[z * dimSq + y * dim + x] < 0) { topY = y; break; }
+                    }
 
-                        // Highest solid (sdf < 0) sample in this column.
-                        int topY = -1;
-                        for (int y = dim - 1; y >= 0; y--)
-                        {
-                            if (sdf[z * dimSq + y * dim + x] < 0) { topY = y; break; }
-                        }
+                    float worldX = transform.position.x + gx * _cellSize;
+                    float worldZ = transform.position.z + gz * _cellSize;
+                    // Reference is the SEEDED surface (true height minus
+                    // the sink), so an undug column reads ~0 dug depth
+                    // regardless of voxel quantisation — only an actual
+                    // carve drops topY meaningfully below it.
+                    float seededSurfaceY =
+                        HeightmapField.Sample(_surfaceHeightmap, worldX, worldZ)
+                        - _surfaceSinkMeters;
 
-                        float worldX = transform.position.x + gx * _cellSize;
-                        float worldZ = transform.position.z + gz * _cellSize;
-                        // Reference is the SEEDED surface (true height minus
-                        // the sink), so an undug column reads ~0 dug depth
-                        // regardless of voxel quantisation — only an actual
-                        // carve drops topY meaningfully below it.
-                        float seededSurfaceY =
-                            HeightmapField.Sample(_surfaceHeightmap, worldX, worldZ)
-                            - _surfaceSinkMeters;
+                    float depth;
+                    if (topY < 0)
+                        depth = seededSurfaceY - baseY;
+                    else
+                        depth = seededSurfaceY - (baseY + (coord.y * chunkCells + topY) * _cellSize);
+                    if (depth < 0f) depth = 0f;
 
-                        float depth;
-                        if (topY < 0)
-                        {
-                            // No solid in this chunk's slice of the column;
-                            // candidate is "everything down to the zone
-                            // floor is gone".
-                            depth = seededSurfaceY - baseY;
-                        }
-                        else
-                        {
-                            int globalY = coord.y * chunkCells + topY;
-                            float topWorldY = baseY + globalY * _cellSize;
-                            depth = seededSurfaceY - topWorldY;
-                        }
-                        if (depth < 0f) depth = 0f;
-
-                        int idx = gz * _maskW + gx;
+                    int idx = gz * _maskW + gx;
+                    if (minMerge)
+                    {
                         if (depth < _digMaskDepth[idx]) _digMaskDepth[idx] = depth;
+                    }
+                    else
+                    {
+                        _digMaskDepth[idx] = depth;
                     }
                 }
             }
+        }
 
+        private void PushDigMask()
+        {
             _digMask.SetPixelData(_digMaskDepth, 0);
             _digMask.Apply(updateMipmaps: false);
 
@@ -851,14 +872,80 @@ namespace Robogame.Voxel
             EnsureInitialised();
             int totalChanged = 0;
             for (int i = 0; i < _chunks.Length; i++)
-                totalChanged += _chunks[i].ApplyBrushNoRemesh(op);
+            {
+                int c = _chunks[i].ApplyBrushNoRemesh(op);
+                _chunkChanged[i] = c > 0;
+                totalChanged += c;
+            }
 
             if (totalChanged > 0)
             {
                 _opLog.Add(op);
-                RebuildAllMeshes();
+                RebuildChangedChunks();
             }
             return totalChanged;
+        }
+
+        /// <summary>
+        /// Scoped rebuild for the per-dig path: only chunks a brush
+        /// actually mutated (plus the few neighbours that read them through
+        /// the apron) remesh / re-cook. A drill or bomb touches 1–2 of the
+        /// arena's 36 chunks, so this is the difference between a 60 fps
+        /// dig and a smooth one — the old <see cref="RebuildAllMeshes"/>
+        /// full pass was Phase 2b's explicitly-accepted debt, fine at 4
+        /// chunks and brutal at 36.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="BuildApronFor"/> pulls a 1-cell rim from each chunk's
+        /// +X/+Y/+Z (and diagonal) neighbours, so a changed chunk J is
+        /// consumed by the chunks at J − Δ for Δ ∈ {0,1}³. Remeshing that
+        /// 8-cell box keeps every shared seam correct. Occupancy + dig-mask
+        /// depend only on a chunk's own SDF, so only the genuinely changed
+        /// chunks update those.
+        /// </remarks>
+        private void RebuildChangedChunks()
+        {
+            for (int i = 0; i < _chunkRemesh.Length; i++) _chunkRemesh[i] = false;
+
+            for (int cz = 0; cz < _chunkGridSize.z; cz++)
+            for (int cy = 0; cy < _chunkGridSize.y; cy++)
+            for (int cx = 0; cx < _chunkGridSize.x; cx++)
+            {
+                if (!_chunkChanged[FlatIndex(cx, cy, cz)]) continue;
+                for (int dz = 0; dz <= 1; dz++)
+                for (int dy = 0; dy <= 1; dy++)
+                for (int dx = 0; dx <= 1; dx++)
+                {
+                    int nx = cx - dx, ny = cy - dy, nz = cz - dz;
+                    if (nx < 0 || ny < 0 || nz < 0) continue;
+                    _chunkRemesh[FlatIndex(nx, ny, nz)] = true;
+                }
+            }
+
+            for (int i = 0; i < _chunks.Length; i++)
+            {
+                if (!_chunkRemesh[i]) continue;
+                BuildApronFor(_chunks[i]);
+                _chunks[i].RemeshNow();
+            }
+
+            if (_occupancyGrid != null)
+            {
+                for (int i = 0; i < _chunks.Length; i++)
+                {
+                    if (!_chunkChanged[i]) continue;
+                    _occupancyGrid.BuildFromChunkSdf(
+                        _chunks[i].ChunkCoord, _chunkSizeCells,
+                        _chunks[i].Sdf, _chunks[i].Dim);
+                }
+            }
+
+            if (_maskActive && _digMask != null)
+            {
+                for (int i = 0; i < _chunks.Length; i++)
+                    if (_chunkChanged[i]) WriteMaskSlab(_chunks[i], minMerge: false);
+                PushDigMask();
+            }
         }
 
         /// <summary>

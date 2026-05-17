@@ -205,5 +205,37 @@ namespace Robogame.Tests.PlayMode.Voxel
             Assert.Less(PerChunkWorstCase * 36, 1_500_000,
                 "36-chunk grid at worst case must stay under the 1.5 M triangle target.");
         }
+
+        [Test]
+        public void InteriorBrush_OnlyRemeshesTouchedChunks()
+        {
+            // Perf machine gate: a dig confined to one chunk's interior
+            // must NOT remesh the whole zone (the 60-fps-dig regression).
+            DigZone zone = MakeZone(new Vector3(0f, -4f, 0f),
+                new Vector3Int(3, 1, 3), chunkCells: 8, cellSize: 1.0f, Flat());
+
+            // After init every chunk has remeshed exactly once.
+            for (int cx = 0; cx < 3; cx++)
+            for (int cz = 0; cz < 3; cz++)
+                Assert.AreEqual(1, zone.GetChunk(cx, 0, cz).RemeshCount);
+
+            // Brush deep inside the centre chunk (1,0,1) (global cells
+            // ~10..14, away from its low boundary so no extra spill).
+            int changed = zone.ApplyBrush(Sphere(new Vector3(12f, -1f, 12f), 2f));
+            Assert.Greater(changed, 0, "Brush must actually carve.");
+
+            Assert.AreEqual(2, zone.GetChunk(1, 0, 1).RemeshCount,
+                "The touched chunk must remesh exactly once more.");
+            Assert.AreEqual(1, zone.GetChunk(2, 0, 2).RemeshCount,
+                "A chunk on the +side (not an apron consumer) must NOT remesh.");
+
+            int remeshed = 0;
+            for (int cx = 0; cx < 3; cx++)
+            for (int cz = 0; cz < 3; cz++)
+                if (zone.GetChunk(cx, 0, cz).RemeshCount > 1) remeshed++;
+            Assert.LessOrEqual(remeshed, 4,
+                $"Scoped rebuild touched {remeshed}/9 chunks; expected ≤ 4 (the changed " +
+                "chunk + its -dir apron consumers), not a full-zone rebuild.");
+        }
     }
 }
