@@ -42,55 +42,29 @@ namespace Robogame.Player
         [SerializeField] private Color _outlineColor = new Color(0f, 0f, 0f, 0.65f);
         [SerializeField, Min(0f)] private float _outline = 1f;
 
-        [Header("Target detection")]
-        [Tooltip("Raycast layers used to detect a damageable under the reticle.")]
-        [SerializeField] private LayerMask _targetMask = ~0;
-
-        [Tooltip("Maximum aim-detection distance.")]
-        [SerializeField, Min(1f)] private float _aimRange = 300f;
+        // Target detection moved to TargetTracker (option B). Mask/range
+        // are configured there now.
 
         private Camera _camera;
         private FollowCamera _follow;
+        private TargetTracker _tracker;
         private bool _hasEnemyTarget;
-        private static readonly RaycastHit[] s_hits = new RaycastHit[8];
 
         private void Awake()
         {
             _camera = GetComponent<Camera>();
             _follow = GetComponent<FollowCamera>();
+            // Option B: the camera-centre raycast lives in TargetTracker
+            // (single source of truth, drives both the reticle colour and
+            // the relevance-gated outline). Auto-add so existing scenes
+            // that only have AimReticle still work without re-scaffolding.
+            _tracker = GetComponent<TargetTracker>();
+            if (_tracker == null) _tracker = gameObject.AddComponent<TargetTracker>();
         }
 
         private void Update()
         {
-            // Cheap target check: ray from screen-centre, look for an
-            // IDamageable that isn't the local chassis. Allocates zero
-            // (RaycastNonAlloc into a static buffer).
-            _hasEnemyTarget = false;
-            if (_camera == null) return;
-
-            Ray ray = _camera.ScreenPointToRay(new Vector2(Screen.width * 0.5f, Screen.height * 0.5f));
-            int n = Physics.RaycastNonAlloc(ray, s_hits, _aimRange, _targetMask, QueryTriggerInteraction.Ignore);
-            if (n == 0) return;
-
-            // Find the closest non-self damageable.
-            Robot localRobot = _follow != null && _follow.Target != null
-                ? _follow.Target.GetComponentInParent<Robot>()
-                : null;
-            float bestDist = float.MaxValue;
-            for (int i = 0; i < n; i++)
-            {
-                ref RaycastHit h = ref s_hits[i];
-                if (h.collider == null) continue;
-                IDamageable dmg = h.collider.GetComponentInParent<IDamageable>();
-                if (dmg == null || !dmg.IsAlive) continue;
-                Robot otherRobot = (dmg as Component)?.GetComponentInParent<Robot>();
-                if (otherRobot != null && otherRobot == localRobot) continue;
-                if (h.distance < bestDist)
-                {
-                    bestDist = h.distance;
-                    _hasEnemyTarget = true;
-                }
-            }
+            _hasEnemyTarget = _tracker != null && _tracker.CurrentTarget != null;
         }
 
         private void OnGUI()
