@@ -15,94 +15,129 @@ MonoBehaviour:
   _displayName: Grappler
   _kind: 1
   _rotorsGenerateLift: 0
+  _planeTuning:
+    PitchPower: 7.5
+    RollPower: 9
+    YawFromBank: 2
+    PitchDamping: 3.5
+    RollDamping: 2.8
+    YawDamping: 1.6
+  _groundTuning:
+    Acceleration: 26.25
+    MaxSpeed: 13.5
+    TurnRate: 7.5
+  _chassisDamping:
+    LinearDamping: 0.2
+    AngularDamping: 2
+  _thrusterTuning:
+    IdleThrottle: 0.4
+    ThrottleResponse: 2.6
   _entries:
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: -3}
     Up: {x: 0, y: 0, z: -1}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
+    BlockConfig: 0
   - BlockId: block.movement.thruster
     Position: {x: 0, y: 1, z: -3}
     Up: {x: 0, y: 1, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
+    BlockConfig: 0
   - BlockId: block.weapon.grapple_magnet
     Position: {x: 0, y: -1, z: -2}
     Up: {x: 0, y: -1, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
+    BlockConfig: 0
   - BlockId: block.movement.aero
     Position: {x: -1, y: 0, z: -2}
     Up: {x: -1, y: 0, z: 0}
     Dims: {x: 2, y: 0.08, z: 0.7}
     Pitch: -0
+    BlockConfig: 0
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: -2}
     Up: {x: 0, y: 0, z: -1}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
+    BlockConfig: 0
   - BlockId: block.movement.aero
     Position: {x: 1, y: 0, z: -2}
     Up: {x: 1, y: 0, z: 0}
     Dims: {x: 2, y: 0.08, z: 0.7}
     Pitch: 0
+    BlockConfig: 0
   - BlockId: block.structure.cube
     Position: {x: 0, y: 1, z: -2}
     Up: {x: 0, y: 1, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
+    BlockConfig: 0
   - BlockId: block.movement.aero.fin
     Position: {x: 0, y: 2, z: -2}
     Up: {x: 0, y: 1, z: 0}
     Dims: {x: 2, y: 0.08, z: 0.9}
     Pitch: 0
+    BlockConfig: 0
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: -1}
     Up: {x: 0, y: 0, z: -1}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
+    BlockConfig: 0
   - BlockId: block.movement.thruster
     Position: {x: 0, y: 1, z: -1}
     Up: {x: 0, y: 1, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
+    BlockConfig: 0
   - BlockId: block.movement.aero
     Position: {x: -1, y: 0, z: 0}
     Up: {x: -1, y: 0, z: 0}
     Dims: {x: 4, y: 0.08, z: 0.9}
     Pitch: -0
+    BlockConfig: 0
   - BlockId: block.cpu.standard
     Position: {x: 0, y: 0, z: 0}
     Up: {x: 0, y: 1, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
+    BlockConfig: 0
   - BlockId: block.movement.aero
     Position: {x: 1, y: 0, z: 0}
     Up: {x: 1, y: 0, z: 0}
     Dims: {x: 4, y: 0.08, z: 0.9}
     Pitch: 0
+    BlockConfig: 0
   - BlockId: block.movement.aero
     Position: {x: -1, y: 0, z: 1}
     Up: {x: -1, y: 0, z: 0}
     Dims: {x: 2, y: 0.08, z: 0.7}
     Pitch: -0
+    BlockConfig: 0
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: 1}
     Up: {x: 0, y: 0, z: 1}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
+    BlockConfig: 0
   - BlockId: block.movement.aero
     Position: {x: 1, y: 0, z: 1}
     Up: {x: 1, y: 0, z: 0}
     Dims: {x: 2, y: 0.08, z: 0.7}
     Pitch: 0
+    BlockConfig: 0
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: 2}
     Up: {x: 0, y: 0, z: 1}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
+    BlockConfig: 0
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: 3}
     Up: {x: 0, y: 0, z: 1}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
+    BlockConfig: 0
