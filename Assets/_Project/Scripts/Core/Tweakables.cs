@@ -106,9 +106,8 @@ namespace Robogame.Core
         //                                       → per-blueprint config.
         //   • Thruster.* / Rudder.*           — per-block.
         //   • Rotor.RPM                       — per-rotor.
-        //   • Impact.* / Water.*              — world physics. Stay as
-        //                                       Tweakables; server picks
-        //                                       canonical values in MP.
+        //   • Water.*                         — arena property; server
+        //                                       pushes the seed in MP.
         //   • Rope.SegmentLength/Radius/Mass  — rope feel; stay tunable.
         //   • Rope.AngularLimit/Damping       — rope feel; stay tunable.
         //
@@ -118,22 +117,17 @@ namespace Robogame.Core
         //   • Combat.Smg*                        → WeaponDefinition SO (per-weapon-block).
         //   • Combat.Bomb*                       → BombDefinition SO (per-bomb-block).
         //   • Combat.Rope* (tip damage)          → TipBlock SerializeFields (per-tip-block).
+        //   • Impact.* (ramming damage)          → ImpactConfig SO (server/world-canonical).
 
         // Rope-tip contact damage MIGRATED to per-tip-block SerializeFields
         // on TipBlock (this PR). HookBlock and MaceBlock both inherit those
         // fields; mass differential between Hook and Mace continues to drive
         // the kinetic-energy gameplay differential. PHYSICS_PLAN § 3 / § 5.
 
-        // Momentum / ramming impact (see MomentumImpactHandler). Damage
-        // is computed from reduced-mass kinetic energy in kJ and then
-        // distributed across a 3-ring splash profile so a hard ram
-        // crumples a few neighbouring blocks rather than evaporating
-        // exactly one cell.
-        public const string ImpactDamagePerKj  = "Impact.DamagePerKj";  // hp per kJ of normal-relative KE
-        public const string ImpactMinSpeed     = "Impact.MinSpeed";     // m/s threshold below which no damage
-        public const string ImpactRing0Scale   = "Impact.Ring0Scale";   // direct-hit cell multiplier
-        public const string ImpactRing1Scale   = "Impact.Ring1Scale";   // 1-step neighbour multiplier
-        public const string ImpactRing2Scale   = "Impact.Ring2Scale";   // 2-step neighbour multiplier
+        // Momentum / ramming impact MIGRATED to the server/world-canonical
+        // ImpactConfig SO (Resources/ImpactConfig.asset) — ramming damage is
+        // a gameplay outcome and must not vary per-machine. See
+        // MomentumImpactHandler + PHYSICS_PLAN § 1.5 / § 5.
 
         // Stress / debug. These are dev-only knobs surfaced in the
         // settings panel + dev HUD so a session can stress-test the
@@ -370,17 +364,9 @@ namespace Robogame.Core
             // Rope-tip damage migrated to per-tip-block SerializeFields on
             // TipBlock (this PR). HookBlock and MaceBlock inherit them.
 
-            // Impact. Defaults tuned for a 50 kg plane vs 50 kg dummy at
-            // 30 m/s closing — μ ≈ 25, KE ≈ 11.25 kJ, ×5 dmg/kJ ≈ 56 dmg
-            // at the contact cell, 17 / 6 dmg in the next two rings.
-            // Plenty to feel like a crash without instakilling either
-            // chassis. MinSpeed=2 stops harmless taxiing scrapes from
-            // bleeding HP while the player parks in the garage.
-            Register(ImpactDamagePerKj, "Impact", "Damage per kJ",    5.0f, 0f, 50f);
-            Register(ImpactMinSpeed,    "Impact", "Min Speed (m/s)",  2.0f, 0f, 20f);
-            Register(ImpactRing0Scale,  "Impact", "Direct Scale",     1.00f, 0f, 4f);
-            Register(ImpactRing1Scale,  "Impact", "Ring 1 Scale",     0.30f, 0f, 2f);
-            Register(ImpactRing2Scale,  "Impact", "Ring 2 Scale",     0.10f, 0f, 2f);
+            // Impact ramming-damage curve migrated to ImpactConfig SO
+            // (Resources/ImpactConfig.asset) — server/world-canonical,
+            // not a per-machine Tweakable. PHYSICS_PLAN § 1.5 / § 5.
 
             // Stress / debug. The arena controller subscribes to Changed
             // and (de)spawns the rotor tower live as the slider crosses

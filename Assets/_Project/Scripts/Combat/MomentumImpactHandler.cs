@@ -32,9 +32,10 @@ namespace Robogame.Combat
     /// <see cref="IDamageable.TakeDamage"/> at the closest hit collider.
     /// </para>
     /// <para>
-    /// Tweakables under the "Impact" group (damage scale, speed
-    /// threshold, ring profile) drive the curve so the values can be
-    /// dialled in live from Settings ▸ Tweaks.
+    /// The damage curve (scale, speed threshold, ring profile) comes from
+    /// the server/world-canonical <see cref="ImpactConfig"/> asset, not a
+    /// per-machine Tweakable — ramming damage is a gameplay outcome and
+    /// must not desync across clients (PHYSICS_PLAN §1.5 / §5).
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
@@ -57,11 +58,16 @@ namespace Robogame.Combat
 
         private Rigidbody _rb;
         private Robot _robot;
+        private ImpactConfig _impact;
 
         private void Awake()
         {
             _rb = GetComponent<Rigidbody>();
             _robot = GetComponent<Robot>();
+            // Resolve the world-canonical config once at spawn so the
+            // first collision doesn't pay a Resources.Load on the
+            // physics thread.
+            _impact = ImpactConfig.Instance;
         }
 
         private void OnCollisionEnter(Collision collision)
@@ -103,8 +109,8 @@ namespace Robogame.Combat
                 return;
             }
 
-            float minSpeed = Mathf.Max(0.01f, Tweakables.Get(Tweakables.ImpactMinSpeed));
-            float damagePerKj = Mathf.Max(0f, Tweakables.Get(Tweakables.ImpactDamagePerKj));
+            float minSpeed = Mathf.Max(0.01f, _impact.MinSpeed);
+            float damagePerKj = Mathf.Max(0f, _impact.DamagePerKj);
             if (damagePerKj <= 0f) return;
 
             // Relative velocity along the contact normal. Tangential
@@ -145,9 +151,9 @@ namespace Robogame.Combat
             // take the same profile — Newton's third law: the impulse
             // they trade is identical, the only thing that differs is
             // each body's local block layout absorbing it.
-            s_ringScratch[0] = baseDamage * Tweakables.Get(Tweakables.ImpactRing0Scale);
-            s_ringScratch[1] = baseDamage * Tweakables.Get(Tweakables.ImpactRing1Scale);
-            s_ringScratch[2] = baseDamage * Tweakables.Get(Tweakables.ImpactRing2Scale);
+            s_ringScratch[0] = baseDamage * _impact.Ring0Scale;
+            s_ringScratch[1] = baseDamage * _impact.Ring1Scale;
+            s_ringScratch[2] = baseDamage * _impact.Ring2Scale;
 
             // Self side — splash from the block nearest our contact point.
             // Each handler is responsible for *its own* chassis's damage:
