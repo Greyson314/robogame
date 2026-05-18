@@ -43,9 +43,22 @@ namespace Robogame.Movement
         [Tooltip("Angular damping on the chassis rigidbody.")]
         [SerializeField, Min(0f)] private float _angularDamping = 2f;
 
+        /// <summary>
+        /// Server-authoritative chassis blueprint, set by
+        /// <c>ChassisAssembler</c> before the root activates. The carrier
+        /// for gameplay-observable drive tuning (damping here; plane/ground
+        /// tuning read by the subsystems via this). Null for a RobotDrive
+        /// used outside the assembler (tests / hand-built scenes), in which
+        /// case the SerializeField defaults — equal to the historical
+        /// Tweakable defaults — apply. Movement → Block is an existing
+        /// asmdef edge; Movement must NOT reach Robot (Robots → Movement),
+        /// so the blueprint rides RobotDrive, not Robot, for subsystems.
+        /// </summary>
+        public ChassisBlueprint Blueprint { get; set; }
+
         private Vector3 CenterOfMassOffset => _tuning != null ? _tuning.CenterOfMassOffset : _centerOfMassOffset;
-        private float LinearDamping        => Tweakables.Get(Tweakables.ChassisLinDamp);
-        private float AngularDamping       => Tweakables.Get(Tweakables.ChassisAngDamp);
+        private float LinearDamping  => Blueprint != null ? Blueprint.ChassisDamping.LinearDamping  : _linearDamping;
+        private float AngularDamping => Blueprint != null ? Blueprint.ChassisDamping.AngularDamping : _angularDamping;
 
         [Header("Aim (camera-ray reticle)")]
         [Tooltip("Layers the cursor / reticle can latch onto.")]
@@ -121,13 +134,11 @@ namespace Robogame.Movement
 
         private void OnEnable()
         {
-            Tweakables.Changed += ApplyTweakables;
+            // Chassis damping is now server-authoritative (blueprint), not
+            // a live Tweakable, so there's no Tweakables.Changed push to
+            // subscribe — Awake reads the blueprint value once (the
+            // blueprint is set by ChassisAssembler before activation).
             if (_logChassisInertia) StartCoroutine(LogInertiaDiagnostics());
-        }
-
-        private void OnDisable()
-        {
-            Tweakables.Changed -= ApplyTweakables;
         }
 
         private IEnumerator LogInertiaDiagnostics()
@@ -165,16 +176,6 @@ namespace Robogame.Movement
                     $"vel(world)={_rb.linearVelocity}",
                     this);
             }
-        }
-
-        private void ApplyTweakables()
-        {
-            // Rigidbody damping is cached on the body, so we have to push
-            // it after every settings change. COM is recomputed by Robot's
-            // mass aggregation pipeline on its own cadence.
-            if (_rb == null) return;
-            _rb.linearDamping = LinearDamping;
-            _rb.angularDamping = AngularDamping;
         }
 
         // -----------------------------------------------------------------

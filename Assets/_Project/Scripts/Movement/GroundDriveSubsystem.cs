@@ -46,10 +46,15 @@ namespace Robogame.Movement
                  "(not at wheel positions) so it produces ZERO roll moment. 0 = ice, 1 = perfect rails.")]
         [SerializeField, Range(0f, 1f)] private float _lateralGrip = 0.85f;
 
-        // Resolved values (tuning profile overrides inline fields).
-        private float Acceleration     => Tweakables.Get(Tweakables.GroundAccel);
-        private float MaxSpeed         => Tweakables.Get(Tweakables.GroundMaxSpeed);
-        private float TurnRate         => Tweakables.Get(Tweakables.GroundTurnRate);
+        // Acceleration / MaxSpeed / TurnRate are server-authoritative
+        // (blueprint), resolved once in OnEnable — were per-machine
+        // Tweakables read every FixedUpdate. PHYSICS_PLAN §1.5 / §5.
+        private GroundTuningConfig _cfg = new();
+        private float Acceleration     => _cfg.Acceleration;
+        private float MaxSpeed         => _cfg.MaxSpeed;
+        private float TurnRate         => _cfg.TurnRate;
+        // Jump / upright / grip stay on the GroundDriveTuning SO — they're
+        // already invariant-1 compliant (SO, not a per-machine Tweakable).
         private float JumpImpulse      => _tuning != null ? _tuning.JumpImpulse      : _jumpImpulse;
         private float JumpCooldown     => _tuning != null ? _tuning.JumpCooldown     : _jumpCooldown;
         private float UprightStrength  => _tuning != null ? _tuning.UprightStrength  : _uprightStrength;
@@ -70,6 +75,9 @@ namespace Robogame.Movement
             _rb = GetComponentInParent<Rigidbody>();
             _drive = GetComponentInParent<RobotDrive>();
             _drive?.Register(this);
+            _cfg = _drive != null && _drive.Blueprint != null
+                ? _drive.Blueprint.GroundTuning
+                : new GroundTuningConfig();
             SubscribeToGrid();
             SeedWheelsFromHierarchy();
         }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using Robogame.Block;
 using Robogame.Core;
 
 namespace Robogame.Movement
@@ -56,12 +57,17 @@ namespace Robogame.Movement
         [Tooltip("Local yaw-rate damping.")]
         [SerializeField, Min(0f)] private float _yawDamping = 1.6f;
 
-        private float PitchPower   => Tweakables.Get(Tweakables.PlanePitchPower);
-        private float RollPower    => Tweakables.Get(Tweakables.PlaneRollPower);
-        private float YawFromBank  => Tweakables.Get(Tweakables.PlaneYawFromBank);
-        private float PitchDamping => Tweakables.Get(Tweakables.PlanePitchDamping);
-        private float RollDamping  => Tweakables.Get(Tweakables.PlaneRollDamping);
-        private float YawDamping   => Tweakables.Get(Tweakables.PlaneYawDamping);
+        // Server-authoritative chassis tuning, resolved once from the
+        // blueprint in OnEnable (was per-machine Tweakables, formerly read
+        // every FixedUpdate — this also drops the per-tick dictionary
+        // lookup). PHYSICS_PLAN §1.5 / §5.
+        private PlaneTuningConfig _cfg = new();
+        private float PitchPower   => _cfg.PitchPower;
+        private float RollPower    => _cfg.RollPower;
+        private float YawFromBank  => _cfg.YawFromBank;
+        private float PitchDamping => _cfg.PitchDamping;
+        private float RollDamping  => _cfg.RollDamping;
+        private float YawDamping   => _cfg.YawDamping;
 
         public int Order => 50; // between actuators (0) and assists (200)
         public bool IsOperational => isActiveAndEnabled;
@@ -74,8 +80,14 @@ namespace Robogame.Movement
             _rb = GetComponentInParent<Rigidbody>();
             _drive = GetComponentInParent<RobotDrive>();
             _drive?.Register(this);
+            // Blueprint is server-authoritative; null only for a subsystem
+            // used outside ChassisAssembler (tests / hand-built scenes),
+            // where the defaults equal the historical Tweakable defaults.
+            _cfg = _drive != null && _drive.Blueprint != null
+                ? _drive.Blueprint.PlaneTuning
+                : new PlaneTuningConfig();
             Debug.Log(
-                $"[Robogame] PlaneControl live values (source=Tweakables): " +
+                $"[Robogame] PlaneControl live values (source=blueprint): " +
                 $"pitch={PitchPower:F2} roll={RollPower:F2} yawFromBank={YawFromBank:F2} " +
                 $"pitchDamp={PitchDamping:F2} rollDamp={RollDamping:F2} yawDamp={YawDamping:F2}",
                 this);

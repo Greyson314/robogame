@@ -158,7 +158,11 @@ namespace Robogame.Gameplay
                 // ChassisHandle returned below.
                 robot.Blueprint = blueprint;
                 robot.Library = library;
-                EnsureComponent<RobotDrive>(root);
+                // RobotDrive carries the blueprint for the Movement-tier
+                // subsystems (Movement must not reference Robot — Robots →
+                // Movement asmdef edge). Set before the root activates so
+                // RobotDrive.Awake reads server-authoritative damping.
+                EnsureComponent<RobotDrive>(root).Blueprint = blueprint;
                 EnsureComponent<Movement.ChassisWindAudio>(root);
 
                 if (options.AddPlayerInputs)
