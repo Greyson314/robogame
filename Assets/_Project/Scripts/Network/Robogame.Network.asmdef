@@ -12,6 +12,7 @@
         "Robogame.Gameplay",
         "Robogame.Voxel",
         "Unity.Netcode.Runtime",
+        "Unity.Netcode.Components",
         "Unity.Networking.Transport",
         "Unity.InputSystem"
     ],

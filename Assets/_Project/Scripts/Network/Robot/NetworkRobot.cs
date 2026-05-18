@@ -156,11 +156,31 @@ namespace Robogame.Network.Robot
 
             transform.SetPositionAndRotation(position, rotation);
 
-            // Phase 1: every peer builds the bot rig (drive subsystems on,
-            // no player input). Owner input + NetworkInputSource injection
-            // lands in Step 7 (NetworkRobotMovement); combat in Step 8.
-            Handle = ChassisAssembler.Assemble(
-                gameObject, blueprint, library, AssemblyOptions.Bot());
+            // Per-peer rig: the owning client's copy is a full Player build
+            // (local PlayerInputHandler drives the camera + sources the
+            // wire commands); every other copy — incl. the server's
+            // authoritative copy of a remote player's robot — is a Bot
+            // build whose IInputSource is a NetworkInputSource the server
+            // feeds from the owner's input RPC (Step 7 / NETCODE_PLAN §5).
+            // NetworkInputSource is added BEFORE Assemble so
+            // PlayerController.Awake's GetComponent<IInputSource> resolves
+            // it (handoff §2.2 sequencing hazard).
+            AssemblyOptions options;
+            if (IsOwner)
+            {
+                options = AssemblyOptions.Player(
+                    GameStateController.Instance != null
+                        ? GameStateController.Instance.InputActions
+                        : null);
+            }
+            else
+            {
+                if (GetComponent<NetworkInputSource>() == null)
+                    gameObject.AddComponent<NetworkInputSource>();
+                options = AssemblyOptions.Bot();
+            }
+
+            Handle = ChassisAssembler.Assemble(gameObject, blueprint, library, options);
 
             if (Handle == null)
             {
