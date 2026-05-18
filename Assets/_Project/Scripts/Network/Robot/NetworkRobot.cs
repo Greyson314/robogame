@@ -1,0 +1,149 @@
+using Robogame.Block;
+using Robogame.Gameplay;
+using Robogame.Robots;
+using Unity.Netcode;
+using UnityEngine;
+
+namespace Robogame.Network.Robot
+{
+    /// <summary>
+    /// Thin Net sibling that owns spawn / blueprint reconstruction /
+    /// ownership for one robot (NETCODE_PLAN §5 pattern). The gameplay
+    /// <c>Robot</c> / <c>BlockGrid</c> / <c>RobotDrive</c> stay untouched —
+    /// this only carries the wire and then hands off to the singleplayer
+    /// construction chokepoint, <see cref="ChassisAssembler.Assemble"/>,
+    /// 1:1 (handoff §2.2 / NETCODE_PLAN §6 Bucket B).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// One <c>NetworkObject</c> per robot; blocks are plain children, never
+    /// NetworkObjects (NETCODE_PLAN §7). The robot network prefab is a bare
+    /// GameObject (NetworkObject + the Net* siblings only) — blocks are
+    /// reconstructed at runtime from the replicated
+    /// <see cref="SpawnRobotPayload"/> blob. Authoring that prefab and
+    /// registering it on the NetworkManager is the one editor step that
+    /// cannot be done headless; it rides the Phase-1 MPPM exit (handoff
+    /// §2.4 / §6).
+    /// </para>
+    /// <para>
+    /// The server builds the chassis immediately in
+    /// <see cref="ServerSpawn"/> (it runs the authoritative physics);
+    /// non-server peers build from the post-spawn
+    /// <see cref="ConfigureClientRpc"/>. The host is the server, so its
+    /// RPC handler early-outs to avoid a double build.
+    /// </para>
+    /// </remarks>
+    [RequireComponent(typeof(NetworkObject))]
+    [DisallowMultipleComponent]
+    public sealed class NetworkRobot : NetworkBehaviour
+    {
+        /// <summary>The assembled chassis bundle. Null until the build
+        /// runs (server: in <see cref="ServerSpawn"/>; client: on the
+        /// configure RPC). Sibling Net components read Robot/Grid here.</summary>
+        public ChassisHandle Handle { get; private set; }
+
+        /// <summary>Owning player's client id, replicated for the gameplay
+        /// tier (team/scoring). Server-set before the configure RPC.</summary>
+        public ulong OwnerPlayerId { get; private set; }
+
+        // -----------------------------------------------------------------
+        // Server spawn
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Server-only. Instantiate the registered robot network prefab,
+        /// spawn it with ownership, build the chassis locally, and tell
+        /// every other peer to build the same chassis from the blob.
+        /// Returns the spawned <see cref="NetworkRobot"/>, or null if not
+        /// the server / inputs are invalid.
+        /// </summary>
+        public static NetworkRobot ServerSpawn(
+            NetworkObject prefab,
+            ChassisBlueprint blueprint,
+            ulong ownerClientId,
+            byte teamId,
+            Vector3 position,
+            Quaternion rotation)
+        {
+            NetworkManager nm = NetworkManager.Singleton;
+            if (nm == null || !nm.IsServer)
+            {
+                Debug.LogError("[NetworkRobot] ServerSpawn called off-server.");
+                return null;
+            }
+            if (prefab == null) { Debug.LogError("[NetworkRobot] ServerSpawn: prefab is null."); return null; }
+            if (blueprint == null) { Debug.LogError("[NetworkRobot] ServerSpawn: blueprint is null."); return null; }
+
+            NetworkObject instance = Object.Instantiate(prefab, position, rotation);
+            var nr = instance.GetComponent<NetworkRobot>();
+            if (nr == null)
+            {
+                Debug.LogError("[NetworkRobot] Robot prefab is missing a NetworkRobot component.");
+                Object.Destroy(instance.gameObject);
+                return null;
+            }
+
+            nr.OwnerPlayerId = ownerClientId;
+            instance.SpawnWithOwnership(ownerClientId);
+
+            // Server runs the authoritative sim — build here, now.
+            nr.BuildFromBlueprint(blueprint, teamId, position, rotation);
+
+            var payload = new SpawnRobotPayload
+            {
+                PlayerId = ownerClientId,
+                TeamId = teamId,
+                SpawnPosition = position,
+                SpawnRotation = rotation,
+                BlueprintBlob = BlueprintBlob.Encode(blueprint),
+            };
+            nr.ConfigureClientRpc(payload);
+            return nr;
+        }
+
+        [ClientRpc]
+        private void ConfigureClientRpc(SpawnRobotPayload payload)
+        {
+            // Host is the server and already built in ServerSpawn.
+            if (IsServer) return;
+
+            OwnerPlayerId = payload.PlayerId;
+            if (!BlueprintBlob.TryDecode(payload.BlueprintBlob, out ChassisBlueprint bp, out string error))
+            {
+                Debug.LogError($"[NetworkRobot] Could not decode spawn blueprint: {error}");
+                return;
+            }
+            BuildFromBlueprint(bp, payload.TeamId, payload.SpawnPosition, payload.SpawnRotation);
+        }
+
+        // -----------------------------------------------------------------
+        // Shared build path — the singleplayer chokepoint, reused 1:1
+        // -----------------------------------------------------------------
+
+        private void BuildFromBlueprint(ChassisBlueprint blueprint, byte teamId,
+            Vector3 position, Quaternion rotation)
+        {
+            if (Handle != null) return; // idempotent — never build twice
+
+            BlockDefinitionLibrary library = GameStateController.Instance != null
+                ? GameStateController.Instance.Library
+                : null;
+            if (library == null)
+            {
+                Debug.LogError("[NetworkRobot] No BlockDefinitionLibrary (GameStateController missing) — cannot build.");
+                return;
+            }
+
+            transform.SetPositionAndRotation(position, rotation);
+
+            // Phase 1: every peer builds the bot rig (drive subsystems on,
+            // no player input). Owner input + NetworkInputSource injection
+            // lands in Step 7 (NetworkRobotMovement); combat in Step 8.
+            Handle = ChassisAssembler.Assemble(
+                gameObject, blueprint, library, AssemblyOptions.Bot());
+
+            if (Handle != null && Handle.Robot != null)
+                Handle.Robot.ConfigureTeam((TeamId)teamId);
+        }
+    }
+}
