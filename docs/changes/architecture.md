@@ -3,7 +3,9 @@
 ## Modules
 
 ```
-Robogame.Core         — Tweakables, IDamageable, GameBootstrap, PerfMarkers,
+Robogame.Core         — Tweakables, IDamageable, INetworkContext + NetworkContext
+                         (offline-default; the only network-aware type gameplay
+                         may import — session 86), GameBootstrap, PerfMarkers,
                          RuntimePalette, VfxKind, VfxSpawner,
                          AudioBus, AudioCue, AudioCueLibrary, AudioRouter
 Robogame.Block        — BlockDefinition, BlockGrid, BlockBinder, BlockIds, BlockVisuals,
@@ -57,7 +59,15 @@ Robogame.Tools.Editor — scaffolders, EnvironmentBuilder, WorldPalette, BlockDe
                          ScriptedChassisBuilder (Editor-time chassis authoring through
                          the same BuildSession.TryPlace verb the player uses — session 57)
 Robogame.UI           — DevHud, FpsCounter, PerformanceHud
-Robogame.Network      — empty placeholder for the netcode roadmap (no source yet)
+Robogame.Network      — NGO 2.x layer (session 86). Bootstrap/{NetworkBootstrap,
+                         ContentHashGuard, NetDevHud, NetworkSceneFlow};
+                         Robot/{NetworkRobot+SpawnRobotPayload, NetworkRobotState,
+                         NetworkBlockGrid+BlockHitEvent, NetworkRobotMovement+
+                         NetworkInputSource, NetworkRobotCombat}. Refs everything
+                         gameplay-side; gameplay asmdefs NEVER ref it — the only
+                         bridge is INetworkContext (Core). Phase-1 loopback;
+                         robot prefab + Bootstrap-scene wiring is the MPPM-exit
+                         editor step (see docs/changes/86-*.md)
 ```
 
 ## Runtime flow
@@ -123,6 +133,14 @@ Arena round flow (Pillar 1)
 
 ## Patterns / gotchas
 
+- **`NetworkContext` is offline-authoritative by default.** With no NGO
+  session registered, `NetworkContext.Instance.IsServer/IsClient` are
+  both true and `IsOnline` is false, so singleplayer is byte-identical
+  and server-only gates still run. `NetworkBootstrap` registers a real
+  context *only while a session is live*. Gameplay gates the
+  *singleplayer/local* path on `!IsOnline` (NOT `IsServer` — an online
+  host is also a server, and networked spawn is owned by `NetworkRobot`,
+  so an `IsServer` gate would double-spawn on the host). See session 86.
 - **Statics survive domain reload, GameObjects don't.** Any static
   cache of Unity objects must `[RuntimeInitializeOnLoadMethod]` reset.
 - **`AddComponent<T>` runs `OnEnable` synchronously.** Reflection-based
