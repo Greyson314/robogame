@@ -6,6 +6,7 @@
         "Robogame.Block",
         "Robogame.Input",
         "Robogame.Movement",
+        "Robogame.Combat",
         "Robogame.Player",
         "Robogame.Gameplay",
         "Robogame.Voxel",

@@ -8,36 +8,23 @@
 // so they live in PlayMode.
 //
 // Tests exercise the following flows:
-//  1. Frag-count win — kill one bot with targetFragCount=1, assert MatchEnded
-//     fires with Player as winner.
-//  2. Player death during a round does NOT count as a kill against the player
-//     when the player still has lives remaining (respawn path).
-//  3. Bot spawn — a bot spawned via MatchController gets a working IInputSource
-//     resolved by PlayerController.Awake (no null-input error logged).
-//  4. (Smoke) Round-end state machine — MatchController reaches RoundEnded
-//     state after MatchEnded fires.
-//
-// Tests that require a full scene load (Arena → Garage transition) are
-// annotated with [Ignore] until ArenaController is wired to MatchController.
-// The annotations explain what API must be in place before they can run.
+//  1. Scrap-deposit win — deposit enough scrap for TargetTeamScrap=1, assert
+//     MatchEnded fires with Player as winner and state is RoundEnded.
+//  2. Player death during a round does NOT increment the enemy score when the
+//     player still has lives remaining; the game continues.
+//  3. Bot spawn — genuinely untestable in isolation: requires GameStateController
+//     + ChassisFactory + a full-scene stack. [Ignore] with documented blocker.
+//  4. RoundEnded terminal-state — MatchController stays in RoundEnded on
+//     additional Tick calls; the state is final.
+//  5. MatchEndOverlay becomes visible once MatchController raises MatchEnded.
+//  6. ObjectiveHud.DisplayedPlayerScore reflects MatchController.ScoreForSide
+//     after a DepositScrap call.
 //
 // Naming follows the project convention:
 //   {ClassName}Tests.{Feature}_{Scenario}_{Expected}
 //
-// Requested production APIs (must land before these tests compile)
-// ---------------------------------------------------------------
-// • MatchController — MonoBehaviour or plain class, whichever the planner
-//   chooses. If it is a MonoBehaviour it must still be constructible for
-//   the EditMode counterpart; a Tick(float) entry-point is needed for both.
-// • MatchController.SpawnBot(BotEntry entry) → GameObject — spawns a bot and
-//   returns its root GameObject so the test can inspect it.
-// • BotEntry — config struct/class describing the bot's blueprint and AI type
-//   (GroundBot or AirBot).
-// • MatchController.NotifyPlayerLivesExhausted() — drives the elimination path.
-// • MatchEndOverlay — MonoBehaviour that shows when MatchController.RoundEnded
-//   fires. Has a visible bool property IsVisible (or checks gameObject.activeSelf).
-// • ArenaController wired to MatchController: ArenaController.MatchController
-//   property or MatchController found via FindFirstObjectByType.
+// Assertion philosophy (CLAUDE.md Rule 9): every assertion encodes WHY the
+// behaviour matters. A test that can pass with a no-op implementation is wrong.
 // =============================================================================
 
 using System.Collections;
@@ -46,9 +33,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-// API in flight — using the planned namespace.
 using Robogame.Gameplay;
-using Robogame.Input;
 
 namespace Robogame.Tests.PlayMode.Gameplay
 {
@@ -85,9 +70,7 @@ namespace Robogame.Tests.PlayMode.Gameplay
         // Helpers
         // -----------------------------------------------------------------
 
-        /// <summary>
-        /// Create a tracked GameObject. Destroyed automatically in TearDown.
-        /// </summary>
+        /// <summary>Create a tracked GameObject. Destroyed automatically in TearDown.</summary>
         private GameObject MakeGo(string name)
         {
             var go = new GameObject(name);
@@ -96,14 +79,25 @@ namespace Robogame.Tests.PlayMode.Gameplay
         }
 
         /// <summary>
-        /// Build a fresh MatchController for a test. Session-28 landed
-        /// MatchController as a plain C# class (not a MonoBehaviour) so it
-        /// can be EditMode-tested without a scene; constructor takes the
-        /// config directly. No GameObject lifetime to track.
+        /// Build a MatchController with zero warmup so tests can go straight to
+        /// InProgress via a single Tick. Matches the pattern in
+        /// MatchControllerTests (EditMode counterpart).
         /// </summary>
-        private static MatchController MakeMatchController(MatchConfig config)
+        private static MatchController MakeStartedController(int targetTeamScrap = 5, float roundDuration = 300f, int playerLives = 3)
         {
-            return new MatchController(config);
+            var cfg = new MatchConfig
+            {
+                RequireManualStart = false,
+                WarmupDuration     = 0f,
+                RoundDuration      = roundDuration,
+                TargetTeamScrap    = targetTeamScrap,
+                PlayerLives        = playerLives,
+            };
+            var mc = new MatchController(cfg);
+            mc.Tick(0.01f); // advance past zero-duration warmup → InProgress
+            Assert.AreEqual(MatchState.InProgress, mc.State,
+                "Helper precondition: controller must be InProgress before test body runs.");
+            return mc;
         }
 
         // -----------------------------------------------------------------
@@ -111,286 +105,264 @@ namespace Robogame.Tests.PlayMode.Gameplay
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Frag-count win: set target frag count to 1, register one player kill,
-        /// assert MatchEnded fires with Player as winner and state is RoundEnded.
-        /// This is the primary singleplayer win condition.
+        /// Scrap-deposit win: deposit exactly TargetTeamScrap=1, assert MatchEnded
+        /// fires with Player as winner and the state transitions to RoundEnded.
+        ///
+        /// WHY: this is the primary singleplayer win condition. If DepositScrap
+        /// doesn't raise MatchEnded, the round never ends regardless of how much
+        /// scrap the player banks. If WinnerSide is wrong, the end overlay shows
+        /// "DEFEAT" for a win. Both are regression-critical for the netcode
+        /// wrapper, which will drive MatchEnded as an RPC.
         /// </summary>
         [UnityTest]
         public IEnumerator RegisterKill_FragLimitOf1_PlayerKills_MatchEndedFires()
         {
-            // API in flight: full test body when MatchController lands.
-            // The flow:
-            //   1. Create MatchController with targetFragCount=1, warmupDuration=0.
-            //   2. Subscribe to MatchEnded.
-            //   3. Wait one frame for Start/Awake.
-            //   4. Tick warmup past.
-            //   5. Call RegisterKill(Player, Enemy).
-            //   6. Assert MatchEnded fired with Player winner.
-
-            yield return null; // placeholder yield so [UnityTest] compiles
-
-            // API in flight — uncomment and update when MatchController exists:
-            /*
-            MatchConfig cfg = new MatchConfig
-            {
-                WarmupDuration  = 0f,
-                RoundDuration   = 300f,
-                TargetFragCount = 1,
-                PlayerLives     = 1,
-            };
-            MatchController mc = MakeMatchController(cfg);
-            yield return null; // let Start run
+            // The test was originally scaffolded around a TargetFragCount win
+            // condition that was never implemented. The real win condition is
+            // scrap-deposit-based (MatchController.DepositScrap hitting
+            // TargetTeamScrap). This test now covers that path; the method name
+            // is preserved so the test runner history stays continuous.
+            MatchController mc = MakeStartedController(targetTeamScrap: 1);
 
             MatchEndedArgs? endArgs = null;
             mc.MatchEnded += args => endArgs = args;
 
-            mc.Tick(0.1f); // past warmup
-            mc.RegisterKill(MatchSide.Player, MatchSide.Enemy);
+            mc.DepositScrap(MatchSide.Player, 1);
 
-            yield return null; // let any deferred callbacks fire
+            // MatchEnded must fire synchronously on DepositScrap — no frame wait
+            // needed because MatchController is a plain C# class. Yield once to
+            // match [UnityTest] contract and to surface any deferred callbacks
+            // if the implementation adds them.
+            yield return null;
 
             Assert.IsNotNull(endArgs,
-                "MatchEnded must fire after player hits frag limit of 1.");
+                "MatchEnded must fire after player deposits enough scrap to hit TargetTeamScrap=1. " +
+                "If this fails, DepositScrap's win-condition check is broken.");
             Assert.AreEqual(MatchSide.Player, endArgs!.Value.WinnerSide,
-                "WinnerSide must be Player on a frag-limit win.");
-            Assert.AreEqual(MatchEndReason.FragLimitReached, endArgs.Value.Reason);
-            Assert.AreEqual(MatchState.RoundEnded, mc.State);
-            */
-
-            Assert.Pass("API in flight — RegisterKill frag-count win path. " +
-                        "Update assertions when MatchController.Tick / RegisterKill / MatchEnded exist.");
+                "WinnerSide must be Player when the player side hits the scrap limit. " +
+                "A wrong WinnerSide renders the wrong end-overlay (DEFEAT on a win).");
+            Assert.AreEqual(MatchEndReason.ScrapLimitReached, endArgs.Value.Reason,
+                "MatchEndReason must be ScrapLimitReached. The netcode wrapper uses Reason " +
+                "to pick the correct RPC payload for the end-of-round overlay.");
+            Assert.AreEqual(MatchState.RoundEnded, mc.State,
+                "State must be RoundEnded after MatchEnded fires — the state machine must " +
+                "be terminal. Additional Tick calls or deposits must not re-fire MatchEnded.");
         }
 
         /// <summary>
-        /// Player death during a round with remaining lives must NOT increment
-        /// the enemy kill score. Only a death that consumes the last life should
-        /// trigger NotifyPlayerLivesExhausted → enemy win.
+        /// Player death with lives remaining: DecrementPlayerLives when 3 lives
+        /// are configured must leave 2 lives, must NOT change the enemy score,
+        /// and must leave the match InProgress.
         ///
-        /// This ensures that a single-life config still goes through the
-        /// elimination path (not the kill-count path) so the reason string and
-        /// overlay are correct.
+        /// WHY: kills are informational (KillRegistered fires for streak banners)
+        /// but do NOT score points — only scrap deposits do. A player death with
+        /// lives remaining is a respawn trigger, not a match-ending event.
+        /// If enemy score increments here, the ScrapDepot UI shows a phantom
+        /// point the enemy never earned. If State moves to RoundEnded, the match
+        /// ends when the player dies with lives remaining — a critical regression
+        /// that would make all multi-life configs unplayable.
         /// </summary>
         [UnityTest]
         public IEnumerator PlayerDeath_WithLivesRemaining_DoesNotIncrementEnemyScore()
         {
-            yield return null; // placeholder yield
+            MatchController mc = MakeStartedController(targetTeamScrap: 99, playerLives: 3);
 
-            // API in flight — uncomment when MatchController + playerLives logic lands:
-            /*
-            MatchConfig cfg = new MatchConfig
-            {
-                WarmupDuration  = 0f,
-                RoundDuration   = 300f,
-                TargetFragCount = 99,
-                PlayerLives     = 3, // player has 3 lives; death #1 should NOT count as a kill
-            };
-            MatchController mc = MakeMatchController(cfg);
+            // Simulate a player death: register the kill (fires KillRegistered for
+            // HUD banners) then decrement lives (what ArenaController.HandleRobotDestroyed
+            // does when victimSide == Player).
+            mc.RegisterKill(MatchSide.Enemy, MatchSide.Player);
+            int livesLeft = mc.DecrementPlayerLives();
+
             yield return null;
 
-            mc.Tick(0.1f); // past warmup
-            mc.RegisterKill(MatchSide.Enemy, MatchSide.Player); // player "dies" but has lives
-
-            // API in flight: MatchController.PlayerLivesRemaining
+            Assert.AreEqual(2, livesLeft,
+                "DecrementPlayerLives must return 2 after the first death with PlayerLives=3. " +
+                "If it returns wrong, ArenaController may call NotifyPlayerLivesExhausted early " +
+                "and end the match incorrectly.");
             Assert.AreEqual(2, mc.PlayerLivesRemaining,
-                "Player must have 2 lives after first death with 3 starting lives.");
+                "PlayerLivesRemaining must match the DecrementPlayerLives return value. " +
+                "Both paths are used by different callers (ArenaController checks the return; " +
+                "HUD reads the property).");
             Assert.AreEqual(0, mc.ScoreForSide(MatchSide.Enemy),
-                "Enemy score must NOT increment when the player dies with lives remaining " +
-                "(death is a respawn, not a scored kill).");
+                "Enemy scrap score must NOT change when the player dies with lives remaining. " +
+                "Kills are informational only — scrap deposits drive the score. " +
+                "A regression here would show phantom enemy scrap in the ObjectiveHud.");
             Assert.AreEqual(MatchState.InProgress, mc.State,
-                "Match must remain InProgress while the player has lives left.");
-            */
-
-            Assert.Pass("API in flight — PlayerLives / respawn kill-gating. " +
-                        "Update assertions when MatchController.PlayerLivesRemaining exists.");
+                "Match must remain InProgress while the player still has 2 lives left. " +
+                "RoundEnded here would skip the respawn coroutine and lock the arena.");
         }
 
         /// <summary>
-        /// Bot spawn: a bot created via MatchController.SpawnBot must have a
-        /// PlayerController whose IInputSource is non-null. A null IInputSource
-        /// means the bot sits still forever — the most common wiring error.
+        /// Bot spawn: requires GameStateController.Instance, ChassisFactory.Build,
+        /// a library of BlockDefinitions, and a ChassisBlueprint asset — none of
+        /// which can be constructed in isolation in a PlayMode test without the
+        /// full Bootstrap scene.
         ///
-        /// Tests the contract from NETCODE_PLAN: server spawns bots via
-        /// MatchController, which is authoritative.
+        /// WHY this is ignored: the bot spawn path is exercised end-to-end in
+        /// manual play-testing and will be covered by a scene-load integration
+        /// test once the netcode session wires ArenaController to a
+        /// NetworkManager. Unblocking it here would require either:
+        ///   (a) a fake GameStateController + fake Library — high maintenance,
+        ///   (b) a scene load via SceneManager — fragile in CI (no Bootstrap scene
+        ///       asset in the test runner context).
+        /// The plain-C# MatchController tests cover the state-machine half;
+        /// this test is the one gap that genuinely waits on the scene stack.
         /// </summary>
         [UnityTest]
+        [Ignore("SpawnBot requires GameStateController.Instance + ChassisFactory + BlockDefinition library. " +
+                "Cannot construct in isolation without the Bootstrap scene. " +
+                "Re-enable when a test-scene asset (Assets/_Project/Tests/Scenes/MinimalArena.unity) exists " +
+                "and loads a trimmed GameStateController with a minimal one-block library.")]
         public IEnumerator SpawnBot_ResultingGameObject_HasResolvedIInputSource()
         {
-            yield return null; // placeholder yield
-
-            // API in flight — uncomment when MatchController.SpawnBot lands:
-            /*
-            MatchConfig cfg = new MatchConfig
-            {
-                WarmupDuration  = 0f,
-                RoundDuration   = 300f,
-                TargetFragCount = 5,
-                PlayerLives     = 1,
-            };
-            MatchController mc = MakeMatchController(cfg);
             yield return null;
-
-            // API in flight: BotEntry / SpawnBot API. Planner will determine
-            // the exact type; the intent is to spawn a ground bot.
-            BotEntry botEntry = new BotEntry
-            {
-                AiType    = BotAiType.Ground,
-                Blueprint = null, // will use default ground preset if null
-                SpawnPosition = new Vector3(10f, 1.5f, 0f),
-            };
-            // API in flight: MatchController.SpawnBot returns the bot's root GO.
-            GameObject botGo = mc.SpawnBot(botEntry);
-            _roots.Add(botGo); // track for cleanup
-
-            yield return null; // let Awake run on all new components
-
-            // The bot's PlayerController must have resolved an IInputSource.
-            // PlayerController logs an error if it can't resolve one; we just
-            // assert the field non-null via the public resolved state.
-            PlayerController pc = botGo.GetComponentInChildren<PlayerController>();
-            Assert.IsNotNull(pc,
-                "Spawned bot must have a PlayerController (it's what drives GroundDriveSubsystem).");
-
-            // PlayerController._input is private; check for the symptom instead:
-            // if IInputSource resolved, PlayerController doesn't log an error,
-            // and the bot's Move is non-zero after a tick. We approximate this
-            // by checking that a GroundBotInputSource is present on the same
-            // root.
-            IInputSource inputSource = botGo.GetComponentInChildren<IInputSource>();
-            Assert.IsNotNull(inputSource,
-                "Spawned bot root must have an IInputSource component. " +
-                "PlayerController.Awake resolves it via GetComponent<IInputSource>; " +
-                "if it's missing the bot drives with zero input silently.");
-            */
-
-            Assert.Pass("API in flight — MatchController.SpawnBot / BotEntry. " +
-                        "Update assertions when the spawn API exists.");
+            Assert.Fail("This test body should never run while [Ignore] is active.");
         }
 
         /// <summary>
-        /// Smoke test: after MatchEnded fires, MatchController.State is RoundEnded
-        /// and stays there across additional Tick calls. Verifies the state machine
-        /// is terminal once the round concludes.
+        /// RoundEnded is a terminal state: additional Tick calls after MatchEnded
+        /// fires must not change State or re-fire MatchEnded.
+        ///
+        /// WHY: the netcode wrapper will call MatchController.Tick every server
+        /// frame. If RoundEnded is not truly terminal, a late tick can re-fire
+        /// MatchEnded, sending a duplicate end-of-round RPC to all clients. That
+        /// produces double overlays and corrupts the session score log.
         /// </summary>
         [UnityTest]
         public IEnumerator MatchController_AfterMatchEnded_StateRemainsRoundEnded()
         {
-            yield return null; // placeholder yield
+            // Use a very short round so the timer-expiry path ends the match, not
+            // a deposit. That exercises the Tick→EndMatch path rather than the
+            // DepositScrap path already covered above.
+            MatchController mc = MakeStartedController(targetTeamScrap: 99, roundDuration: 0.001f);
 
-            // API in flight:
-            /*
-            MatchConfig cfg = new MatchConfig
-            {
-                WarmupDuration  = 0f,
-                RoundDuration   = 0.01f, // expires almost immediately
-                TargetFragCount = 99,
-                PlayerLives     = 1,
-            };
-            MatchController mc = MakeMatchController(cfg);
-            yield return null;
+            int endCount = 0;
+            mc.MatchEnded += _ => endCount++;
 
-            mc.Tick(0.1f); // past warmup + past round timer → ends in draw
+            // Tick well past the round timer to ensure EndMatch fires.
+            mc.Tick(1f);
+
             yield return null;
 
             Assert.AreEqual(MatchState.RoundEnded, mc.State,
-                "State must be RoundEnded once the round timer expires.");
+                "State must be RoundEnded once the round timer expires. " +
+                "If this fails, the timer-expiry path in Tick is not calling EndMatch.");
+            Assert.AreEqual(1, endCount,
+                "MatchEnded must have fired exactly once. " +
+                "Firing zero times means the timer check is broken; " +
+                "firing more than once would send duplicate RPCs.");
 
-            // Spam additional ticks — state must not move.
+            // Spam additional ticks — state and fire count must not change.
             mc.Tick(100f);
             mc.Tick(100f);
+
             yield return null;
 
             Assert.AreEqual(MatchState.RoundEnded, mc.State,
-                "State must remain RoundEnded; it's a terminal state.");
-            */
-
-            Assert.Pass("API in flight — RoundEnded terminal-state invariant. " +
-                        "Update when MatchController.Tick / State exist.");
+                "State must remain RoundEnded across additional Tick calls. " +
+                "RoundEnded is a terminal state — re-entry is only via a new " +
+                "MatchController instance (a new round).");
+            Assert.AreEqual(1, endCount,
+                "MatchEnded must still have fired exactly once after extra ticks. " +
+                "A second fire would mean the idempotency guard in EndMatch is broken.");
         }
 
         /// <summary>
-        /// MatchEndOverlay must become visible when MatchEnded fires, and must
-        /// present a "Return to garage" path. Tests the overlay's IsVisible
-        /// property; does not test the actual scene transition (that would
-        /// require SceneManager and is out of scope for a per-feature test).
+        /// MatchEndOverlay.IsVisible must become true when MatchController raises
+        /// MatchEnded, and must remain false before that event fires.
+        ///
+        /// WHY: MatchEndOverlay.IsVisible gates the OnGUI draw path. If it stays
+        /// false after MatchEnded, the player sees no end-of-round overlay and
+        /// cannot click "Return to Garage" — the session is soft-locked. If it
+        /// becomes true before MatchEnded, the overlay stacks over the gameplay
+        /// HUD during a live round.
+        ///
+        /// MatchEndOverlay.IsVisible is defined as:
+        ///   _hasArgs && _match != null && _match.State == MatchState.RoundEnded
+        /// which means it reads live MatchController state — this test also
+        /// verifies that BindMatch wires the subscription correctly.
         /// </summary>
         [UnityTest]
         public IEnumerator MatchEndOverlay_BecomesVisible_WhenMatchControllerEnds()
         {
-            yield return null; // placeholder yield
+            MatchController mc = MakeStartedController(targetTeamScrap: 1);
 
-            // API in flight:
-            /*
-            MatchConfig cfg = new MatchConfig
-            {
-                WarmupDuration  = 0f,
-                RoundDuration   = 0.01f,
-                TargetFragCount = 99,
-                PlayerLives     = 1,
-            };
-            MatchController mc = MakeMatchController(cfg);
-
-            // MatchEndOverlay must be wired to the MatchController. In
-            // production it subscribes to MatchController.MatchEnded in Awake.
+            // MatchEndOverlay is a MonoBehaviour — must live on a GameObject.
             GameObject overlayGo = MakeGo("MatchEndOverlay");
             MatchEndOverlay overlay = overlayGo.AddComponent<MatchEndOverlay>();
-            // API in flight: MatchEndOverlay.BindTo(MatchController)
-            overlay.BindTo(mc);
+            overlay.BindMatch(mc);
 
-            yield return null; // let Awake run
-
-            mc.Tick(1f); // ends the round
+            // Let Awake run (it runs synchronously via AddComponent, but yield
+            // one frame to match real scene behaviour and flush any deferred paths).
             yield return null;
 
-            // API in flight: MatchEndOverlay.IsVisible
-            Assert.IsTrue(overlay.IsVisible,
-                "MatchEndOverlay must become visible once MatchController raises MatchEnded.");
-            */
+            // Pre-condition: overlay must be invisible before the match ends.
+            Assert.IsFalse(overlay.IsVisible,
+                "MatchEndOverlay must NOT be visible before MatchEnded fires. " +
+                "A visible overlay during a live round obscures the gameplay HUD.");
 
-            Assert.Pass("API in flight — MatchEndOverlay.IsVisible + BindTo(MatchController). " +
-                        "Update when MatchEndOverlay exists.");
+            // End the match by hitting the scrap limit.
+            mc.DepositScrap(MatchSide.Player, 1);
+
+            yield return null;
+
+            Assert.IsTrue(overlay.IsVisible,
+                "MatchEndOverlay must become visible once MatchController raises MatchEnded. " +
+                "IsVisible := _hasArgs && match.State == RoundEnded. " +
+                "If this fails, BindMatch did not subscribe to MatchEnded, or " +
+                "_hasArgs is not set in HandleMatchEnded.");
         }
 
         /// <summary>
-        /// ObjectiveHud should reflect the current kill count after each
-        /// RegisterKill call. Tests that the HUD's display values are sourced
-        /// from MatchController.ScoreForSide, not from a separate counter.
+        /// ObjectiveHud.DisplayedPlayerScore must reflect the current player scrap
+        /// total from MatchController.ScoreForSide(Player).
+        ///
+        /// WHY: ObjectiveHud.DisplayedPlayerScore is defined as
+        ///   _match != null ? _match.ScoreForSide(MatchSide.Player) : 0
+        /// which means it reads directly from the MatchController rather than
+        /// maintaining a separate counter. If BindMatch is broken (null _match),
+        /// DisplayedPlayerScore will always return 0 regardless of deposits —
+        /// the scoreboard shows 0/20 forever and the player has no round-state
+        /// feedback. This test pins the binding contract.
+        ///
+        /// Note: the stub tested a non-existent 'DisplayedPlayerKills' property
+        /// tied to a frag-count win condition. The real property is
+        /// 'DisplayedPlayerScore' (team scrap). Test updated to match reality.
         /// </summary>
         [UnityTest]
         public IEnumerator ObjectiveHud_KillCount_ReflectsMatchControllerScore()
         {
-            yield return null; // placeholder yield
+            MatchController mc = MakeStartedController(targetTeamScrap: 99);
 
-            // API in flight:
-            /*
-            MatchConfig cfg = new MatchConfig
-            {
-                WarmupDuration  = 0f,
-                RoundDuration   = 300f,
-                TargetFragCount = 5,
-                PlayerLives     = 1,
-            };
-            MatchController mc = MakeMatchController(cfg);
-
-            // ObjectiveHud reads from MatchController; it must be bound at
-            // construction or via a BindTo method.
+            // ObjectiveHud is a MonoBehaviour that needs a camera component chain
+            // in production (FollowCamera for chassis binding). For this unit test
+            // we only care about the score binding, which is independent of the
+            // camera / chassis chain.
             GameObject hudGo = MakeGo("ObjectiveHud");
             ObjectiveHud hud = hudGo.AddComponent<ObjectiveHud>();
-            // API in flight: ObjectiveHud.BindTo(MatchController)
-            hud.BindTo(mc);
+            hud.BindMatch(mc);
 
-            yield return null; // let Awake run
+            // Pre-condition: no deposit yet → both scores must read 0.
+            Assert.AreEqual(0, hud.DisplayedPlayerScore,
+                "DisplayedPlayerScore must be 0 before any deposit. " +
+                "If non-zero, BindMatch is wiring to the wrong controller instance.");
+            Assert.AreEqual(0, hud.DisplayedEnemyScore,
+                "DisplayedEnemyScore must be 0 before any deposit.");
 
-            mc.Tick(0.1f); // past warmup
-            mc.RegisterKill(MatchSide.Player, MatchSide.Enemy);
-            yield return null; // let Update run
+            mc.DepositScrap(MatchSide.Player, 3);
 
-            // API in flight: ObjectiveHud.DisplayedPlayerKills — int property
-            Assert.AreEqual(1, hud.DisplayedPlayerKills,
-                "ObjectiveHud must display 1 player kill after one RegisterKill(Player, Enemy).");
-            */
+            // DisplayedPlayerScore reads _match.ScoreForSide synchronously —
+            // no frame wait needed for the value itself. Yield once to match
+            // [UnityTest] contract and catch any deferred-update bugs.
+            yield return null;
 
-            Assert.Pass("API in flight — ObjectiveHud.DisplayedPlayerKills + BindTo(MatchController). " +
-                        "Update when ObjectiveHud exists.");
+            Assert.AreEqual(3, hud.DisplayedPlayerScore,
+                "DisplayedPlayerScore must return 3 after DepositScrap(Player, 3). " +
+                "If 0, BindMatch did not assign _match (subscription was skipped or " +
+                "the DisplayedPlayerScore property reads from a stale reference).");
+            Assert.AreEqual(0, hud.DisplayedEnemyScore,
+                "DisplayedEnemyScore must remain 0 — only the player deposited. " +
+                "If non-zero, ScoreForSide is returning the wrong side's total.");
         }
     }
 }

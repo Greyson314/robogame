@@ -1,7 +1,7 @@
 // Session 22: hook-grapple physics. Asserts that HookBlock.HandleCollision
-// creates a ConfigurableJoint between the rope's host segment Rigidbody
-// and the contacted target Rigidbody, with self-grapple rejection,
-// per-hook re-attach cooldown, clean release, and a null-body guard.
+// creates a SpringJoint between the rope's host segment Rigidbody and the
+// contacted target Rigidbody, with self-grapple rejection, per-hook
+// re-attach cooldown, clean release, and a null-body guard.
 //
 // Naming follows the session-17 convention:
 //   {ClassName}Tests.{Method}_{Scenario}_{ExpectedOutcome}.
@@ -29,13 +29,6 @@ namespace Robogame.Tests.PlayMode.Movement
         // Reflection helpers — read private state without exposing API
         // -----------------------------------------------------------------
 
-        private static ConfigurableJoint GetGrappleJoint(HookBlock h)
-        {
-            FieldInfo fi = typeof(HookBlock).GetField(
-                "_grappleJoint", BindingFlags.NonPublic | BindingFlags.Instance);
-            return fi?.GetValue(h) as ConfigurableJoint;
-        }
-
         private static float GetReleaseTime(HookBlock h)
         {
             FieldInfo fi = typeof(HookBlock).GetField(
@@ -50,14 +43,19 @@ namespace Robogame.Tests.PlayMode.Movement
             fi?.SetValue(h, seconds);
         }
 
-        // Synthesise a Collision-like callback by invoking HandleCollision
-        // directly. Real PhysX collisions go through TipCollisionForwarder;
-        // this is the same code path with a hand-built Collision object
-        // would be too brittle, so we test the method directly via
-        // reflection. HandleCollision's signature takes a Collision; PhysX
-        // doesn't expose a constructor, so we trigger an actual collision
-        // by giving the target a velocity into the hook and waiting a
-        // FixedUpdate. That is what each test below does.
+        // HookBlock.Attach is private. Call it via reflection so we can drive
+        // the grapple path without needing a real PhysX Collision object.
+        // Only used in the joint-creation test where the collision forwarding
+        // chain (TipCollisionForwarder → HandleCollision → Attach) is what we
+        // are verifying end-to-end. For the collision test itself we use the
+        // real PhysX path + TipCollisionForwarder; for the injection tests we
+        // call Attach directly.
+        private static void CallAttach(HookBlock h, Rigidbody targetRb, Vector3 contactPoint)
+        {
+            MethodInfo mi = typeof(HookBlock).GetMethod(
+                "Attach", BindingFlags.NonPublic | BindingFlags.Instance);
+            mi?.Invoke(h, new object[] { targetRb, contactPoint });
+        }
 
         // -----------------------------------------------------------------
         // SetUp / TearDown
@@ -126,45 +124,86 @@ namespace Robogame.Tests.PlayMode.Movement
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// When the hook contacts an external chassis, a ConfigurableJoint
-        /// should be created linking the host segment Rigidbody to the
-        /// target Rigidbody.
+        /// When the hook contacts an external chassis, a SpringJoint must be
+        /// created linking the host segment Rigidbody to the target Rigidbody
+        /// (HookBlock.IsGrappled becomes true, GrappleTarget is the target).
+        ///
+        /// WHY this matters for netcode: the grapple joint is the one physics
+        /// constraint that must replicate. If Attach never runs, the joint is
+        /// never created, and the server's authoritative rope state diverges
+        /// from the client's visual. This test closes the gap between
+        /// "TipCollisionForwarder wired correctly" and "Attach called" by
+        /// using a real PhysX collision + forwarder.
+        ///
+        /// Implementation: we add a TipCollisionForwarder to _hostGo (the same
+        /// component RopeBlock.AdoptAdjacentTipBlock adds in production) and
+        /// push the target into the hook at high velocity. PhysX fires
+        /// OnCollisionEnter → forwarder → HandleCollision → Attach.
+        /// The hook's BoxColliders are parented under hookGo (a child of _hostGo
+        /// sharing _hostRb as the owning Rigidbody), so PhysX resolves contacts
+        /// against _hostRb and routes OnCollisionEnter to TipCollisionForwarder
+        /// on _hostGo.
         /// </summary>
         [UnityTest]
         public IEnumerator HandleCollision_OnExternalContact_CreatesGrappleJoint()
         {
-            // Push target into the hook so PhysX registers a real contact.
-            _targetRb.linearVelocity = new Vector3(0f, 0f, -8f);
-            // Move target to overlap the host's natural collider zone.
-            _targetGo.transform.position = new Vector3(0f, 0f, 0.4f);
+            // Wire TipCollisionForwarder to mimic what RopeBlock does in
+            // production. Without this component, OnCollisionEnter on _hostGo
+            // never reaches HookBlock.HandleCollision — the hook would sit
+            // inert regardless of collisions.
+            TipCollisionForwarder forwarder = _hostGo.AddComponent<TipCollisionForwarder>();
+            forwarder.Tip = _hook;
 
-            // Wait several fixed updates so contacts resolve and the
-            // collision forwarder has a chance to fire.
-            for (int i = 0; i < 5; i++) yield return new WaitForFixedUpdate();
+            // Position the target overlapping the hook's collider zone so
+            // PhysX starts with an existing contact (faster than waiting
+            // for a fly-in at FixedUpdate intervals).
+            _targetGo.transform.position = new Vector3(0f, 0f, 0.1f);
+            _targetRb.linearVelocity = new Vector3(0f, 0f, -6f); // driving into the hook
 
-            // The hook is parented under the host but uses host's collider
-            // for its hit volume in production. In this test we don't have
-            // a TipCollisionForwarder spawned (production path adds it via
-            // RopeBlock.TryAdoptTipBlock). Invoke HandleCollision-like
-            // behaviour by calling Attach indirectly through reflection
-            // since we can't synthesise a Collision object cleanly.
-            // Instead: verify the public API surface — IsGrappled and
-            // GrappleTarget — by calling HandleCollision via the Forwarder
-            // pattern manually.
-            //
-            // For a clean test, use the test's "pretend a contact happened"
-            // trick: construct the joint via the same Attach path the hook
-            // would have taken. The Attach method is private, so we test
-            // through a fake-collision driver below — see the next tests.
-            Assert.Pass(
-                "Smoke test: SetUp ran, host + owner + target + hook GameObjects exist. " +
-                "The joint-creation path is exercised in the dedicated tests below.");
+            // Wait enough fixed steps for PhysX to resolve the contact and
+            // for TipCollisionForwarder.OnCollisionEnter to fire. Production
+            // rope+hook collisions typically resolve within 2 fixed steps;
+            // allow 10 as headroom.
+            for (int i = 0; i < 10; i++) yield return new WaitForFixedUpdate();
+
+            // The hook should now be grappled to the target.
+            Assert.IsTrue(_hook.IsGrappled,
+                "HookBlock.IsGrappled must be true after a real PhysX collision with an " +
+                "external Rigidbody routed through TipCollisionForwarder. " +
+                "If false, HandleCollision was never called — check that " +
+                "TipCollisionForwarder.Tip is set and the hookGo's BoxColliders are " +
+                "reachable by the owning Rigidbody (_hostRb).");
+
+            Assert.IsNotNull(_hook.GrappleTarget,
+                "HookBlock.GrappleTarget must be non-null after a successful grapple. " +
+                "GrappleTarget is used by FixedUpdate's null-body guard to detect " +
+                "target destruction mid-grapple; if null, the guard fires immediately " +
+                "and the joint is released on the next FixedUpdate.");
+
+            Assert.AreSame(_targetRb, _hook.GrappleTarget,
+                "GrappleTarget must be the target's Rigidbody, not some other body. " +
+                "A wrong target reference means the pull force is applied to the wrong " +
+                "body — the rope would drag something other than the intended chassis.");
+
+            // Confirm the grapple joint lives on the host segment (not on the
+            // hook's own GameObject). In production the SpringJoint is added to
+            // _hostRb.gameObject so PhysX owns it alongside the chassis↔tip joint.
+            SpringJoint joint = _hostGo.GetComponent<SpringJoint>();
+            Assert.IsNotNull(joint,
+                "A SpringJoint must exist on the host segment GameObject after Attach. " +
+                "The joint is what actually transmits rope tension to the target. " +
+                "If missing, IsGrappled returning true would be a lie with no physics effect.");
+
+            Assert.AreSame(_targetRb, joint.connectedBody,
+                "SpringJoint.connectedBody must be the target Rigidbody. " +
+                "An incorrect connectedBody means the constraint pulls the wrong body — " +
+                "critical for netcode authority which reads connectedBody to identify " +
+                "which client's chassis the server is tracking.");
         }
 
         /// <summary>
         /// <see cref="HookBlock.IsGrappled"/> and <see cref="HookBlock.GrappleTarget"/>
-        /// must reflect the real grapple state — false / null when not
-        /// attached.
+        /// must reflect the real grapple state — false / null when not attached.
         /// </summary>
         [Test]
         public void IsGrappled_WhenNeverAttached_IsFalse()
@@ -191,6 +230,62 @@ namespace Robogame.Tests.PlayMode.Movement
         }
 
         /// <summary>
+        /// HookBlock.Attach creates a SpringJoint on the host segment linked to the
+        /// target Rigidbody. This test calls Attach directly (via reflection) rather
+        /// than driving a real PhysX collision, which lets it run as a fast
+        /// non-physics test.
+        ///
+        /// WHY a second test alongside HandleCollision_OnExternalContact: that test
+        /// verifies the wiring chain (forwarder → HandleCollision → Attach). This
+        /// test verifies the Attach contract in isolation — spring stiffness, break
+        /// force, and connectedBody — so a regression in the joint configuration
+        /// is caught independently of the collision-forwarding path.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Attach_ToExternalTarget_CreatesSpringJoint_WithCorrectConfiguration()
+        {
+            // Zero-out the release time so the reattach cooldown is not blocking.
+            FieldInfo releaseTimeField = typeof(HookBlock).GetField(
+                "_releaseTime", BindingFlags.NonPublic | BindingFlags.Instance);
+            releaseTimeField?.SetValue(_hook, -999f);
+
+            Vector3 contactPoint = new Vector3(0f, 0f, 0.5f);
+            CallAttach(_hook, _targetRb, contactPoint);
+
+            // Let one FixedUpdate run so the joint's internal state settles.
+            yield return new WaitForFixedUpdate();
+
+            Assert.IsTrue(_hook.IsGrappled,
+                "IsGrappled must be true immediately after Attach completes.");
+
+            SpringJoint joint = _hostGo.GetComponent<SpringJoint>();
+            Assert.IsNotNull(joint,
+                "A SpringJoint must exist on the host segment after Attach. " +
+                "HookBlock uses SpringJoint (not ConfigurableJoint:Locked) because " +
+                "spring forces are bounded — locked constraints spike impulses under " +
+                "acceleration and trip breakForce (see HookBlock.Attach remarks).");
+
+            Assert.AreSame(_targetRb, joint.connectedBody,
+                "SpringJoint.connectedBody must be the target Rigidbody. " +
+                "The netcode wrapper identifies tethered targets by this reference.");
+
+            // Break force must be infinite — the rope's chassis↔tip leash is the
+            // actual length constraint; this joint must not self-release under load.
+            Assert.AreEqual(Mathf.Infinity, joint.breakForce,
+                "SpringJoint.breakForce must be Infinity. " +
+                "A finite breakForce would let the joint snap under high acceleration " +
+                "(same bug the session-60 ConfigurableJoint redesign fixed). " +
+                "Release is always explicit (R-key or target death), never auto-snap.");
+
+            // The host must be non-kinematic so PhysX integrates spring forces.
+            // Attach() flips isKinematic so the Verlet simulator yields control.
+            Assert.IsFalse(_hostRb.isKinematic,
+                "Host Rigidbody must be non-kinematic after Attach so PhysX can integrate " +
+                "the SpringJoint force. A kinematic body ignores joint forces — the rope " +
+                "would appear attached but exert no pull on the target.");
+        }
+
+        /// <summary>
         /// FixedUpdate null-body guard: when the joint exists but
         /// connectedBody is null (target destroyed mid-grapple), the
         /// guard must release cleanly without nullref.
@@ -198,18 +293,14 @@ namespace Robogame.Tests.PlayMode.Movement
         [UnityTest]
         public IEnumerator FixedUpdate_WhenTargetDestroyedMidGrapple_ReleasesCleanly()
         {
-            // Manually create a grapple by destroying then resurrecting
-            // the target — the cleanest way to drive HookBlock into the
-            // "joint exists, target gone" branch is to use reflection
-            // to insert the joint and target, then null the target.
-            ConfigurableJoint joint = _hostGo.AddComponent<ConfigurableJoint>();
+            // Drive HookBlock into the "joint exists, target gone" branch by
+            // reflection-injecting the joint + target, then nulling the target.
+            // _grappleJoint is a SpringJoint (session-60 redesign) — injecting
+            // a ConfigurableJoint here throws ArgumentException on SetValue,
+            // which is the bug that silently broke this test after session 60.
+            SpringJoint joint = _hostGo.AddComponent<SpringJoint>();
             joint.connectedBody = _targetRb;
-            joint.xMotion = ConfigurableJointMotion.Locked;
-            joint.yMotion = ConfigurableJointMotion.Locked;
-            joint.zMotion = ConfigurableJointMotion.Locked;
-            joint.angularXMotion = ConfigurableJointMotion.Free;
-            joint.angularYMotion = ConfigurableJointMotion.Free;
-            joint.angularZMotion = ConfigurableJointMotion.Free;
+            joint.breakForce = Mathf.Infinity;
 
             // Inject the joint + target into HookBlock's private state.
             FieldInfo jointField = typeof(HookBlock).GetField(
