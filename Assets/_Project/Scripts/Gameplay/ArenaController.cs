@@ -382,6 +382,9 @@ namespace Robogame.Gameplay
         /// </remarks>
         public void RespawnDummy()
         {
+            // Server-authoritative. Offline IsServer==true (singleplayer
+            // byte-identical); an online client skips — the server spawns.
+            if (!NetworkContext.Instance.IsServer) return;
             GameStateController state = GameStateController.Instance;
             if (state == null)
             {
@@ -398,6 +401,9 @@ namespace Robogame.Gameplay
         /// </summary>
         public void RespawnPlayer()
         {
+            // Server-authoritative. Offline IsServer==true (singleplayer
+            // byte-identical); an online client skips — the server respawns.
+            if (!NetworkContext.Instance.IsServer) return;
             GameStateController state = GameStateController.Instance;
             if (state == null)
             {
@@ -542,6 +548,10 @@ namespace Robogame.Gameplay
 
         private void CreateMatch()
         {
+            // Match lifecycle is server-authoritative. Offline IsServer==true
+            // (singleplayer byte-identical); an online client does not run
+            // its own MatchController (state replication is a later phase).
+            if (!NetworkContext.Instance.IsServer) return;
             if (_matchConfig == null)
             {
                 Debug.LogWarning("[Robogame] ArenaController: no MatchConfig assigned — running in sandbox mode (no round timer / win conditions / score).", this);
@@ -664,6 +674,11 @@ namespace Robogame.Gameplay
 
         private void HandleRobotDestroyed(Robot victim)
         {
+            // Kill attribution, scoring, player-life and respawn scheduling
+            // are server-authoritative. Offline IsServer==true (singleplayer
+            // byte-identical); an online client only mirrors destruction
+            // (NetworkBlockGrid) and must not drive match logic.
+            if (!NetworkContext.Instance.IsServer) return;
             if (victim == null) return;
             if (!_registeredChassis.TryGetValue(victim, out MatchSide victimSide)) return;
 
@@ -829,6 +844,10 @@ namespace Robogame.Gameplay
 
         private void SpawnMatchBots(GameStateController state)
         {
+            // Server-authoritative. Offline IsServer==true (singleplayer
+            // byte-identical); an online client skips — the server spawns
+            // bots and replicates them as NetworkRobots.
+            if (!NetworkContext.Instance.IsServer) return;
             if (_matchConfig == null) return;
             _matchBots.Clear();
 
@@ -1106,6 +1125,9 @@ namespace Robogame.Gameplay
 
         private void SpawnFriendlyTank(GameStateController state)
         {
+            // Server-authoritative. Offline IsServer==true (singleplayer
+            // byte-identical); an online client skips — the server spawns it.
+            if (!NetworkContext.Instance.IsServer) return;
             if (!_spawnFriendlyTank) return;
             if (_friendlyTankGo != null) return; // already alive
             if (state.Library == null) return;
