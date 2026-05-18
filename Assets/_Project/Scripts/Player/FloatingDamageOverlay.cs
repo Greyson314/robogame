@@ -75,6 +75,11 @@ namespace Robogame.Player
             public float LastHitTime;
             // Time we transitioned to frozen, < 0 while still accumulating.
             public float FreezeTime;
+            // Cached "F0" render string + the TotalDamage it was built
+            // for. Rebuilt only when the total changes (a fresh hit), not
+            // per OnGUI event — OnGUI runs 2-6x/frame during combat.
+            public float CachedDamage;
+            public string CachedText;
         }
 
         private readonly List<Accumulator> _accumulators = new(16);
@@ -86,6 +91,9 @@ namespace Robogame.Player
         private Camera _camera;
         private GUIStyle _style;
         private GUIStyle _styleHeavy;
+        // One reusable GUIContent for CalcSize so the render loop doesn't
+        // allocate a new one per number per OnGUI event.
+        private readonly GUIContent _measure = new();
 
         private void Awake()
         {
@@ -138,6 +146,7 @@ namespace Robogame.Player
             next.TotalDamage = damage;
             next.LastHitTime = now;
             next.FreezeTime = -1f;
+            next.CachedText = null; // force rebuild; a pooled instance may carry a stale string
             _accumulators.Add(next);
         }
 
@@ -227,10 +236,15 @@ namespace Robogame.Player
                 GUIStyle s = heavy ? _styleHeavy : _style;
                 Color savedColor = GUI.color;
                 GUI.color = c;
-                string text = a.TotalDamage.ToString("F0");
-                Vector2 size = s.CalcSize(new GUIContent(text));
+                if (a.CachedText == null || a.CachedDamage != a.TotalDamage)
+                {
+                    a.CachedDamage = a.TotalDamage;
+                    a.CachedText = a.TotalDamage.ToString("F0");
+                }
+                _measure.text = a.CachedText;
+                Vector2 size = s.CalcSize(_measure);
                 Rect r = new Rect(screen.x - size.x * 0.5f, Screen.height - screen.y - size.y * 0.5f, size.x, size.y);
-                GUI.Label(r, text, s);
+                GUI.Label(r, a.CachedText, s);
                 GUI.color = savedColor;
             }
         }

@@ -53,6 +53,24 @@ namespace Robogame.Player
         private float _smoothVel;
         private readonly StringBuilder _ammoLine = new();
 
+        // Cached display strings + style-selection flags, rebuilt once per
+        // frame in Update so OnGUI (2-6 events/frame) only renders. The
+        // int-driven rows are change-gated; speed/alt are formatted to one
+        // decimal so their quantised value is tracked, not the raw float.
+        private string _speedText = "SPD  --";
+        private string _altText = "ALT  --";
+        private string _blocksText = "BLK  --";
+        private string _scrapText = "SCR  --";
+        private string _ammoText = "AMO  —";
+        private int _lastSpeedDeci = int.MinValue;
+        private int _lastAltDeci = int.MinValue;
+        private int _lastBlocks = int.MinValue;
+        private int _lastMaxBlocks = int.MinValue;
+        private int _lastScrap = int.MinValue;
+        private int _lastScrapCap = int.MinValue;
+        private bool _damaged;
+        private bool _scrapFull;
+
         // Reuse GUIStyles so OnGUI doesn't allocate per draw.
         private GUIStyle _labelStyle;
         private GUIStyle _damageLabelStyle;
@@ -93,6 +111,54 @@ namespace Robogame.Player
             {
                 _displaySpeed = Mathf.SmoothDamp(_displaySpeed, instant, ref _smoothVel, _speedSmoothing, Mathf.Infinity, Time.unscaledDeltaTime);
             }
+
+            BuildDisplayStrings();
+        }
+
+        // Rebuild only the rows whose displayed value actually changed —
+        // same dirty-string discipline as FpsCounter. Speed/alt are tracked
+        // at the 0.1-unit resolution they're rendered at.
+        private void BuildDisplayStrings()
+        {
+            int speedDeci = Mathf.RoundToInt(_displaySpeed * 10f);
+            if (speedDeci != _lastSpeedDeci)
+            {
+                _lastSpeedDeci = speedDeci;
+                _speedText = $"SPD  {_displaySpeed:F1} m/s";
+            }
+
+            int altDeci = Mathf.RoundToInt((_target != null ? _target.position.y : 0f) * 10f);
+            if (altDeci != _lastAltDeci)
+            {
+                _lastAltDeci = altDeci;
+                _altText = $"ALT  {altDeci / 10f:F1} m";
+            }
+
+            int blocks = _robot != null ? _robot.BlockCount : 0;
+            if (blocks != _lastBlocks || _maxBlockCount != _lastMaxBlocks)
+            {
+                _lastBlocks = blocks;
+                _lastMaxBlocks = _maxBlockCount;
+                _blocksText = _maxBlockCount > 0
+                    ? $"BLK  {blocks} / {_maxBlockCount}"
+                    : $"BLK  {blocks}";
+            }
+            _damaged = _maxBlockCount > 0 && blocks < _maxBlockCount;
+
+            int scrap = _robot != null ? _robot.ScrapHeld : 0;
+            int scrapCap = _robot != null ? _robot.ScrapCarryCapacity : 0;
+            _scrapFull = scrapCap > 0 && scrap >= scrapCap;
+            if (scrap != _lastScrap || scrapCap != _lastScrapCap)
+            {
+                _lastScrap = scrap;
+                _lastScrapCap = scrapCap;
+                _scrapText = scrapCap > 0
+                    ? (_scrapFull ? $"SCR  {scrap} / {scrapCap}  FULL" : $"SCR  {scrap} / {scrapCap}")
+                    : $"SCR  {scrap}";
+            }
+
+            BuildAmmoLine();
+            _ammoText = _ammoLine.ToString();
         }
 
         private void OnGUI()
@@ -118,41 +184,23 @@ namespace Robogame.Player
             GUI.color = prev;
 
             float rowH = _panelHeight / 5f;
-            float altitude = _target.position.y;
-            int blocks = _robot != null ? _robot.BlockCount : 0;
-            int scrap  = _robot != null ? _robot.ScrapHeld : 0;
-            int scrapCap = _robot != null ? _robot.ScrapCarryCapacity : 0;
-            // Color the BLOCKS row red once integrity drops — quick visual
-            // tell that you've taken damage without a full health bar.
-            bool damaged = _maxBlockCount > 0 && blocks < _maxBlockCount;
-            GUIStyle blockStyle = damaged ? _damageLabelStyle : _labelStyle;
-            // Scrap row flips to "alert" red colour when the chassis is at
-            // cap — visual nudge to deposit before resuming combat.
-            bool scrapFull = scrapCap > 0 && scrap >= scrapCap;
-            GUIStyle scrapStyle = scrapFull ? _damageLabelStyle : _labelStyle;
+            // Style selection only — all text is built once per frame in
+            // Update (BuildDisplayStrings). BLOCKS row reds out on integrity
+            // loss; SCRAP row reds out at carry cap.
+            GUIStyle blockStyle = _damaged ? _damageLabelStyle : _labelStyle;
+            GUIStyle scrapStyle = _scrapFull ? _damageLabelStyle : _labelStyle;
+            GUIStyle ammoStyle = _ammoAnyEmpty ? _damageLabelStyle : _labelStyle;
 
             Rect speedRect  = new Rect(x + 12f, y + 2f,             _panelWidth - 24f, rowH);
             Rect altRect    = new Rect(x + 12f, y + rowH,           _panelWidth - 24f, rowH);
             Rect blocksRect = new Rect(x + 12f, y + rowH * 2f - 2f, _panelWidth - 24f, rowH);
             Rect scrapRect  = new Rect(x + 12f, y + rowH * 3f - 4f, _panelWidth - 24f, rowH);
             Rect ammoRect   = new Rect(x + 12f, y + rowH * 4f - 6f, _panelWidth - 24f, rowH);
-            GUI.Label(speedRect,  $"SPD  {_displaySpeed:F1} m/s", _labelStyle);
-            GUI.Label(altRect,    $"ALT  {altitude:F1} m",         _labelStyle);
-            string blocksText = _maxBlockCount > 0
-                ? $"BLK  {blocks} / {_maxBlockCount}"
-                : $"BLK  {blocks}";
-            GUI.Label(blocksRect, blocksText, blockStyle);
-            string scrapText = scrapCap > 0
-                ? (scrapFull ? $"SCR  {scrap} / {scrapCap}  FULL" : $"SCR  {scrap} / {scrapCap}")
-                : $"SCR  {scrap}";
-            GUI.Label(scrapRect, scrapText, scrapStyle);
-
-            // Ammo row: collapse every weapon-type pool into one line.
-            // "AMO  SMG 27/30 · CAN 4/6 · BMB R" with "R" for in-progress
-            // reload. Empty pools show in red.
-            BuildAmmoLine();
-            GUIStyle ammoStyle = _ammoAnyEmpty ? _damageLabelStyle : _labelStyle;
-            GUI.Label(ammoRect, _ammoLine.ToString(), ammoStyle);
+            GUI.Label(speedRect,  _speedText,  _labelStyle);
+            GUI.Label(altRect,    _altText,    _labelStyle);
+            GUI.Label(blocksRect, _blocksText, blockStyle);
+            GUI.Label(scrapRect,  _scrapText,  scrapStyle);
+            GUI.Label(ammoRect,   _ammoText,   ammoStyle);
         }
 
         private bool _ammoAnyEmpty;

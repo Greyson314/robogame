@@ -150,15 +150,6 @@ namespace Robogame.Robots
         }
 
         /// <summary>
-        /// Legacy unconditional award. Kept as a thin wrapper over
-        /// <see cref="TryAwardScrap"/> for callers that don't care about
-        /// the cap (tests, future spend paths). Pickups should call
-        /// <see cref="TryAwardScrap"/> so the carry-capacity contract
-        /// holds end-to-end.
-        /// </summary>
-        public void AwardScrap(int amount) => TryAwardScrap(amount);
-
-        /// <summary>
         /// Drain all carried scrap, returning the amount banked. Used by
         /// <c>ScrapDepot</c> when the chassis enters its trigger. Fires
         /// <see cref="ScrapAwarded"/> with the negative delta so HUDs
