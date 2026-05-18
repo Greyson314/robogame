@@ -73,6 +73,16 @@ namespace Robogame.Block
                      "  • All other blocks: ignored.")]
             public float Pitch;
 
+            [Tooltip("Per-block server-authoritative scalar config. Interpretation depends on the block kind:\n" +
+                     "  • ThrusterBlock: max thrust (N).\n" +
+                     "  • RudderBlock: yaw authority.\n" +
+                     "  • RotorBlock: RPM.\n" +
+                     "  • All other blocks: ignored.\n" +
+                     "0 means 'use the block's authored default' — keeps every pre-v4 save " +
+                     "(blockConfig absent → 0) behaviour-identical. Migrated off the per-machine " +
+                     "Thruster./Rudder./Rotor.RPM Tweakables; PHYSICS_PLAN §1.5 / §5.")]
+            public float BlockConfig;
+
             /// <summary>Returns <see cref="Up"/> with the legacy zero → +Y fallback applied.</summary>
             public Vector3Int EffectiveUp => Up == Vector3Int.zero ? Vector3Int.up : Up;
 
@@ -83,6 +93,7 @@ namespace Robogame.Block
                 Up = Vector3Int.up;
                 Dims = Vector3.zero;
                 Pitch = 0f;
+                BlockConfig = 0f;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up)
@@ -92,6 +103,7 @@ namespace Robogame.Block
                 Up = up;
                 Dims = Vector3.zero;
                 Pitch = 0f;
+                BlockConfig = 0f;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims)
@@ -101,6 +113,7 @@ namespace Robogame.Block
                 Up = up;
                 Dims = dims;
                 Pitch = 0f;
+                BlockConfig = 0f;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims, float pitch)
@@ -110,6 +123,17 @@ namespace Robogame.Block
                 Up = up;
                 Dims = dims;
                 Pitch = pitch;
+                BlockConfig = 0f;
+            }
+
+            public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims, float pitch, float blockConfig)
+            {
+                BlockId = blockId;
+                Position = position;
+                Up = up;
+                Dims = dims;
+                Pitch = pitch;
+                BlockConfig = blockConfig;
             }
         }
 
@@ -126,6 +150,22 @@ namespace Robogame.Block
                  "purely cosmetic. Per-rotor opt-in lands when the blueprint format " +
                  "supports per-cell config.")]
         [SerializeField] private bool _rotorsGenerateLift = false;
+
+        [Tooltip("Server-authoritative chassis-level plane control tuning. " +
+                 "Migrated off the per-machine Plane.* Tweakables.")]
+        [SerializeField] private PlaneTuningConfig _planeTuning = new();
+
+        [Tooltip("Server-authoritative chassis-level ground drive tuning. " +
+                 "Migrated off the per-machine Ground.* Tweakables.")]
+        [SerializeField] private GroundTuningConfig _groundTuning = new();
+
+        [Tooltip("Server-authoritative chassis Rigidbody damping. " +
+                 "Migrated off the per-machine Chassis.* Tweakables.")]
+        [SerializeField] private ChassisDampingConfig _chassisDamping = new();
+
+        [Tooltip("Server-authoritative chassis-level thruster feel (idle + response). " +
+                 "Per-thruster max thrust rides Entry.BlockConfig.")]
+        [SerializeField] private ThrusterTuningConfig _thrusterTuning = new();
 
         [Tooltip("Block placements that make up this chassis.")]
         [SerializeField] private Entry[] _entries = Array.Empty<Entry>();
@@ -154,6 +194,36 @@ namespace Robogame.Block
         {
             get => _rotorsGenerateLift;
             set => _rotorsGenerateLift = value;
+        }
+
+        /// <summary>
+        /// Server-authoritative chassis-level drive tuning. Never null —
+        /// a pre-v4 save / .asset that lacks the field gets the
+        /// field-initializer instance whose values equal the historical
+        /// Tweakable defaults, so behaviour is unchanged on load.
+        /// </summary>
+        public PlaneTuningConfig PlaneTuning
+        {
+            get => _planeTuning ??= new PlaneTuningConfig();
+            set => _planeTuning = value ?? new PlaneTuningConfig();
+        }
+
+        public GroundTuningConfig GroundTuning
+        {
+            get => _groundTuning ??= new GroundTuningConfig();
+            set => _groundTuning = value ?? new GroundTuningConfig();
+        }
+
+        public ChassisDampingConfig ChassisDamping
+        {
+            get => _chassisDamping ??= new ChassisDampingConfig();
+            set => _chassisDamping = value ?? new ChassisDampingConfig();
+        }
+
+        public ThrusterTuningConfig ThrusterTuning
+        {
+            get => _thrusterTuning ??= new ThrusterTuningConfig();
+            set => _thrusterTuning = value ?? new ThrusterTuningConfig();
         }
 
         public Entry[] Entries => _entries;

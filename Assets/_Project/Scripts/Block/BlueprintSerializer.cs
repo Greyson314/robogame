@@ -43,20 +43,37 @@ namespace Robogame.Block
     /// </list>
     /// </para>
     /// <para>
-    /// v3 schema (current). Adds <c>pitch</c> per entry — foil incidence
+    /// v3 schema. Adds <c>pitch</c> per entry — foil incidence
     /// in degrees (additive AoA offset), or rotor collective pitch in
     /// degrees. Defaults to 0 for v1/v2 entries, which keeps free-wing
     /// behaviour unchanged and falls rotors back to their SO-default
     /// collective.
     /// </para>
     /// <para>
-    /// v1/v2 saves load fine: missing fields default (up = +Y, dims = zero,
-    /// pitch = 0, rotorsGenerateLift = false).
+    /// v4 schema (current). Moves gameplay-observable drive tuning off the
+    /// per-machine <c>Tweakables</c> onto the server-authoritative blueprint
+    /// (PHYSICS_PLAN §1.5 / §5, hard invariant #1):
+    /// <list type="bullet">
+    /// <item>chassis-level <c>planeTuning</c> / <c>groundTuning</c> /
+    /// <c>chassisDamping</c> / <c>thrusterTuning</c> objects (was Plane.* /
+    /// Ground.* / Chassis.* / Thruster idle+response Tweakables).</item>
+    /// <item>per-entry <c>blockConfig</c> scalar — ThrusterBlock max thrust,
+    /// RudderBlock authority, RotorBlock RPM. 0 = use the block's authored
+    /// default.</item>
+    /// </list>
+    /// </para>
+    /// <para>
+    /// v1–v3 saves load behaviour-identical: the config objects' field
+    /// initializers equal the historical Tweakable defaults, and absent
+    /// objects are coalesced to a fresh default instance on load; absent
+    /// <c>blockConfig</c> is 0 (= use block default). Block-index ordering
+    /// (the netcode contract, invariant #2) is unaffected — config rides
+    /// existing records, it is not part of the sort key.
     /// </para>
     /// </remarks>
     public static class BlueprintSerializer
     {
-        public const int CurrentSchemaVersion = 3;
+        public const int CurrentSchemaVersion = 4;
 
         // -----------------------------------------------------------------
         // DTOs (private — JsonUtility needs concrete [Serializable] types)
@@ -70,6 +87,13 @@ namespace Robogame.Block
             public string kind;
             public string createdUtc;
             public bool rotorsGenerateLift;
+            // v4: server-authoritative chassis-level drive tuning. Nested
+            // [Serializable] classes; absent in v1–v3 JSON and coalesced
+            // to defaults on load (TryFromJson).
+            public PlaneTuningConfig planeTuning;
+            public GroundTuningConfig groundTuning;
+            public ChassisDampingConfig chassisDamping;
+            public ThrusterTuningConfig thrusterTuning;
             public EntryDto[] entries;
         }
 
@@ -92,6 +116,10 @@ namespace Robogame.Block
             // v3 addition. Per-entry pitch / incidence in degrees.
             // Foils: AoA offset. Rotors: collective. 0 = use block default.
             public float pitch;
+            // v4 addition. Per-entry server-authoritative scalar config:
+            // Thruster max thrust / Rudder authority / Rotor RPM.
+            // 0 (absent in v1–v3) = use the block's authored default.
+            public float blockConfig;
         }
 
         // -----------------------------------------------------------------
@@ -125,6 +153,7 @@ namespace Robogame.Block
                     dy = dims.y,
                     dz = dims.z,
                     pitch = src[i].Pitch,
+                    blockConfig = src[i].BlockConfig,
                 };
             }
 
@@ -135,6 +164,10 @@ namespace Robogame.Block
                 kind = blueprint.Kind.ToString(),
                 createdUtc = DateTime.UtcNow.ToString("o"),
                 rotorsGenerateLift = blueprint.RotorsGenerateLift,
+                planeTuning = blueprint.PlaneTuning,
+                groundTuning = blueprint.GroundTuning,
+                chassisDamping = blueprint.ChassisDamping,
+                thrusterTuning = blueprint.ThrusterTuning,
                 entries = entries,
             };
             return JsonUtility.ToJson(dto, prettyPrint);
@@ -207,7 +240,7 @@ namespace Robogame.Block
                 // v1 entries hit Entry.EffectiveUp's zero → +Y fallback;
                 // v2 entries with real (0,0,0) up are invalid by definition.
                 Vector3 dims = new Vector3(e.dx, e.dy, e.dz);
-                copy.Add(new ChassisBlueprint.Entry(e.id, new Vector3Int(e.x, e.y, e.z), up, dims, e.pitch));
+                copy.Add(new ChassisBlueprint.Entry(e.id, new Vector3Int(e.x, e.y, e.z), up, dims, e.pitch, e.blockConfig));
             }
 
             ChassisBlueprint bp = ScriptableObject.CreateInstance<ChassisBlueprint>();
@@ -215,6 +248,14 @@ namespace Robogame.Block
             bp.DisplayName = string.IsNullOrEmpty(dto.displayName) ? "Untitled" : dto.displayName;
             bp.Kind = kind;
             bp.RotorsGenerateLift = dto.rotorsGenerateLift;
+            // v1–v3 saves have no tuning objects; JsonUtility leaves the
+            // struct's class fields null. Coalesce to fresh defaults whose
+            // field initializers equal the historical Tweakable defaults,
+            // so an old save loads behaviour-identical.
+            bp.PlaneTuning = dto.planeTuning ?? new PlaneTuningConfig();
+            bp.GroundTuning = dto.groundTuning ?? new GroundTuningConfig();
+            bp.ChassisDamping = dto.chassisDamping ?? new ChassisDampingConfig();
+            bp.ThrusterTuning = dto.thrusterTuning ?? new ThrusterTuningConfig();
             bp.SetEntries(copy.ToArray());
 
             blueprint = bp;
