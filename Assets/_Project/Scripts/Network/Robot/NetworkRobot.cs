@@ -105,6 +105,7 @@ namespace Robogame.Network.Robot
 
             nr.OwnerPlayerId = ownerClientId;
             instance.SpawnWithOwnership(ownerClientId);
+            Debug.Log($"[NetDiag] ServerSpawn: NetworkObject spawned owner={ownerClientId} netId={instance.NetworkObjectId}");
 
             // Server runs the authoritative sim — build here, now.
             nr.BuildFromBlueprint(blueprint, teamId, position, rotation);
@@ -124,6 +125,7 @@ namespace Robogame.Network.Robot
         [ClientRpc]
         private void ConfigureClientRpc(SpawnRobotPayload payload)
         {
+            Debug.Log($"[NetDiag] ConfigureClientRpc received IsServer={IsServer} IsOwner={IsOwner} netId={NetworkObjectId}");
             // Host is the server and already built in ServerSpawn.
             if (IsServer) return;
 
@@ -190,6 +192,8 @@ namespace Robogame.Network.Robot
             if (Handle.Robot != null)
                 Handle.Robot.ConfigureTeam((TeamId)teamId);
 
+            Debug.Log($"[NetDiag] BuildFromBlueprint done IsServer={IsServer} IsOwner={IsOwner} " +
+                      $"netId={NetworkObjectId} blocks={(Handle.Grid != null ? Handle.Grid.Blocks.Count : -1)} pos={transform.position}");
             Built?.Invoke(this);
         }
     }

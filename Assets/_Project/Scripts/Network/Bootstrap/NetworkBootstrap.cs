@@ -97,6 +97,12 @@ namespace Robogame.Network.Bootstrap
 
             _nm.OnServerStopped += HandleSessionStopped;
             _nm.OnClientStopped += HandleSessionStopped;
+
+            // [NetDiag] connection-lifecycle trace (Phase-1 bring-up).
+            _nm.OnClientConnectedCallback += id =>
+                Debug.Log($"[NetDiag] OnClientConnected id={id} IsServer={_nm.IsServer} IsClient={_nm.IsClient}");
+            _nm.OnClientDisconnectCallback += id =>
+                Debug.LogWarning($"[NetDiag] OnClientDisconnect id={id} reason='{_nm.DisconnectReason}'");
         }
 
         private void OnDestroy()
@@ -155,6 +161,7 @@ namespace Robogame.Network.Bootstrap
             _nm.ConnectionApprovalCallback = ContentHashGuard.ApproveConnection;
             ContentHashGuard.PrepareLocalConnectionData(_nm);
             bool ok = _nm.StartHost();
+            Debug.Log($"[NetDiag] StartHost ok={ok} prefab={(RobotPrefab != null)}");
             if (ok) NetworkContext.Register(this);
             else Debug.LogError("[NetworkBootstrap] StartHost failed.");
             return ok;
@@ -167,6 +174,7 @@ namespace Robogame.Network.Bootstrap
             _transport.SetConnectionData(ip, port);
             ContentHashGuard.PrepareLocalConnectionData(_nm);
             bool ok = _nm.StartClient();
+            Debug.Log($"[NetDiag] StartClient ok={ok} ip={ip}:{port} prefab={(RobotPrefab != null)}");
             if (ok) NetworkContext.Register(this);
             else Debug.LogError("[NetworkBootstrap] StartClient failed.");
             return ok;
