@@ -311,13 +311,6 @@ namespace Robogame.Robots
             return freshRobot;
         }
 
-        /// <summary>Convenience: rebuild this robot by its registry name.</summary>
-        public void RebuildFromSnapshot()
-        {
-            if (string.IsNullOrEmpty(_registryKey)) return;
-            RebuildByName(_registryKey);
-        }
-
         // -----------------------------------------------------------------
         // Aggregates
         // -----------------------------------------------------------------

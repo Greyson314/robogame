@@ -19,27 +19,6 @@ namespace Robogame.Tools.Editor
     public static class SceneScaffolder
     {
         // -----------------------------------------------------------------
-        // Bootstrap scene
-        // -----------------------------------------------------------------
-
-        public static void BuildBootstrap()
-        {
-            ScaffoldUtils.OpenScene(ScaffoldUtils.BootstrapScene);
-
-            GameObject bootstrap = ScaffoldUtils.GetOrCreate("Bootstrap");
-            var component = bootstrap.GetComponent<GameBootstrap>();
-            if (component == null) component = bootstrap.AddComponent<GameBootstrap>();
-
-            SerializedObject so = new SerializedObject(component);
-            so.FindProperty("_firstScene").stringValue = "Garage";
-            so.FindProperty("_persistAcrossScenes").boolValue = true;
-            so.ApplyModifiedPropertiesWithoutUndo();
-
-            ScaffoldUtils.SaveActiveScene();
-            Debug.Log("[Robogame] Built Bootstrap.unity.");
-        }
-
-        // -----------------------------------------------------------------
         // Removed: legacy `Build Test Garage` / `Build Test Robot` /
         // `Build Test Plane` / `Build Combat Dummy` menu items. They
         // predated Pass A and overlapped with
