@@ -1,27 +1,27 @@
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Robogame.Network.Bootstrap
 {
     /// <summary>
-    /// Throwaway dev-only Host / Join overlay for Phase 1 MPPM loopback
+    /// Throwaway dev-only Host / Join control for Phase 1 MPPM loopback
     /// testing (NETCODE_PLAN §15 Phase 1). Compiled out of release builds.
-    /// Deliberately separate from the gameplay F1 <c>DevHud</c> — this only
-    /// drives <see cref="NetworkBootstrap"/> session start/stop and does not
-    /// disturb existing dev tooling.
     /// </summary>
     /// <remarks>
-    /// IMGUI string churn is irrelevant here (dev-only, not shipped, not a
-    /// steady-state gameplay HUD — the PHYSICS_PLAN §1 no-alloc rule targets
-    /// gameplay hot paths). Auto-bootstraps so no scene authoring is needed.
+    /// Actions are <b>hotkeys, not IMGUI buttons</b>: in the arena the
+    /// cursor is locked, and FollowCamera's click-to-recapture path
+    /// consumes clicks before IMGUI sees them, so an IMGUI button is a
+    /// dead button (documented gotcha in architecture.md — same reason
+    /// StartMatchHud uses a hotkey). The IMGUI panel is status / hint
+    /// display only. F9 = Host, F10 = Join, F11 = Stop.
     /// </remarks>
     [DisallowMultipleComponent]
     public sealed class NetDevHud : MonoBehaviour
     {
-        private static GameObject s_root;
+        private const string Ip = "127.0.0.1";
 
-        private string _ip = "127.0.0.1";
-        private string _port = NetworkBootstrap.DefaultPort.ToString();
+        private static GameObject s_root;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics() => s_root = null;
@@ -35,43 +35,48 @@ namespace Robogame.Network.Bootstrap
             s_root.AddComponent<NetDevHud>();
         }
 
+        private void Update()
+        {
+            NetworkBootstrap nb = NetworkBootstrap.Instance;
+            Keyboard kb = Keyboard.current;
+            if (nb == null || kb == null) return;
+
+            if (kb.f9Key.wasPressedThisFrame && !nb.IsOnline)
+                nb.StartHost(NetworkBootstrap.DefaultPort);
+            else if (kb.f10Key.wasPressedThisFrame && !nb.IsOnline)
+                nb.StartClient(Ip, NetworkBootstrap.DefaultPort);
+            else if (kb.f11Key.wasPressedThisFrame && nb.IsOnline)
+                nb.StopSession();
+        }
+
         private void OnGUI()
         {
             NetworkBootstrap nb = NetworkBootstrap.Instance;
             if (nb == null) return;
 
             // Left edge, vertically centred — clear of the top-left FPS
-            // counter and the top-right PerformanceHud (F3) so the
-            // Host/Join buttons are always clickable during MPPM testing.
-            const float w = 220f;
-            const float h = 160f;
+            // counter and the top-right PerformanceHud (F3).
+            const float w = 240f;
+            const float h = 120f;
             GUILayout.BeginArea(new Rect(8f, Screen.height * 0.5f - h * 0.5f, w, h), GUI.skin.box);
-            GUILayout.Label("<b>Netcode Dev (Phase 1)</b>", new GUIStyle(GUI.skin.label) { richText = true });
+            GUILayout.Label("<b>Netcode Dev (Phase 1)</b>",
+                new GUIStyle(GUI.skin.label) { richText = true });
 
             if (nb.IsOnline)
             {
-                GUILayout.Label($"Online — server:{nb.IsServer} client:{nb.IsClient} host:{nb.IsHost}");
-                if (GUILayout.Button("Stop session")) nb.StopSession();
+                GUILayout.Label($"Online — server:{nb.IsServer} " +
+                                $"client:{nb.IsClient} host:{nb.IsHost}");
+                GUILayout.Label("[F11] Stop session");
             }
             else
             {
-                if (GUILayout.Button($"Host on {_port}"))
-                    nb.StartHost(ParsePort());
-
-                GUILayout.BeginHorizontal();
-                _ip = GUILayout.TextField(_ip, GUILayout.Width(110f));
-                _port = GUILayout.TextField(_port, GUILayout.Width(50f));
-                GUILayout.EndHorizontal();
-
-                if (GUILayout.Button($"Join {_ip}:{_port}"))
-                    nb.StartClient(_ip, ParsePort());
+                GUILayout.Label("Offline");
+                GUILayout.Label($"[F9]  Host on {NetworkBootstrap.DefaultPort}");
+                GUILayout.Label($"[F10] Join {Ip}:{NetworkBootstrap.DefaultPort}");
             }
 
             GUILayout.EndArea();
         }
-
-        private ushort ParsePort()
-            => ushort.TryParse(_port, out ushort p) ? p : NetworkBootstrap.DefaultPort;
     }
 }
 #endif
