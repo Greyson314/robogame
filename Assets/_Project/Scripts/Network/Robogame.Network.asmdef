@@ -2,7 +2,18 @@
     "name": "Robogame.Network",
     "rootNamespace": "Robogame.Network",
     "references": [
-        "Robogame.Core"
+        "Robogame.Core",
+        "Robogame.Block",
+        "Robogame.Robots",
+        "Robogame.Combat",
+        "Robogame.Movement",
+        "Robogame.Player",
+        "Robogame.Input",
+        "Robogame.Gameplay",
+        "Robogame.Voxel",
+        "Unity.Netcode.Runtime",
+        "Unity.Networking.Transport",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

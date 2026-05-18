@@ -1,0 +1,153 @@
+using System;
+using Robogame.Core;
+using Unity.Netcode;
+using Unity.Netcode.Transports.UTP;
+using UnityEngine;
+
+namespace Robogame.Network.Bootstrap
+{
+    /// <summary>
+    /// Owns the process <see cref="NetworkManager"/> + <see cref="UnityTransport"/>
+    /// and bridges NGO state to the gameplay tier via <see cref="INetworkContext"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Auto-bootstraps (mirrors <c>ProjectileWorld</c> / <c>VerletRopeSimulator</c>)
+    /// so the project runs headless / without hand-authoring the Bootstrap
+    /// scene. It is <em>only</em> the active <see cref="NetworkContext"/> while
+    /// an NGO session is live: it registers on session start and unregisters
+    /// on shutdown, so offline / singleplayer falls back to the offline stub
+    /// (<c>IsServer == true</c>) and behaviour stays byte-identical. Without
+    /// that gating, a parked <see cref="NetworkManager"/> reports
+    /// <c>IsServer == false</c> and every Step-9 server-gated action would
+    /// stop running in singleplayer — the one trap to get right here.
+    /// </para>
+    /// <para>
+    /// Tick rate is pinned to 50 Hz (architect decision, handoff §5.4) to
+    /// match the 50 Hz physics <c>FixedUpdate</c>; Phase 3 owns final tuning.
+    /// Connection approval carries the Bucket-A content hash
+    /// (<see cref="ContentHashGuard"/>, NETCODE_PLAN §6/§13) so a mismatched
+    /// client is rejected before it can spawn.
+    /// </para>
+    /// </remarks>
+    [DisallowMultipleComponent]
+    public sealed class NetworkBootstrap : MonoBehaviour, INetworkContext
+    {
+        public const ushort DefaultPort = 7777;
+        public const uint TickRateHz = 50; // handoff §5.4 — matches physics FixedUpdate
+
+        private static NetworkBootstrap s_instance;
+        private static GameObject s_root;
+
+        public static NetworkBootstrap Instance => s_instance;
+
+        private NetworkManager _nm;
+        private UnityTransport _transport;
+
+        // INetworkContext — reflects real NGO state. Only consulted while
+        // this instance is the registered context (i.e. a session is live).
+        public bool IsServer => _nm != null && _nm.IsServer;
+        public bool IsClient => _nm != null && _nm.IsClient;
+        public bool IsHost   => _nm != null && _nm.IsHost;
+        public bool IsOnline => _nm != null && _nm.IsListening;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            s_instance = null;
+            s_root = null;
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void EnsureBootstrap()
+        {
+            if (s_instance != null) return;
+            s_root = new GameObject("[NetworkBootstrap]");
+            DontDestroyOnLoad(s_root);
+            s_instance = s_root.AddComponent<NetworkBootstrap>();
+        }
+
+        private void Awake()
+        {
+            if (s_instance != null && s_instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            s_instance = this;
+
+            _nm = NetworkManager.Singleton;
+            if (_nm == null)
+            {
+                var nmGo = new GameObject("[NetworkManager]");
+                DontDestroyOnLoad(nmGo);
+                _nm = nmGo.AddComponent<NetworkManager>();
+            }
+
+            _transport = _nm.GetComponent<UnityTransport>();
+            if (_transport == null) _transport = _nm.gameObject.AddComponent<UnityTransport>();
+
+            _nm.NetworkConfig ??= new NetworkConfig();
+            _nm.NetworkConfig.NetworkTransport = _transport;
+            _nm.NetworkConfig.TickRate = TickRateHz;
+            _nm.NetworkConfig.ConnectionApproval = true;
+            // Phase 1 / handoff §3.3: connection only, no robots yet. The
+            // Robot network prefab + auto-spawn lands in Step 4.
+            _nm.NetworkConfig.PlayerPrefab = null;
+
+            _nm.OnServerStopped += HandleSessionStopped;
+            _nm.OnClientStopped += HandleSessionStopped;
+        }
+
+        private void OnDestroy()
+        {
+            if (_nm != null)
+            {
+                _nm.OnServerStopped -= HandleSessionStopped;
+                _nm.OnClientStopped -= HandleSessionStopped;
+                _nm.ConnectionApprovalCallback = null;
+            }
+            NetworkContext.Unregister(this);
+            if (s_instance == this) s_instance = null;
+        }
+
+        // -----------------------------------------------------------------
+        // Session control (driven by NetDevHud in Phase 1)
+        // -----------------------------------------------------------------
+
+        public bool StartHost(ushort port = DefaultPort)
+        {
+            if (_nm.IsListening) { Debug.LogWarning("[NetworkBootstrap] Already listening."); return false; }
+            _transport.SetConnectionData("0.0.0.0", port, "0.0.0.0");
+            _nm.ConnectionApprovalCallback = ContentHashGuard.ApproveConnection;
+            ContentHashGuard.PrepareLocalConnectionData(_nm);
+            bool ok = _nm.StartHost();
+            if (ok) NetworkContext.Register(this);
+            else Debug.LogError("[NetworkBootstrap] StartHost failed.");
+            return ok;
+        }
+
+        public bool StartClient(string ip = "127.0.0.1", ushort port = DefaultPort)
+        {
+            if (_nm.IsListening) { Debug.LogWarning("[NetworkBootstrap] Already listening."); return false; }
+            _transport.SetConnectionData(ip, port);
+            ContentHashGuard.PrepareLocalConnectionData(_nm);
+            bool ok = _nm.StartClient();
+            if (ok) NetworkContext.Register(this);
+            else Debug.LogError("[NetworkBootstrap] StartClient failed.");
+            return ok;
+        }
+
+        public void StopSession()
+        {
+            if (_nm != null && _nm.IsListening) _nm.Shutdown();
+        }
+
+        private void HandleSessionStopped(bool _)
+        {
+            // Host fires both server- and client-stopped; only fall back to
+            // the offline stub once nothing is listening any more.
+            if (_nm == null || !_nm.IsListening) NetworkContext.Unregister(this);
+        }
+    }
+}
