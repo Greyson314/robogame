@@ -27,9 +27,11 @@ namespace Robogame.Movement
     /// chassis right axis.
     /// </para>
     /// <para>
-    /// Tweakable: <see cref="Tweakables.RudderAuthority"/> is the side
-    /// force per (m/s forward) per (1.0 steer input). Drop it for stately
-    /// barge-feel, raise it for arcade jet-ski response.
+    /// Authority (side force per m/s forward per 1.0 steer input) is
+    /// per-rudder server-authoritative config — the blueprint
+    /// <see cref="ChassisBlueprint.Entry.BlockConfig"/> via
+    /// <see cref="BlockBehaviour.ConfigValue"/>; 0 = the historical
+    /// default. Lower for stately barge-feel, higher for jet-ski response.
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
@@ -42,7 +44,12 @@ namespace Robogame.Movement
 
         public int Order => 0; // actuator stage
         public bool IsOperational => isActiveAndEnabled;
-        private float Authority => Tweakables.Get(Tweakables.RudderAuthority);
+        // Per-rudder yaw authority (Entry.BlockConfig, via BlockBehaviour);
+        // 0 = use this historical default (old Rudder.Authority Tweakable
+        // shipped at 3.0). PHYSICS_PLAN §1.5 / §5.
+        private const float DefaultAuthority = 3.0f;
+        private BlockBehaviour _bb;
+        private float Authority => _bb != null && _bb.ConfigValue > 0f ? _bb.ConfigValue : DefaultAuthority;
 
         private Rigidbody _rb;
         private RobotDrive _drive;
@@ -50,6 +57,7 @@ namespace Robogame.Movement
 
         private void Awake()
         {
+            _bb = GetComponent<BlockBehaviour>();
             EnsureRig();
         }
 

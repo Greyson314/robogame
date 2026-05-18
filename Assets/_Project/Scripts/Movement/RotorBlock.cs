@@ -94,10 +94,10 @@ namespace Robogame.Movement
 
         /// <summary>
         /// Per-instance RPM override (rev/min). When &gt;= 0, used in place
-        /// of the <see cref="Tweakables.RotorRpm"/> global. Set by the
-        /// stress-tower spawner so the tower can run at a fixed RPM
+        /// of the per-rotor blueprint RPM (<see cref="LiveRpm"/>). Set by
+        /// the stress-tower spawner so the tower can run at a fixed RPM
         /// independently of the player's chassis rotors. Set to a negative
-        /// value (the default) to fall back to the global tweakable.
+        /// value (the default) to fall back to the blueprint-configured RPM.
         /// </summary>
         public float RpmOverride { get; set; } = -1f;
 
@@ -198,6 +198,7 @@ namespace Robogame.Movement
 
         private void Awake()
         {
+            _bb = GetComponent<BlockBehaviour>();
             BlockVisuals.HideHostMesh(gameObject);
             BuildBlockVisual();
         }
@@ -386,7 +387,25 @@ namespace Robogame.Movement
         // Live values
         // -----------------------------------------------------------------
 
-        private float LiveRpm => RpmOverride >= 0f ? RpmOverride : Tweakables.Get(Tweakables.RotorRpm);
+        // Cached in Awake — LiveRpm is read every FixedUpdate, so no
+        // per-step GetComponent.
+        private BlockBehaviour _bb;
+
+        // RpmOverride (stress tower) wins. Otherwise per-rotor RPM from the
+        // blueprint Entry (BlockBehaviour.ConfigValue); 0 = use this
+        // historical default (old Rotor.RPM Tweakable shipped at 60). So a
+        // slow main rotor and a fast tail rotor can coexist on one chassis.
+        // PHYSICS_PLAN §1.5 / §5.
+        private const float DefaultRpm = 60f;
+        private float LiveRpm
+        {
+            get
+            {
+                if (RpmOverride >= 0f) return RpmOverride;
+                float cfg = _bb != null ? _bb.ConfigValue : 0f;
+                return cfg > 0f ? cfg : DefaultRpm;
+            }
+        }
 
         // -----------------------------------------------------------------
         // Visual rig (always built — even cosmetic-only rotors show this)

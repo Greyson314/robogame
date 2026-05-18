@@ -98,6 +98,18 @@ namespace Robogame.Block
         /// <summary>Fired after <see cref="SetPitch"/> mutates <see cref="PitchDeg"/>.</summary>
         public event Action<BlockBehaviour> PitchChanged;
 
+        /// <summary>
+        /// Per-instance server-authoritative scalar config from the
+        /// blueprint <see cref="ChassisBlueprint.Entry.BlockConfig"/>:
+        /// ThrusterBlock max thrust / RudderBlock yaw authority /
+        /// RotorBlock RPM. 0 = "use the block's authored default", which
+        /// keeps every pre-v4 save behaviour-identical. Set by
+        /// ChassisAssembler right after placement; migrated off the
+        /// per-machine Thruster.* / Rudder.* / Rotor.RPM Tweakables
+        /// (PHYSICS_PLAN §1.5 / §5, hard invariant #1).
+        /// </summary>
+        public float ConfigValue { get; set; }
+
         public float HealthFraction =>
             (_definition != null && _definition.MaxHealth > 0f)
                 ? Mathf.Clamp01(_currentHealth / _definition.MaxHealth)

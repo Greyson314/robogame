@@ -48,9 +48,18 @@ namespace Robogame.Movement
         public int Order => 0; // actuator stage
         public bool IsOperational => isActiveAndEnabled;
         public float CurrentThrottle => _throttle;
-        public float MaxThrust         => Tweakables.Get(Tweakables.ThrusterMaxThrust);
-        private float IdleThrottle     => Tweakables.Get(Tweakables.ThrusterIdle);
-        private float ThrottleResponse => Tweakables.Get(Tweakables.ThrusterResponse);
+        // MaxThrust is per-thruster (Entry.BlockConfig, via BlockBehaviour);
+        // 0 = use this historical default (the value the old Thruster.MaxThrust
+        // Tweakable shipped at — NOT the vestigial _maxThrust SerializeField,
+        // which the Tweakable always overrode). Idle/response are chassis-wide
+        // feel (Option A) and come from the blueprint's ThrusterTuning.
+        // PHYSICS_PLAN §1.5 / §5.
+        private const float DefaultMaxThrust = 310f;
+        private BlockBehaviour _bb;
+        private ThrusterTuningConfig _thrCfg = new();
+        public float MaxThrust         => _bb != null && _bb.ConfigValue > 0f ? _bb.ConfigValue : DefaultMaxThrust;
+        private float IdleThrottle     => _thrCfg.IdleThrottle;
+        private float ThrottleResponse => _thrCfg.ThrottleResponse;
 
         private Rigidbody _rb;
         private RobotDrive _drive;
@@ -74,6 +83,7 @@ namespace Robogame.Movement
 
         private void Awake()
         {
+            _bb = GetComponent<BlockBehaviour>();
             EnsureRig();
         }
 
@@ -82,8 +92,14 @@ namespace Robogame.Movement
             _rb = GetComponentInParent<Rigidbody>();
             _drive = GetComponentInParent<RobotDrive>();
             _drive?.Register(this);
+            // Chassis-level idle/response from the server-authoritative
+            // blueprint; null only outside ChassisAssembler (tests),
+            // where the defaults equal the historical Tweakable defaults.
+            _thrCfg = _drive != null && _drive.Blueprint != null
+                ? _drive.Blueprint.ThrusterTuning
+                : new ThrusterTuningConfig();
             Debug.Log(
-                $"[Robogame] Thruster live values (source=Tweakables): " +
+                $"[Robogame] Thruster live values (source=blueprint): " +
                 $"maxThrust={MaxThrust:F1} idle={IdleThrottle:F2} response={ThrottleResponse:F2}",
                 this);
         }

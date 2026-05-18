@@ -269,7 +269,13 @@ namespace Robogame.Gameplay
                             root);
                         continue;
                     }
-                    grid.PlaceBlock(def, entry.Position, entry.EffectiveUp, entry.Dims, entry.Pitch);
+                    BlockBehaviour placed = grid.PlaceBlock(
+                        def, entry.Position, entry.EffectiveUp, entry.Dims, entry.Pitch);
+                    // Per-block server-authoritative scalar (thruster
+                    // thrust / rudder authority / rotor RPM). 0 = use the
+                    // block's authored default. Rides the same Entry the
+                    // Dims/Pitch above do; not part of the canonical sort.
+                    if (placed != null) placed.ConfigValue = entry.BlockConfig;
                 }
 
                 robot.RecalculateAggregates();

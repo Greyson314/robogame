@@ -37,11 +37,10 @@ namespace Robogame.Core
         // GroundTuning / ChassisDamping) — gameplay-observable movement
         // forces must not vary per-machine. PHYSICS_PLAN §1.5 / §5.
 
-        public const string ThrusterMaxThrust  = "Thruster.MaxThrust";
-        public const string ThrusterIdle       = "Thruster.IdleThrottle";
-        public const string ThrusterResponse   = "Thruster.ThrottleResponse";
-
-        public const string RudderAuthority    = "Rudder.Authority";
+        // Thruster.* / Rudder.* MIGRATED: per-thruster max thrust + per-rudder
+        // authority ride ChassisBlueprint.Entry.BlockConfig; thruster
+        // idle/response are chassis-level ChassisBlueprint.ThrusterTuning
+        // (Option A). No longer per-machine Tweakables. PHYSICS_PLAN §1.5 / §5.
 
         public const string WaterDensity      = "Water.Density";
         public const string WaterDisplacement = "Water.Displacement";
@@ -78,23 +77,20 @@ namespace Robogame.Core
         public const string RopeSegmentMass    = "Rope.SegmentMass";    // kg per link
         public const string RopeLinearDamping  = "Rope.LinearDamping";  // per-segment linear damping
 
-        // Rotor (spinning block, see RotorBlock). RPM drives the visual
-        // spin rate of every active rotor and (in lift mode) the kinematic
-        // hub's angular velocity.
-        // FUTURE PER-BLOCK MIGRATION: per-rotor RPM (so a slow main rotor
-        // can coexist with a fast tail rotor) belongs on the blueprint
-        // entry's Dims field. Same MP-debt status as the audit below.
-        public const string RotorRpm = "Rotor.RPM"; // revolutions per minute
+        // Rotor.RPM MIGRATED to per-rotor blueprint config
+        // (ChassisBlueprint.Entry.BlockConfig → BlockBehaviour.ConfigValue,
+        // read by RotorBlock.LiveRpm) so a slow main rotor and a fast tail
+        // rotor coexist on one chassis. PHYSICS_PLAN §1.5 / §5.
 
         // ---------------------------------------------------------------
         // MP DEBT AUDIT (PHYSICS_PLAN § 1.5)
         // ---------------------------------------------------------------
-        // Tweakables that remain are either world-physics (server-canonical
-        // when MP lands) or rope-feel knobs the user explicitly carved out
-        // for live tuning. Per-block / per-chassis migrations still pending:
+        // Every gameplay-observable knob has now been migrated off the
+        // per-machine Tweakables (hard invariant #1 satisfied). What
+        // remains is world-physics / arena state the server makes
+        // canonical, or presentation / rope-feel knobs that never affect
+        // cross-machine state:
         //
-        //   • Thruster.* / Rudder.*           — per-block (Phase 4).
-        //   • Rotor.RPM                       — per-rotor (Phase 4).
         //   • Water.*                         — arena property; server
         //                                       pushes the seed in MP.
         //   • Rope.SegmentLength/Radius/Mass  — rope feel; stay tunable.
@@ -108,6 +104,8 @@ namespace Robogame.Core
         //   • Combat.Rope* (tip damage)          → TipBlock SerializeFields (per-tip-block).
         //   • Impact.* (ramming damage)          → ImpactConfig SO (server/world-canonical).
         //   • Plane.* / Ground.* / Chassis.*     → ChassisBlueprint chassis-level config (per-chassis).
+        //   • Thruster idle/response             → ChassisBlueprint.ThrusterTuning (per-chassis).
+        //   • Thruster MaxThrust / Rudder / Rotor.RPM → Entry.BlockConfig (per-block).
 
         // Rope-tip contact damage MIGRATED to per-tip-block SerializeFields
         // on TipBlock (this PR). HookBlock and MaceBlock both inherit those
@@ -263,21 +261,12 @@ namespace Robogame.Core
             if (_initialized) return;
             _initialized = true;
 
-            // Plane / Ground / Chassis-damping tuning migrated to
-            // server-authoritative blueprint config (ChassisBlueprint
-            // PlaneTuning / GroundTuning / ChassisDamping). No longer
-            // per-machine Tweakables. PHYSICS_PLAN §1.5 / §5.
-
-            // Thruster.
-            Register(ThrusterMaxThrust, "Thruster", "Max Thrust",       310.0f, 50f, 4000f);
-            Register(ThrusterIdle,      "Thruster", "Idle Throttle",      0.4f,  0f,   1f);
-            Register(ThrusterResponse,  "Thruster", "Throttle Response",  2.6f,  0.5f, 10f);
-
-            // Rudder — yaw force per (m/s of forward speed) per (1.0 of
-            // steer input). At authority=3 a 5 m/s boat with full A/D
-            // gets a stern-side force of ~15 N which yaws a 40 kg hull
-            // about 25°/s — boaty without being twitchy.
-            Register(RudderAuthority,   "Rudder",   "Rudder Authority",   3.0f,  0f,  15f);
+            // Plane / Ground / Chassis-damping + Thruster + Rudder + Rotor
+            // RPM tuning all migrated to server-authoritative blueprint
+            // config (ChassisBlueprint chassis-level configs + per-block
+            // Entry.BlockConfig). No longer per-machine Tweakables; every
+            // gameplay-observable knob is now invariant-#1 clean.
+            // PHYSICS_PLAN §1.5 / §5.
 
             // Water-arena buoyancy (read live by WaterVolume / BuoyancyController).
             // Density is in "buoyancy units", not kg/m³ — empirically ~4 is
@@ -327,12 +316,10 @@ namespace Robogame.Core
             Register(RopeSegmentMass,    "Rope", "Segment Mass (kg)",  0.04f, 0.005f, 1.0f);
             Register(RopeLinearDamping,  "Rope", "Linear Damping",     0.10f, 0f,    4f);
 
-            // Rotor. 60 rpm = 1 rev/sec — slow enough to read individual
-            // blades by eye. Bump for fan/helicopter builds; drop to 0
-            // to freeze the visual entirely. Per-rotor RPM is on the
-            // MP-debt list (see audit) — migrate to BlockBehaviour.Dims
-            // when the build mode lets users author per-rotor configs.
-            Register(RotorRpm, "Rotor", "RPM", 60f, 0f, 600f);
+            // Rotor.RPM migrated to per-rotor blueprint config
+            // (Entry.BlockConfig → BlockBehaviour.ConfigValue, read by
+            // RotorBlock.LiveRpm; historical default 60 rpm). No longer a
+            // per-machine Tweakable. PHYSICS_PLAN §1.5 / §5.
 
             // Aerofoil visual dims migrated to per-block blueprint config
             // (ChassisBlueprint.Entry.Dims) in the variable-parts pass.
