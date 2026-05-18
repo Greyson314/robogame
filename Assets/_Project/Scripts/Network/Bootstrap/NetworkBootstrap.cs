@@ -146,7 +146,12 @@ namespace Robogame.Network.Bootstrap
         {
             if (_nm.IsListening) { Debug.LogWarning("[NetworkBootstrap] Already listening."); return false; }
             RegisterRobotPrefab();
-            _transport.SetConnectionData("0.0.0.0", port, "0.0.0.0");
+            // Host = server + an internal loopback client. The client
+            // connects to the *connect* address, so it must be a real
+            // reachable address (127.0.0.1), NOT 0.0.0.0 — connecting to
+            // 0.0.0.0 fails the UTP socket. 0.0.0.0 is only valid as the
+            // *listen* (bind-all) address.
+            _transport.SetConnectionData("127.0.0.1", port, "0.0.0.0");
             _nm.ConnectionApprovalCallback = ContentHashGuard.ApproveConnection;
             ContentHashGuard.PrepareLocalConnectionData(_nm);
             bool ok = _nm.StartHost();
