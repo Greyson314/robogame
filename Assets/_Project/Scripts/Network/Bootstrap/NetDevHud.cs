@@ -40,8 +40,12 @@ namespace Robogame.Network.Bootstrap
             NetworkBootstrap nb = NetworkBootstrap.Instance;
             if (nb == null) return;
 
+            // Left edge, vertically centred — clear of the top-left FPS
+            // counter and the top-right PerformanceHud (F3) so the
+            // Host/Join buttons are always clickable during MPPM testing.
             const float w = 220f;
-            GUILayout.BeginArea(new Rect(Screen.width - w - 8f, 8f, w, 160f), GUI.skin.box);
+            const float h = 160f;
+            GUILayout.BeginArea(new Rect(8f, Screen.height * 0.5f - h * 0.5f, w, h), GUI.skin.box);
             GUILayout.Label("<b>Netcode Dev (Phase 1)</b>", new GUIStyle(GUI.skin.label) { richText = true });
 
             if (nb.IsOnline)
