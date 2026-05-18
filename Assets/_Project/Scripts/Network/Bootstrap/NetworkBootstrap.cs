@@ -115,9 +115,37 @@ namespace Robogame.Network.Bootstrap
         // Session control (driven by NetDevHud in Phase 1)
         // -----------------------------------------------------------------
 
+        /// <summary>
+        /// Resources path of the robot network prefab (a bare GameObject
+        /// with NetworkObject + the Net* siblings). Loaded + registered at
+        /// runtime so the NetworkManager prefab list never has to be
+        /// hand-edited; server and client register the identical prefab.
+        /// </summary>
+        public const string RobotPrefabResource = "RobotNetPrefab";
+
+        /// <summary>The registered robot prefab, or null if missing.</summary>
+        public Unity.Netcode.NetworkObject RobotPrefab { get; private set; }
+
+        private void RegisterRobotPrefab()
+        {
+            if (RobotPrefab != null) return;
+            var prefab = Resources.Load<Unity.Netcode.NetworkObject>(RobotPrefabResource);
+            if (prefab == null)
+            {
+                Debug.LogError(
+                    $"[NetworkBootstrap] No robot prefab at Resources/{RobotPrefabResource}. " +
+                    "Create it (bare GameObject + NetworkObject + the Net* components) " +
+                    "in an Assets/.../Resources folder with that exact name.");
+                return;
+            }
+            RobotPrefab = prefab;
+            _nm.AddNetworkPrefab(prefab.gameObject);
+        }
+
         public bool StartHost(ushort port = DefaultPort)
         {
             if (_nm.IsListening) { Debug.LogWarning("[NetworkBootstrap] Already listening."); return false; }
+            RegisterRobotPrefab();
             _transport.SetConnectionData("0.0.0.0", port, "0.0.0.0");
             _nm.ConnectionApprovalCallback = ContentHashGuard.ApproveConnection;
             ContentHashGuard.PrepareLocalConnectionData(_nm);
@@ -130,6 +158,7 @@ namespace Robogame.Network.Bootstrap
         public bool StartClient(string ip = "127.0.0.1", ushort port = DefaultPort)
         {
             if (_nm.IsListening) { Debug.LogWarning("[NetworkBootstrap] Already listening."); return false; }
+            RegisterRobotPrefab();
             _transport.SetConnectionData(ip, port);
             ContentHashGuard.PrepareLocalConnectionData(_nm);
             bool ok = _nm.StartClient();
