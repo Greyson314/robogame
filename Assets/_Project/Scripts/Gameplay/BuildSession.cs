@@ -73,6 +73,9 @@ namespace Robogame.Gameplay
         // component decides what those are at place time.
         private readonly Dictionary<string, Vector3> _dimsByBlockId = new Dictionary<string, Vector3>();
         private readonly Dictionary<string, float> _pitchByBlockId = new Dictionary<string, float>();
+        // Per-block server-authoritative scalar (thruster thrust / rudder
+        // authority / rotor RPM). 0 = use the block's historical default.
+        private readonly Dictionary<string, float> _configByBlockId = new Dictionary<string, float>();
 
         /// <summary>Raised when any per-block variant config changes.</summary>
         public event Action<string> VariantChanged;
@@ -105,10 +108,25 @@ namespace Robogame.Gameplay
             VariantChanged?.Invoke(blockId);
         }
 
+        public float GetVariantConfig(string blockId)
+        {
+            if (string.IsNullOrEmpty(blockId)) return 0f;
+            _configByBlockId.TryGetValue(blockId, out float v);
+            return v;
+        }
+
+        public void SetVariantConfig(string blockId, float value)
+        {
+            if (string.IsNullOrEmpty(blockId)) return;
+            _configByBlockId[blockId] = value;
+            VariantChanged?.Invoke(blockId);
+        }
+
         public void ResetVariantCaches()
         {
             _dimsByBlockId.Clear();
             _pitchByBlockId.Clear();
+            _configByBlockId.Clear();
         }
 
         // -----------------------------------------------------------------
@@ -233,6 +251,10 @@ namespace Robogame.Gameplay
             BlockBehaviour placed = Grid.PlaceBlock(def, cell, up, dims, localPitch);
             if (placed == null)
                 return new PlaceOutcome(PlacementRules.PlacementError.WouldOverlapNeighbour, PlacementRules.PlacementError.None, false);
+            // Per-block server-authoritative scalar from the variant cache
+            // (0 = block default). Rides the same per-id cache Dims/Pitch
+            // do; SyncBlueprint persists it onto the Entry.
+            placed.ConfigValue = GetVariantConfig(def.Id);
 
             // Auto-place structural companions a primary block needs to be
             // usable. Rotor → mechanism cube on its spin-axis face. Owned
@@ -262,7 +284,8 @@ namespace Robogame.Gameplay
                     mirrorErr = PlacementRules.EvaluatePlacement(Grid, in mirrorCandidate, _cpuReachableValid ? _cpuReachable : null);
                     if (mirrorErr == PlacementRules.PlacementError.None)
                     {
-                        Grid.PlaceBlock(def, mCell, mUp, dims, mLocalPitch);
+                        BlockBehaviour mPlaced = Grid.PlaceBlock(def, mCell, mUp, dims, mLocalPitch);
+                        if (mPlaced != null) mPlaced.ConfigValue = GetVariantConfig(def.Id);
                         AutoPlaceCompanionsOf(def, mCell, mUp);
                     }
                 }
@@ -449,7 +472,7 @@ namespace Robogame.Gameplay
             {
                 BlockBehaviour b = kvp.Value;
                 if (b == null || b.Definition == null) continue;
-                list.Add(new ChassisBlueprint.Entry(b.Definition.Id, kvp.Key, b.Up, b.Dims, b.PitchDeg));
+                list.Add(new ChassisBlueprint.Entry(b.Definition.Id, kvp.Key, b.Up, b.Dims, b.PitchDeg, b.ConfigValue));
                 if (b.Definition.Id == BlockIds.Rotor) hasRotor = true;
             }
             Blueprint.SetEntries(list.ToArray());
