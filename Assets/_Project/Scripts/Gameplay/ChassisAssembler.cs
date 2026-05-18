@@ -243,6 +243,14 @@ namespace Robogame.Gameplay
                     EnsureComponent<WeaponAmmoState>(root);
                 }
 
+                // Instanced renderer for the frozen in-arena chassis
+                // (PERFORMANCE.md §8.2). Unconditional — it self-gates
+                // to arena scenes and to full-health Structure blocks,
+                // so it is dormant in the garage and never touches
+                // moving/special blocks. Added here (root inactive); it
+                // builds its batch one frame after activation.
+                EnsureComponent<ChassisInstancedRenderer>(root);
+
                 // Phase 4 — block placement. Subsystems / binders
                 // subscribed above receive BlockPlaced events and
                 // self-attach correctly.
