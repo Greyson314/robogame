@@ -1,3 +1,4 @@
+using System;
 using Robogame.Block;
 using Robogame.Gameplay;
 using Robogame.Robots;
@@ -46,6 +47,25 @@ namespace Robogame.Network.Robot
         /// tier (team/scoring). Server-set before the configure RPC.</summary>
         public ulong OwnerPlayerId { get; private set; }
 
+        /// <summary>True once <see cref="Handle"/> is assembled.</summary>
+        public bool IsBuilt => Handle != null;
+
+        /// <summary>Raised once the chassis finishes assembling (server: in
+        /// <see cref="ServerSpawn"/> after spawn; client: on the configure
+        /// RPC). Sibling Net components hook gameplay events here because
+        /// the chassis does not exist yet at <c>OnNetworkSpawn</c> time.</summary>
+        public event Action<NetworkRobot> Built;
+
+        /// <summary>Invoke <paramref name="callback"/> as soon as the chassis
+        /// is built — immediately if it already is, otherwise on
+        /// <see cref="Built"/>. The single hook every sibling uses.</summary>
+        public void WhenBuilt(Action<NetworkRobot> callback)
+        {
+            if (callback == null) return;
+            if (IsBuilt) callback(this);
+            else Built += callback;
+        }
+
         // -----------------------------------------------------------------
         // Server spawn
         // -----------------------------------------------------------------
@@ -74,12 +94,12 @@ namespace Robogame.Network.Robot
             if (prefab == null) { Debug.LogError("[NetworkRobot] ServerSpawn: prefab is null."); return null; }
             if (blueprint == null) { Debug.LogError("[NetworkRobot] ServerSpawn: blueprint is null."); return null; }
 
-            NetworkObject instance = Object.Instantiate(prefab, position, rotation);
+            NetworkObject instance = UnityEngine.Object.Instantiate(prefab, position, rotation);
             var nr = instance.GetComponent<NetworkRobot>();
             if (nr == null)
             {
                 Debug.LogError("[NetworkRobot] Robot prefab is missing a NetworkRobot component.");
-                Object.Destroy(instance.gameObject);
+                UnityEngine.Object.Destroy(instance.gameObject);
                 return null;
             }
 
@@ -142,8 +162,15 @@ namespace Robogame.Network.Robot
             Handle = ChassisAssembler.Assemble(
                 gameObject, blueprint, library, AssemblyOptions.Bot());
 
-            if (Handle != null && Handle.Robot != null)
+            if (Handle == null)
+            {
+                Debug.LogError("[NetworkRobot] ChassisAssembler returned null — build failed.");
+                return;
+            }
+            if (Handle.Robot != null)
                 Handle.Robot.ConfigureTeam((TeamId)teamId);
+
+            Built?.Invoke(this);
         }
     }
 }
