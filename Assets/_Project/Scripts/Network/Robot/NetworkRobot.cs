@@ -215,6 +215,12 @@ namespace Robogame.Network.Robot
             Debug.Log($"[NetDiag] BuildFromBlueprint done IsServer={IsServer} IsOwner={IsOwner} " +
                       $"netId={NetworkObjectId} blocks={(Handle.Grid != null ? Handle.Grid.Blocks.Count : -1)} pos={transform.position}");
             Built?.Invoke(this);
+
+            // The owning client's view: hand the local camera/HUDs to this
+            // networked robot (gameplay listens via the Core bridge so it
+            // never references Robogame.Network).
+            if (IsOwner && IsClient)
+                Robogame.Core.NetworkPlayerBridge.RaiseLocalOwnerRobotReady(gameObject);
         }
     }
 }

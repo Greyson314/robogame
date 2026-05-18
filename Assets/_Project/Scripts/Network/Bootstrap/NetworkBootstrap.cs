@@ -1,8 +1,10 @@
 using System;
 using Robogame.Core;
+using Robogame.Network.Robot;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Robogame.Network.Bootstrap
 {
@@ -35,6 +37,13 @@ namespace Robogame.Network.Bootstrap
     {
         public const ushort DefaultPort = 7777;
         public const uint TickRateHz = 50; // handoff §5.4 — matches physics FixedUpdate
+
+        /// <summary>Arena scene the server loads over the NGO handshake
+        /// once a remote client has connected (§10).</summary>
+        public const string ArenaScene = "Arena";
+
+        private bool _arenaRequested;
+        private bool _sceneHooked;
 
         private static NetworkBootstrap s_instance;
         private static GameObject s_root;
@@ -91,16 +100,16 @@ namespace Robogame.Network.Bootstrap
             _nm.NetworkConfig.NetworkTransport = _transport;
             _nm.NetworkConfig.TickRate = TickRateHz;
             _nm.NetworkConfig.ConnectionApproval = true;
-            // Phase 1 / handoff §3.3: connection only, no robots yet. The
-            // Robot network prefab + auto-spawn lands in Step 4.
-            _nm.NetworkConfig.PlayerPrefab = null;
+            // §10 flow: connect in the MainMenu, then the SERVER drives the
+            // arena load over NGO's synchronized scene handshake so every
+            // peer transitions together and ArenaController.Start runs with
+            // IsOnline already true (its guards then skip local SP spawn).
+            _nm.NetworkConfig.EnableSceneManagement = true;
+            _nm.NetworkConfig.PlayerPrefab = null; // robots spawned explicitly
 
             _nm.OnServerStopped += HandleSessionStopped;
             _nm.OnClientStopped += HandleSessionStopped;
-
-            // [NetDiag] connection-lifecycle trace (Phase-1 bring-up).
-            _nm.OnClientConnectedCallback += id =>
-                Debug.Log($"[NetDiag] OnClientConnected id={id} IsServer={_nm.IsServer} IsClient={_nm.IsClient}");
+            _nm.OnClientConnectedCallback += HandleClientConnected;
             _nm.OnClientDisconnectCallback += id =>
                 Debug.LogWarning($"[NetDiag] OnClientDisconnect id={id} reason='{_nm.DisconnectReason}'");
         }
@@ -111,7 +120,10 @@ namespace Robogame.Network.Bootstrap
             {
                 _nm.OnServerStopped -= HandleSessionStopped;
                 _nm.OnClientStopped -= HandleSessionStopped;
+                _nm.OnClientConnectedCallback -= HandleClientConnected;
                 _nm.ConnectionApprovalCallback = null;
+                if (_sceneHooked && _nm.SceneManager != null)
+                    _nm.SceneManager.OnSceneEvent -= HandleSceneEvent;
             }
             NetworkContext.Unregister(this);
             if (s_instance == this) s_instance = null;
@@ -146,6 +158,40 @@ namespace Robogame.Network.Bootstrap
             }
             RobotPrefab = prefab;
             _nm.AddNetworkPrefab(prefab.gameObject);
+        }
+
+        // -----------------------------------------------------------------
+        // §10 scene flow: connect in menu → server loads arena → spawn
+        // -----------------------------------------------------------------
+
+        private void HandleClientConnected(ulong id)
+        {
+            Debug.Log($"[NetDiag] OnClientConnected id={id} IsServer={_nm.IsServer} IsClient={_nm.IsClient}");
+
+            // Server, first remote client in: load the arena for everyone
+            // over NGO's synchronized handshake. Both peers transition
+            // together; ArenaController.Start then runs with IsOnline true.
+            if (!_nm.IsServer || _arenaRequested || id == _nm.LocalClientId) return;
+            _arenaRequested = true;
+
+            if (!_sceneHooked)
+            {
+                _nm.SceneManager.OnSceneEvent += HandleSceneEvent;
+                _sceneHooked = true;
+            }
+            Debug.Log($"[NetDiag] Server loading arena '{ArenaScene}' (synchronized)");
+            _nm.SceneManager.LoadScene(ArenaScene, LoadSceneMode.Single);
+        }
+
+        private void HandleSceneEvent(SceneEvent evt)
+        {
+            // Arena finished loading + synchronizing on every peer — now
+            // the server spawns each connected player's robot (§10).
+            if (_nm.IsServer && evt.SceneEventType == SceneEventType.LoadEventCompleted)
+            {
+                Debug.Log($"[NetDiag] LoadEventCompleted '{evt.SceneName}' — spawning robots");
+                NetworkRobotSpawner.Instance?.ServerSpawnAllConnected();
+            }
         }
 
         public bool StartHost(ushort port = DefaultPort)

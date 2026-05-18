@@ -219,40 +219,64 @@ namespace Robogame.Gameplay
                 return;
             }
 
-            Chassis = SpawnPlayerChassis(state);
-            SpawnDummy(state);
-            SpawnArch(state);
-            if (_spawnRepairPad) RepairPad.CreateProcedural(_repairPadPosition, transform);
+            if (NetworkContext.Instance.IsOnline)
+            {
+                // Networked: the SERVER owns spawning (NetworkRobot, via the
+                // §10 scene-load handshake). This scene must NOT spawn a
+                // local non-networked chassis. Just bind the local
+                // camera/HUDs to the local player's networked robot once it
+                // is built — signalled through the Core bridge so this
+                // gameplay scene never references Robogame.Network.
+                NetworkPlayerBridge.LocalOwnerRobotReady += HandleNetworkedOwnerReady;
+            }
+            else
+            {
+                Chassis = SpawnPlayerChassis(state);
+                SpawnDummy(state);
+                SpawnArch(state);
+                if (_spawnRepairPad) RepairPad.CreateProcedural(_repairPadPosition, transform);
 
-            // Build the match controller BEFORE BindFollowCamera so the
-            // ObjectiveHud + MatchEndOverlay added there get a non-null
-            // controller via BindMatch — the canonical bind path. (Both
-            // HUDs have a fallback FindFirstObjectByType, but binding
-            // explicitly is one less Update-frame of empty state.)
-            CreateMatch();
-            BindFollowCamera(Chassis);
-            RegisterChassis(Chassis, MatchSide.Player);
-            SpawnMatchBots(state);
-            SpawnFriendlyTank(state);
+                // Build the match controller BEFORE BindFollowCamera so the
+                // ObjectiveHud + MatchEndOverlay added there get a non-null
+                // controller via BindMatch — the canonical bind path. (Both
+                // HUDs have a fallback FindFirstObjectByType, but binding
+                // explicitly is one less Update-frame of empty state.)
+                CreateMatch();
+                BindFollowCamera(Chassis);
+                RegisterChassis(Chassis, MatchSide.Player);
+                SpawnMatchBots(state);
+                SpawnFriendlyTank(state);
 
-            // Scrap depots: one per team. Spawn AFTER the match exists so
-            // the depots can DepositScrap into it; AFTER bot spawn so the
-            // side-lookup map is populated for the depot's faction filter.
-            if (_spawnScrapDepots) SpawnScrapDepots();
+                // Scrap depots: one per team. Spawn AFTER the match exists
+                // so depots can DepositScrap; AFTER bot spawn so the
+                // side-lookup map is populated for the depot faction filter.
+                if (_spawnScrapDepots) SpawnScrapDepots();
 
-            // Stress tower: optional. Read the tweakable on entry and
-            // (de)spawn live as the slider moves. Subscribing here means
-            // dragging Stress.RotorTower in the settings panel pops the
-            // tower in/out without re-entering the arena.
-            ApplyStressTowerState(state);
-            ApplyTankDummyState(state);
-            ApplyAirDummyState(state);
+                // Stress tower: optional. Read the tweakable on entry and
+                // (de)spawn live as the slider moves.
+                ApplyStressTowerState(state);
+                ApplyTankDummyState(state);
+                ApplyAirDummyState(state);
+            }
             Tweakables.Changed += OnTweakablesChanged;
+        }
+
+        // §10: the local player's networked robot is built — give it the
+        // camera + HUDs (the path BindFollowCamera normally wires for the
+        // singleplayer chassis). Match HUDs tolerate a null MatchController
+        // (server-authoritative match state is a later netcode phase).
+        private void HandleNetworkedOwnerReady(GameObject robot)
+        {
+            if (robot == null) return;
+            Chassis = robot;
+            BindFollowCamera(robot);
+            RegisterChassis(robot, MatchSide.Player);
         }
 
         private void OnDestroy()
         {
             Tweakables.Changed -= OnTweakablesChanged;
+            NetworkPlayerBridge.LocalOwnerRobotReady -= HandleNetworkedOwnerReady;
             if (_match != null)
             {
                 _match.MatchEnded -= HandleMatchEnded;

@@ -37,13 +37,19 @@ namespace Robogame.Network.Robot
 
         private static GameObject s_root;
 
+        /// <summary>Auto-bootstrapped singleton (NetworkBootstrap drives
+        /// <see cref="ServerSpawnAllConnected"/> on arena-loaded).</summary>
+        public static NetworkRobotSpawner Instance { get; private set; }
+
         private readonly HashSet<ulong> _spawned = new();
         private readonly List<NetworkRobot> _robots = new();
         private NetworkManager _nm;
         private bool _hooked;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics() => s_root = null;
+        private static void ResetStatics() { s_root = null; Instance = null; }
+
+        private void Awake() => Instance = this;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void EnsureBootstrap()
@@ -76,25 +82,40 @@ namespace Robogame.Network.Robot
             _nm.OnClientDisconnectCallback -= HandleClientDisconnected;
         }
 
+        private bool _arenaSpawned;
+
         private void HandleServerStarted()
         {
-            // Host's own robot (the host is also client LocalClientId).
-            if (_nm.IsServer) SpawnFor(_nm.LocalClientId);
+            // NOTE: do NOT spawn here. The §10 flow connects in the MainMenu
+            // and only spawns once the server has loaded the arena (see
+            // ServerSpawnAllConnected, driven by NetworkBootstrap's
+            // scene-load handshake) — spawning in the menu would put robots
+            // in the wrong scene.
         }
 
         private void HandleClientConnected(ulong clientId)
         {
-            if (!_nm.IsServer) return;
+            if (!_nm.IsServer || !_arenaSpawned) return;
 
-            // Every robot that already exists (notably the host's own,
-            // spawned at host-start before anyone was connected) re-sends
-            // its build payload TARGETED to the newcomer — its original
-            // broadcast reached nobody. Then spawn the newcomer's own
-            // robot (that broadcast reaches all current clients incl. it).
+            // A client that joins AFTER the arena is already up: re-send
+            // every existing robot's payload targeted to it, then spawn its
+            // own. (For the basic 1v1 both peers connect before the arena
+            // loads, so ServerSpawnAllConnected covers them.)
             for (int i = 0; i < _robots.Count; i++)
                 if (_robots[i] != null) _robots[i].ServerSendConfigTo(clientId);
 
             SpawnFor(clientId);
+        }
+
+        /// <summary>Server-only: spawn a robot for every connected client.
+        /// Called once the arena scene has loaded + synchronized on all
+        /// peers (NETCODE_PLAN §10). Idempotent per client.</summary>
+        public void ServerSpawnAllConnected()
+        {
+            if (_nm == null || !_nm.IsServer) return;
+            _arenaSpawned = true;
+            foreach (ulong id in _nm.ConnectedClientsIds)
+                SpawnFor(id);
         }
 
         private void HandleClientDisconnected(ulong clientId)
