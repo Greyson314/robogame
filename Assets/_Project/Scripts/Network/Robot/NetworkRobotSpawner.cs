@@ -38,6 +38,7 @@ namespace Robogame.Network.Robot
         private static GameObject s_root;
 
         private readonly HashSet<ulong> _spawned = new();
+        private readonly List<NetworkRobot> _robots = new();
         private NetworkManager _nm;
         private bool _hooked;
 
@@ -83,7 +84,17 @@ namespace Robogame.Network.Robot
 
         private void HandleClientConnected(ulong clientId)
         {
-            if (_nm.IsServer) SpawnFor(clientId);
+            if (!_nm.IsServer) return;
+
+            // Every robot that already exists (notably the host's own,
+            // spawned at host-start before anyone was connected) re-sends
+            // its build payload TARGETED to the newcomer — its original
+            // broadcast reached nobody. Then spawn the newcomer's own
+            // robot (that broadcast reaches all current clients incl. it).
+            for (int i = 0; i < _robots.Count; i++)
+                if (_robots[i] != null) _robots[i].ServerSendConfigTo(clientId);
+
+            SpawnFor(clientId);
         }
 
         private void HandleClientDisconnected(ulong clientId)
@@ -118,7 +129,9 @@ namespace Robogame.Network.Robot
 
             Vector3 pos = SpawnBase + SpawnStride * clientId;
             byte team = (byte)(clientId == _nm.LocalClientId ? 1 : 2);
-            NetworkRobot.ServerSpawn(prefab, blueprint, clientId, team, pos, Quaternion.identity);
+            NetworkRobot nr = NetworkRobot.ServerSpawn(
+                prefab, blueprint, clientId, team, pos, Quaternion.identity);
+            if (nr != null) _robots.Add(nr);
         }
     }
 }

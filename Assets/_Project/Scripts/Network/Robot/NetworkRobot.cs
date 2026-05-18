@@ -47,6 +47,12 @@ namespace Robogame.Network.Robot
         /// tier (team/scoring). Server-set before the configure RPC.</summary>
         public ulong OwnerPlayerId { get; private set; }
 
+        // Server keeps the spawn payload so it can re-send it, targeted, to
+        // a client that connects AFTER this robot spawned (every client is
+        // a late-joiner relative to the host's own robot — a fire-and-
+        // forget broadcast at spawn never reaches them).
+        private SpawnRobotPayload _payload;
+
         /// <summary>True once <see cref="Handle"/> is assembled.</summary>
         public bool IsBuilt => Handle != null;
 
@@ -118,12 +124,26 @@ namespace Robogame.Network.Robot
                 SpawnRotation = rotation,
                 BlueprintBlob = BlueprintBlob.Encode(blueprint),
             };
-            nr.ConfigureClientRpc(payload);
+            nr._payload = payload;
+            nr.ConfigureClientRpc(payload);            // already-connected clients
             return nr;
         }
 
+        /// <summary>Server-only: (re)send this robot's build payload to one
+        /// specific client — used when a client connects after the robot
+        /// already spawned (e.g. the host's own robot).</summary>
+        public void ServerSendConfigTo(ulong clientId)
+        {
+            if (!IsServer) return;
+            var p = new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams { TargetClientIds = new[] { clientId } }
+            };
+            ConfigureClientRpc(_payload, p);
+        }
+
         [ClientRpc]
-        private void ConfigureClientRpc(SpawnRobotPayload payload)
+        private void ConfigureClientRpc(SpawnRobotPayload payload, ClientRpcParams rpcParams = default)
         {
             Debug.Log($"[NetDiag] ConfigureClientRpc received IsServer={IsServer} IsOwner={IsOwner} netId={NetworkObjectId}");
             // Host is the server and already built in ServerSpawn.
