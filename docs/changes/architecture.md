@@ -161,11 +161,16 @@ Arena round flow (Pillar 1)
   into the new range but doesn't overwrite it. Either drag the slider
   in-game or wipe the JSON to pick up a new default.
 - **No Tweakable affects gameplay outcomes.** PHYSICS_PLAN § 1.5.
-  Match shape (frag limit, round duration, lives, AI fire range)
-  lives on the `MatchConfig` SerializeField on `ArenaController`,
-  not in `Tweakables`. The `Stress.*` Tweakables that gate dev-only
-  bot spawn / fire toggles still satisfy the rule because they're
-  developer affordances, not server-canonical match data.
+  As of session 85 this is fully enforced: ramming damage →
+  `ImpactConfig` SO; Plane/Ground/Chassis tuning → chassis-level
+  `ChassisBlueprint` config (carried at runtime on `RobotDrive`,
+  not `Robot` — Movement↛Robots asmdef); Thruster/Rudder/Rotor →
+  per-block `BlockBehaviour.ConfigValue` from `Entry.BlockConfig`
+  (`BlueprintSerializer` v4, `0` = block default). Match shape
+  stays on the `MatchConfig` SerializeField on `ArenaController`.
+  Only `Stress.*`, `Water.*` and rope-feel knobs remain in
+  `Tweakables` (dev / arena-canonical / presentation). Do NOT
+  re-add a gameplay knob to `Tweakables` — extend the blueprint.
 - **`MatchController` is plain C# (not a MonoBehaviour).** Constructed
   by `ArenaController` and ticked from `Update`. Plumbed this way so
   EditMode tests can drive the state machine without a scene and a
