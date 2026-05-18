@@ -13,11 +13,15 @@
 >
 > **Last applied.** Session 84
 > ([`docs/changes/84-perf-pass-1.md`](changes/84-perf-pass-1.md)) —
-> built the idle baseline harness, triaged every Phase-2 suspect
-> statically, fixed two real OnGUI GC sources (ObjectiveHud,
-> ScrapCarriedIndicator). Numbers pending a test run (editor lock
-> blocked autonomous capture); Phase-5 big rocks deferred as
-> measurement-gated. See [`PERFORMANCE_BASELINES.md`](PERFORMANCE_BASELINES.md).
+> idle baseline harness; static Phase-2 triage; two real OnGUI GC
+> fixes; a non-destructive Perf-Bisect HUD; outline pass disabled;
+> documented GPU reductions (shadow cascades 4→2, hills res 121→81
+> + rebake, Fluff shell/fins) user-confirmed ≈ +30–40 fps; and
+> ~150 per-chassis block renderers collapsed to one combined mesh
+> per material. **Key methodology finding:** the headless harness
+> is GPU-blind — it guards CPU/GC only; GPU cost needs in-game
+> bisect (the Perf-Bisect HUD). See
+> [`PERFORMANCE_BASELINES.md`](PERFORMANCE_BASELINES.md).
 
 ---
 

@@ -1,11 +1,12 @@
-# 84 — Performance pass 1 (baseline harness + OnGUI GC fixes)
+# 84 — Performance pass 1 (harness, GC fixes, GPU reductions, chassis batching)
 
-> Status: **code complete; harness green; idle sim numbers captured;
-> OnGUI before/after needs the editor Test Runner (headless can't
-> tick OnGUI — see below).** User closed the editor mid-session so
-> CLI batchmode ran: all 3 `PerfBaselineHarness` tests Passed after
-> a bootstrap fix. Numbers + the headless/OnGUI limitation are in
-> `docs/PERFORMANCE_BASELINES.md`.
+> Status: **pass complete, user-stopped at a good point.** Grew well
+> past "baseline + OnGUI": added a Perf-Bisect HUD, disabled the
+> outline pass, landed documented GPU reductions (shadows + grass,
+> user-confirmed ≈ +30–40 passive fps), and replaced ~150
+> per-chassis block renderers with one combined mesh per material.
+> See the "Continued" section below; numbers/limitations in
+> `docs/PERFORMANCE_BASELINES.md`. User will push.
 >
 > User intent: execute `PERFORMANCE_PASS_PLAN.md`. User explicitly
 > relaxed the plan's "measure-before-fix" gate ("make all changes
@@ -81,3 +82,59 @@ targeted fixes, not a 2× win.
    the controls); append to BASELINES per PERFORMANCE.md §9.
 3. The harness asserts idle GC < 2048 B/frame — if it fails on the
    "before" stash that *confirms* the regression these fixes remove.
+
+## Continued — the rest of the pass
+
+After the OnGUI fixes the pass continued, driven by in-game bisect
+(the user is the GPU measurement loop; the headless harness proved
+**GPU-blind** — CPU render submission for 227 chassis blocks = 6 µs,
+so it only guards CPU/GC, not the GPU costs that actually bind).
+
+- **Perf-Bisect HUD** (`Robogame.Core.PerfBisect` + a "Perf Bisect"
+  section in `SettingsHud`): non-destructive Esc-menu switches to
+  disable AI bots / Fluff grass / dig chunk renderers live for
+  empirical A/B against fps. This is what localised the costs.
+- **Bisect results:** dig renderers ≈ ruled out; AI/physics modest;
+  the big deltas are **grass** and **chassis block rendering** —
+  both GPU.
+- **Outline pass disabled** (`PC_Renderer.asset` m_Active 0,
+  reversible). Long-term intent is a player-only layer-mask
+  (§5.4), not deletion — deferred as a user-decision item.
+- **GPU reductions (documented, reversible), user-confirmed ≈ +30–40
+  passive fps:** shadow cascades 4→2 (§6); hills resolution 121→81
+  + mesh rebake (grass input tris 28 800→12 800, ×~22 in the geom
+  shader — §5.3's biggest grass lever); Fluff `_ShellCount` 7→6;
+  `_FinsEnabled` 1→0 (§5.3 #5, the one visible knob — revert by
+  setting it back to 1). Note: Unity re-serialises hand-edited
+  `.mat` values when the editor reopens — the rebaked mesh +
+  `PC_RPAsset` cascades are the durable carriers.
+- **Chassis block batching (`ChassisInstancedRenderer`).** GPU
+  instancing was tried first and failed — MK Toon has no instancing
+  variant, so `RenderMeshInstanced` drew invisible cubes (the
+  flagged shader risk, realised). Pivoted to `Mesh.CombineMeshes`:
+  one combined mesh per material under the chassis root, same shader
+  path as the visible originals (guaranteed identical), moves with
+  the chassis for free (zero per-frame cost). Only full-health
+  single-mesh `Structure` blocks; a damaged/destroyed block is
+  evicted back to its own renderer + the combined mesh rebuilt
+  (debounced). Collapses ~150 draws + their per-cascade shadow
+  draws/chassis to one per material. Biggest payoff is the
+  16-chassis MP target, not single-machine fps.
+
+### Deliberately NOT blind-landed (Rule 1/7/12)
+
+The SRP/MPB chassis fix (commit 44cf5a1) is kept as correct hygiene
+but did **not** move this machine's fps (CPU submission was already
+free — the GPU-blind finding explains why). Outline-bake, water
+analytic normals, the player-only outline mask, and CPU-beacon
+light reduction are surfaced for user/architect sign-off, not
+unilaterally landed — they are visible/architectural and
+unverifiable headless.
+
+### Methodology note for the next pass
+
+Headless CLI (`PerfBaselineHarness`/`PerfRenderProbe`) measures
+CPU/GC/render-submission only. **GPU cost (grass shells, fragment
+/overdraw, shadows) is only measurable in the editor Game-view or a
+windowed build** — i.e. a human at the controls. Do not trust
+headless fps for GPU work; bisect in-game with the Perf-Bisect HUD.

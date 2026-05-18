@@ -186,6 +186,29 @@ outline layer-mask (§5.4 — user wants outlines on their own
 chassis long-term) and disabling the CPU-beacon point lights
 (readability tradeoff).
 
+**Update — lever taken (commits 37480f8 → fa4ed0e).** Architect
+signed off. GPU instancing was implemented first and **failed**:
+MK Toon has no instancing variant, so `RenderMeshInstanced` drew
+invisible cubes (the flagged shader risk, realised — confirmed
+in-game: draws dropped, structural blocks vanished). Pivoted to
+`Mesh.CombineMeshes` (`ChassisInstancedRenderer`): one combined
+mesh per material under the chassis root, the *same* shader path
+as the visible originals (guaranteed identical), zero per-frame
+cost; full-health single-mesh `Structure` blocks only; a
+damaged/destroyed block is evicted to its own renderer and the
+combined mesh is rebuilt (debounced). Collapses ~150 draws +
+their per-cascade shadow draws per chassis. **Biggest payoff is
+the 16-chassis MP target**, not single-machine fps (consistent
+with the GPU-blind finding — this machine isn't draw-bound).
+
+**Pass status: CLOSED at session 84** at the user's call, at a
+good point. Net delivered: trend harness + Perf-Bisect HUD (both
+reusable), two real GC fixes, ≈ +30–40 fps from documented GPU
+reductions, and the structural per-chassis draw/shadow collapse
+for MP-readiness. Open follow-ups are the surfaced user-decision
+items above; the next pass should bisect GPU **in-game**, not
+headless.
+
 **Conclusion matches the plan's "honest picture":** the codebase's
 per-frame hygiene is good. There is no single 16 ms bottleneck. The
 two real findings are steady-state OnGUI GC in two always-on Arena
