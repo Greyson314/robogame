@@ -605,18 +605,19 @@ Each phase is a shippable internal milestone. Each ends with a tag and a CHANGES
 
 **Exit criterion:** every gameplay system can be queried for "is this the authoritative instance?" and answers correctly in singleplayer (always true) and offline (always true) — laying the foundation for the same query returning "only on the server" later, without any other code changing.
 
-### Phase 1 — NGO baseline (no Steam, no prediction)
+### Phase 1 — NGO baseline (no Steam, no prediction) — ✅ shipped (sessions 86–87)
 
 Goal: two editor instances connect via UTP loopback, each spawns a robot, both can drive around and shoot, damage replicates.
 
-- Add NGO + UTP packages.
-- `NetworkBootstrap` creates `NetworkManager`, configured with `UnityTransport`.
-- `NetworkRobot` + `NetworkRobotMovement` (using stock `NetworkTransform` for now — CSP comes in Phase 3).
-- `NetworkRobotCombat` with `ServerRpc(FireCommand)` and `ClientRpc(ProjectileSpawnEvent)`.
-- `NetworkBlockGrid` with `BlockHitBatch` `ClientRpc`.
-- Tiny dev menu HUD: "Host on 7777" / "Join 127.0.0.1:7777" buttons, replacing the F1 menu's role for net testing.
+- ✅ Add NGO + UTP packages (NGO 2.4.0 / UTP 2.4.0).
+- ✅ `NetworkBootstrap` creates `NetworkManager`, configured with `UnityTransport`.
+- ✅ `NetworkRobot` + `NetworkRobotMovement` (using stock `NetworkTransform` for now — CSP comes in Phase 3).
+- ⬜ `NetworkRobotCombat` with `ServerRpc(FireCommand)` and `ClientRpc(ProjectileSpawnEvent)` — fire is server-authoritative by reusing the Step-7 input replication, and damage replicates via `NetworkBlockGrid`, which closes Phase 1's "shoot + damage replicates" exit. The explicit *validated* `FireCommand` ServerRpc + cosmetic `ProjectileSpawnEvent` tracer are deferred — they need a sanctioned `ProjectileWorld` spawn-observation hook (Combat-tier change). First task of the next phase.
+- ✅ `NetworkBlockGrid` with `BlockHitBatch` `ClientRpc`.
+- ✅ Tiny dev menu HUD (`NetDevHud`, F9/F10/F11 hotkeys, default port 47777 — 7777 was held on the dev box).
+- ✅ §10 connect-then-load-arena flow (added during MPPM bring-up: connect from MainMenu → server drives `NetworkSceneManager.LoadScene` synchronized → robots spawn server-side on `LoadEventCompleted` → owner's networked robot gets the local camera via a Core bridge).
 
-**Exit criterion:** playable, laggy, ugly 1v1 over LAN.
+**Exit criterion:** ✅ playable, laggy, ugly 1v1 over LAN — confirmed via MPPM ×2 loopback session 87 (spawn from blueprint, drive, shoot, damage + destruction all replicate).
 
 ### Phase 2 — UGS Relay + Lobby (no Steam yet)
 

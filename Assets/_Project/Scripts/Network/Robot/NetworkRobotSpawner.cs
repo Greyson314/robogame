@@ -127,7 +127,6 @@ namespace Robogame.Network.Robot
         {
             if (!_nm.IsServer) return;
             if (!_spawned.Add(clientId)) return; // already has a robot
-            Debug.Log($"[NetDiag] NetworkRobotSpawner.SpawnFor client={clientId}");
 
             ChassisBlueprint blueprint = GameStateController.Instance != null
                 ? GameStateController.Instance.CurrentBlueprint

@@ -111,7 +111,7 @@ namespace Robogame.Network.Bootstrap
             _nm.OnClientStopped += HandleSessionStopped;
             _nm.OnClientConnectedCallback += HandleClientConnected;
             _nm.OnClientDisconnectCallback += id =>
-                Debug.LogWarning($"[NetDiag] OnClientDisconnect id={id} reason='{_nm.DisconnectReason}'");
+                Debug.LogWarning($"[NetworkBootstrap] Client {id} disconnected: '{_nm.DisconnectReason}'");
         }
 
         private void OnDestroy()
@@ -170,8 +170,6 @@ namespace Robogame.Network.Bootstrap
 
         private void HandleClientConnected(ulong id)
         {
-            Debug.Log($"[NetDiag] OnClientConnected id={id} IsServer={_nm.IsServer} IsClient={_nm.IsClient}");
-
             // Server, first remote client in: load the arena for everyone
             // over NGO's synchronized handshake. Both peers transition
             // together; ArenaController.Start then runs with IsOnline true.
@@ -183,7 +181,6 @@ namespace Robogame.Network.Bootstrap
                 _nm.SceneManager.OnSceneEvent += HandleSceneEvent;
                 _sceneHooked = true;
             }
-            Debug.Log($"[NetDiag] Server loading arena '{ArenaScene}' (synchronized)");
             _nm.SceneManager.LoadScene(ArenaScene, LoadSceneMode.Single);
         }
 
@@ -192,10 +189,7 @@ namespace Robogame.Network.Bootstrap
             // Arena finished loading + synchronizing on every peer — now
             // the server spawns each connected player's robot (§10).
             if (_nm.IsServer && evt.SceneEventType == SceneEventType.LoadEventCompleted)
-            {
-                Debug.Log($"[NetDiag] LoadEventCompleted '{evt.SceneName}' — spawning robots");
                 NetworkRobotSpawner.Instance?.ServerSpawnAllConnected();
-            }
         }
 
         public bool StartHost(ushort port = DefaultPort)
@@ -211,7 +205,6 @@ namespace Robogame.Network.Bootstrap
             _nm.ConnectionApprovalCallback = ContentHashGuard.ApproveConnection;
             ContentHashGuard.PrepareLocalConnectionData(_nm);
             bool ok = _nm.StartHost();
-            Debug.Log($"[NetDiag] StartHost ok={ok} prefab={(RobotPrefab != null)}");
             if (ok) NetworkContext.Register(this);
             else Debug.LogError("[NetworkBootstrap] StartHost failed.");
             return ok;
@@ -224,7 +217,6 @@ namespace Robogame.Network.Bootstrap
             _transport.SetConnectionData(ip, port);
             ContentHashGuard.PrepareLocalConnectionData(_nm);
             bool ok = _nm.StartClient();
-            Debug.Log($"[NetDiag] StartClient ok={ok} ip={ip}:{port} prefab={(RobotPrefab != null)}");
             if (ok) NetworkContext.Register(this);
             else Debug.LogError("[NetworkBootstrap] StartClient failed.");
             return ok;
