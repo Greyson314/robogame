@@ -35,7 +35,7 @@ namespace Robogame.Network.Bootstrap
     [DisallowMultipleComponent]
     public sealed class NetworkBootstrap : MonoBehaviour, INetworkContext
     {
-        public const ushort DefaultPort = 7777;
+        public const ushort DefaultPort = 47777;
         public const uint TickRateHz = 50; // handoff §5.4 — matches physics FixedUpdate
 
         /// <summary>Arena scene the server loads over the NGO handshake
