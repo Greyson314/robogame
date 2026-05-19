@@ -118,6 +118,10 @@ namespace Robogame.Network.Bootstrap
         {
             if (_nm != null)
             {
+                // Force the transport to release its UDP socket if Play
+                // stopped mid-session — otherwise the bound port can linger
+                // and the next StartHost fails with "socket itself failed".
+                if (_nm.IsListening) _nm.Shutdown();
                 _nm.OnServerStopped -= HandleSessionStopped;
                 _nm.OnClientStopped -= HandleSessionStopped;
                 _nm.OnClientConnectedCallback -= HandleClientConnected;
