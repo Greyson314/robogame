@@ -16,7 +16,8 @@ namespace Robogame.Network.Bootstrap
     /// consumes clicks before IMGUI sees them, so an IMGUI button is a
     /// dead button (documented gotcha in architecture.md — same reason
     /// StartMatchHud uses a hotkey). The IMGUI panel is status / hint
-    /// display only. F9 = Host, F10 = Join, F11 = Stop, F5 = cycle the
+    /// display only. F9 = Host, F10 = Join, F8 = Server (Phase 6
+    /// dedicated, no local player), F11 = Stop, F5 = cycle the
     /// <see cref="NetcodeFakeLatencyController"/> preset.
     /// </remarks>
     [DisallowMultipleComponent]
@@ -55,6 +56,8 @@ namespace Robogame.Network.Bootstrap
                 nb.StartHost(NetworkBootstrap.DefaultPort);
             else if (kb.f10Key.wasPressedThisFrame && !nb.IsOnline)
                 nb.StartClient(Ip, NetworkBootstrap.DefaultPort);
+            else if (kb.f8Key.wasPressedThisFrame && !nb.IsOnline)
+                nb.StartServer(NetworkBootstrap.DefaultPort);
             else if (kb.f11Key.wasPressedThisFrame && nb.IsOnline)
                 nb.StopSession();
             else if (kb.f5Key.wasPressedThisFrame)
@@ -69,7 +72,7 @@ namespace Robogame.Network.Bootstrap
             // Left edge, vertically centred — clear of the top-left FPS
             // counter and the top-right PerformanceHud (F3).
             const float w = 260f;
-            const float h = 150f;
+            const float h = 170f;
             GUILayout.BeginArea(new Rect(8f, Screen.height * 0.5f - h * 0.5f, w, h), GUI.skin.box);
             GUILayout.Label("<b>Netcode Dev (Phase 3.6)</b>",
                 new GUIStyle(GUI.skin.label) { richText = true });
@@ -85,6 +88,7 @@ namespace Robogame.Network.Bootstrap
                 GUILayout.Label("Offline");
                 GUILayout.Label($"[F9]  Host on {NetworkBootstrap.DefaultPort}");
                 GUILayout.Label($"[F10] Join {Ip}:{NetworkBootstrap.DefaultPort}");
+                GUILayout.Label($"[F8]  Server on {NetworkBootstrap.DefaultPort}");
             }
 
             NetcodeFakeLatencyController lat = NetcodeFakeLatencyController.Instance;

@@ -112,6 +112,58 @@ namespace Robogame.Network.Bootstrap
             _nm.OnClientConnectedCallback += HandleClientConnected;
             _nm.OnClientDisconnectCallback += id =>
                 Debug.LogWarning($"[NetworkBootstrap] Client {id} disconnected: '{_nm.DisconnectReason}'");
+
+            // Phase 6 — auto-start dedicated server from CLI args
+            // (-server -port N -lobbyId X). Only triggers in batch mode so
+            // editor / interactive builds aren't surprised by an unexpected
+            // session at process start.
+            ParseAndApplyCliArgs();
+        }
+
+        // -----------------------------------------------------------------
+        // Phase 6 — dedicated-server CLI
+        // -----------------------------------------------------------------
+        //
+        // Headless Linux build prerequisites (Unity Player Settings):
+        //   Platform = Linux, Server Build = enabled, Scripting Backend =
+        //   IL2CPP, Strip Engine Code = enabled.
+        // Launch line:
+        //   ./RobogameDedicatedServer -batchmode -nographics -server -port 47777
+        //
+        // -lobbyId is parsed but unused until Phase 5 Steam integration —
+        // recorded only so the launch flag is wire-stable now and doesn't
+        // need a re-deploy when Steam lobby join lands.
+
+        private string _autoLobbyId;
+
+        private void ParseAndApplyCliArgs()
+        {
+            string[] args = System.Environment.GetCommandLineArgs();
+            bool autoServer = false;
+            ushort autoPort = DefaultPort;
+            for (int i = 0; i < args.Length; i++)
+            {
+                string a = args[i];
+                if (a == "-server")
+                {
+                    autoServer = true;
+                }
+                else if (a == "-port" && i + 1 < args.Length)
+                {
+                    if (ushort.TryParse(args[i + 1], out ushort p)) autoPort = p;
+                }
+                else if (a == "-lobbyId" && i + 1 < args.Length)
+                {
+                    _autoLobbyId = args[i + 1];
+                }
+            }
+            if (autoServer && Application.isBatchMode)
+            {
+                Debug.Log($"[NetworkBootstrap] -server flag detected; " +
+                          $"StartServer on port {autoPort}" +
+                          (string.IsNullOrEmpty(_autoLobbyId) ? "." : $" (lobbyId={_autoLobbyId})."));
+                StartServer(autoPort);
+            }
         }
 
         private void OnDestroy()
@@ -219,6 +271,27 @@ namespace Robogame.Network.Bootstrap
             bool ok = _nm.StartClient();
             if (ok) NetworkContext.Register(this);
             else Debug.LogError("[NetworkBootstrap] StartClient failed.");
+            return ok;
+        }
+
+        /// <summary>
+        /// Phase 6 — pure server mode (no local-player loopback client).
+        /// Headless / dedicated path: connect data is the bind address only;
+        /// remote clients reach the server via the host's public IP / port.
+        /// </summary>
+        public bool StartServer(ushort port = DefaultPort)
+        {
+            if (_nm.IsListening) { Debug.LogWarning("[NetworkBootstrap] Already listening."); return false; }
+            RegisterRobotPrefab();
+            // No loopback client; bind only — pass the bind address as both
+            // "connect" and "listen" since UTP requires SetConnectionData
+            // even on a server-only path.
+            _transport.SetConnectionData("0.0.0.0", port, "0.0.0.0");
+            _nm.ConnectionApprovalCallback = ContentHashGuard.ApproveConnection;
+            ContentHashGuard.PrepareLocalConnectionData(_nm);
+            bool ok = _nm.StartServer();
+            if (ok) NetworkContext.Register(this);
+            else Debug.LogError("[NetworkBootstrap] StartServer failed.");
             return ok;
         }
 

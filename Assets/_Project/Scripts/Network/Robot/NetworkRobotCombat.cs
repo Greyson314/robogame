@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using Robogame.Block;
 using Robogame.Combat;
 using Robogame.Core;
 using Robogame.Input;
@@ -77,6 +79,10 @@ namespace Robogame.Network.Robot
         private Vector3 _lastValidatedAimDir;
         private bool _haveLastValidatedAim;
         private int _aimRejectedCount;
+        // Phase 6 lag-comp (telemetry-only — NETCODE_PLAN §9 variant C).
+        private LagCompHistory _lagComp;
+        private readonly List<(ulong, RobotBoundsSnapshot)> _lagCompQuery = new(16);
+        private int _lagCompTelemetryHits;
 
         // Owner-side state (non-server owner only).
         private IInputSource _ownerInput;
@@ -87,6 +93,13 @@ namespace Robogame.Network.Robot
         /// <see cref="FireCommandServerRpc"/> — cooldown OR aim-bounds.
         /// Reads zero on non-server peers.</summary>
         public int RejectedFireCount => _cooldown.RejectedCount + _aimRejectedCount;
+
+        /// <summary>Phase-6 telemetry counter — number of FireCommands where
+        /// the bounding-volume lag-comp check confirmed a hit against any
+        /// remote robot at the shooter's claimed tick. Currently
+        /// observational only (no damage applied); diagnoses "I shot them,
+        /// why didn't it land?" complaints under high RTT.</summary>
+        public int LagCompTelemetryHitCount => _lagCompTelemetryHits;
 
         private void Awake() => _net = GetComponent<NetworkRobot>();
 
@@ -112,6 +125,15 @@ namespace Robogame.Network.Robot
                 // is global; we filter to our own owner inside the handler.
                 ProjectileWorld.Spawned += OnServerProjectileSpawned;
                 _serverSubscribed = true;
+                // Phase 6: attach lag-comp history with the chassis bounding
+                // sphere. Radius is half-block-padded from the furthest
+                // blueprint cell — the chassis is rigid, so this is correct
+                // for the lifetime of the robot (block detachment only
+                // shrinks the convex hull, and over-cover is the safe side
+                // for variant C bounding-volume tests).
+                _lagComp = GetComponent<LagCompHistory>();
+                if (_lagComp == null) _lagComp = gameObject.AddComponent<LagCompHistory>();
+                _lagComp.SetChassisBounds(ComputeChassisRadius());
                 return;
             }
 
@@ -132,6 +154,37 @@ namespace Robogame.Network.Robot
                 _ownerInput = GetComponentInChildren<IInputSource>(includeInactive: true);
                 _ownerDrive = GetComponentInChildren<RobotDrive>(includeInactive: true);
             }
+        }
+
+        // Chassis sphere radius — distance from chassis origin to the
+        // furthest blueprint cell, plus half a cell for block-edge cover.
+        // Run once at chassis build; not per-tick.
+        private float ComputeChassisRadius()
+        {
+            if (_net == null || _net.Handle == null || _net.Handle.Blueprint == null)
+                return 1f;
+            ChassisBlueprint.Entry[] entries = _net.Handle.Blueprint.Entries;
+            float maxDistSq = 0f;
+            for (int i = 0; i < entries.Length; i++)
+            {
+                Vector3 p = entries[i].Position;
+                float d = p.sqrMagnitude;
+                if (d > maxDistSq) maxDistSq = d;
+            }
+            return Mathf.Sqrt(maxDistSq) + 0.5f;
+        }
+
+        // -----------------------------------------------------------------
+        // Server-side: sample chassis pose every physics tick for lag-comp
+        // -----------------------------------------------------------------
+
+        private void FixedUpdate()
+        {
+            if (!IsServer || _lagComp == null) return;
+            uint tick = NetworkManager.Singleton != null
+                ? (uint)NetworkManager.Singleton.LocalTime.Tick
+                : 0u;
+            _lagComp.Sample(transform.position, tick);
         }
 
         // -----------------------------------------------------------------
@@ -209,7 +262,84 @@ namespace Robogame.Network.Robot
                     $"[NetworkRobotCombat] Rejected FireCommand from client " +
                     $"{OwnerClientId} (cooldown breach, count={_cooldown.RejectedCount}).");
 #endif
+                return;
             }
+
+            // Phase 6 — lag-comp telemetry (variant C, observational only).
+            RunLagCompTelemetry(in cmd);
+        }
+
+        // Phase 6 — bounding-volume rewind, observational only (no damage).
+        // Slow projectile weapons (SMG ≈ 80 m/s) keep their leadable feel;
+        // ProjectileWorld's live sweep stays authoritative. This logs when
+        // lag-comp would have called a hit the live sweep is about to miss —
+        // a diagnostic for "I shot them, why didn't it land?" at high RTT.
+        private void RunLagCompTelemetry(in FireCommand cmd)
+        {
+            // Host's own shots have zero RTT — rewinding would only re-derive
+            // the live state. Skip to keep the telemetry log focused on the
+            // remote-client cases where lag-comp is meaningful.
+            if (NetworkManager.Singleton != null &&
+                OwnerClientId == NetworkManager.Singleton.LocalClientId) return;
+
+            _lagCompQuery.Clear();
+            LagCompRegistry.QueryAll(cmd.Tick, _lagCompQuery);
+            if (_lagCompQuery.Count == 0) return;
+
+            Vector3 origin = cmd.MuzzlePos;
+            Vector3 dir = cmd.AimDir.sqrMagnitude > 1e-6f ? cmd.AimDir.normalized : Vector3.forward;
+
+            ulong ownId = _net != null && _net.NetworkObject != null
+                ? _net.NetworkObject.NetworkObjectId
+                : ulong.MaxValue;
+
+            ulong bestId = 0;
+            float bestT = float.MaxValue;
+            for (int i = 0; i < _lagCompQuery.Count; i++)
+            {
+                (ulong id, RobotBoundsSnapshot snap) = _lagCompQuery[i];
+                if (id == ownId) continue;
+                if (snap.Radius <= 0f) continue;
+                if (TryRaySphere(origin, dir, snap.Pos, snap.Radius, out float t) &&
+                    t < bestT && t <= MaxLagCompRangeMetres)
+                {
+                    bestT = t;
+                    bestId = id;
+                }
+            }
+            if (bestT < float.MaxValue)
+            {
+                _lagCompTelemetryHits++;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                Debug.Log(
+                    $"[NetworkRobotCombat] Lag-comp telemetry: shooter " +
+                    $"{OwnerClientId}, target NetworkObject {bestId} at " +
+                    $"t={bestT:F2}m on tick {cmd.Tick}. " +
+                    $"(Observational; no damage applied. count={_lagCompTelemetryHits}).");
+#endif
+            }
+        }
+
+        // Conservative upper bound for ray-vs-sphere intersection distance.
+        // SMG pellets at 80 m/s × MaxLifetime cap < 800 m; anything beyond
+        // is geometrically implausible.
+        private const float MaxLagCompRangeMetres = 800f;
+
+        private static bool TryRaySphere(Vector3 origin, Vector3 dir, Vector3 center, float radius, out float t)
+        {
+            // Standard analytic ray-vs-sphere. Returns the nearest non-negative
+            // intersection parameter, or false if the ray points away or misses.
+            t = 0f;
+            Vector3 L = center - origin;
+            float tca = Vector3.Dot(L, dir);
+            if (tca < 0f) return false;
+            float d2 = Vector3.Dot(L, L) - tca * tca;
+            float r2 = radius * radius;
+            if (d2 > r2) return false;
+            float thc = Mathf.Sqrt(r2 - d2);
+            float t0 = tca - thc;
+            t = t0 < 0f ? tca + thc : t0;
+            return t >= 0f;
         }
 
         // Internal hook for tests — bypasses NGO RPC routing so EditMode

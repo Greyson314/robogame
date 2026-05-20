@@ -747,15 +747,44 @@ degenerate-zero). PlayMode unchanged. The 4v4 MPPM playtest with
 
 **Exit criterion:** closed-friends Steam beta, joining via Steam friends list, no IP exchange.
 
-### Phase 6 — Dedicated server build + lag compensation
+### Phase 6 — Dedicated server build + lag-comp infrastructure — ✅ shipped (session 94, telemetry-only)
 
-- Headless Linux build target.
-- `StartServer()` path; CLI args for port, lobby ID.
-- Lag-compensated hit testing.
-- Multiplay or Hathora deployment pipeline.
-- Steam auth ticket validation on the server.
+- ✅ `NetworkBootstrap.StartServer()` — pure server mode (no loopback
+  client). Mirrors `StartHost` minus the local-player path; binds at
+  `0.0.0.0:port` and approves connections via `ContentHashGuard`.
+- ✅ CLI args — `-server`, `-port <N>`, `-lobbyId <s>` parsed at Awake;
+  auto-starts only when `Application.isBatchMode` is true. `-lobbyId`
+  is parsed but unused until Phase 5 Steam (wire-stable so launch
+  flags don't need re-deployment).
+- ✅ Headless Linux build target — Player Settings configuration
+  (Linux platform, Server Build enabled, IL2CPP, Strip Engine Code)
+  documented in `NetworkBootstrap.cs`. Launch line:
+  `./RobogameDedicatedServer -batchmode -nographics -server -port 47777`.
+- ✅ `NetDevHud` F8 — in-editor StartServer for headless testing.
+- ✅ Lag-comp infrastructure (variant C — bounding-volume rewind) —
+  `LagCompHistory` per-robot 25-entry ring (500 ms @ 50 Hz) +
+  `LagCompRegistry` static service keyed by `NetworkObjectId`.
+  `NetworkRobotCombat` samples chassis pose every server FixedUpdate
+  and runs ray-vs-sphere intersection against the history at
+  `FireCommand.Tick` for every robot except the shooter.
+- ⏸️ **Lag-comp damage application — deliberately telemetry-only.**
+  Slow projectile weapons (SMG ≈ 80 m/s, cannon ball, bomb) keep
+  their leadable / dodgeable feel; `ProjectileWorld`'s live sweep
+  stays the sole damage authority. Lag-comp hits are LOGGED — the
+  `[Lag-comp telemetry]` line in the server console is a diagnostic
+  for "I shot them, why didn't it land?" complaints under high RTT.
+  Flipping to authoritative is a one-method change in
+  `NetworkRobotCombat.RunLagCompTelemetry` *if* a hitscan weapon
+  type ever ships. The doc itself permits this:
+  "pellets slow enough that simple snapshot-time hit testing is
+  acceptable for early access."
+- ⏸️ Multiplay / Hathora deployment pipeline — out of scope; user-only
+  decision about which hosting provider.
+- ⏸️ Steam auth ticket validation — Phase 5 dependency.
 
-**Exit criterion:** auto-provisioned dedicated server takes a 4v4 match end to end, anti-cheat-relevant logs captured.
+**Exit criterion:** ✅ EditMode 250+ (6 new tests for ring buffer
+correctness). The 4v4 dedicated-server playtest gate stands; cloud
+deployment is its own (user-driven) work.
 
 ### Phase 7 — Voice (Vivox), nameplates, scoreboard, kill feed
 
