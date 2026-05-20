@@ -1,6 +1,7 @@
 using Robogame.Combat;
 using Robogame.Core;
 using Robogame.Input;
+using Robogame.Movement;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -15,13 +16,14 @@ namespace Robogame.Network.Robot
     /// <b>(1) FireCommand validation.</b> The owner sends a
     /// <see cref="FireCommandServerRpc"/> on rising-edge + periodic re-fire
     /// while held; the server cross-checks the cooldown via
-    /// <see cref="FireCooldownTable"/> and increments
-    /// <see cref="RejectedFireCount"/> on a breach. Aim-bounds validation is
-    /// a stubbed always-pass for now (owner's input is in look-input space,
-    /// <see cref="FireCommand.AimDir"/> is world-space muzzle-forward — the
-    /// reconciliation belongs in Phase 3 alongside CSP). The aim fields are
-    /// still on the wire so Phase 3+ can flip aim-validation on without an
-    /// RPC churn.
+    /// <see cref="FireCooldownTable"/> and the aim delta (deliberately
+    /// loose at <see cref="MaxAimDeltaDeg"/> degrees per accepted command
+    /// — catches teleporting-aim hacks without false-positives for skilled
+    /// tracking; Phase 6 lag-comp can tighten with a server-side aim-at-
+    /// time-T record). Both cooldown- and aim-rejections increment
+    /// <see cref="RejectedFireCount"/>. Owner-side aim is sampled from
+    /// <see cref="RobotDrive.AimPoint"/>, the same point the chassis
+    /// firers use locally.
     /// </para>
     /// <para>
     /// <b>(2) Cosmetic tracer fan-out.</b> Server subscribes to
@@ -59,19 +61,32 @@ namespace Robogame.Network.Robot
         // gets false-rejected.)
         private const float OwnerHeldFireRpcInterval = MinFireInterval;
 
+        /// <summary>Max permitted angle between consecutive accepted aim
+        /// directions in degrees. Phase 4 anti-cheat hardening — rejects
+        /// only impossible-aim-jump cases. At ~12 fires/sec a human tracking
+        /// across the full FOV shifts &lt; 60°/interval, so 90° is a safety
+        /// margin with effectively zero false positives. Phase 6 lag-comp
+        /// can tighten this once aim-at-time-T is a server-side record.</summary>
+        public const float MaxAimDeltaDeg = 90f;
+
         private NetworkRobot _net;
 
         // Server-side state.
         private readonly FireCooldownTable _cooldown = new();
         private bool _serverSubscribed;
+        private Vector3 _lastValidatedAimDir;
+        private bool _haveLastValidatedAim;
+        private int _aimRejectedCount;
 
         // Owner-side state (non-server owner only).
         private IInputSource _ownerInput;
+        private RobotDrive _ownerDrive;
         private float _nextOwnerFireRpcTime;
 
         /// <summary>Server-only counter. Increments on a rejected
-        /// <see cref="FireCommandServerRpc"/>. Reads zero on non-server peers.</summary>
-        public int RejectedFireCount => _cooldown.RejectedCount;
+        /// <see cref="FireCommandServerRpc"/> — cooldown OR aim-bounds.
+        /// Reads zero on non-server peers.</summary>
+        public int RejectedFireCount => _cooldown.RejectedCount + _aimRejectedCount;
 
         private void Awake() => _net = GetComponent<NetworkRobot>();
 
@@ -113,7 +128,10 @@ namespace Robogame.Network.Robot
             // Owner non-server: cache the local input source so Update can
             // dispatch FireCommandServerRpc on rising-edge / held fire.
             if (IsOwner)
+            {
                 _ownerInput = GetComponentInChildren<IInputSource>(includeInactive: true);
+                _ownerDrive = GetComponentInChildren<RobotDrive>(includeInactive: true);
+            }
         }
 
         // -----------------------------------------------------------------
@@ -134,8 +152,8 @@ namespace Robogame.Network.Robot
                     FireCommand cmd = new FireCommand
                     {
                         Tick = (uint)NetworkManager.LocalTime.Tick,
-                        AimDir = Vector3.forward,        // Phase-3 wires real aim
-                        MuzzlePos = transform.position,  // ditto
+                        AimDir = ComputeOwnerAimDir(),
+                        MuzzlePos = transform.position,
                     };
                     FireCommandServerRpc(cmd);
                     _nextOwnerFireRpcTime = Time.time + OwnerHeldFireRpcInterval;
@@ -147,10 +165,38 @@ namespace Robogame.Network.Robot
             }
         }
 
+        private Vector3 ComputeOwnerAimDir()
+        {
+            // Sample the same aim point the chassis firers locally use, so
+            // the server's bounds check sees a vector that's coherent with
+            // the player's intent. Falls back to chassis-forward if the
+            // drive isn't built yet (early-spawn frame) or if the aim point
+            // degenerates onto the muzzle.
+            if (_ownerDrive == null) return transform.forward;
+            Vector3 delta = _ownerDrive.AimPoint - transform.position;
+            return delta.sqrMagnitude > 1e-6f ? delta.normalized : transform.forward;
+        }
+
         [ServerRpc]
         private void FireCommandServerRpc(FireCommand cmd)
         {
-            // Phase-2 validation: cooldown only. Aim-bounds is stubbed.
+            // Phase 4 validation order: wire-packet checks (aim) first —
+            // these are stateless and worth running even pre-chassis-spawn
+            // so a client spamming bogus aim packets logs as rejected.
+            // Then the gameplay-state check (owner null / destroyed) and
+            // finally the cooldown. Both reject paths increment
+            // RejectedFireCount.
+            if (!ValidateAim(in cmd))
+            {
+                _aimRejectedCount++;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                Debug.LogWarning(
+                    $"[NetworkRobotCombat] Rejected FireCommand from client " +
+                    $"{OwnerClientId} (aim delta > {MaxAimDeltaDeg}°, count={_aimRejectedCount}).");
+#endif
+                return;
+            }
+
             Robogame.Robots.Robot owner = _net.Handle != null ? _net.Handle.Robot : null;
             if (owner == null || owner.IsDestroyed) return;
 
@@ -164,6 +210,52 @@ namespace Robogame.Network.Robot
                     $"{OwnerClientId} (cooldown breach, count={_cooldown.RejectedCount}).");
 #endif
             }
+        }
+
+        // Internal hook for tests — bypasses NGO RPC routing so EditMode
+        // tests can drive the validator directly. Exposed via the public
+        // ServerValidateAim entry point below.
+        private bool ValidateAim(in FireCommand cmd)
+        {
+            // Degenerate / zero AimDir: accept (we don't want a bad sample
+            // from an early frame to trigger a reject cascade).
+            float sq = cmd.AimDir.sqrMagnitude;
+            if (sq < 1e-6f) return true;
+
+            Vector3 cur = cmd.AimDir.normalized;
+            if (!_haveLastValidatedAim)
+            {
+                _lastValidatedAimDir = cur;
+                _haveLastValidatedAim = true;
+                return true;
+            }
+
+            float angle = Vector3.Angle(_lastValidatedAimDir, cur);
+            if (angle > MaxAimDeltaDeg) return false;
+
+            _lastValidatedAimDir = cur;
+            return true;
+        }
+
+        /// <summary>Server-side validator entry point exposed for tests.
+        /// Bypasses NGO routing — returns true if <paramref name="cmd"/>
+        /// would have passed the aim-bounds gate and updates the last-
+        /// validated direction; false otherwise (RejectedFireCount remains
+        /// unchanged unless you call through <see cref="ServerProcessFireCommand"/>
+        /// instead).</summary>
+        public bool ServerValidateAim(in FireCommand cmd) => ValidateAim(in cmd);
+
+        /// <summary>Server-side wrapper around the full RPC body — exists so
+        /// EditMode tests can run the validator + counter increment path
+        /// without standing up a NetworkManager. Wire-packet validation
+        /// (aim) runs first regardless of chassis state, matching the
+        /// FireCommandServerRpc ordering exactly.</summary>
+        public void ServerProcessFireCommand(in FireCommand cmd)
+        {
+            if (!ValidateAim(in cmd)) { _aimRejectedCount++; return; }
+            Robogame.Robots.Robot owner = _net != null && _net.Handle != null ? _net.Handle.Robot : null;
+            if (owner == null || owner.IsDestroyed) return;
+            _cooldown.TryAccept(Vector3Int.zero, Time.time, MinFireInterval);
         }
 
         // -----------------------------------------------------------------

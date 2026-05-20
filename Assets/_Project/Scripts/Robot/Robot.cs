@@ -187,6 +187,17 @@ namespace Robogame.Robots
         /// <summary>Raised exactly once when the robot transitions to destroyed.</summary>
         public event Action<Robot> Destroyed;
 
+        /// <summary>
+        /// Raised after <see cref="RunConnectivityNextFrame"/> has detached
+        /// orphan cells from the chassis. The payload carries the orphan's
+        /// pre-detach <see cref="BlockBehaviour.GridPosition"/>s in the order
+        /// they were detached. NETCODE_PLAN §7c hook — <c>NetworkBlockGrid</c>
+        /// (server-side) listens here and fans out an <c>OrphanBatchClientRpc</c>
+        /// so every peer's mirror runs the same removal, with the server's
+        /// authoritative set winning any client-side BFS tie-break.
+        /// </summary>
+        public event Action<Robot, IReadOnlyList<Vector3Int>> OrphansDetached;
+
         /// <summary>Static: raised whenever a robot is recreated via <see cref="RebuildByName"/>.</summary>
         public static event Action<Robot> Rebuilt;
 
@@ -497,15 +508,25 @@ namespace Robogame.Robots
             List<BlockBehaviour> orphans = _grid.FindDisconnectedFrom(CpuBlock.GridPosition);
             if (orphans.Count == 0) yield break;
 
+            // Snapshot the grid positions BEFORE DetachAsDebris reparents the
+            // BlockBehaviour and (potentially) nulls its GridPosition reference.
+            // NETCODE_PLAN §7c — NetworkBlockGrid replays this set on every peer.
+            List<Vector3Int> orphanPositions = new List<Vector3Int>(orphans.Count);
             foreach (BlockBehaviour orphan in orphans)
             {
                 if (orphan == null) continue;
+                orphanPositions.Add(orphan.GridPosition);
                 DetachAsDebris(orphan);
             }
 
             // Detached blocks no longer count toward our mass.
             RecalculateAggregates();
             CheckMassThreshold();
+
+            // Raise after the detach is complete and aggregates are recomputed,
+            // so subscribers see a coherent post-detach state.
+            if (orphanPositions.Count > 0)
+                OrphansDetached?.Invoke(this, orphanPositions);
         }
 
         private void DetachAsDebris(BlockBehaviour block)

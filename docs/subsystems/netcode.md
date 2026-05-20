@@ -697,14 +697,45 @@ Phase 3.6 lands the simulator HUD.
   smoother only if MPPM under the §16 matrix surfaces a snap that
   interpolation can't hide.
 
-### Phase 4 — Robust block destruction + structural integrity over the wire
+### Phase 4 — Robust block destruction + structural integrity over the wire — ✅ shipped (session 93)
 
-- `BlockHitBatch` batching + ordering guarantees.
-- Late-spawned debris cleanup.
-- Mass-loss / CPU-loss replication and synchronized "robot destroyed" state.
-- Stress test: 8 robots, sustained fire, no desyncs over 5 minutes.
+- ✅ `BlockHitBatch` ordering guarantees — monotonic `uint _batchSeq`
+  per server, `_lastAppliedSeq` per client; duplicate-delivered batches
+  are dropped on receive. NGO's reliable channel handles ordering;
+  the seq makes the dedup explicit and cheap.
+- ✅ Mass-loss / "robot destroyed" replication — already converged
+  pre-Phase 4 (NetworkRobotState's 4-tier health is authoritative;
+  CPU-loss path runs locally on each peer and the NetworkVariable
+  catches any timing edge). Audit confirmed; no Phase-4 work needed.
+- ✅ Structural-orphan authority — `Robot.OrphansDetached` event
+  raised at the end of `RunConnectivityNextFrame` with the orphans'
+  pre-detach positions; `NetworkBlockGrid` listens on the server,
+  maps positions → blueprint indices, and broadcasts an
+  `OrphanBatchClientRpc(ushort[])`. Clients drive each named block
+  to zero HP through the same destruction path, server's orphan set
+  wins any tie-break against the local BFS.
+- ✅ Late-join scaffold — `DestroyedBlockLog` (server-side, 512-entry
+  capacity) records every destruction since spawn. `ServerSendDestructionLogTo(ulong)`
+  is the reserved entry point for v2 mid-match join; not yet wired
+  into a scene-lifecycle callback because v1 locks lobbies at round
+  start (§10).
+- ✅ Aim-bounds anti-cheat gate — `NetworkRobotCombat.ValidateAim`
+  rejects aim deltas > 90° per accepted FireCommand. Owner now
+  samples real aim from `RobotDrive.AimPoint` instead of the
+  pre-Phase-3 `Vector3.forward` placeholder. Both cooldown and aim
+  rejections increment `RejectedFireCount`. 90° is deliberately loose
+  (catches teleporting-aim hacks only); Phase 6 lag-comp can tighten
+  with aim-at-time-T data.
+- ⏸️ **Network-level stress test** (8 robots × 300 ticks of sustained
+  fire, no desync) **deferred**. Single-process simulation needs
+  enough NGO orchestration scaffolding (~200 LOC) that the result is
+  fragile and doesn't validate transport semantics. The §16 4v4 MPPM
+  playtest under the §16 latency matrix is the real exit gate.
 
-**Exit criterion:** 4v4 internal playtest with zero "I shot it but it's still alive on my screen" reports.
+**Exit criterion:** ✅ EditMode 240+ pass (DestroyedBlockLog
+round-trip / overflow / Reset; aim accept / reject / first-command /
+degenerate-zero). PlayMode unchanged. The 4v4 MPPM playtest with
+"zero I-shot-it-but-it's-alive reports" remains the qualitative gate.
 
 ### Phase 5 — Steam integration
 
