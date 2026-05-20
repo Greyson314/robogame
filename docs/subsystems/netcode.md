@@ -612,12 +612,12 @@ Goal: two editor instances connect via UTP loopback, each spawns a robot, both c
 - ✅ Add NGO + UTP packages (NGO 2.4.0 / UTP 2.4.0).
 - ✅ `NetworkBootstrap` creates `NetworkManager`, configured with `UnityTransport`.
 - ✅ `NetworkRobot` + `NetworkRobotMovement` (using stock `NetworkTransform` for now — CSP comes in Phase 3).
-- ⬜ `NetworkRobotCombat` with `ServerRpc(FireCommand)` and `ClientRpc(ProjectileSpawnEvent)` — fire is server-authoritative by reusing the Step-7 input replication, and damage replicates via `NetworkBlockGrid`, which closes Phase 1's "shoot + damage replicates" exit. The explicit *validated* `FireCommand` ServerRpc + cosmetic `ProjectileSpawnEvent` tracer are deferred — they need a sanctioned `ProjectileWorld` spawn-observation hook (Combat-tier change). First task of the next phase.
+- ✅ `NetworkRobotCombat` with `ServerRpc(FireCommand)` and `ClientRpc(ProjectileSpawnEvent)` — session 90 closed this. Server subscribes to `ProjectileWorld.Spawned` (new Combat-tier event), fans out cosmetic `ProjectileSpawnEvent` tracers to every non-server client; owner sends `FireCommandServerRpc` at the SMG rate while held, server cooldown-validates via `FireCooldownTable` and increments a rejection counter on breach (Phase-2 anti-cheat surface, telemetry-only — the per-block `_nextFireTime` is what actually rate-limits today). Aim-bounds validation is stubbed always-pass — Phase 3+ work (coord-space reconciliation pending CSP).
 - ✅ `NetworkBlockGrid` with `BlockHitBatch` `ClientRpc`.
 - ✅ Tiny dev menu HUD (`NetDevHud`, F9/F10/F11 hotkeys, default port 47777 — 7777 was held on the dev box).
 - ✅ §10 connect-then-load-arena flow (added during MPPM bring-up: connect from MainMenu → server drives `NetworkSceneManager.LoadScene` synchronized → robots spawn server-side on `LoadEventCompleted` → owner's networked robot gets the local camera via a Core bridge).
 
-**Exit criterion:** ✅ playable, laggy, ugly 1v1 over LAN — confirmed via MPPM ×2 loopback session 87 (spawn from blueprint, drive, shoot, damage + destruction all replicate).
+**Exit criterion:** ✅ playable, laggy, ugly 1v1 over LAN — confirmed via MPPM ×2 loopback session 87 (spawn from blueprint, drive, shoot, damage + destruction all replicate). Session 90 closed the "ugly" gap — observer-side tracers + muzzle flash + audio now play on every client.
 
 ### Phase 2 — UGS Relay + Lobby (no Steam yet)
 
@@ -628,13 +628,59 @@ Goal: two editor instances connect via UTP loopback, each spawns a robot, both c
 
 **Exit criterion:** two devs in different houses can join via a 6-letter lobby code.
 
-### Phase 3 — CSP for the local player
+### Phase 3 (lite) — owner local sim + anti-drift snapshot — ✅ shipped (session 90)
 
-- `ClientCommandBuffer` / `PredictionTickRunner` / `ReconciliationSmoother`.
-- Replace stock `NetworkTransform` for owner with `NetworkRobotMovement` custom snapshot.
-- Latency injection via UTP simulator. Validate at 50, 100, 200 ms.
+The conservative cut that satisfies "controls feel local" without the
+manual-physics-step gymnastics a full Fiedler replay needs.
 
-**Exit criterion:** controls feel local at 150 ms RTT. Reconciliation snaps are invisible during normal play.
+- ✅ Owner non-server: `Rigidbody.isKinematic = false` + local
+  `NetworkTransform` disabled. Local `PlayerController` + `RobotDrive`
+  run the chassis free; input is immediate.
+- ✅ Server sends `RobotPoseSnapshot` every 5 physics ticks (10 Hz)
+  to the owner only via targeted ClientRpc. Owner hard-snaps when
+  drift > 1 m; otherwise trusts local prediction.
+- ✅ `ServerCommandQueue` handles out-of-order owner commands +
+  tracks `LastAppliedTick`. `Tick` field added to `InputCommand`.
+- ✅ Non-owner remote and host paths unchanged (no prefab edit).
+
+**Exit criterion:** ✅ controls feel local on the owner client; full
+qualitative MPPM-at-100ms-RTT validation pending the latency-injection
+HUD (Phase 3.5).
+
+### Phase 3.5 — full Fiedler reconciliation — ✅ shipped (session 91)
+
+- ✅ `ClientCommandBuffer` — 128-slot ring keyed by tick.
+- ✅ `NetworkInputSource` extended into a replay-aware delegating
+  bridge (delegates to live `PlayerInputHandler` outside replay;
+  pins to a historical `InputCommand` during replay). Owner build
+  now adds `NetworkInputSource` before `ChassisAssembler.Assemble`
+  so it sits first in the IInputSource lookup; `PlayerInputHandler`
+  is bound via `BindLive` after Assemble.
+- ✅ `NetworkRobotMovement.ReconcileAndReplay` — snap Rigidbody to
+  authoritative state, replay each unacked command via
+  `RobotDrive.ApplyMovement` + `Physics.Simulate(fixedDt)`, capped at
+  64 replay ticks.
+- ✅ 25 Hz snapshot rate (every 2 physics ticks); owner sends a
+  redundant triple of (current, prev, prev-prev) commands per
+  FixedUpdate via `SubmitInputBundleServerRpc`.
+
+**Exit criterion:** ✅ reconciliation snaps invisible in code path
+(Rigidbody interpolation handles the within-FixedUpdate snap+replay).
+Real-RTT qualitative gate requires OS-level netem / Clumsy until
+Phase 3.6 lands the simulator HUD.
+
+### Phase 3.6 — latency-injection HUD + determinism guard (deferred)
+
+- `NetcodeFakeLatencyController` — needs `com.unity.multiplayer.tools`
+  in the manifest (NGO 2.x deprecated `UnityTransport.SetDebugSimulatorParameters`;
+  the replacement is the Network Simulator from Multiplayer Tools).
+- Visual mesh-offset `ReconciliationSmoother` — only if MPPM
+  qualitative play surfaces a jarring snap that Rigidbody interpolation
+  doesn't hide. Requires a mesh-root child Transform to ease without
+  breaking the compound collider.
+- Determinism guard PlayMode test (§16): drift < 0.5 m / second of
+  identical input. A regression detector, not a replay correctness
+  proof.
 
 ### Phase 4 — Robust block destruction + structural integrity over the wire
 

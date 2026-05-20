@@ -54,6 +54,15 @@ namespace Robogame.Combat
         public static event Action<Robot, Vector3> HitLanded;
 
         /// <summary>
+        /// Fired immediately after a projectile is spawned (any caller, any
+        /// peer). The Network layer subscribes server-side to fan out a
+        /// cosmetic <c>ProjectileSpawnEvent</c> ClientRpc — NETCODE_PLAN §9.
+        /// Singleplayer has no subscriber, so the dispatch is a null-check
+        /// (zero baseline cost — invariant #5).
+        /// </summary>
+        public static event Action<ProjectileSpec> Spawned;
+
+        /// <summary>
         /// Spawn a new projectile from <paramref name="spec"/>. Caller
         /// owns building the spec (origin, velocity, splash profile,
         /// hit mask, owner). Allocation-free in steady state.
@@ -90,6 +99,7 @@ namespace Robogame.Combat
             s_instance = null;
             s_root = null;
             HitLanded = null;
+            Spawned = null;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -181,6 +191,8 @@ namespace Robogame.Combat
                 p.Visual.gameObject.SetActive(true);     // then activate
                 ConfigureVisual(p.Visual, in spec);      // then clear trail at the correct position
             }
+
+            Spawned?.Invoke(spec);
         }
 
         private void Despawn(int idx)

@@ -181,10 +181,19 @@ namespace Robogame.Network.Robot
             // wire commands); every other copy — incl. the server's
             // authoritative copy of a remote player's robot — is a Bot
             // build whose IInputSource is a NetworkInputSource the server
-            // feeds from the owner's input RPC (Step 7 / NETCODE_PLAN §5).
-            // NetworkInputSource is added BEFORE Assemble so
-            // PlayerController.Awake's GetComponent<IInputSource> resolves
-            // it (handoff §2.2 sequencing hazard).
+            // feeds from the owner's input RPC (NETCODE_PLAN §5).
+            //
+            // Phase 3.5: the OWNER also gets a NetworkInputSource —
+            // added BEFORE Assemble so it lands at component index 0 (the
+            // first IInputSource on the root). RobotDrive / weapon blocks
+            // resolve their IInputSource via GetComponentInParent, which
+            // picks the first match — that lands on NetworkInputSource,
+            // which delegates to the local PlayerInputHandler outside of
+            // replay (BindLive after Assemble) and replays historical
+            // commands during CSP reconciliation.
+            if (GetComponent<NetworkInputSource>() == null)
+                gameObject.AddComponent<NetworkInputSource>();
+
             AssemblyOptions options;
             if (IsOwner)
             {
@@ -195,8 +204,6 @@ namespace Robogame.Network.Robot
             }
             else
             {
-                if (GetComponent<NetworkInputSource>() == null)
-                    gameObject.AddComponent<NetworkInputSource>();
                 options = AssemblyOptions.Bot();
             }
 
@@ -209,6 +216,17 @@ namespace Robogame.Network.Robot
             }
             if (Handle.Robot != null)
                 Handle.Robot.ConfigureTeam((TeamId)teamId);
+
+            // Phase 3.5: bind the owner's live PlayerInputHandler into the
+            // NetworkInputSource so its delegating properties resolve live
+            // input outside of replay. Done after Assemble (which is what
+            // creates the PlayerInputHandler).
+            if (IsOwner)
+            {
+                var net = GetComponent<NetworkInputSource>();
+                var live = GetComponent<Robogame.Input.PlayerInputHandler>();
+                if (net != null && live != null) net.BindLive(live);
+            }
 
             Built?.Invoke(this);
 
