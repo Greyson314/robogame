@@ -159,15 +159,20 @@ Assets/
 
 ## Multiplayer Roadmap
 
-> Multiplayer is a **future milestone**, but the codebase is structured to support it from day one.
+> The canonical, current state of the multiplayer roadmap lives in [docs/subsystems/netcode.md](docs/subsystems/netcode.md) §15. The summary below is a pointer, not a source of truth — when this conflicts with that doc, that doc wins.
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 1 | Singleplayer foundation with clean server-auth architecture | 🔄 In Progress |
-| 2 | Netcode for GameObjects integration, host/client mode (host is authoritative) | 📋 Planned |
-| 3 | Unity Relay + Lobby — host-based online play, no dedicated server required | 📋 Planned |
-| 4 | Dedicated server build (headless Linux) + matchmaking | 📋 Planned |
-| 5 | Lag compensation, client-side prediction & reconciliation | 📋 Planned |
+| 0 | Singleplayer foundation with server-auth architecture (INetworkContext, blueprint blobs) | ✅ Shipped |
+| 1 | NGO 2.x + UTP baseline, MPPM loopback (host/join/spawn/drive/shoot/damage all replicate) | ✅ Shipped |
+| 2 | UGS Relay + Lobby (anonymous Unity auth, 6-letter join code) | 📋 Planned |
+| 3.5 | Full Fiedler CSP — owner replays command buffer on each server snapshot | ✅ Shipped |
+| 3.6 | Latency-injection HUD (Multiplayer Tools NetworkSimulator) + determinism guard | ✅ Shipped |
+| 4 | Block-destruction hardening — orphan RPC authority, BlockHitBatch seq dedup, late-join scaffold, aim-bounds anti-cheat | ✅ Shipped |
+| 5 | Steam — App ID, Facepunch.Steamworks, lobby + transport, Cloud blueprint sync | 📋 Planned (needs Partner-site App ID) |
+| 6 | Dedicated server (headless Linux StartServer + CLI args) + lag-comp infrastructure (telemetry-only for slow-projectile gameplay) | ✅ Shipped (code), deployment 📋 |
+| 7 | Voice, nameplates, scoreboard, kill feed — quality-of-life GUI | 📋 Planned |
+| 8 | Persistence (accounts, ranked, cosmetics) — backend service TBD | 📋 Deferred |
 
 ### Multiplayer Design Rules (enforced now)
 - **The server (or host) is authoritative** for all gameplay state — clients send inputs, not state changes

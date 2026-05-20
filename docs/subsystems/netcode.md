@@ -529,6 +529,14 @@ The existing `Assets/_Project/Scripts/Network/` folder has `Robogame.Network.asm
 
 ### Final intended structure
 
+> The block below is the **target** layout — some directories (Lobby/,
+> Transport/, Auth/) and files (`SteamLobbyService`, `ReplayRecorder`,
+> `NetworkStatsHud`) haven't landed yet and are gated on Phases 5 / 7.
+> For the **current** per-file inventory of what's actually built, see
+> [docs/changes/architecture.md](../changes/architecture.md) §
+> `Robogame.Network`. When this doc and architecture.md disagree on
+> what exists, architecture.md wins.
+
 ```
 Assets/_Project/Scripts/Network/
 ├── Robogame.Network.asmdef                  // refs: Core, Block, Robots, Combat, Movement, Player, Input, Gameplay

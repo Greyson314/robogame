@@ -275,3 +275,35 @@ shipping the current branch; flagged so they don't decay into
   bare rotors have no orbiting foil colliders, but worth noting if
   someone adds foils to the tail rotor later: re-run
   `IgnoreFoilChassisContacts` to keep the contract.
+
+- **Netcode carry-forwards (post-Phase-6).** Backend phases 0/1/3-lite/
+  3.5/3.6/4/6 are all shipped (sessions 86–94). The remaining work
+  splits cleanly into user-gated and code-gated:
+  - **Phase 5 (Steam)** is gated on you provisioning an App ID on
+    Steamworks Partner and choosing Facepunch.Steamworks vs
+    Steamworks.NET bindings. The `ILobbyService` / `ITransportProvider`
+    abstractions described in [netcode.md §14](../subsystems/netcode.md)
+    haven't been scaffolded yet — that's the natural first slice once
+    you have an App ID, since the abstractions can land with `Ugs*`
+    impls while the `Steam*` impls wait for the App ID.
+  - **Phase 6 cloud deployment** (Multiplay / Hathora) is your billing
+    + provider decision. The headless `StartServer` build target is
+    landed and locally runnable.
+  - **Phase 6 lag-comp authoritative flip.** Today lag-comp is
+    telemetry-only (logs `[Lag-comp telemetry]` when a remote-client
+    shot would have hit at the shooter's tick but missed live). Only
+    flip to applying damage if a hitscan weapon type ever ships —
+    flipping for slow-projectile weapons would destroy
+    leadable / dodgeable gameplay.
+  - **Phase 3.6 `ReconciliationSmoother`** stayed deferred. Only build
+    it if MPPM under the §16 latency matrix surfaces a jarring snap
+    that Rigidbody interpolation doesn't hide.
+  - **Phase 4 late-join activation.** `DestroyedBlockLog` +
+    `ServerSendDestructionLogTo` are reserved for v2 mid-match join
+    but not yet wired into a scene-lifecycle callback. v1 locks
+    lobbies at round start (§10).
+  - **Pre-existing baseline failures.** 2 EditMode (`BlueprintBlobTests.
+    ContentHash_StableAcrossReserialize` + `NetworkContextTests.
+    RegisterNull_IsIgnored_StaysOffline`) + 1 inconclusive +
+    4 PlayMode (RotorBlock tolerance + 3 DigZone setup). These predate
+    the Phase 3.6/4/6 arc — not regressions, just standing debt.

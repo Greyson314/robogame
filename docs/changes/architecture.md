@@ -59,15 +59,33 @@ Robogame.Tools.Editor — scaffolders, EnvironmentBuilder, WorldPalette, BlockDe
                          ScriptedChassisBuilder (Editor-time chassis authoring through
                          the same BuildSession.TryPlace verb the player uses — session 57)
 Robogame.UI           — DevHud, FpsCounter, PerformanceHud
-Robogame.Network      — NGO 2.x layer (session 86). Bootstrap/{NetworkBootstrap,
-                         ContentHashGuard, NetDevHud, NetworkSceneFlow};
+Robogame.Network      — NGO 2.x layer (sessions 86–94). Bootstrap/{NetworkBootstrap
+                         (+ Phase-6 StartServer + CLI args -server/-port/-lobbyId),
+                         ContentHashGuard, NetDevHud (F5/F8/F9/F10/F11 hotkeys),
+                         NetworkSceneFlow};
                          Robot/{NetworkRobot+SpawnRobotPayload, NetworkRobotState,
-                         NetworkBlockGrid+BlockHitEvent, NetworkRobotMovement+
-                         NetworkInputSource, NetworkRobotCombat}. Refs everything
-                         gameplay-side; gameplay asmdefs NEVER ref it — the only
-                         bridge is INetworkContext (Core). Phase-1 loopback;
-                         robot prefab + Bootstrap-scene wiring is the MPPM-exit
-                         editor step (see docs/changes/86-*.md)
+                         NetworkRobotSpawner,
+                         NetworkBlockGrid (Phase-4 seq dedup + orphan RPC +
+                         destruction log),
+                         BlockHitEvent, DestroyedBlockLog (Phase 4 late-join
+                         scaffold), FireCommand, FireCooldownTable,
+                         NetworkRobotMovement (Phase 3.5 full-Fiedler replay),
+                         NetworkInputSource (replay-aware delegating bridge),
+                         NetworkRobotCombat (real aim, aim-bounds gate,
+                         Phase-6 lag-comp telemetry),
+                         LagCompHistory + LagCompRegistry (Phase 6 — 500ms
+                         bounding-sphere ring keyed by NetworkObjectId,
+                         telemetry-only — ProjectileWorld live sweep stays
+                         authoritative)};
+                         Snapshot/RobotPoseSnapshot;
+                         Prediction/{ClientCommandBuffer, ServerCommandQueue};
+                         Debug/NetcodeFakeLatencyController (Phase 3.6 — wraps
+                         Multiplayer Tools NetworkSimulator with 4 presets:
+                         LAN / 100ms / 200ms / 200ms+jitter+loss). Refs
+                         everything gameplay-side; gameplay asmdefs NEVER ref
+                         it — the only bridge is INetworkContext (Core).
+                         Phases 0/1/3-lite/3.5/3.6/4/6 shipped; Phases 2/5/7/8
+                         planned (see docs/subsystems/netcode.md §15)
 ```
 
 ## Runtime flow
