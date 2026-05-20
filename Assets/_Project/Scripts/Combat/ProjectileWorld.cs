@@ -315,7 +315,7 @@ namespace Robogame.Combat
             // Friendly fire is silently dropped — bullet stops on the
             // teammate's collider but applies no damage. V1 limitation:
             // shots don't pass through, but they also don't grief the
-            // ally. See SCRAP_LOOP_PLAN.md § 2.
+            // ally. See docs/changes/58-scrap-loop-v1.md § 2.
             if (IsFriendlyFire(spec.Owner, targetRobot)) return;
             target.TakeDamage(spec.Damage);
             HitLanded?.Invoke(spec.Owner, hit.point);

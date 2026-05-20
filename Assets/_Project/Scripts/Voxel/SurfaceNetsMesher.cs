@@ -43,7 +43,7 @@ namespace Robogame.Voxel
     /// (https://0fps.net/2012/07/12/smooth-voxel-terrain-part-2/). Phase 1c
     /// port of the Phase 1a managed-C# implementation — see
     /// `docs/changes/64-terraforming-phase-1a.md`. Burst patterns + gotchas
-    /// captured in `docs/BURST_NOTES.md`.
+    /// captured in `docs/subsystems/burst-notes.md`.
     /// </para>
     /// <para>
     /// Input is a regular grid of <c>sbyte</c> SDF samples sized <c>dim³</c>;

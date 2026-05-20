@@ -8,8 +8,8 @@ namespace Robogame.Tests.EditMode.Blueprints
     /// Pin the netcode contract: every path that mutates a
     /// <see cref="ChassisBlueprint"/>'s entries must produce the same
     /// canonical order, regardless of authoring sequence. See
-    /// <c>docs/NETCODE_PLAN.md</c> §6 and the §3.1 diagnosis in
-    /// <c>docs/BUILDING_ARCHITECTURE_REVIEW.md</c>.
+    /// <c>docs/subsystems/netcode.md</c> §6 and the §3.1 diagnosis in
+    /// <c>docs/research/historical/building-architecture-review.md</c>.
     /// </summary>
     public sealed class BlockEntriesSortTests
     {

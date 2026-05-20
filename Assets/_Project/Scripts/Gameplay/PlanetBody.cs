@@ -11,7 +11,7 @@ namespace Robogame.Gameplay
     /// <remarks>
     /// <para>
     /// Constant-magnitude (not <c>1/r²</c>) is a deliberate gameplay choice
-    /// — see [docs/SPHERICAL_ARENAS.md](../../../../../docs/SPHERICAL_ARENAS.md)
+    /// — see [docs/subsystems/spherical-arenas.md](../../../../../docs/subsystems/spherical-arenas.md)
     /// §3. Predictable jump heights, bullet drop, and fall damage win
     /// over realism at the radii we author for.
     /// </para>
@@ -37,12 +37,12 @@ namespace Robogame.Gameplay
     public sealed class PlanetBody : MonoBehaviour, IGravitySource
     {
         [Tooltip("Surface radius in metres. 1500–3000 m is the motion-sickness sweet spot " +
-                 "(see SPHERICAL_ARENAS.md §9). Smaller planets feel more curved but spin the " +
+                 "(see docs/subsystems/spherical-arenas.md §9). Smaller planets feel more curved but spin the " +
                  "camera-up vector fast enough to fatigue most players.")]
         [SerializeField, Min(1f)] private float _radius = 2400f;
 
         [Tooltip("Magnitude of gravitational acceleration at and inside the SOI (m/s²). " +
-                 "Constant by design — see SPHERICAL_ARENAS.md §3.")]
+                 "Constant by design — see docs/subsystems/spherical-arenas.md §3.")]
         [SerializeField, Min(0.1f)] private float _surfaceGravity = 9.81f;
 
         [Tooltip("Extra altitude above the surface where gravity still applies (metres). " +

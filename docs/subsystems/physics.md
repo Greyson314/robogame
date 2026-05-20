@@ -10,8 +10,8 @@
 > mode we're avoiding is "the budget got blown three months ago and
 > nobody noticed."
 >
-> **Companion docs.** [BEST_PRACTICES § 16](BEST_PRACTICES.md#16-performance-budgets-targets-not-law)
-> for the budget table; [NETCODE_PLAN.md](NETCODE_PLAN.md) for the
+> **Companion docs.** [BEST_PRACTICES § 16](../best-practices.md#16-performance-budgets-targets-not-law)
+> for the budget table; [netcode.md](netcode.md) for the
 > server-authority contract this document inherits.
 
 ---
@@ -162,7 +162,7 @@ When kinetic damage ships, every damaging contact must satisfy:
 
 Server-authoritative once netcode lands. Client predicts the visual
 spark; the actual HP write is server-side only. See
-[NETCODE_PLAN.md](NETCODE_PLAN.md). Until netcode, single-machine
+[netcode.md](netcode.md). Until netcode, single-machine
 authority is fine and damage runs locally in the contact callback.
 
 ### Tuning knobs (shipped)

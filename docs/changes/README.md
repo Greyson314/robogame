@@ -107,7 +107,7 @@ going forward" section at the bottom of this file.
 | 69 | [Terraforming Phase 2b: apron-based seam-free meshing. DigChunk grows a (chunkSize+2)³ staging buffer; DigZone.BuildApronFor fills it from own SDF + 7 +direction neighbours (replicates own face when neighbour absent). New seam test (machine gate) pins boundary vertex agreement to 1e-4 m. Visible chunk-boundary cracks gone. Verified autonomously via run-tests.sh](69-terraforming-phase-2b.md) |
 | 68 | [Stale bot-steering tests fixed (session 62 follow-up): DummyAiInputSourceTests.cs renamed to GroundBotInputSourceTests.cs, inline math helper replaced with GroundBotInputSource.ComputeSteer call, three test scenarios fixed for the actual −Z tangent at the +X point, three Assert.Pass stubs dropped](68-stale-bot-steering-tests-fix.md) |
 | 67 | [Terraforming Phase 2a: multi-chunk DigZone container, new DigChunk MonoBehaviour, brush dispatch routes to affected chunks, scaffolder builds 2×2×2 grid. 10 PlayMode tests including new boundary-spanning brush test. No apron yet — seams visible (Phase 2b)](67-terraforming-phase-2a.md) |
-| 66 | [Terraforming Phase 1c: Burst port of SurfaceNetsMesher (NativeArray + IJob.Run), DigZone zero-alloc mesh upload (Reinterpret + GetSubArray), new SurfaceNetsBenchmarkTests pinning < 1 ms median + zero-GC machine gate, BURST_NOTES.md](66-terraforming-phase-1c.md) |
+| 66 | [Terraforming Phase 1c: Burst port of SurfaceNetsMesher (NativeArray + IJob.Run), DigZone zero-alloc mesh upload (Reinterpret + GetSubArray), new SurfaceNetsBenchmarkTests pinning < 1 ms median + zero-GC machine gate, ../subsystems/burst-notes.md](66-terraforming-phase-1c.md) |
 | 65 | [Terraforming Phase 1b: DigZone MonoBehaviour + BrushApplicator (max-fold) + DigZone_Test scene scaffolder + 8 PlayMode tests. Plan upgrade: § 2 sign-convention fix (min→max), § 12 autonomy contract + per-phase machine gates](65-terraforming-phase-1b.md) |
 | 64 | [Terraforming Phase 1a: Naive Surface Nets meshing algorithm + 12 EditMode tests (degenerate, half-space along XYZ, single-corner, sphere, determinism, buffer-reuse). New Robogame.Voxel asmdef. No Unity integration yet — Phase 1b](64-terraforming-phase-1a.md) |
 | 63 | [Terraforming Phase 0: foundation interfaces (IDigZone / DigField / BrushKind / BrushOp / BrushOpBatch / Vector3Fixed) added to Robogame.Core. Zero behaviour change, dotnet build clean. Phase 1+ adds the meshing](63-terraforming-phase-0.md) |
@@ -209,7 +209,7 @@ shipping the current branch; flagged so they don't decay into
   hardcoded. The structural refactor (session 45) intentionally
   stopped short of converting them to schema-driven dispatch tables
   — that's the right move when the second scalable shape lands per
-  [`SCALABLE_PARTS_PLAN.md`](../SCALABLE_PARTS_PLAN.md) Phase 2.
+  [`../subsystems/scalable-parts.md`](../../subsystems/scalable-parts.md) Phase 2.
 
 - **Rope chain not visualising in garage.** User reported in session
   51; couldn't reproduce from code reading. Session 53's collider
@@ -220,7 +220,7 @@ shipping the current branch; flagged so they don't decay into
 - **Foil pitch arc (sessions 42–44) — implementation still needs
   work.** The data model + adopt-pass + UI + live readouts all
   landed, but several items are explicitly deferred. Source of truth
-  for what's left is [`docs/FOIL_ROTATION_PLAN.md`](../FOIL_ROTATION_PLAN.md)
+  for what's left is [`docs/research/historical/foil-rotation-plan.md`](../FOIL_ROTATION_PLAN.md)
   § 10 *Carry-forward*. Headline items: live mid-edit collective
   propagation to existing blades (slider feels inert until the rotor
   is re-placed), select-and-retune UX for already-placed blocks (a

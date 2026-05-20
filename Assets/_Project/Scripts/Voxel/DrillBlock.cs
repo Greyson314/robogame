@@ -30,7 +30,7 @@ namespace Robogame.Voxel
     /// Audio: <see cref="AudioCue.DrillContact"/> on each emit. VFX:
     /// <see cref="VfxKind.DebrisDust"/> at the drill tip. The audio cue
     /// is new in the catalogue; the library entry is left to the audio
-    /// pass to author (per the AUDIO_PLAN.md missing-cue logging path).
+    /// pass to author (per the docs/subsystems/audio.md missing-cue logging path).
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]

@@ -8,14 +8,14 @@ using Debug = UnityEngine.Debug;
 namespace Robogame.Tests.PlayMode.Voxel
 {
     /// <summary>
-    /// Phase 1c machine gate per TERRAFORMING_PLAN.md §12. Two assertions
+    /// Phase 1c machine gate per docs/subsystems/terraforming.md §12. Two assertions
     /// the Burst-compiled mesher must satisfy in steady state:
     /// <list type="bullet">
     ///   <item><description>Median remesh time at dim=33 (production chunk size) under 1 ms.</description></item>
     ///   <item><description>Zero managed GC allocations across 50 consecutive Mesh() calls.</description></item>
     /// </list>
     /// Failure on either means the Burst port isn't paying for itself and
-    /// the plan's perf budget (PERFORMANCE.md §7 cascade) is at risk.
+    /// the plan's perf budget (docs/subsystems/performance.md §7 cascade) is at risk.
     /// </summary>
     public sealed class SurfaceNetsBenchmarkTests
     {

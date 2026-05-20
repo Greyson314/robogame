@@ -11,7 +11,7 @@ namespace Robogame.Tools.Editor
     /// <remarks>
     /// <para>
     /// Why generate rather than import: the art direction
-    /// (<c>docs/ART_DIRECTION.md</c>) bans realistic grass textures and
+    /// (<c>docs/subsystems/art-direction.md</c>) bans realistic grass textures and
     /// keeps every colour palette-locked. A small procedural texture lets
     /// us drive the look entirely from <see cref="WorldPalette.Grass"/>
     /// with no third-party dependency or scaling traps.

@@ -60,7 +60,7 @@
 
 **What.** MK Toon shader on the 12-token WorldPalette. No realistic textures, no normal-mapped surface detail, no off-palette colors anywhere.
 
-**Why.** See [ART_DIRECTION.md](ART_DIRECTION.md) for the full rationale. Tone-and-engineering compatibility: cel-shading is forgiving of solo-dev rough edges and reads at distance.
+**Why.** See [../subsystems/art-direction.md](../subsystems/art-direction.md) for the full rationale. Tone-and-engineering compatibility: cel-shading is forgiving of solo-dev rough edges and reads at distance.
 
 **How to apply.** Every new visual element gets reviewed against ART_DIRECTION § Palette and § Forbidden List before it ships.
 
@@ -80,7 +80,7 @@
 
 **What.** All gameplay code is structured as if a server is the source of truth, even in singleplayer where the local client *is* the server.
 
-**Why.** Retrofitting netcode onto singleplayer-shaped code is the most expensive way to ship a multiplayer game. See [NETCODE_PLAN.md](NETCODE_PLAN.md).
+**Why.** Retrofitting netcode onto singleplayer-shaped code is the most expensive way to ship a multiplayer game. See [../subsystems/netcode.md](../subsystems/netcode.md).
 
 **How to apply.** Ask "would this work if the server were on a different machine?" before committing to a design. Tweakables-as-gameplay-knobs fail this test. Per-machine random seeds fail this test. Client-computed damage fails this test.
 

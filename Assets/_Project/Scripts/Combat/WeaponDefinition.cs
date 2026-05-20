@@ -14,7 +14,7 @@ namespace Robogame.Combat
     /// Multiplayer prerequisite: gameplay-observable values (damage,
     /// fire rate, muzzle speed) MUST live in server-authoritative
     /// blueprint data, not in the per-machine Tweakables JSON. See
-    /// <c>docs/PHYSICS_PLAN.md</c> § 1.5 / § 5.
+    /// <c>docs/subsystems/physics.md</c> § 1.5 / § 5.
     /// </para>
     /// <para>
     /// One asset per weapon kind today. Per-instance overrides (e.g. a

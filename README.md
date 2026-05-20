@@ -186,7 +186,7 @@ Assets/
 - [ ] Avoid `FindObjectOfType` (deprecated in Unity 6) — use serialized references, DI, or `FindFirstObjectByType` / `FindAnyObjectByType` only when truly necessary, and **never in `Update`**
 - [ ] Cache component lookups — `GetComponent` in `Update` is a common perf trap
 - [ ] Profile before optimizing — use the Unity Profiler, Frame Debugger, and Memory Profiler package
-- [ ] **Performance discipline scales with physics.** Every new physics-driven block (rotors, hover lifts, multi-rope rigs, future jointed limbs) compounds against the active-rigidbody and contact-solver budgets. As more of these ship, profiling each new block under a populated chassis becomes mandatory, not optional — see [`docs/BEST_PRACTICES.md` §16](docs/BEST_PRACTICES.md#16-performance-budgets-targets-not-law) and the migration plan in [`docs/PHYSICS_PLAN.md`](docs/PHYSICS_PLAN.md)
+- [ ] **Performance discipline scales with physics.** Every new physics-driven block (rotors, hover lifts, multi-rope rigs, future jointed limbs) compounds against the active-rigidbody and contact-solver budgets. As more of these ship, profiling each new block under a populated chassis becomes mandatory, not optional — see [`docs/best-practices.md` §16](docs/best-practices.md#16-performance-budgets-targets-not-law) and the migration plan in [`docs/subsystems/physics.md`](docs/subsystems/physics.md)
 - [ ] Pool frequently instantiated objects with **`UnityEngine.Pool.ObjectPool<T>`** (built-in since Unity 2021) — projectiles, particles, audio sources
 - [ ] Use `Addressables` for runtime asset loading *(planned)* — avoid `Resources/`
 - [ ] Use **assembly definitions (`.asmdef`)** to enforce module boundaries and speed up compilation
@@ -258,7 +258,13 @@ All notable changes are documented here.
 
 ## Reference Docs
 
-- [docs/ROBOCRAFT_REFERENCE.md](docs/ROBOCRAFT_REFERENCE.md) — design research on the original Robocraft (systems, weapons, damage model, monetization lessons, what to borrow vs. avoid)
+Docs are organised into three tiers — see [CLAUDE.md](CLAUDE.md) for the full reading guide. Entry points:
+
+- [docs/invariants.md](docs/invariants.md) — hard rules.
+- [docs/subsystems/](docs/subsystems/) — living per-system docs.
+- [docs/decisions/](docs/decisions/) — Architecture Decision Records.
+- [docs/research/robocraft-reference.md](docs/research/robocraft-reference.md) — design research on the original Robocraft.
+- [docs/changes/](docs/changes/) — session-by-session dev log.
 
 ---
 

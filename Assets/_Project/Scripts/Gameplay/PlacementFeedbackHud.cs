@@ -12,7 +12,7 @@ namespace Robogame.Gameplay
     /// <remarks>
     /// <para>
     /// Spot fix for §3a Bug 4 / §3.10 of
-    /// <c>docs/BUILDING_ARCHITECTURE_REVIEW.md</c>: targeting and rules
+    /// <c>docs/research/historical/building-architecture-review.md</c>: targeting and rules
     /// answer different questions, and the player has no way to debug
     /// the mismatch from inside the game. The label converts the
     /// <see cref="PlacementRules.PlacementError"/> enum into one

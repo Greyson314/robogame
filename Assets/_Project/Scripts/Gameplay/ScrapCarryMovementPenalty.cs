@@ -8,7 +8,7 @@ namespace Robogame.Gameplay
     /// Bridge component that listens for <see cref="Robot.ScrapAwarded"/>
     /// and pushes the chassis's current carry-weight multiplier onto its
     /// <see cref="RobotDrive.CarrySpeedMultiplier"/>. Implements Phase 2
-    /// of <c>docs/SCRAP_LOOP_PLAN.md</c> — a chassis hauling scrap moves
+    /// of <c>docs/changes/58-scrap-loop-v1.md</c> — a chassis hauling scrap moves
     /// slower so the player has to commit to a depot run.
     /// </summary>
     /// <remarks>

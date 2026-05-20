@@ -290,7 +290,7 @@ namespace Robogame.Gameplay
                 // RobotRotorBinder only attaches RotorBlock components
                 // during its OnEnable re-bind pass, so before activation
                 // there are no RotorBlocks to find. See
-                // docs/PHYSICS_PLAN.md §2.
+                // docs/subsystems/physics.md §2.
                 if (wasActive && options.ApplyRotorsLiftFromBlueprint && blueprint.RotorsGenerateLift)
                 {
                     foreach (RotorBlock rotor in root.GetComponentsInChildren<RotorBlock>(true))

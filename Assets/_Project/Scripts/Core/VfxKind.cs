@@ -11,7 +11,7 @@ namespace Robogame.Core
     /// Adding a new kind is a two-step change: add a value here, then
     /// extend <see cref="VfxSpawner.BuildKindPrefab"/> with the
     /// procedural recipe. Don't drift the recipes off the locked palette
-    /// in <see cref="RuntimePalette"/> — see <c>docs/ART_DIRECTION.md</c>
+    /// in <see cref="RuntimePalette"/> — see <c>docs/subsystems/art-direction.md</c>
     /// "Forbidden List" for what off-palette FX cost us.
     /// </para>
     /// </remarks>

@@ -2,9 +2,9 @@
 
 > A log, not a plan. One section per measurement event. The diff
 > between a recent section and an older one is the answer to "is perf
-> actually dwindling?". See [`PERFORMANCE_PASS_PLAN.md`](PERFORMANCE_PASS_PLAN.md)
+> actually dwindling?". See [`performance-pass.md`](performance-pass.md)
 > Phase 1 for the format rationale and
-> [`PERFORMANCE.md`](PERFORMANCE.md) for the rules.
+> [`performance.md`](performance.md) for the rules.
 
 ## How to capture a row
 
@@ -40,7 +40,7 @@ git stash pop        # restore the fixes → "after"
 <run path B>         # row tagged "after"
 ```
 
-Editor numbers are 5–10× off absolute (PERFORMANCE.md §3.2) but valid
+Editor numbers are 5–10× off absolute (performance.md §3.2) but valid
 for the *delta* — same machine, same harness, same scene.
 
 ---
@@ -72,7 +72,7 @@ ticked). These numbers therefore neither confirm nor deny the
 session-84 OnGUI fixes; they establish that **the idle simulation
 path is sub-millisecond and zero-GC on this machine — categorically
 not the source of any perceived slowdown.** The slowdown surface is
-GPU (Fluff grass / toon outlines, PERFORMANCE.md §5.3–5.4) and the
+GPU (Fluff grass / toon outlines, performance.md §5.3–5.4) and the
 always-on IMGUI overlays — neither observable headless.
 
 #### Before/after for the OnGUI fixes — NOT obtainable headless
@@ -89,7 +89,7 @@ deterministically eliminates the per-call allocation — this is a
 property of the C# control flow, not a measurement-dependent claim.
 
 Active / combat rows still need a manual windowed build run (a human
-at the controls). Capture per PERFORMANCE.md §9 and append here.
+at the controls). Capture per performance.md §9 and append here.
 
 ### Static triage — the analytical deliverable
 
@@ -104,7 +104,7 @@ scans are facts in the code, not vibes. Verdicts:
 | DigZone 36-chunk `PollBakeAndSwap` loop | **already safe** | `PollBakeAndSwap` is `if (!_hasPendingBake) return false;` (DigChunk.cs:292) — one bool check ×36 = ~µs. Plan §5.1 predicted exactly this. **No `_pendingBakes` gate added** — it would be dead code (Rule 2/3). |
 | DigZone `_enableLod` → `Camera.main` every Update | **latent, not firing** | C# default `_enableLod=true` (DigZone.cs:60) is a footgun, but Arena overrides `_enableLod:0` (Arena.unity:735) and WaterArena/PlanetArena/Garage contain no DigZone. Not fixed this pass (de-scoped; not firing in Arena). Flagged for the next scene that adds a DigZone without the override. |
 | ObjectiveHud `OnGUI` | **fired — FIXED** | 6× `new GUIStyle` + 2× `"/ "+int` concat per OnGUI; OnGUI runs 2–6×/displayed frame; Arena always has a live match → steady-state GC. Now cached in `EnsureStyles` + dirty-string for target. |
-| ScrapCarriedIndicator `OnGUI` | **fired — FIXED** | `GetComponent<Camera>()` per OnGUI event (PERFORMANCE.md §2.5 violation) + `$"⛁ {scrap}"` interp per visible robot per event. Camera cached in Awake; scrap strings interned. (Sub-agent's "new GUIStyle/frame" claim was wrong — `EnsureStyle` is guarded; verified.) |
+| ScrapCarriedIndicator `OnGUI` | **fired — FIXED** | `GetComponent<Camera>()` per OnGUI event (performance.md §2.5 violation) + `$"⛁ {scrap}"` interp per visible robot per event. Camera cached in Awake; scrap strings interned. (Sub-agent's "new GUIStyle/frame" claim was wrong — `EnsureStyle` is guarded; verified.) |
 | KillAnnouncer / HitMarkerOverlay / StartMatchHud / VehicleStatsHud / DeathOverlay / MatchEndOverlay | **already safe** | all early-return when hidden + cached styles + pre-stamped strings. No action. |
 | FloatingDamageOverlay | **latent, low** | bounded pooled accumulators; `new GUIContent` per visible number capped <32. Acceptable; no action. |
 | ProjectileWorld zero-projectile tick | **already safe** | O(_count) loop; body never executes at count 0. No setup alloc. No action. |

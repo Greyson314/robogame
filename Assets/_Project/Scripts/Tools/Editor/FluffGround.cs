@@ -17,7 +17,7 @@ namespace Robogame.Tools.Editor
     /// <c>Packages/com.occasoftware.fluff/</c>. The shader expects several
     /// noise / direction / wind textures, so we follow the same
     /// "clone the shipped sample" rule we use everywhere else (see
-    /// <c>docs/ART_DIRECTION.md § Verifying authored size</c>): we
+    /// <c>docs/subsystems/art-direction.md § Verifying authored size</c>): we
     /// duplicate <c>Samples/Demo/Materials/Grass.mat</c> and override
     /// only the two colour properties — <c>_TopColor</c> (grass tint) and
     /// <c>_BaseColor</c> (ground tint visible between blades) — to lock
@@ -236,7 +236,7 @@ namespace Robogame.Tools.Editor
             // gradient do most of the "fluffy" work; the human eye stops
             // resolving individual shells well before 16. Bump back to
             // 12–16 only if the look visibly thins. See
-            // docs/PERFORMANCE.md § Fluff for the math.
+            // docs/subsystems/performance.md § Fluff for the math.
             mat.SetFloat("_MaximumHeight",         1.7f);
             mat.SetFloat("_ShellCount",            7f);
             // Shape / detail noise scales are normalised against _WorldScale
@@ -360,7 +360,7 @@ namespace Robogame.Tools.Editor
             // on camera height, with no visible quality change at gameplay
             // framing — the screen-space grass density inside ~80 m looks
             // identical (you literally cannot resolve individual blades on
-            // grass that's > 80 m away). See docs/PERFORMANCE.md § Fluff.
+            // grass that's > 80 m away). See docs/subsystems/performance.md § Fluff.
             mat.SetFloat("_FadeStartDistance", 22f);
             mat.SetFloat("_MaximumDistance",   85f);
 

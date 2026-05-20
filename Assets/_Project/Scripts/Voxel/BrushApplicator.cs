@@ -6,7 +6,7 @@ namespace Robogame.Voxel
 {
     /// <summary>
     /// Applies a <see cref="BrushOp"/> to a chunk's SDF buffer via max-fold,
-    /// per the monotonicity invariant in TERRAFORMING_PLAN.md §2.
+    /// per the monotonicity invariant in docs/subsystems/terraforming.md §2.
     /// </summary>
     /// <remarks>
     /// <para>

@@ -20,7 +20,7 @@ namespace Robogame.Block
     /// pipeline sees malformed input so downstream determinism survives.
     /// </para>
     /// <para>
-    /// This is the netcode contract from <c>docs/NETCODE_PLAN.md</c> §6:
+    /// This is the netcode contract from <c>docs/subsystems/netcode.md</c> §6:
     /// every client + server arrives at the same <c>(cell → blockIndex)</c>
     /// mapping when they receive the same blueprint payload, so
     /// <c>BlockHitEvent.blockIndex</c> resolves to the same block on every

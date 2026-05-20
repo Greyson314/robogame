@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Robogame.Tests.EditMode.Voxel
 {
     /// <summary>
-    /// Phase 5 machine gate per TERRAFORMING_PLAN.md §12: occupancy grid
+    /// Phase 5 machine gate per docs/subsystems/terraforming.md §12: occupancy grid
     /// builds correctly from a known SDF, and A* finds a path through an
     /// authored tunnel. Incremental-update behaviour pinned by the
     /// chunk-boundary test below — mutating one chunk's SDF must only

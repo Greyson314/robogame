@@ -9,10 +9,10 @@
 > **Bias:** **performance discipline first, everything else second.** This is the most ambitious single feature in the project — bigger than spherical arenas, comparable to netcode in scope. Honest estimate is 8–12 weeks of focused work for a first shippable version, ~5–6 if we crib heavily from a reference implementation and accept Surface Nets (smooth) over Dual Contouring (sharp). Every decision below either earns its place against the perf budget or doesn't ship.
 >
 > **Companion docs.**
-> [`PHYSICS_PLAN.md` § 1](PHYSICS_PLAN.md#1-non-negotiables-read-this-first) for the non-negotiables that apply to every physics-driven feature (zero-baseline cost, single chassis Rigidbody, zero per-frame allocations).
-> [`NETCODE_PLAN.md` § 6–7](NETCODE_PLAN.md#6-state-replication-strategy) for the state-replication taxonomy and `BlockHitBatch` precedent that the brush-op contract here mirrors.
-> [`PERFORMANCE.md` § 7](PERFORMANCE.md#7-performance-budgets-extended) for the budget table this document extends.
-> [`SPHERICAL_ARENAS.md` § 9](SPHERICAL_ARENAS.md#9-authoring-a-planet) for the hand-authored-arena philosophy that dig zones live inside of.
+> [`physics.md` § 1](physics.md#1-non-negotiables-read-this-first) for the non-negotiables that apply to every physics-driven feature (zero-baseline cost, single chassis Rigidbody, zero per-frame allocations).
+> [`netcode.md` § 6–7](netcode.md#6-state-replication-strategy) for the state-replication taxonomy and `BlockHitBatch` precedent that the brush-op contract here mirrors.
+> [`performance.md` § 7](performance.md#7-performance-budgets-extended) for the budget table this document extends.
+> [`spherical-arenas.md` § 9](spherical-arenas.md#9-authoring-a-planet) for the hand-authored-arena philosophy that dig zones live inside of.
 
 ---
 
@@ -43,14 +43,14 @@
 2. **Real tunnels from drills.** A drill block carves through terrain, leaves a tunnel, AI can follow you through it.
 3. **Underground POIs become reachable.** Pre-authored chambers (loot caches, mini-bosses, lore) are placed underneath dig zones; players reach them by digging.
 4. **Server-authoritative.** All terrain edits originate as server-validated operations. The server decides what got dug.
-5. **Inside the existing budgets.** PERFORMANCE.md § 16 budgets are the contract. This feature does not get to blow past them.
+5. **Inside the existing budgets.** performance.md § 16 budgets are the contract. This feature does not get to blow past them.
 6. **Opt-in per arena.** An arena without dig zones pays zero terraforming cost — no chunks loaded, no jobs scheduled, no per-frame work. This is non-negotiable (PHYSICS_PLAN § 1.2).
 
 ### Non-Goals
 
 - ❌ **Adding terrain.** No "terraforming" in the constructive sense. No filling holes, no building mountains. **This is the constraint that makes the rest of the design tractable** — see [§ 2](#2-the-dig-only-invariant-and-what-it-buys-us).
 - ❌ **Voxel chassis.** Robots remain cubic block grids. The voxel system never extends to anything attached to a chassis.
-- ❌ **Voxel water.** Water remains flat-plane or sphere-shell per [SPHERICAL_ARENAS.md § 10](SPHERICAL_ARENAS.md#10-water-on-a-planet).
+- ❌ **Voxel water.** Water remains flat-plane or sphere-shell per [spherical-arenas.md § 10](spherical-arenas.md#10-water-on-a-planet).
 - ❌ **Whole-planet voxels.** Dig zones are bounded volumes inside an arena. Surface meshes outside the dig zone are the existing authored `HillsGround` / `Planet` mesh. The voxel system never colonises the whole arena.
 - ❌ **Dual Contouring at v1.** Surface Nets gives us a smooth NMS-style look at ~30–40% the meshing cost. If we discover a feel reason to want sharper features later, we revisit.
 - ❌ **Procedural dig-zone generation.** Every dig zone is hand-authored, the same way every planet and arena is hand-authored.
@@ -177,7 +177,7 @@ namespace Robogame.Core
 }
 ```
 
-Mirrors the `IGravitySource` / `GravityField` pattern from [SPHERICAL_ARENAS.md § 6](SPHERICAL_ARENAS.md#6-new-components). Arenas without a registered `IDigZone` get zero terraforming cost (zero-baseline rule, PHYSICS_PLAN § 1.2).
+Mirrors the `IGravitySource` / `GravityField` pattern from [spherical-arenas.md § 6](spherical-arenas.md#6-new-components). Arenas without a registered `IDigZone` get zero terraforming cost (zero-baseline rule, PHYSICS_PLAN § 1.2).
 
 ---
 
@@ -227,7 +227,7 @@ public struct BrushOpBatch : INetworkSerializable
 }
 ```
 
-One `BrushOpBatch` per server tick per dig zone with at least one edit. Sent as a `ClientRpc` with reliable delivery. Mirrors the `BlockHitBatch` shape from [NETCODE_PLAN.md § 7](NETCODE_PLAN.md#7-the-hard-problem-replicating-block-based-robots).
+One `BrushOpBatch` per server tick per dig zone with at least one edit. Sent as a `ClientRpc` with reliable delivery. Mirrors the `BlockHitBatch` shape from [netcode.md § 7](netcode.md#7-the-hard-problem-replicating-block-based-robots).
 
 ### Bandwidth math
 
@@ -285,7 +285,7 @@ This is the single most important commitment in this plan: **Burst is a hard dep
 
 ### Zero per-frame allocations
 
-Per [`PERFORMANCE.md` § 2.1](PERFORMANCE.md#21-zero-allocations-per-steady-state-frame), no allocations in the steady-state remesh loop:
+Per [`performance.md` § 2.1](performance.md#21-zero-allocations-per-steady-state-frame), no allocations in the steady-state remesh loop:
 
 - Vertex / index `NativeArray`s are sized to chunk-cell-count at chunk creation; reused on every remesh.
 - The Mesh object backing the chunk uses `Mesh.SetVertexBufferData` / `Mesh.SetIndexBufferData` against pre-sized buffers; no per-remesh `mesh = new Mesh()`.
@@ -329,13 +329,13 @@ A drill at 50 Hz physics tick produces a remesh at 25 Hz. The visible lag is ~40
 
 ### Free-body debris
 
-When the player drills a chunk loose, do we spawn debris? Per the dig-only invariant: **no — debris is decorative VFX, not a free-body collider**. Detached chunks of "dirt" should be `VfxSpawner` particles only, parented under scene root, lifetime ~3 seconds, no Rigidbodies. This matches the [`PHYSICS_PLAN.md` § 1.1](PHYSICS_PLAN.md#1-non-negotiables-read-this-first) "default to zero baseline cost" stance.
+When the player drills a chunk loose, do we spawn debris? Per the dig-only invariant: **no — debris is decorative VFX, not a free-body collider**. Detached chunks of "dirt" should be `VfxSpawner` particles only, parented under scene root, lifetime ~3 seconds, no Rigidbodies. This matches the [`physics.md` § 1.1](physics.md#1-non-negotiables-read-this-first) "default to zero baseline cost" stance.
 
 If we want larger debris chunks later for visual impact (a boulder-sized chunk tumbles when undermined), that's a follow-up feature with its own perf review; not v1.
 
 ### Robot interaction
 
-Drills hit the terrain via the existing `TipBlock` damage model (see [TIP_BLOCK_ATTACH.md](TIP_BLOCK_ATTACH.md)). When a drill tip's collision-stay event lands on a chunk MeshCollider belonging to a `DigZone`, the tip's `DrillBlock` component (new, sibling to `HookBlock` / `MaceBlock`) emits a server-side `BrushOp` via its drive ServerRpc. The capsule's `p0` is the tip position from last tick; `p1` is the current tip position; `radius` is the drill bit's authored radius.
+Drills hit the terrain via the existing `TipBlock` damage model (see [tip-blocks.md](tip-blocks.md)). When a drill tip's collision-stay event lands on a chunk MeshCollider belonging to a `DigZone`, the tip's `DrillBlock` component (new, sibling to `HookBlock` / `MaceBlock`) emits a server-side `BrushOp` via its drive ServerRpc. The capsule's `p0` is the tip position from last tick; `p1` is the current tip position; `radius` is the drill bit's authored radius.
 
 Drills do **not** apply damage to terrain in HP terms — terrain has no HP. The brush op is the effect.
 
@@ -347,7 +347,7 @@ Drills do **not** apply damage to terrain in HP terms — terrain has no HP. The
 
 Surface Nets emits roughly **2 triangles per active cell**. A chunk that has been carved into a tunnel has ~30% of cells active. 32³ × 0.30 × 2 = ~20K triangles per fully-tunneled chunk.
 
-PERFORMANCE.md § 7 sets the target at < 1.5M triangles, cliff at 3M. A 100-chunk dig zone fully-excavated would emit ~2M triangles — over target, under cliff, with no headroom for the rest of the scene.
+performance.md § 7 sets the target at < 1.5M triangles, cliff at 3M. A 100-chunk dig zone fully-excavated would emit ~2M triangles — over target, under cliff, with no headroom for the rest of the scene.
 
 **The triangle budget is the binding constraint on dig-zone size.** Three discipline mechanisms enforce it:
 
@@ -371,8 +371,8 @@ LOD-on-edit: if a low-LOD chunk gets edited (a remote player drilling far away),
 
 ### Mechanism 3: Render-pipeline discipline
 
-- **No MK Toon outlines on voxel terrain.** Per [`PERFORMANCE.md` § 5.4](PERFORMANCE.md#54-rendering--toon-outlines--srp-batcher), outlines are already the dominant MP-scale render cost on chassis blocks. Multiplying that cost by terrain triangle count is catastrophic. Outlines exist to read silhouettes; terrain reads fine without them. Voxel terrain ships on a non-outlined material.
-- **No Fluff grass on voxel terrain.** [`PERFORMANCE.md` § 5.3](PERFORMANCE.md#53-fluff-grass--the-dominant-gpu-cost-and-how-to-diagnose-it): Fluff's geometry shader multiplies triangle count by 22× per close triangle. On a 20K-triangle chunk that's 440K post-geom tris per chunk. Hard no. Voxel terrain regions render on a `Mat_DigZoneEarth` material (dirt / stone / ice), not the Fluff arena ground material. Grass stops at the dig-zone boundary.
+- **No MK Toon outlines on voxel terrain.** Per [`performance.md` § 5.4](performance.md#54-rendering--toon-outlines--srp-batcher), outlines are already the dominant MP-scale render cost on chassis blocks. Multiplying that cost by terrain triangle count is catastrophic. Outlines exist to read silhouettes; terrain reads fine without them. Voxel terrain ships on a non-outlined material.
+- **No Fluff grass on voxel terrain.** [`performance.md` § 5.3](performance.md#53-fluff-grass--the-dominant-gpu-cost-and-how-to-diagnose-it): Fluff's geometry shader multiplies triangle count by 22× per close triangle. On a 20K-triangle chunk that's 440K post-geom tris per chunk. Hard no. Voxel terrain regions render on a `Mat_DigZoneEarth` material (dirt / stone / ice), not the Fluff arena ground material. Grass stops at the dig-zone boundary.
 - **One material per dig zone biome.** Material per chunk inflates SetPass calls (§ 16 budget: < 100 / frame). One material per zone — variation comes from per-vertex material indices sampled from a texture array in-shader, not from per-chunk material instances.
 - **Shadow casting on chunks.** Static shadowmaps are baked at chunk-mesh time. Real-time shadows on dynamic terrain are expensive; defer until we have a profile capture saying they're worth it.
 
@@ -473,7 +473,7 @@ The `.dig` asset hash participates in the NETCODE_PLAN § 6 bucket A content che
 
 ## 10. Netcode contract
 
-This section extends [`NETCODE_PLAN.md` § 6–7](NETCODE_PLAN.md#6-state-replication-strategy). Read those first.
+This section extends [`netcode.md` § 6–7](netcode.md#6-state-replication-strategy). Read those first.
 
 ### Replication taxonomy placement
 
@@ -533,7 +533,7 @@ Not needed for v1's 30-min match length but the design supports it cleanly when 
 
 ## 11. Performance budgets (extended)
 
-This extends [`PERFORMANCE.md` § 7](PERFORMANCE.md#7-performance-budgets-extended).
+This extends [`performance.md` § 7](performance.md#7-performance-budgets-extended).
 
 ### Singleplayer + active dig zone
 
@@ -687,7 +687,7 @@ Operationally split into four sub-phases — same pattern Phase 1 used:
 
 | # | Risk | Mitigation |
 |---|---|---|
-| T1 | Burst adoption friction — the codebase has no Burst usage today; first system to adopt pays the "fighting Burst" tax (no class refs, no captured lambdas, no `Debug.Log` in hot paths). | Budget 1 week of Burst onboarding inside Phase 1. Document the patterns in `docs/BURST_NOTES.md` for the next system. |
+| T1 | Burst adoption friction — the codebase has no Burst usage today; first system to adopt pays the "fighting Burst" tax (no class refs, no captured lambdas, no `Debug.Log` in hot paths). | Budget 1 week of Burst onboarding inside Phase 1. Document the patterns in `docs/subsystems/burst-notes.md` for the next system. |
 | T2 | Triangle budget blown by overzealous dig-zone authoring — designer ships an arena with 200 chunks because "the perf passes look OK at the start of the match." | `.dig` baker rejects zones whose worst-case (fully-excavated) tri count exceeds the per-arena budget. Hard fail at bake time. |
 | T3 | MeshCollider recook spike under sustained drilling — async bake is the mitigation but the main-thread swap is still cost. | Deferred dirty flush (§ 6) coalesces edits within N FixedUpdates. The Burst meshing is hidden on workers; only the upload + collider swap is main-thread. Profile at "16 simultaneous drillers" before claiming OK. |
 | T4 | Determinism drift between server and client due to float math in brush ops. | Fixed-point brush math (Vector3Fixed, int16 radius). Astroneer-style. Specified in § 4. |
@@ -706,7 +706,7 @@ Operationally split into four sub-phases — same pattern Phase 1 used:
 ### Open design questions to revisit at each phase boundary
 
 - **Q1**: Cell size — 0.5m default; should it vary per zone (e.g. fine-grain for combat-relevant dig zones, coarse for cosmetic ones)? Probably yes; the storage and meshing don't care, but authoring discipline gets harder. Decide at end of Phase 2.
-- **Q2**: Should drilling apply damage to enemies caught in the brush capsule (the drill-as-weapon use case)? Currently terrain is non-damaging — adding damage means the brush op also has to broadcast a damage event. Cleanest answer: drill damage is a `TipBlock`-side concern (see [`TIP_BLOCK_ATTACH.md`](TIP_BLOCK_ATTACH.md)) and is independent of the brush op. Confirm at end of Phase 3.
+- **Q2**: Should drilling apply damage to enemies caught in the brush capsule (the drill-as-weapon use case)? Currently terrain is non-damaging — adding damage means the brush op also has to broadcast a damage event. Cleanest answer: drill damage is a `TipBlock`-side concern (see [`tip-blocks.md`](tip-blocks.md)) and is independent of the brush op. Confirm at end of Phase 3.
 - **Q3**: Should bomb craters' shape derive from the bomb's explosion parameters (radius, damage falloff curve) or be a designer-tuned `BrushKind` constant? Probably the former — bomb radius already exists. Confirm at end of Phase 3.
 - **Q4**: Does the voxel terrain receive shadows from chassis blocks? Cheap; probably yes. Shadow casters from voxel terrain onto chassis blocks? Expensive at chunk count × cascade count. Probably no for v1. Revisit in Phase 4 perf pass.
 - **Q5**: When a player tunnels into a chamber containing flammable barrels, does the structural integrity of the chamber roof care about the tunnel below? Currently chambers are pre-authored static prefabs with no notion of "supported by voxel above." If we want collapse mechanics later, that's a separate feature with its own design doc.
@@ -738,12 +738,12 @@ Operationally split into four sub-phases — same pattern Phase 1 used:
 ### Internal docs (this repo)
 
 - [README.md](../README.md) — architecture principles
-- [PHYSICS_PLAN.md](PHYSICS_PLAN.md) — non-negotiables (§ 1) apply to voxel terrain too
-- [NETCODE_PLAN.md](NETCODE_PLAN.md) — § 6 state-replication taxonomy, § 7 BlockHitBatch precedent
-- [PERFORMANCE.md](PERFORMANCE.md) — § 7 budget table this doc extends; § 5.3 Fluff cost; § 5.4 outline cost
-- [SPHERICAL_ARENAS.md](SPHERICAL_ARENAS.md) — § 6 IGravitySource pattern this doc mirrors with IDigZone
-- [BEST_PRACTICES.md](BEST_PRACTICES.md) — § 16 perf budgets; coding conventions
-- [TIP_BLOCK_ATTACH.md](TIP_BLOCK_ATTACH.md) — DrillBlock will subclass TipBlock
+- [physics.md](physics.md) — non-negotiables (§ 1) apply to voxel terrain too
+- [netcode.md](netcode.md) — § 6 state-replication taxonomy, § 7 BlockHitBatch precedent
+- [performance.md](performance.md) — § 7 budget table this doc extends; § 5.3 Fluff cost; § 5.4 outline cost
+- [spherical-arenas.md](spherical-arenas.md) — § 6 IGravitySource pattern this doc mirrors with IDigZone
+- [../best-practices.md](../best-practices.md) — § 16 perf budgets; coding conventions
+- [tip-blocks.md](tip-blocks.md) — DrillBlock will subclass TipBlock
 
 ---
 

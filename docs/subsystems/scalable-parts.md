@@ -28,7 +28,7 @@ into the standard lift formula) is already continuous in span / chord /
 thickness. The job is to expose that continuity to the player and to
 extend the same pattern to other parts where it's a clean win.
 
-This aligns with `GAME_DESIGN_PILLARS.md` §"Generic propulsion
+This aligns with `../research/game-design-pillars.md` §"Generic propulsion
 primitives, no special-case archetype blocks": the same instinct that
 says "no helicopter-rotor special block, just rotor + aerofoil
 primitives" says "no tier 1 / tier 2 / tier 3 wing, just wing with
@@ -50,7 +50,7 @@ The conceptual rubicon has been crossed. Specifically:
   with default fallbacks. The lift formula in `FixedUpdate` consumes
   the per-instance dims, not the `Aero.*` Tweakables.
 - **`Aero.WingSpan/Chord/Thickness` Tweakables are cosmetic-only.**
-  Per `PHYSICS_PLAN.md` §5 they drive `_wingMesh.localScale` only. If
+  Per `physics.md` §5 they drive `_wingMesh.localScale` only. If
   any future PR couples them back to lift / drag / hit-area, they
   must move to per-block blueprint config first. The contract is
   enforced by review.
@@ -88,7 +88,7 @@ physical scale):
 - CPU — there is one CPU block.
 - Tip blocks (Hook / Mace) — mass differential is the gameplay
   variable; they're already a clean two-archetype split, see
-  `PHYSICS_PLAN.md` §3.
+  `physics.md` §3.
 
 This matches the precedent in Besiege (scaffolding scales, effects are
 discrete) and avoids the trap of trying to derive damage curves from a
@@ -238,7 +238,7 @@ to the scalable primitives.
 
 ### Phase 5 — Generalise `Entry.Dims` to a `configBlob`
 
-Per `PHYSICS_PLAN.md` §6 open items. When a block needs richer
+Per `physics.md` §6 open items. When a block needs richer
 per-instance state than three scalars (paint colour, fire mode,
 named-tag), extend `Entry` to `{blockId, position, up, configBlob}`
 and version the serializer. The `Dims` field becomes the special
@@ -248,7 +248,7 @@ This is not blocking phases 1–4 but is the natural follow-up.
 
 ## 5. Invariants to respect
 
-Carried over from `CLAUDE.md` and `PHYSICS_PLAN.md`. Violating any
+Carried over from `CLAUDE.md` and `physics.md`. Violating any
 of these is a bug regardless of how clean the diff looks.
 
 1. **No Tweakable affects gameplay outcomes.** The build-mode scale
@@ -331,11 +331,11 @@ These need a decision before phase 3 lands. None block phases 0–2.
   lives here or in a sibling.
 - `Assets/_Project/Scripts/Gameplay/BlockEditor.cs` — placement
   validation hook.
-- `docs/PHYSICS_PLAN.md` §5 — Tweakables-vs-blueprint contract.
-- `docs/PHYSICS_PLAN.md` §6 — `configBlob` generalisation roadmap.
-- `docs/GAME_DESIGN_PILLARS.md` §"Generic propulsion primitives" —
+- `docs/subsystems/physics.md` §5 — Tweakables-vs-blueprint contract.
+- `docs/subsystems/physics.md` §6 — `configBlob` generalisation roadmap.
+- `docs/research/game-design-pillars.md` §"Generic propulsion primitives" —
   the design instinct this plan operationalises.
-- `docs/NETCODE_PLAN.md` §6 Bucket B — blueprint replication. `Dims`
+- `docs/subsystems/netcode.md` §6 Bucket B — blueprint replication. `Dims`
   rides the same blob; cost is ~6 extra bytes per entry.
 - `CLAUDE.md` — hard invariants. Re-read before starting.
 

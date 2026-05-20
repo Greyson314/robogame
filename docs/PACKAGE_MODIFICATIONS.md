@@ -22,7 +22,7 @@ Added a global (not per-material) dig mask the modified grass fragment
 samples by world-XZ to `discard` grass over columns the player has dug
 below the original heightmap. This keeps the decoupled Fluff grass
 layer consistent with the carved voxel terrain (the whole arena ground
-is now diggable — see `docs/changes/83-*` and `docs/TERRAFORMING_PLAN.md`).
+is now diggable — see `docs/changes/83-*` and `docs/subsystems/terraforming.md`).
 
 ### Why
 

@@ -24,7 +24,7 @@ namespace Robogame.Tools.Editor
 
         public static void BuildGarageEnvironment()
         {
-            // Garage: warm dusk-workshop. Numbers from ART_DIRECTION.md § Lighting Rules.
+            // Garage: warm dusk-workshop. Numbers from docs/subsystems/art-direction.md § Lighting Rules.
             EnsureCameraAndLight(
                 WorldPalette.GarageClear,
                 lightEuler: new Vector3(45f, 30f, 0f),
@@ -88,7 +88,7 @@ namespace Robogame.Tools.Editor
             // "how do we reset a scene?" answer in exactly one place.
             GameObject env = ResetEnvRoot();
 
-            // Arena: bright, raked sun, cool ambient. Numbers from ART_DIRECTION.md.
+            // Arena: bright, raked sun, cool ambient. Numbers from docs/subsystems/art-direction.md.
             Vector3 arenaSunEuler = new Vector3(50f, -30f, 0f);
             EnsureCameraAndLight(
                 WorldPalette.ArenaClear,
@@ -386,14 +386,14 @@ namespace Robogame.Tools.Editor
         // -----------------------------------------------------------------
         // Planet arena: a sphere planet at world origin with custom
         // spherical gravity. v1 sketch \u2014 see
-        // [docs/SPHERICAL_ARENAS.md](../../../../../docs/SPHERICAL_ARENAS.md)
+        // [docs/subsystems/spherical-arenas.md](../../../../../docs/subsystems/spherical-arenas.md)
         // for the full plan and the reasons this is intentionally rough.
         // -----------------------------------------------------------------
 
         public static void BuildPlanetArenaEnvironment()
         {
             // 2400 m sits comfortably inside the comfort window from
-            // SPHERICAL_ARENAS.md §9: ~0.3 °/s camera-up rotation at
+            // docs/subsystems/spherical-arenas.md §9: ~0.3 °/s camera-up rotation at
             // ground speed, ~2.3° horizon dip, ~19 minute lap. 20% smaller
             // diameter than 3000 m makes the world feel a bit more like a
             // playground without crossing into marble territory.

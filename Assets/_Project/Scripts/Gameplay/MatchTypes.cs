@@ -83,7 +83,7 @@ namespace Robogame.Gameplay
     /// <para>
     /// Every value here is gameplay-observable — frag limits, round duration,
     /// AI fire range, lives — so per the
-    /// <see href="https://github.com/anthropics/robogame/blob/main/docs/PHYSICS_PLAN.md#15">PHYSICS_PLAN
+    /// <see href="https://github.com/anthropics/robogame/blob/main/docs/subsystems/physics.md#15">PHYSICS_PLAN
     /// § 1.5</see> rule these MUST NOT live in <c>Tweakables</c>. Multiplayer
     /// will read these from a server-canonical config; for now they're set in
     /// the inspector on the arena scene's <see cref="ArenaController"/>.

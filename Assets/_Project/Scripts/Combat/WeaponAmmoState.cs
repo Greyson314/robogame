@@ -9,7 +9,7 @@ namespace Robogame.Combat
 {
     /// <summary>
     /// Per-chassis ammo + reload tracker. Phase 5–6 of
-    /// <c>docs/SCRAP_LOOP_PLAN.md</c>: every weapon block consults this
+    /// <c>docs/changes/58-scrap-loop-v1.md</c>: every weapon block consults this
     /// component before firing and decrements one pool slot on each
     /// shot. Pools are <i>per-weapon-type</i> — every SMG on the chassis
     /// shares one pool, every cannon shares another. Pool capacity scales

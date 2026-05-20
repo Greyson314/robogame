@@ -11,7 +11,7 @@ namespace Robogame.Core
     /// <remarks>
     /// Mirrors <see cref="IGravitySource"/>: arenas that don't register any
     /// dig zones pay zero terraforming cost. See
-    /// [docs/TERRAFORMING_PLAN.md](../../../../../docs/TERRAFORMING_PLAN.md)
+    /// [docs/subsystems/terraforming.md](../../../../../docs/subsystems/terraforming.md)
     /// §3 "Storage model" for the chunk layout and §2 "Dig-only invariant"
     /// for why ContainsPoint never widens over a match.
     /// </remarks>
@@ -44,7 +44,7 @@ namespace Robogame.Core
     /// <remarks>
     /// <para>
     /// Zero-baseline: arenas with no registered zones cost nothing. The
-    /// terraforming feature is opt-in per arena (PHYSICS_PLAN.md §1.2).
+    /// terraforming feature is opt-in per arena (docs/subsystems/physics.md §1.2).
     /// </para>
     /// <para>
     /// Statics survive domain reload but registered MonoBehaviour-backed

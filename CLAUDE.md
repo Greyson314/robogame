@@ -8,34 +8,71 @@ Robogame is a personal recreation of [Robocraft](https://store.steampowered.com/
 
 Eventual goal: ship to Steam. Current state: singleplayer with garage + arenas (flat / spherical / water) + build mode + multiple chassis types. Multiplayer is planned, not yet started.
 
-## Read these before doing real work
+## Docs are tiered — read accordingly
 
-- **[README.md](README.md)** — top-level overview, architecture principles, multiplayer roadmap.
-- **[docs/changes/README.md](docs/changes/README.md)** — session log index. The highest-numbered file is the current state of WIP.
-- **[docs/changes/architecture.md](docs/changes/architecture.md)** — current modules, runtime flow, gotchas.
-- **[docs/PHYSICS_PLAN.md](docs/PHYSICS_PLAN.md)** — § 1 is non-negotiable. Read in full before any physics work.
-- **[docs/TIP_BLOCK_ATTACH.md](docs/TIP_BLOCK_ATTACH.md)** — how rope-mounted Hook/Mace/Magnet latch onto targets, the three concurrent constraints (Verlet chain + chassis↔tip leash + tip↔target SpringJoint), and why the pre-session-60 Locked ConfigurableJoint kept self-destructing. Read before touching any tip-block behaviour.
-- **[docs/BEST_PRACTICES.md](docs/BEST_PRACTICES.md)** — coding conventions, perf budgets (§ 16).
-- **[docs/PERFORMANCE.md](docs/PERFORMANCE.md)** — perf rules, diagnostics, predicted future hotspots, "the game feels slow" runbook.
-- **[docs/PACKAGE_MODIFICATIONS.md](docs/PACKAGE_MODIFICATIONS.md)** — third-party package source edits and how to re-apply them after an upgrade.
-- **[docs/NETCODE_PLAN.md](docs/NETCODE_PLAN.md)** — multiplayer-readiness contract.
-- **[docs/AUDIO_PLAN.md](docs/AUDIO_PLAN.md)** — audio plumbing rules; read before authoring sound clips or touching `AudioRouter`.
-- **[docs/ART_DIRECTION.md](docs/ART_DIRECTION.md)** — palette, art rules, imported assets.
-- **[docs/SPHERICAL_ARENAS.md](docs/SPHERICAL_ARENAS.md)** — planet-arena physics and gravity model.
-- **[docs/TERRAFORMING_PLAN.md](docs/TERRAFORMING_PLAN.md)** — smooth-voxel dig-only terrain. Read before any work on destructible terrain, drill blocks, bomb-crater behaviour, or underground POIs. § 2 (dig-only invariant) and § 7 (triangle budget) are the load-bearing constraints.
-- **[docs/ROBOCRAFT_REFERENCE.md](docs/ROBOCRAFT_REFERENCE.md)** — design research baseline.
-- **[docs/GAME_DESIGN_PILLARS.md](docs/GAME_DESIGN_PILLARS.md)** — committed design directions and open questions.
+The docs tree is organised into three tiers. Treat them differently.
+
+**Tier 1 — invariants and conventions. Always current. Follow these.**
+
+- **[docs/invariants.md](docs/invariants.md)** — the hard rules. Violating one is a regression. Changes require an ADR.
+- **[docs/best-practices.md](docs/best-practices.md)** — coding conventions, perf budgets (§ 16).
+- **[docs/decisions/](docs/decisions/)** — Architecture Decision Records. Follow every `Accepted` ADR. Ignore `Superseded` and `Rejected` ones.
+
+**Tier 2 — living subsystem docs. Current state of each system. Read by topic.**
+
+Located in [`docs/subsystems/`](docs/subsystems/). These are kept up to date but they describe one subsystem's situation, not project-wide rules. If a subsystem doc conflicts with `invariants.md`, the invariants win. If you find a tier-2 doc that contradicts the code you just read, fix the doc before working in that subsystem.
+
+- [physics.md](docs/subsystems/physics.md) — rope tech today vs. Verlet target, migration triggers.
+- [netcode.md](docs/subsystems/netcode.md) — multiplayer-readiness contract.
+- [terraforming.md](docs/subsystems/terraforming.md) — smooth-voxel dig-only terrain.
+- [tip-blocks.md](docs/subsystems/tip-blocks.md) — Hook/Mace/Magnet attach mechanics. Read before touching tip-block behaviour.
+- [audio.md](docs/subsystems/audio.md) — audio plumbing rules.
+- [art-direction.md](docs/subsystems/art-direction.md) — palette, art rules, imported assets.
+- [spherical-arenas.md](docs/subsystems/spherical-arenas.md) — planet-arena physics and gravity.
+- [performance.md](docs/subsystems/performance.md) — perf rules, diagnostics, predicted hotspots.
+- [performance-pass.md](docs/subsystems/performance-pass.md) — measurement workflow.
+- [performance-baselines.md](docs/subsystems/performance-baselines.md) — capture log.
+- [burst-notes.md](docs/subsystems/burst-notes.md) — Burst onboarding patterns.
+- [scalable-parts.md](docs/subsystems/scalable-parts.md) — per-instance dimensions (Phase 2+ pending).
+
+**Tier 3 — reference and historical. Not directives.**
+
+- [docs/research/](docs/research/) — domain knowledge: [robocraft-reference.md](docs/research/robocraft-reference.md), [game-design-pillars.md](docs/research/game-design-pillars.md).
+- [docs/research/historical/](docs/research/historical/) — completed or superseded design docs kept for rationale. **Do not take direction from these.** They describe how thinking evolved.
+
+**Utility / context.**
+
+- [README.md](README.md) — top-level overview, multiplayer roadmap.
+- [docs/changes/README.md](docs/changes/README.md) — session log index. The highest-numbered file is the current state of WIP.
+- [docs/changes/architecture.md](docs/changes/architecture.md) — current modules, runtime flow, gotchas.
+- [docs/PACKAGE_MODIFICATIONS.md](docs/PACKAGE_MODIFICATIONS.md) — third-party package source edits.
+
+## How documentation evolves
+
+- New plan or proposal → write an ADR in `docs/decisions/`. Get user approval before merging.
+- Decision changes a hard rule → ADR is mandatory. Update `invariants.md` once accepted.
+- New living subsystem doc → put it in `docs/subsystems/`. Lowercase-kebab filename.
+- Doc fully superseded by code → delete it (git preserves history) and note the delete in the next session log entry. Do NOT leave stale plans in `docs/` root.
+- Doc partially superseded → either split (move still-true bits to a subsystem doc), or move the whole thing to `docs/research/historical/` and capture remaining work in `docs/changes/README.md` "Known unknowns."
+
+This convention is itself encoded in [docs/decisions/0001-doc-tiering-and-adrs.md](docs/decisions/0001-doc-tiering-and-adrs.md).
 
 ## Hard invariants (do not violate without explicit user approval)
 
-1. **No Tweakable affects gameplay outcomes.** Tweakables are per-machine, persisted to local JSON. Using one to drive damage, lift, hit detection, or anything visible to other players desyncs the second netcode lands. Move that data to the chassis blueprint (server-authoritative) instead. See PHYSICS_PLAN § 1.5.
-2. **Building happens only in the garage.** Blueprints are frozen at match start. The block-index ordering (sorted by `Vector3Int`) is part of the netcode contract — it must be stable across spawn.
-3. **Server is authoritative for all gameplay state.** Even in singleplayer, structure code as if the server is a separate process.
-4. **Single Rigidbody per chassis.** Free-body children of a moving Rigidbody fight the solver. Parent free bodies under scene root, not under the chassis.
-5. **Default to zero baseline cost.** Every new physics block must have a config that adds zero Rigidbodies and zero colliders. Anything heavier is opt-in.
-6. **No per-frame allocations.** No `new` in `Update` / `FixedUpdate` / `OnCollision*`. Pre-size lists at build time, reuse them.
-7. **Profile before claiming a perf characteristic.** "Well under budget" is not acceptable without a Profiler capture or a static count from a real measurement.
-8. **Every new feature ships with VFX + audio.** As of session 30 (audio v1) the project has both pipelines wired (`VfxSpawner` + procedural particle kinds; `AudioRouter` + `AudioCue` + `AudioCueLibrary`). New gameplay systems — weapons, blocks, movement modes, match-state events, UI — must include a good-faith pass at both. If a clip / cue doesn't exist yet, declare the cue, leave the library entry blank, and call `AudioRouter.PlayOneShot` at the gameplay site anyway: the missing-cue logger surfaces it and the audio pass picks it up. Same for VFX: pick the closest `VfxKind`, hook the call site, tune scale at the editor table. **Do not ship a feature with both audio AND VFX deferred to "later".** See [docs/AUDIO_PLAN.md](docs/AUDIO_PLAN.md) for the audio-side contract and [docs/changes/29-vfx-and-audio-bones.md](docs/changes/29-vfx-and-audio-bones.md) for the VFX kinds.
+The canonical list with full rationale lives in [docs/invariants.md](docs/invariants.md). The short version, for reference:
+
+1. No `Tweakable` affects gameplay outcomes.
+2. Building happens only in the garage; blueprints frozen at match start.
+3. Server is authoritative for all gameplay state.
+4. Single Rigidbody per chassis.
+5. Default to zero baseline cost for new physics blocks.
+6. No per-frame allocations.
+7. Profile before claiming a perf characteristic.
+8. Every new feature ships with VFX + audio.
+9. Terraforming is dig-only.
+10. Triangle and chunk budgets for voxel terrain are hard ceilings.
+
+Read [docs/invariants.md](docs/invariants.md) before doing real work.
 
 ## Known failure modes (these have bitten before)
 
@@ -43,7 +80,7 @@ Eventual goal: ship to Steam. Current state: singleplayer with garage + arenas (
 - **`AddComponent<T>` runs `OnEnable` synchronously.** Reflection-based serialised-field assignment must happen with the root deactivated. See `ChassisFactory.Build`.
 - **`AssetDatabase.Refresh` invalidates C# refs.** Re-load by path right before `SerializedObject.FindProperty(...).objectReferenceValue = ...`.
 - **Input System UI doesn't gate over UI for free.** Use `EventSystem.current.IsPointerOverGameObject()` to suppress fire / camera-capture / etc. when the cursor's on the HUD.
-- **Pattern-matching to "Unity rope = ConfigurableJoint chain" is the wrong reflex.** PhysX joint chains are unstable under sustained spin and expensive to network. Custom Verlet solver is the migration target. Existing `RopeBlock` and `RotorBlock` use joints today; that's tech debt to migrate, not a pattern to extend. See PHYSICS_PLAN § 2.
+- **Pattern-matching to "Unity rope = ConfigurableJoint chain" is the wrong reflex.** PhysX joint chains are unstable under sustained spin and expensive to network. Custom Verlet solver is the migration target. Existing `RopeBlock` and `RotorBlock` use joints today; that's tech debt to migrate, not a pattern to extend. See [docs/subsystems/physics.md § 2](docs/subsystems/physics.md).
 
 ## User preferences
 
@@ -61,8 +98,20 @@ For non-trivial implementation work:
 
 1. **Use the Planner subagent first** (`.claude/agents/planner.md`). It reads relevant docs and produces a plan for user review *before* execution. Catches design-implementation drift cheaply rather than after a 10-minute build.
 2. **Run the Test Drafter in parallel** when adding gameplay systems (`.claude/agents/test-drafter.md`). Tests land alongside code rather than as later cleanup.
+3. **After implementation lands, dispatch `qa-verifier` and `perf-checker` in parallel** (a single message with two Agent tool calls) before declaring the feature done. `qa-verifier` runs build + tests + Unity console check; `perf-checker` captures the profiler and compares against budgets. Their verdicts are the gate for "done." Skip both for pure doc / comment / cosmetic changes; skip `perf-checker` alone for features that demonstrably add zero physics objects.
+4. **Use `design-pilot` for game-design questions.** When the question is "what would be fun here?" / "how did Robocraft handle X?" / "should mechanic Y feel like Z?", route to the design subagent — it reads `docs/research/game-design-pillars.md` and `docs/research/robocraft-reference.md` so design ideation stays grounded.
 
 Skip subagents for trivial work: one-line fixes, doc edits, pure cosmetic tweaks.
+
+**Background-mode test runs.** `.claude/scripts/run-tests.sh` takes 30–90s. When the main agent has other work to make progress on while tests run (e.g., starting docs or queueing the next sub-task), invoke it via Bash with `run_in_background: true` and continue. The harness notifies on completion — do not poll.
+
+### Project hooks
+
+`.claude/settings.json` wires four project-scoped hooks (PowerShell scripts under `.claude/hooks/`): a `PreToolUse` worktree-edit guard, a `PostToolUse` C# edit marker, a `Stop` reminder to check the Unity console after C# edits, and a `SessionStart` notice surfacing the current session log. See [docs/changes/88-claude-code-hooks.md](docs/changes/88-claude-code-hooks.md) for details and rationale.
+
+### Subagent roster
+
+`.claude/agents/` holds five subagents. Two read-only research (`planner`, `design-pilot`), one drafts tests (`test-drafter`), two verify after implementation (`qa-verifier`, `perf-checker`). See [docs/changes/89-subagent-squadron.md](docs/changes/89-subagent-squadron.md) for the dispatch protocol and the rationale for each.
 
 ## Active work
 

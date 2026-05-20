@@ -14,7 +14,7 @@ namespace Robogame.Core
     /// Promoted to <c>Robogame.Core</c> in session 34 — the original v1
     /// home was <c>Robogame.Gameplay</c>, but chassis-level systems
     /// (FlipController et al.) live in lower asmdef tiers and need to
-    /// sample gravity. See [docs/SPHERICAL_ARENAS.md](../../../../../docs/SPHERICAL_ARENAS.md)
+    /// sample gravity. See [docs/subsystems/spherical-arenas.md](../../../../../docs/subsystems/spherical-arenas.md)
     /// §6 "New Components" — this is the move that doc anticipated.
     /// </remarks>
     public interface IGravitySource
@@ -90,7 +90,7 @@ namespace Robogame.Core
             }
             // If sources are registered but none contain this point, fall
             // back to flat gravity — a chassis flung outside every SOI
-            // shouldn't drift in zero-G forever (see SPHERICAL_ARENAS.md
+            // shouldn't drift in zero-G forever (see docs/subsystems/spherical-arenas.md
             // §12 "What if a robot leaves the SOI?").
             return sum.sqrMagnitude > 0.0001f ? sum : Physics.gravity;
         }

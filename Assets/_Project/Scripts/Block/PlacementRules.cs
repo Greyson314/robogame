@@ -27,7 +27,7 @@ namespace Robogame.Block
     /// </para>
     /// <para>
     /// Builds on the §3.4 diagnosis in
-    /// <c>docs/BUILDING_ARCHITECTURE_REVIEW.md</c>: the four BFS
+    /// <c>docs/research/historical/building-architecture-review.md</c>: the four BFS
     /// implementations have collapsed into <see cref="BlockGraph"/>;
     /// the rule overlap / divergence between editor and validator
     /// collapses into this class.

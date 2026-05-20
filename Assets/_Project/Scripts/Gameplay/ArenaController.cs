@@ -61,7 +61,7 @@ namespace Robogame.Gameplay
         [Tooltip("Optional spinning-rotor stress-test target. Spawned when " +
                  "the Stress.RotorTower tweakable crosses 0.5 (drag the slider " +
                  "in the settings panel or dev HUD). Use to profile rotor + " +
-                 "rope cost under load — see docs/PHYSICS_PLAN.md.")]
+                 "rope cost under load — see docs/subsystems/physics.md.")]
         [SerializeField] private ChassisBlueprint _stressTowerBlueprint;
         [SerializeField] private Vector3 _stressTowerPosition = new Vector3(55f, 0.5f, 30f);
         [SerializeField] private string _stressTowerName = "StressRotorTower";
@@ -1144,7 +1144,7 @@ namespace Robogame.Gameplay
         // A second AI tank wearing MatchSide.Player. Unblocks team
         // mechanics in singleplayer — depot transfer, IFF damage filter,
         // friendly-vs-enemy scrap drop ownership — all of which need at
-        // least one allied chassis to evaluate. See docs/SCRAP_LOOP_PLAN.md §2.
+        // least one allied chassis to evaluate. See docs/changes/58-scrap-loop-v1.md §2.
         // -----------------------------------------------------------------
 
         private void SpawnFriendlyTank(GameStateController state)

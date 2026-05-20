@@ -20,7 +20,7 @@ namespace Robogame.Combat
     /// <para>
     /// Lives on the chassis root Rigidbody. <c>OnCollisionEnter</c>
     /// bubbles up from child colliders, which is exactly the contract the
-    /// compound-collider chassis (per <c>BEST_PRACTICES.md §3.1</c>)
+    /// compound-collider chassis (per <c>docs/best-practices.md §3.1</c>)
     /// needs.
     /// </para>
     /// <para>

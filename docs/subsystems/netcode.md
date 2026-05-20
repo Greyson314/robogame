@@ -748,8 +748,8 @@ Goal: two editor instances connect via UTP loopback, each spawns a robot, both c
 ### Internal docs (this repo)
 
 - [README.md](../README.md) — architecture principles & multiplayer roadmap table
-- [docs/BEST_PRACTICES.md](BEST_PRACTICES.md) — coding standards
-- [docs/ROBOCRAFT_REFERENCE.md](ROBOCRAFT_REFERENCE.md) — what we are/aren't borrowing from the original
+- [docs/best-practices.md](../best-practices.md) — coding standards
+- [docs/research/robocraft-reference.md](../research/robocraft-reference.md) — what we are/aren't borrowing from the original
 
 ---
 

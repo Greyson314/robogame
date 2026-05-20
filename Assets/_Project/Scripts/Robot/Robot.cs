@@ -111,7 +111,7 @@ namespace Robogame.Robots
         /// Movement-speed multiplier driven by carried scrap. Drives the
         /// "haul slows you down" gameplay — encourages the player to
         /// commit to a depot run rather than sit on a giant hoard.
-        /// Stepped curve per <c>docs/SCRAP_LOOP_PLAN.md §3</c>:
+        /// Stepped curve per <c>docs/changes/58-scrap-loop-v1.md §3</c>:
         /// 0–2 = 1.00, 3–5 = 0.95, 6–9 = 0.85, 10+ = 0.70. Const-time;
         /// safe to call per-tick.
         /// </summary>

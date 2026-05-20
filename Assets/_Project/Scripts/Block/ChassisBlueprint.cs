@@ -185,7 +185,7 @@ namespace Robogame.Block
         /// <summary>
         /// Whether <see cref="Block.BlockIds.Rotor"/> cells on this chassis
         /// are propulsion rotors (spawn aerofoils, generate lift) or pure
-        /// cosmetic spinners. See <c>docs/PHYSICS_PLAN.md</c> §2 — this
+        /// cosmetic spinners. See <c>docs/subsystems/physics.md</c> §2 — this
         /// is the temporary blueprint-level switch until per-cell config
         /// lands; until then, "this chassis is a helicopter" is the right
         /// granularity.
@@ -234,7 +234,7 @@ namespace Robogame.Block
         /// every path that mutates the entry list goes through here so the
         /// stored array is always sorted by <see cref="BlockEntries.Compare"/>.
         /// That ordering is the netcode contract — see
-        /// <c>docs/NETCODE_PLAN.md</c> §6.
+        /// <c>docs/subsystems/netcode.md</c> §6.
         /// </summary>
         /// <remarks>
         /// Sorts <paramref name="entries"/> in place. Callers that need to

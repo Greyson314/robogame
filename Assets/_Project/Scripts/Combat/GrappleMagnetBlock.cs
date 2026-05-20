@@ -40,7 +40,7 @@ namespace Robogame.Combat
     /// </para>
     /// <para>
     /// <b>Three constraint contract during Latched</b> (mirrors session
-    /// 60's standard tip-block design — see TIP_BLOCK_ATTACH.md):
+    /// 60's standard tip-block design — see docs/subsystems/tip-blocks.md):
     /// </para>
     /// <list type="bullet">
     ///   <item><b>Verlet chain</b> between chassis muzzle and the projectile

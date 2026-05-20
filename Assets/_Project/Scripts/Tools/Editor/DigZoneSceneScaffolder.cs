@@ -9,7 +9,7 @@ namespace Robogame.Tools.Editor
 {
     /// <summary>
     /// Editor menu entries that build and exercise the DigZone test scene.
-    /// Scaffolded programmatically per TERRAFORMING_PLAN.md §12 autonomy
+    /// Scaffolded programmatically per docs/subsystems/terraforming.md §12 autonomy
     /// contract — the scene is regenerable on a fresh checkout.
     /// </summary>
     public static class DigZoneSceneScaffolder

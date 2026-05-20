@@ -1,7 +1,7 @@
 # Robogame — Performance Pass Plan
 
 > **Audience.** A Claude Code agent (or human collaborator) picking
-> this up cold. Read [`PERFORMANCE.md`](PERFORMANCE.md) first — the
+> this up cold. Read [`performance.md`](performance.md) first — the
 > rules, knobs, and "predicted future hotspots" list. This document
 > is the *workflow* for the current pass: measure, triage, fix,
 > verify, stop.
@@ -21,7 +21,7 @@
 > per material. **Key methodology finding:** the headless harness
 > is GPU-blind — it guards CPU/GC only; GPU cost needs in-game
 > bisect (the Perf-Bisect HUD). See
-> [`PERFORMANCE_BASELINES.md`](PERFORMANCE_BASELINES.md).
+> [`performance-baselines.md`](performance-baselines.md).
 
 ---
 
@@ -42,7 +42,7 @@
 
 ## 1. The honest picture
 
-The project's perf framework is already in good shape. [`PERFORMANCE.md`](PERFORMANCE.md)
+The project's perf framework is already in good shape. [`performance.md`](performance.md)
 documents the rules, the runtime perf HUD (F3) reports frame time /
 GC / Rb count / draw calls live, [`PerfMarkers.cs`](../Assets/_Project/Scripts/Core/PerfMarkers.cs)
 tags the known hot paths, and `Robogame > Perf` in the editor menu
@@ -118,7 +118,7 @@ recommendation becomes a guess.
 ### 3.1 Build, not editor
 
 Do **all** measurement in a **Development Build**, not in the
-editor. [`PERFORMANCE.md` § 3.2](PERFORMANCE.md#32-capture-in-a-build)
+editor. [`performance.md` § 3.2](performance.md#32-capture-in-a-build)
 notes that editor numbers are 5–10× off some metrics because the
 editor itself ticks. Editor profiling is useful for *delta*
 measurements ("did this change help?"), not absolute claims.
@@ -174,7 +174,7 @@ Two to three hours, all hands. Resist the urge to fix anything yet.
 
 ## 4. Phase 1 — Track the trend over time
 
-Create [`docs/PERFORMANCE_BASELINES.md`](PERFORMANCE_BASELINES.md)
+Create [`docs/subsystems/performance-baselines.md`](performance-baselines.md)
 (new file) with one row per measurement event. Format:
 
 ```markdown
@@ -204,7 +204,7 @@ it, the user can point at a row and say "that's where it got
 worse" — which gives the next pass a concrete starting point
 instead of a vibe.
 
-[`PERFORMANCE.md` § 9 — runbook](PERFORMANCE.md#9-runbook-the-game-feels-slow)
+[`performance.md` § 9 — runbook](performance.md#9-runbook-the-game-feels-slow)
 already documents how to do a single capture; this doc formalises
 *recording the result*. The new file is a log, not a plan. Keep it
 narrow.
@@ -267,7 +267,7 @@ scene-wide scan.
 `ScrapCarriedIndicator`, `KillAnnouncer`, `HitMarkerOverlay`,
 `FloatingDamageOverlay`, `ObjectiveHud`, `StartMatchHud`,
 `VehicleStatsHud`, `DeathOverlay`, `MatchEndOverlay`. Each is a
-MonoBehaviour with `Update` and/or `OnGUI`. [`PERFORMANCE.md` § 5.8](PERFORMANCE.md#58-imgui-overhead)
+MonoBehaviour with `Update` and/or `OnGUI`. [`performance.md` § 5.8](performance.md#58-imgui-overhead)
 calls out the IMGUI rule: OnGUI runs 2–6× per frame, anything
 allocated there is multiplied.
 
@@ -279,7 +279,7 @@ formatting), `FloatingDamageOverlay` (multiple labels), and
 
 ### 5.4 MK Toon outline pass
 
-[`PERFORMANCE.md` § 5.4](PERFORMANCE.md#54-rendering--toon-outlines--srp-batcher)
+[`performance.md` § 5.4](performance.md#54-rendering--toon-outlines--srp-batcher)
 flagged the per-object outline pass as the single most expensive
 *future* feature at MP scale. It's not future at single-chassis
 scale either — every block-renderer with the outline material
@@ -295,7 +295,7 @@ is a meaningful chunk of GPU time and the documented mitigations
 
 ### 5.5 Per-block damage VFX storm
 
-[`PERFORMANCE.md` § 8.4](PERFORMANCE.md#84-damage-vfx-storm) flagged
+[`performance.md` § 8.4](performance.md#84-damage-vfx-storm) flagged
 `CombatVfxLibrary.Load` spawning per-hit. With the SMG firing on a
 single bot during combat baseline (3.3), look at the Memory
 profiler for instantiation spikes. If hit sparks are being
@@ -321,7 +321,7 @@ pre-existing tech debt; don't fix yet.
 
 ### 5.8 Verlet rope sim
 
-Per [`PERFORMANCE.md` § 5.1](PERFORMANCE.md#51-verlet-rope-simulator)
+Per [`performance.md` § 5.1](performance.md#51-verlet-rope-simulator)
 the sim itself is ~µs at default. The cost shows up only under the
 rotor stress tower. If the user has been adding helicopter-heavy
 playtests, verify the stress tower still hits its budget. Otherwise
@@ -332,7 +332,7 @@ de-prioritise.
 `ArenaController` uses `GameObject.Find` in 7 places (spawn paths).
 These are not per-frame — they run on spawn/respawn. Surface as
 "won't cause a frame bug but will cause a respawn hitch with 16
-chassis" — same shape as [`PERFORMANCE.md` § 8.5](PERFORMANCE.md#85-chassisfactorybuild-re-entry-on-rebuild-storm).
+chassis" — same shape as [`performance.md` § 8.5](performance.md#85-chassisfactorybuild-re-entry-on-rebuild-storm).
 Confirm with the combat baseline (which includes a bot kill /
 respawn cycle).
 
@@ -345,13 +345,13 @@ three buckets. The bucket dictates the response.
 
 | Bucket | Definition | Response |
 |---|---|---|
-| **Known-deferred** | Already documented in `PERFORMANCE.md` § 8 ("predicted future hotspots") or session changelogs. | Confirm it's still in the predicted shape. If yes, no action this pass — note in baselines doc. If it's firing earlier than predicted, escalate to "quick win" if cheap, "big rock" if not. |
+| **Known-deferred** | Already documented in `performance.md` § 8 ("predicted future hotspots") or session changelogs. | Confirm it's still in the predicted shape. If yes, no action this pass — note in baselines doc. If it's firing earlier than predicted, escalate to "quick win" if cheap, "big rock" if not. |
 | **Regression** | Per-frame cost that was lower in a prior baseline. | Highest priority. The session that introduced it has the context. Bisect against `docs/changes/` if needed. |
 | **Unknown** | Cost the codebase doesn't account for at all. | Investigate. May surface a hidden bug (e.g., `Camera.main` in a hot path snuck back in). |
 
 Resist the urge to fix items from the known-deferred bucket "while
 we're here" unless they're actually firing. Most of the predicted
-hotspots in `PERFORMANCE.md` § 8 are pre-emptive notes — they
+hotspots in `performance.md` § 8 are pre-emptive notes — they
 become real when MP lands, not in singleplayer.
 
 ---
@@ -385,7 +385,7 @@ feature passes is built into URP. Verify in `PC_Renderer.asset`.
 **Trigger:** Phase 0 shows GC/frame > 0 in steady state.
 **Fix:** identify the OnGUI / Update that's allocating using the
 Memory profiler's allocation calltree. Fix per the patterns in
-[`PERFORMANCE.md` § 2.1](PERFORMANCE.md#21-zero-allocations-per-steady-state-frame).
+[`performance.md` § 2.1](performance.md#21-zero-allocations-per-steady-state-frame).
 Almost always a `string.Format` or a cached-style miss.
 
 ### 7.4 DigZone idle CPU verification
@@ -402,7 +402,7 @@ poll loop on `_pendingBakes > 0`. Same shape as the
 ### 7.5 Hit-spark pool
 
 **Trigger:** Memory profiler shows hit-spark GC during combat.
-**Fix:** as [`PERFORMANCE.md` § 8.4](PERFORMANCE.md#84-damage-vfx-storm)
+**Fix:** as [`performance.md` § 8.4](performance.md#84-damage-vfx-storm)
 documents — `UnityEngine.Pool.ObjectPool<T>` for the hit-spark
 prefab, hard cap 32 concurrent.
 
@@ -425,15 +425,15 @@ sustained combat.
 
 ## 8. Phase 5 — Big rocks
 
-These are documented as deferred in `PERFORMANCE.md`. The reason
+These are documented as deferred in `performance.md`. The reason
 they're deferred is that they want a real reason to land. If Phase
 0–4 close the gap, leave them deferred. If not, the order below is
 the priority queue.
 
-1. **Outline-bake-into-shader.** [`PERFORMANCE.md` § 5.4](PERFORMANCE.md#54-rendering--toon-outlines--srp-batcher).
+1. **Outline-bake-into-shader.** [`performance.md` § 5.4](performance.md#54-rendering--toon-outlines--srp-batcher).
    The single biggest pre-MP rendering risk. Real work; ship-quality
    shader change.
-2. **WaterSurface analytic normals.** [`PERFORMANCE.md` § 5.2](PERFORMANCE.md#52-water-surface).
+2. **WaterSurface analytic normals.** [`performance.md` § 5.2](performance.md#52-water-surface).
    Halves water-path cost. Needs a visual diff check — the toon
    shader is touchy.
 3. **Verlet migration for ropes + rotors.** PHYSICS_PLAN § 2 calls
@@ -441,9 +441,9 @@ the priority queue.
    target is the same Verlet sim that already exists for free-rope
    chains. Big lift; only do it if joint chains show up in the
    profile, which today they don't.
-4. **Per-block damage replication batching.** [`PERFORMANCE.md` § 8.1](PERFORMANCE.md#81-per-block-damage-replication-blowup).
+4. **Per-block damage replication batching.** [`performance.md` § 8.1](performance.md#81-per-block-damage-replication-blowup).
    Land with the netcode PR, not before.
-5. **Foam wake spatial hash.** [`PERFORMANCE.md` § 5.2 / § 8.7](PERFORMANCE.md#87-foamwake-foam-loop-nested-overts--contacts).
+5. **Foam wake spatial hash.** [`performance.md` § 5.2 / § 8.7](performance.md#87-foamwake-foam-loop-nested-overts--contacts).
    WaterArena-only. Doesn't fire in default Arena.
 
 ---
@@ -452,7 +452,7 @@ the priority queue.
 
 The pass is **done** when:
 
-1. `docs/PERFORMANCE_BASELINES.md` exists with at least one full
+1. `docs/subsystems/performance-baselines.md` exists with at least one full
    measurement row for all four scenes × three states.
 2. Either: the user's "feels slow" intuition is reproduced in
    numbers (a row that's measurably worse than a prior baseline,
@@ -468,7 +468,7 @@ The pass is **done** when:
 The pass is **not** done if:
 
 - A "fix" was landed without a before/after number. Per
-  [`PERFORMANCE.md` § 9](PERFORMANCE.md#9-runbook-the-game-feels-slow):
+  [`performance.md` § 9](performance.md#9-runbook-the-game-feels-slow):
   *"'I made it faster' with no numbers is unfalsifiable."*
 - A big rock from Phase 5 was landed without measurement saying it
   was the bottleneck. Pre-emptive optimisation is how a perf pass
@@ -489,10 +489,10 @@ The pass should be **abandoned and re-scoped** if:
 
 If you are the agent picking this up, before writing any code:
 
-- [ ] Read [`PERFORMANCE.md`](PERFORMANCE.md) in full. Especially
+- [ ] Read [`performance.md`](performance.md) in full. Especially
       § 1 (mental model), § 2 (the five rules), § 8 (predicted
       future hotspots).
-- [ ] Read [`BEST_PRACTICES.md` § 16](BEST_PRACTICES.md#16-performance-budgets-targets-not-law)
+- [ ] Read [`../best-practices.md` § 16](../best-practices.md#16-performance-budgets-targets-not-law)
       for the budget table.
 - [ ] Read the most recent session log
       [`docs/changes/`](changes/) — the highest-numbered file.
@@ -505,7 +505,7 @@ If you are the agent picking this up, before writing any code:
 Then, in order:
 
 1. Phase 0 (measure). Output: a fully populated row in
-   `PERFORMANCE_BASELINES.md` (create the file).
+   `performance-baselines.md` (create the file).
 2. Show the row to the user. Ask: "do these numbers match how it
    feels?" — this is where the user's intuition gets compared
    against reality, before any time is spent on fixes.

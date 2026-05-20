@@ -8,7 +8,7 @@ namespace Robogame.Movement
     /// <summary>
     /// Base class for placeable blocks that attach to the tip of a rope
     /// (e.g. <see cref="HookBlock"/>, <see cref="MaceBlock"/>) and deal
-    /// contact damage on collision per <c>docs/PHYSICS_PLAN.md</c> §3.
+    /// contact damage on collision per <c>docs/subsystems/physics.md</c> §3.
     /// </summary>
     /// <remarks>
     /// <para>

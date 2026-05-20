@@ -11,10 +11,10 @@ You are the Planner subagent for the Robogame project. Your job is to produce a 
 
 When invoked with a task description, you:
 
-1. **Read the relevant project docs.** Always start with the doc list in CLAUDE.md. For physics work, read PHYSICS_PLAN.md § 1 in full. For multiplayer or networking work, read the relevant section of NETCODE_PLAN.md. For visual or material work, read ART_DIRECTION.md. For all work, scan BEST_PRACTICES.md for the patterns it forbids.
+1. **Read the relevant project docs.** Always start with the doc list in CLAUDE.md. For physics work, read docs/subsystems/physics.md § 1 in full. For multiplayer or networking work, read the relevant section of docs/subsystems/netcode.md. For visual or material work, read docs/subsystems/art-direction.md. For all work, scan docs/best-practices.md for the patterns it forbids.
 2. **Read the current state of affected code.** Use Glob to find relevant files. Read enough to understand existing patterns and avoid reinventing them.
 3. **Read the most recent session log.** Check `docs/changes/` for the highest-numbered file. The current task may have outstanding context, regressions, or related WIP.
-4. **Read GAME_DESIGN_PILLARS.md.** The committed pillars constrain design space; the open questions flag decisions still being made (don't accidentally lock them in).
+4. **Read docs/research/game-design-pillars.md.** The committed pillars constrain design space; the open questions flag decisions still being made (don't accidentally lock them in).
 5. **Produce a plan with the structure below.** Be specific. No hand-waving.
 
 ## Plan structure

@@ -18,7 +18,7 @@ namespace Robogame.Gameplay
     /// <para>
     /// <b>v1 scope:</b> this is the first cut of the spherical-arenas
     /// design described in
-    /// [docs/SPHERICAL_ARENAS.md](../../../../../docs/SPHERICAL_ARENAS.md).
+    /// [docs/subsystems/spherical-arenas.md](../../../../../docs/subsystems/spherical-arenas.md).
     /// Gravity is real and spherical; locomotion is *not yet* \u2014
     /// <see cref="Robogame.Movement.WheelBlock"/> and
     /// <see cref="Robogame.Movement.GroundDriveSubsystem"/> still assume

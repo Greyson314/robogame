@@ -10,10 +10,10 @@
 > here is left out on purpose.
 >
 > **Companion docs.**
-> [`BEST_PRACTICES.md` § 16](BEST_PRACTICES.md#16-performance-budgets-targets-not-law)
+> [`../best-practices.md` § 16](../best-practices.md#16-performance-budgets-targets-not-law)
 > for the budget table this file extends;
-> [`PHYSICS_PLAN.md`](PHYSICS_PLAN.md) for the physics-side budget;
-> [`NETCODE_PLAN.md`](NETCODE_PLAN.md) for the bandwidth-side budget that
+> [`physics.md`](physics.md) for the physics-side budget;
+> [`netcode.md`](netcode.md) for the bandwidth-side budget that
 > a poorly-tuned physics frame will eat alive once netcode lands.
 
 ---
@@ -550,7 +550,7 @@ expensive feature at MP scale. See § 5.4.
 
 ## 7. Performance budgets (extended)
 
-This extends [`BEST_PRACTICES.md` § 16](BEST_PRACTICES.md#16-performance-budgets-targets-not-law)
+This extends [`../best-practices.md` § 16](../best-practices.md#16-performance-budgets-targets-not-law)
 with renderer- and netcode-side numbers.
 
 ### Single-player, 1080p, target machine (GTX 1660, 6-core CPU)

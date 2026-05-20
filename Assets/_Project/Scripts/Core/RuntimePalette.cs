@@ -4,7 +4,7 @@ namespace Robogame.Core
 {
     /// <summary>
     /// Runtime-accessible mirror of the locked 12-token art palette
-    /// (see <c>docs/ART_DIRECTION.md</c> and the editor-only
+    /// (see <c>docs/subsystems/art-direction.md</c> and the editor-only
     /// <c>WorldPalette</c>). Lives in <see cref="Robogame.Core"/> so any
     /// runtime asmdef can pick up palette colours for VFX, gizmos, or
     /// procedural materials without taking an editor dependency.
@@ -14,7 +14,7 @@ namespace Robogame.Core
     /// The numbers MUST stay in lockstep with <c>WorldPalette</c> and the
     /// art doc — every authored colour comes from this list. If you change
     /// a value, change it here, in <c>WorldPalette.cs</c>, and in the
-    /// <c>Palette</c> table inside <c>docs/ART_DIRECTION.md</c> in the
+    /// <c>Palette</c> table inside <c>docs/subsystems/art-direction.md</c> in the
     /// same commit.
     /// </para>
     /// </remarks>

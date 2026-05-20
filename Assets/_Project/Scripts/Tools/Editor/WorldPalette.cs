@@ -7,7 +7,7 @@ namespace Robogame.Tools.Editor
     /// <summary>
     /// Locked 12-token palette + cached materials. Single source of
     /// truth for every authored colour in the project. See
-    /// <c>docs/ART_DIRECTION.md</c> for the design rationale and the
+    /// <c>docs/subsystems/art-direction.md</c> for the design rationale and the
     /// "if it isn't a token it's wrong" rule.
     /// </summary>
     /// <remarks>
@@ -31,7 +31,7 @@ namespace Robogame.Tools.Editor
         public const string LitShaderName  = "Universal Render Pipeline/Lit";
 
         // -----------------------------------------------------------------
-        // 12-token palette (mirrors docs/ART_DIRECTION.md exactly).
+        // 12-token palette (mirrors docs/subsystems/art-direction.md exactly).
         // -----------------------------------------------------------------
 
         // Structure & environment

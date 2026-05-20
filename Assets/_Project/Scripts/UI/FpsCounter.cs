@@ -15,7 +15,7 @@ namespace Robogame.UI
     /// so a single hitch doesn't make the readout dance: the smoothed
     /// number is the headline value, the instantaneous is parenthetical
     /// for spotting spikes during physics-heavy frames (rotor + ropes,
-    /// stress tower, etc — see <c>docs/PHYSICS_PLAN.md</c>).
+    /// stress tower, etc — see <c>docs/subsystems/physics.md</c>).
     /// </para>
     /// <para>
     /// Cost is one <see cref="OnGUI"/> draw call per frame with no

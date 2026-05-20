@@ -38,7 +38,7 @@ namespace Robogame.Movement
     /// counter-torque on the chassis from drag, which we deliberately
     /// don't model (Robocraft did the same; arcade kinematic rotors
     /// don't kick reaction torque into the airframe). See
-    /// <c>docs/PHYSICS_PLAN.md</c> §2.
+    /// <c>docs/subsystems/physics.md</c> §2.
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]

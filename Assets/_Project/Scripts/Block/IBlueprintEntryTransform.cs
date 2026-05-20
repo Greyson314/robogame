@@ -12,7 +12,7 @@ namespace Robogame.Block
     /// </summary>
     /// <remarks>
     /// <para>
-    /// See §3a of <c>docs/BUILDING_ARCHITECTURE_REVIEW.md</c> for the
+    /// See §3a of <c>docs/research/historical/building-architecture-review.md</c> for the
     /// motivating bug class: subsystems that handle a *subset* of Entry
     /// fields and silently drop new ones at the next schema bump. Mirror
     /// dropped <c>Pitch</c>; the build-mode ghost dropped it; future

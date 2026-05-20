@@ -9,7 +9,7 @@ namespace Robogame.Core
     /// Wire-stable: order is part of the netcode contract once Phase 6 lands.
     /// </summary>
     /// <remarks>
-    /// See [docs/TERRAFORMING_PLAN.md](../../../../../docs/TERRAFORMING_PLAN.md)
+    /// See [docs/subsystems/terraforming.md](../../../../../docs/subsystems/terraforming.md)
     /// §4 "Brush operations" for why these two are sufficient (bombs use
     /// sphere, drills use the swept capsule between FixedUpdate ticks).
     /// </remarks>
@@ -32,9 +32,9 @@ namespace Robogame.Core
     /// <remarks>
     /// Brush math is integer once positions are in this form, which kills
     /// the float-ULP drift that would otherwise let two clients diverge by
-    /// a cell over many ops. TERRAFORMING_PLAN.md §2 "Determinism note"
+    /// a cell over many ops. docs/subsystems/terraforming.md §2 "Determinism note"
     /// and §4 describe the rationale. Arenas are authored at world origin
-    /// (SPHERICAL_ARENAS.md §15 risk S5), so the ±128 m envelope covers
+    /// (docs/subsystems/spherical-arenas.md §15 risk S5), so the ±128 m envelope covers
     /// every brush op a v1 arena can emit.
     /// </remarks>
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -92,7 +92,7 @@ namespace Robogame.Core
     /// <remarks>
     /// Min-fold semantics: applying the same op twice is idempotent;
     /// applying ops in any order converges to the same SDF. See
-    /// TERRAFORMING_PLAN.md §2 for why this invariant is the load-bearing
+    /// docs/subsystems/terraforming.md §2 for why this invariant is the load-bearing
     /// simplification of the whole system. Phase 0 ships the type only;
     /// the SDF apply pipeline lands in Phase 1.
     /// </remarks>
@@ -134,13 +134,13 @@ namespace Robogame.Core
     /// <summary>
     /// A tick's worth of brush ops for one dig zone. Sent as the unit of
     /// replication once Phase 6 lands; mirrors the BlockHitBatch shape from
-    /// NETCODE_PLAN.md §7.
+    /// docs/subsystems/netcode.md §7.
     /// </summary>
     /// <remarks>
     /// Phase 0 ships the type only. The batching producer (server side)
     /// and the apply consumer (client side) land in Phases 2 and 6
     /// respectively. <see cref="MaxOpsPerBatch"/> is the hard cap per
-    /// TERRAFORMING_PLAN.md §4.
+    /// docs/subsystems/terraforming.md §4.
     /// </remarks>
     public struct BrushOpBatch
     {

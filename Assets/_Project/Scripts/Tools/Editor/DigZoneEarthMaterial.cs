@@ -13,7 +13,7 @@ namespace Robogame.Tools.Editor
     /// <para>
     /// Mirrors <see cref="GroundMaterial"/>'s generate-don't-import
     /// discipline: the look is driven from a small palette-derived earth
-    /// tone, not a realistic photo texture (docs/ART_DIRECTION.md). The
+    /// tone, not a realistic photo texture (docs/subsystems/art-direction.md). The
     /// voxel mesh has no UVs, so the shader samples this texture
     /// triplanar by world position — the texture only has to tile
     /// cleanly, which the <see cref="EdgeMargin"/> seam-safety guarantees.

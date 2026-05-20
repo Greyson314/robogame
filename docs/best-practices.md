@@ -734,7 +734,7 @@ them when they show up.
 > for the established pattern (one scene-root kinematic hub +
 > jointed chain, opt-in via `Tweakables.RotorRopeCount`).
 >
-> See [PHYSICS_PLAN.md](PHYSICS_PLAN.md) for the rope-tech migration
+> See [subsystems/physics.md](subsystems/physics.md) for the rope-tech migration
 > plan, the stress-test workflow (settings → Stress → "Spawn Rotor
 > Tower"), and the rule that gameplay-observable behaviour must
 > never depend on a Tweakable.

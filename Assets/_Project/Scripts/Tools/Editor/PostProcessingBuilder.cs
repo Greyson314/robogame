@@ -8,7 +8,7 @@ namespace Robogame.Tools.Editor
 {
     /// <summary>
     /// Authors per-scene <see cref="VolumeProfile"/> assets so the URP
-    /// post stack matches <c>docs/ART_DIRECTION.md</c> without a human
+    /// post stack matches <c>docs/subsystems/art-direction.md</c> without a human
     /// having to right-click and tweak sliders. Idempotent: re-running
     /// overwrites the profile in place.
     /// </summary>
@@ -35,7 +35,7 @@ namespace Robogame.Tools.Editor
 
         // -----------------------------------------------------------------
         // Garage — workshop dusk: warmer, slightly contrasty, vignette on.
-        // Numbers come from ART_DIRECTION.md "Post-Processing Rules".
+        // Numbers come from docs/subsystems/art-direction.md "Post-Processing Rules".
         // -----------------------------------------------------------------
         private static VolumeProfile BuildGarageProfile()
         {

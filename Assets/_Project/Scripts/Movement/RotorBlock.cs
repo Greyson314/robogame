@@ -37,7 +37,7 @@ namespace Robogame.Movement
     /// <i>blueprint</i> via <see cref="ChassisBlueprint.RotorsGenerateLift"/>;
     /// flipped on imperatively by <see cref="Gameplay.ChassisFactory"/>
     /// after blocks are placed. Per-rotor opt-in lands when blueprints
-    /// can carry per-cell config — see <c>docs/PHYSICS_PLAN.md</c> §2.
+    /// can carry per-cell config — see <c>docs/subsystems/physics.md</c> §2.
     /// </para>
     /// <para>
     /// <b>Rotor + foils are separate parts.</b> The player places a

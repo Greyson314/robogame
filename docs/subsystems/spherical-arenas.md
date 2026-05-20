@@ -584,7 +584,7 @@ Spherical arenas are **almost** transparent to the netcode plan. The few real in
 
 4. **Latency between server and client for a transitioning gravity SOI is irrelevant** because v1 has only one body and no SOI transitions in normal gameplay.
 
-### No new buckets in the [§6 state replication taxonomy](NETCODE_PLAN.md#6-state-replication-strategy)
+### No new buckets in the [§6 state replication taxonomy](netcode.md#6-state-replication-strategy)
 
 All planet state is **Bucket A** (configuration, sent once via prefab/scene load). Per-match, a planet is immutable.
 
@@ -691,9 +691,9 @@ Five phases. Earlier phases are cheap and useful even if we never ship the later
 ### Internal docs (this repo)
 
 - [README.md](../README.md) — architecture principles
-- [docs/NETCODE_PLAN.md](NETCODE_PLAN.md) — the multiplayer plan this design has to coexist with; see [§13](#13-netcode-implications)
-- [docs/BEST_PRACTICES.md](BEST_PRACTICES.md) — coding standards
-- [docs/ROBOCRAFT_REFERENCE.md](ROBOCRAFT_REFERENCE.md) — original game's design
+- [docs/subsystems/netcode.md](netcode.md) — the multiplayer plan this design has to coexist with; see [§13](#13-netcode-implications)
+- [docs/best-practices.md](../best-practices.md) — coding standards
+- [docs/research/robocraft-reference.md](../research/robocraft-reference.md) — original game's design
 
 ---
 

@@ -22,7 +22,7 @@ namespace Robogame.Tests.PlayMode.Perf
     /// <b>What this is and is not.</b> This captures the <i>idle</i> state
     /// only (camera stationary, no player input, no combat) — the one state
     /// reproducible without a human at the controls. Active/combat rows in
-    /// <c>docs/PERFORMANCE_BASELINES.md</c> still need a manual build run.
+    /// <c>docs/subsystems/performance-baselines.md</c> still need a manual build run.
     /// </para>
     /// <para>
     /// <b>Editor numbers are 5–10× off absolute</b> (PERFORMANCE.md §3.2) —

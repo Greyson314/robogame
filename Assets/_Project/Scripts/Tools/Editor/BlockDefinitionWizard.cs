@@ -69,7 +69,7 @@ namespace Robogame.Tools.Editor
             CreateOrUpdate("BlockDef_Rotor",      BlockIds.Rotor,      "Rotor",          BlockCategory.Cosmetic,  maxHealth:  60f, mass: 0.6f, cpuCost: 10, tint: w);
             // Hook + Mace tip blocks. Both adopt onto a rope's tip
             // segment at game-start and deal contact damage per
-            // docs/PHYSICS_PLAN.md §3. Hook is light + sharp (high damage
+            // docs/subsystems/physics.md §3. Hook is light + sharp (high damage
             // per kJ, low mass means modest KE per swing). Mace is heavy +
             // blunt (low damage per kJ, high mass means big KE per swing).
             // The mass differential is the gameplay differentiator; share

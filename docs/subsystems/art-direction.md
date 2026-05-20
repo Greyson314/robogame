@@ -1,6 +1,6 @@
 # 🎨 Robogame Art Direction
 
-> Single source of truth for how Robogame **looks**. Read top-down before authoring or generating any art-adjacent code or assets. Mirrors the structure of [ROBOCRAFT_REFERENCE.md](ROBOCRAFT_REFERENCE.md) — decisions first, rationale next, open questions at the bottom.
+> Single source of truth for how Robogame **looks**. Read top-down before authoring or generating any art-adjacent code or assets. Mirrors the structure of [../research/robocraft-reference.md](../research/robocraft-reference.md) — decisions first, rationale next, open questions at the bottom.
 
 ---
 

@@ -21,7 +21,7 @@ namespace Robogame.Gameplay
     /// the self-righting torque fights the gravity vector instead of
     /// helping. Full spherical locomotion is the substitution work tracked
     /// as Phase A/B in
-    /// [docs/SPHERICAL_ARENAS.md](../../../../../docs/SPHERICAL_ARENAS.md).
+    /// [docs/subsystems/spherical-arenas.md](../../../../../docs/subsystems/spherical-arenas.md).
     /// This component is the gravity half of that system, ready to be
     /// joined by the locomotion half.
     /// </para>

@@ -22,7 +22,7 @@ namespace Robogame.Block
         // Block ids that have variant config regardless of their SO flag.
         // Lets us ship the rule without having to re-author every preset
         // asset. Adding a new scalable block per
-        // docs/SCALABLE_PARTS_PLAN.md only needs a new entry here.
+        // docs/subsystems/scalable-parts.md only needs a new entry here.
         private static readonly HashSet<string> s_hardcodedVariableIds = new()
         {
             BlockIds.Aero,

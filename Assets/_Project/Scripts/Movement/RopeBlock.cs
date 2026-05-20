@@ -9,7 +9,7 @@ namespace Robogame.Movement
     /// A free-body rope that dangles below its host block. Uses a Verlet
     /// particle solver (<see cref="VerletRopeSimulator"/>) for the chain
     /// body; only the hub-end (chassis) and tip-end (Hook / Mace host)
-    /// are real Rigidbodies. Per <c>docs/PHYSICS_PLAN.md</c> § 2.
+    /// are real Rigidbodies. Per <c>docs/subsystems/physics.md</c> § 2.
     /// </summary>
     /// <remarks>
     /// <para>

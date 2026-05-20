@@ -1,0 +1,58 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.claude/scripts/run-tests.sh*)",
+      "Bash(dotnet build*)",
+      "mcp__unity-mcp__Unity_GetProjectData",
+      "mcp__unity-mcp__Unity_Profiler_GetFrameRangeTopTimeSummary",
+      "mcp__unity-mcp__Unity_Profiler_GetOverallGcAlloca_ac50c101",
+      "mcp__computer-use__screenshot",
+      "mcp__ccd_session__mark_chapter"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PROJECT_DIR}/.claude/hooks/block_worktree_edits.ps1\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PROJECT_DIR}/.claude/hooks/mark_cs_edit.ps1\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PROJECT_DIR}/.claude/hooks/stop_remind_unity_console.ps1\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session_start_show_latest_log.ps1\""
+          }
+        ]
+      }
+    ]
+  }
+}

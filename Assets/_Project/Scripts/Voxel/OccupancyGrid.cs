@@ -34,7 +34,7 @@ namespace Robogame.Voxel
     /// Coarse 3D occupancy grid for AI pathfinding over voxel terrain.
     /// Each cell covers a 4×4×4 voxel-cell block — 2 m on a side at the
     /// default 0.5 m voxel size. Per
-    /// [`TERRAFORMING_PLAN.md` § 8](../../../docs/TERRAFORMING_PLAN.md#8-ai-pathing-on-voxel-terrain),
+    /// [`docs/subsystems/terraforming.md` § 8](../../../docs/subsystems/terraforming.md#8-ai-pathing-on-voxel-terrain),
     /// 512 bytes per chunk; ~50 KB for a 100-chunk dig zone. Built
     /// incrementally from each chunk's SDF on remesh; A* search is
     /// over the global grid.

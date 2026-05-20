@@ -159,7 +159,7 @@ splashes, and rotor whines. Strategy when needed (not before):
 - **No procedural audio synthesis.** Authored clips only. Engine
   loops can be tuned via pitch shifting on a single source.
 - **No per-frame `Camera.main` lookups** for audio listener position
-  (cf. PERFORMANCE.md § 2.4).
+  (cf. performance.md § 2.4).
 
 ## Adding a sound (when clips arrive)
 
@@ -171,7 +171,7 @@ splashes, and rotor whines. Strategy when needed (not before):
    for combat / movement; `AudioRouter.PlayUI(AudioCue.X)` for menu /
    HUD. The same locations the VFX hooks already live (see session
    29) are the right places.
-4. **Verify in a stress scenario** (PERFORMANCE.md § 3.4). The Rotor
+4. **Verify in a stress scenario** (performance.md § 3.4). The Rotor
    Tower with bot fire enabled exercises ~20 concurrent SFX
    simultaneously — a representative torture test.
 
