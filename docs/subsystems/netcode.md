@@ -669,18 +669,33 @@ HUD (Phase 3.5).
 Real-RTT qualitative gate requires OS-level netem / Clumsy until
 Phase 3.6 lands the simulator HUD.
 
-### Phase 3.6 — latency-injection HUD + determinism guard (deferred)
+### Phase 3.6 — latency-injection HUD + determinism guard — ✅ shipped (session 92)
 
-- `NetcodeFakeLatencyController` — needs `com.unity.multiplayer.tools`
-  in the manifest (NGO 2.x deprecated `UnityTransport.SetDebugSimulatorParameters`;
-  the replacement is the Network Simulator from Multiplayer Tools).
-- Visual mesh-offset `ReconciliationSmoother` — only if MPPM
-  qualitative play surfaces a jarring snap that Rigidbody interpolation
-  doesn't hide. Requires a mesh-root child Transform to ease without
-  breaking the compound collider.
-- Determinism guard PlayMode test (§16): drift < 0.5 m / second of
-  identical input. A regression detector, not a replay correctness
-  proof.
+- ✅ `NetcodeFakeLatencyController` —
+  `Assets/_Project/Scripts/Network/Debug/NetcodeFakeLatencyController.cs`.
+  Wraps Multiplayer Tools' `NetworkSimulator` with a 4-preset matrix
+  (LAN / 100 ms RTT / 200 ms RTT / 200 ms + 30 ms jitter + 5% loss).
+  Editor + `DEVELOPMENT_BUILD` only. `NetDevHud` binds **F5** to cycle
+  presets; the active preset name appears in the dev HUD's IMGUI panel.
+  `com.unity.multiplayer.tools` 2.2.8 added to `Packages/manifest.json`
+  (its `NetworkSimulator` binds to UTP via the global
+  `NetworkAdapters` registry, so no co-location with `UnityTransport`).
+- ✅ Determinism guard PlayMode test (§16): drift < 0.5 m / s of
+  identical input.
+  `Assets/_Project/Tests/PlayMode/Network/PredictionDeterminismTest.cs`
+  — runs identical `InputCommand` sequence through `EnterReplay` →
+  `RobotDrive.ApplyMovement` → `Physics.Simulate(fixedDt)` twice with
+  a reset between, asserts pose drift under budget. Stepped physics
+  (`Physics.simulationMode = SimulationMode.Script`) for the test's
+  duration so the auto-FixedUpdate sim doesn't double-tick.
+- ⏸️ Visual mesh-offset `ReconciliationSmoother` — still conditional.
+  Implementing it on the current architecture requires either a
+  block-prefab refactor (split collider-on-root from renderer-on-child)
+  or a per-block renderer-offset LateUpdate. Rigidbody interpolation
+  already smooths the renderer between FixedUpdate states, so the
+  visible snap inside a replay cycle is one frame at worst. Build the
+  smoother only if MPPM under the §16 matrix surfaces a snap that
+  interpolation can't hide.
 
 ### Phase 4 — Robust block destruction + structural integrity over the wire
 

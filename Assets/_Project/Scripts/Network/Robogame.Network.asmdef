@@ -14,7 +14,8 @@
         "Unity.Netcode.Runtime",
         "Unity.Netcode.Components",
         "Unity.Networking.Transport",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.Multiplayer.Tools.NetworkSimulator.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

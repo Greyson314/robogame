@@ -49,14 +49,13 @@ namespace Robogame.Network.Robot
     /// live delegation before the FixedUpdate continues.
     /// </para>
     /// <para>
-    /// <b>Out of scope (deferred from §15 Phase 3.5):</b> latency-injection
-    /// HUD via <c>UnityTransport.SetDebugSimulatorParameters</c> — that API
-    /// is marked <c>[Obsolete]</c> in NGO/UTP 2.x and the replacement
-    /// (Multiplayer Tools' Network Simulator) is not in the manifest. Real
-    /// MPPM-with-LAN testing remains the qualitative gate. Visual mesh-offset
-    /// smoothing (<c>ReconciliationSmoother</c>) is also skipped — replay
-    /// alone keeps the visible jump small enough that Rigidbody interpolation
-    /// handles the rest.
+    /// <b>Phase 3.6 adds</b> a runtime latency / jitter / loss HUD
+    /// (<see cref="Diagnostics.NetcodeFakeLatencyController"/>) and a
+    /// determinism-guard PlayMode test. Visual mesh-offset smoothing
+    /// (<c>ReconciliationSmoother</c>) is still deferred — replay plus
+    /// Rigidbody interpolation keep the snap invisible at the cost of
+    /// a touch of visible jitter under high RTT; build the smoother only
+    /// if MPPM testing under §16's matrix surfaces a jarring snap.
     /// </para>
     /// </remarks>
     [RequireComponent(typeof(NetworkObject))]
