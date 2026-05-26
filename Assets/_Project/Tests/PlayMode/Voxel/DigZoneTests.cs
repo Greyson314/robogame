@@ -54,12 +54,27 @@ namespace Robogame.Tests.PlayMode.Voxel
             return _zone;
         }
 
+        [SetUp]
+        public void SetUp()
+        {
+            // Tests in this suite use DigField.ZoneAt to look up the zone
+            // they just created. A prior test that didn't fully unregister
+            // (deferred Unity destruction, fake-null reference holding the
+            // slot) leaves a stale entry that shadows the new zone — the
+            // OnEnable_RegistersWithDigField / DrillBlock auto-poll /
+            // TerrainCratering tests all assume an empty registry at start.
+            DigField.ResetForTesting();
+        }
+
         [TearDown]
         public void TearDown()
         {
             if (_go != null) Object.DestroyImmediate(_go);
             _go = null;
             _zone = null;
+            // Belt-and-braces: clear the registry on the way out too, so a
+            // test that throws mid-body doesn't poison the next case.
+            DigField.ResetForTesting();
         }
 
         private BrushOp MakeSphereBrush(Vector3 centre, float radiusMeters)

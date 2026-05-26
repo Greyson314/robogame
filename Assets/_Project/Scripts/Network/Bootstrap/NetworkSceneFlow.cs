@@ -1,4 +1,5 @@
 using System;
+using Robogame.Network.Robot;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -55,6 +56,13 @@ namespace Robogame.Network.Bootstrap
         /// spawn each player's NetworkRobot.</summary>
         public event Action<string> ServerArenaLoaded;
 
+        /// <summary>Fires on the server once a (potentially late-joining)
+        /// client has completed its initial NGO synchronization — every
+        /// NetworkObject is now spawned on their side, so it's the safe
+        /// point to replay state that wasn't carried by spawn payloads
+        /// (cumulative block destruction, etc).</summary>
+        public event Action<ulong> ServerClientSynced;
+
         /// <summary>Fires on every machine when the replicated phase changes.</summary>
         public event Action<RoundPhaseValue> RoundPhaseChanged;
 
@@ -102,10 +110,38 @@ namespace Robogame.Network.Bootstrap
 
         private void HandleSceneEvent(SceneEvent evt)
         {
-            // The server fires the spawn seam once the load has completed
-            // for everyone (LoadEventCompleted = all clients synchronized).
-            if (IsServer && evt.SceneEventType == SceneEventType.LoadEventCompleted)
-                ServerArenaLoaded?.Invoke(evt.SceneName);
+            if (!IsServer) return;
+
+            switch (evt.SceneEventType)
+            {
+                case SceneEventType.LoadEventCompleted:
+                    // The spawn seam — load has completed for everyone.
+                    ServerArenaLoaded?.Invoke(evt.SceneName);
+                    break;
+                case SceneEventType.SynchronizeComplete:
+                    // A connecting (possibly late-joining) client just
+                    // finished its initial sync. v1 locks the lobby at
+                    // round start so this is only the host's own join in
+                    // practice — but the cumulative-destruction replay is
+                    // wired now so v2 mid-match join is a lobby-config
+                    // flip, not a fresh integration. Skip the server's
+                    // own client id (host doesn't replay to itself; its
+                    // NetworkBlockGrid IS the source of truth).
+                    if (evt.ClientId != NetworkManager.ServerClientId)
+                        ReplayDestructionLogTo(evt.ClientId);
+                    ServerClientSynced?.Invoke(evt.ClientId);
+                    break;
+            }
+        }
+
+        /// <summary>Server-only: walk every spawned <see cref="NetworkBlockGrid"/>
+        /// and replay its cumulative destruction log to <paramref name="clientId"/>.
+        /// Each grid no-ops if its log is empty (fresh round), so this is
+        /// cheap when nothing's been destroyed yet.</summary>
+        private static void ReplayDestructionLogTo(ulong clientId)
+        {
+            NetworkBlockGrid[] grids = FindObjectsByType<NetworkBlockGrid>(FindObjectsSortMode.None);
+            for (int i = 0; i < grids.Length; i++) grids[i].ServerSendDestructionLogTo(clientId);
         }
 
         private void HandlePhaseReplicated(byte _, byte now)

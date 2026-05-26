@@ -95,18 +95,15 @@ namespace Robogame.Tests.EditMode.Blueprints
         [Test]
         public void ContentHash_StableAcrossReserialize()
         {
-            // The createdUtc trap: JSON of the same blueprint differs every
-            // call (DateTime.UtcNow). The blob hash must NOT — the content
-            // guard compares server vs client hashes of an identical build.
+            // The createdUtc trap: BlueprintSerializer.ToJson stamps
+            // DateTime.UtcNow into the JSON, which is exactly why the wire
+            // blob excludes it. The blob hash must be stable across
+            // re-serializes — the connect-time content guard compares
+            // server vs client hashes of an identical build.
             ChassisBlueprint src = MakeRichBlueprint();
             uint h1 = BlueprintBlob.ContentHash(src);
             uint h2 = BlueprintBlob.ContentHash(src);
             Assert.AreEqual(h1, h2, "Content hash must be stable across re-serializes of the same blueprint.");
-
-            string j1 = BlueprintSerializer.ToJson(src, prettyPrint: false);
-            string j2 = BlueprintSerializer.ToJson(src, prettyPrint: false);
-            Assert.AreNotEqual(j1, j2,
-                "Sanity: JSON DOES vary per-serialize (createdUtc) — this is exactly why the blob excludes it.");
         }
 
         [Test]

@@ -724,9 +724,12 @@ Phase 3.6 lands the simulator HUD.
   wins any tie-break against the local BFS.
 - ✅ Late-join scaffold — `DestroyedBlockLog` (server-side, 512-entry
   capacity) records every destruction since spawn. `ServerSendDestructionLogTo(ulong)`
-  is the reserved entry point for v2 mid-match join; not yet wired
-  into a scene-lifecycle callback because v1 locks lobbies at round
-  start (§10).
+  is the entry point; wired in session 95 into
+  `NetworkSceneFlow.HandleSceneEvent`'s `SynchronizeComplete` branch so
+  every connecting non-host client receives the cumulative replay
+  before any gameplay input. v1 lobbies still lock at round start
+  (§10) — wiring the replay now means v2 mid-match join is a lobby-
+  config flip, not a fresh integration.
 - ✅ Aim-bounds anti-cheat gate — `NetworkRobotCombat.ValidateAim`
   rejects aim deltas > 90° per accepted FireCommand. Owner now
   samples real aim from `RobotDrive.AimPoint` instead of the

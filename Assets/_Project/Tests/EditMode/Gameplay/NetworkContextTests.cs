@@ -1,5 +1,7 @@
 using NUnit.Framework;
 using Robogame.Core;
+using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Robogame.Tests.EditMode.Gameplay
 {
@@ -76,6 +78,10 @@ namespace Robogame.Tests.EditMode.Gameplay
         [Test]
         public void RegisterNull_IsIgnored_StaysOffline()
         {
+            // Register(null) is a no-op that logs an error — the LogError
+            // is the contract (it surfaces the misuse to the developer).
+            // LogAssert.Expect tells NUnit the error is intentional.
+            LogAssert.Expect(LogType.Error, "[NetworkContext] Register(null) ignored.");
             NetworkContext.Register(null);
             Assert.IsFalse(NetworkContext.HasActiveContext);
             Assert.IsTrue(NetworkContext.Instance.IsServer);

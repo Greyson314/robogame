@@ -93,5 +93,18 @@ namespace Robogame.Core
 
         /// <summary>Editor / test convenience.</summary>
         public static int ZoneCount => s_zones.Count;
+
+        /// <summary>
+        /// Test-only: wipe the registry. Tests that exercise the DigField
+        /// lookup path need a deterministic empty state between cases —
+        /// without this, a zone that wasn't fully unregistered (deferred
+        /// destruction, async cleanup, fake-null reference) would shadow
+        /// the test's zone in <see cref="ZoneAt"/>. Production code calls
+        /// <see cref="Register"/> / <see cref="Unregister"/>; this exists
+        /// only so PlayMode tests can rebuild deterministic state in
+        /// <c>[SetUp]</c>. Not <c>internal</c> because the test assembly
+        /// lives in a separate asmdef.
+        /// </summary>
+        public static void ResetForTesting() => s_zones.Clear();
     }
 }
