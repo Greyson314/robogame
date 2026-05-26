@@ -189,11 +189,12 @@ namespace Robogame.Gameplay
                 // blueprint contents. Skipped on passive targets.
                 if (options.AddDriveSubsystems)
                 {
-                    bool hasWheels = false, hasAero = false, hasWeapon = false;
+                    bool hasWheels = false, hasAero = false, hasWeapon = false, hasHovers = false;
                     foreach (ChassisBlueprint.Entry e in blueprint.Entries)
                     {
                         if (e.BlockId == BlockIds.Wheel || e.BlockId == BlockIds.WheelSteer) hasWheels = true;
                         if (e.BlockId == BlockIds.Aero || e.BlockId == BlockIds.AeroFin) hasAero = true;
+                        if (e.BlockId == BlockIds.HoverBlade) hasHovers = true;
                         if (e.BlockId == BlockIds.Weapon
                             || e.BlockId == BlockIds.BombBay
                             || e.BlockId == BlockIds.Cannon
@@ -205,6 +206,11 @@ namespace Robogame.Gameplay
                     {
                         EnsureComponent<GroundDriveSubsystem>(root);
                         EnsureComponent<RobotWheelBinder>(root);
+                    }
+
+                    if (hasHovers)
+                    {
+                        EnsureComponent<HoverDriveSubsystem>(root);
                     }
 
                     // Aero binder is unconditional — players drag wings

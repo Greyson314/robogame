@@ -61,6 +61,15 @@ namespace Robogame.Movement
         private Rigidbody _chassisRb;
         private bool _active = true;
         private bool _wasInRange;
+
+        /// <summary>
+        /// True when this blade's last <see cref="FixedUpdate"/> raycast
+        /// hit ground inside the spring's max range. Read by
+        /// <see cref="HoverDriveSubsystem"/> to gate native hover thrust
+        /// — a blade in midair (no ground contact) can't propel the
+        /// chassis laterally, only fall.
+        /// </summary>
+        public bool HasGroundContact => _active && _wasInRange;
         // Per-instance scale factor applied to spring + damping. N²/baseline²
         // = (N/2)². Recomputed on enable and when Dims changes.
         private float _liftScale = 1f;
