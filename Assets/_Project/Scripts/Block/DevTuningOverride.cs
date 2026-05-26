@@ -81,5 +81,45 @@ namespace Robogame.Block
             cfg.ThrottleResponse = Tweakables.Get(Tweakables.DevThrusterThrottleResponse);
 #endif
         }
+
+        /// <summary>
+        /// Hover blade tuning. Three baseline knobs (N=2 spring constant,
+        /// damping coefficient, target altitude); the per-instance N²
+        /// scaling happens inside <c>HoverBladeBlock</c>. The struct
+        /// argument is passed by ref so the consumer can keep its own
+        /// defaults when the master toggle is off — but
+        /// <c>HoverBladeBlock</c> uses static fields, so it just calls
+        /// the helpers via the out-parameter convenience overload below.
+        /// </summary>
+        public static void ApplyHoverBlade(ref HoverBladeTuningConfig cfg)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (!Active) return;
+            cfg.SpringK        = Tweakables.Get(Tweakables.DevHoverSpringK);
+            cfg.DampingC       = Tweakables.Get(Tweakables.DevHoverDampingC);
+            cfg.TargetAltitude = Tweakables.Get(Tweakables.DevHoverTargetAltitude);
+#endif
+        }
+    }
+
+    /// <summary>
+    /// Tuning struct for <see cref="HoverBladeBlock"/>. Values are the
+    /// N=2 baseline; per-instance N² scaling is applied at the call site.
+    /// Built initialised to the shipped defaults so the override layer
+    /// can mutate it in place when the master toggle is on, leave it
+    /// untouched (i.e. shipped defaults) otherwise.
+    /// </summary>
+    public struct HoverBladeTuningConfig
+    {
+        public float SpringK;
+        public float DampingC;
+        public float TargetAltitude;
+
+        public static HoverBladeTuningConfig Default => new HoverBladeTuningConfig
+        {
+            SpringK = 800f,
+            DampingC = 60f,
+            TargetAltitude = 2.5f,
+        };
     }
 }

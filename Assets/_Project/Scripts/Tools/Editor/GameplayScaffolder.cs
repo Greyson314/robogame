@@ -37,6 +37,7 @@ namespace Robogame.Tools.Editor
         private const string DefaultPropPlanePath = BlueprintFolder + "/Blueprint_DefaultPropPlane.asset";
         private const string DefaultHelicopterPath = BlueprintFolder + "/Blueprint_DefaultHelicopter.asset";
         private const string DefaultDrillBotPath = BlueprintFolder + "/Blueprint_DefaultDrillBot.asset";
+        private const string DefaultHoverTankPath = BlueprintFolder + "/Blueprint_DefaultHoverTank.asset";
         private const string CombatDummyPath = BlueprintFolder + "/Blueprint_CombatDummy.asset";
         private const string StressTowerPath = BlueprintFolder + "/Blueprint_StressRotorTower.asset";
         private const string ArchDummyPath = BlueprintFolder + "/Blueprint_ArchDummy.asset";
@@ -802,6 +803,7 @@ namespace Robogame.Tools.Editor
             ChassisBlueprint propPlaneBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultPropPlanePath);
             ChassisBlueprint helicopterBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultHelicopterPath);
             ChassisBlueprint drillBotBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultDrillBotPath);
+            ChassisBlueprint hoverTankBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultHoverTankPath);
             InputActionAsset actionsLive = AssetDatabase.LoadAssetAtPath<InputActionAsset>(ScaffoldUtils.InputActionsAsset);
 
             if (libLive == null)
@@ -814,13 +816,14 @@ namespace Robogame.Tools.Editor
             stateSO.FindProperty("_defaultBlueprint").objectReferenceValue = defaultBpLive;
             stateSO.FindProperty("_inputActions").objectReferenceValue = actionsLive;
 
-            // Populate the HUD-facing preset list (Tank / Plane / Grappler / Boat / Bomber / Prop Plane / Helicopter / DrillBot).
+            // Populate the HUD-facing preset list (Tank / Plane / Grappler / Boat / Bomber / Prop Plane / Helicopter / DrillBot / HoverTank).
             // Session 61: replaced Buggy slot with Grappler (utility plane).
             // Session 78: added DrillBot at the tail of the list.
+            // Session 99: added HoverTank at the tail (hover-blade demo bot).
             SerializedProperty presets = stateSO.FindProperty("_presetBlueprints");
             if (presets != null)
             {
-                presets.arraySize = 8;
+                presets.arraySize = 9;
                 presets.GetArrayElementAtIndex(0).objectReferenceValue = defaultBpLive;
                 presets.GetArrayElementAtIndex(1).objectReferenceValue = planeBpLive;
                 presets.GetArrayElementAtIndex(2).objectReferenceValue = grapplerBpLive;
@@ -829,6 +832,7 @@ namespace Robogame.Tools.Editor
                 presets.GetArrayElementAtIndex(5).objectReferenceValue = propPlaneBpLive;
                 presets.GetArrayElementAtIndex(6).objectReferenceValue = helicopterBpLive;
                 presets.GetArrayElementAtIndex(7).objectReferenceValue = drillBotBpLive;
+                presets.GetArrayElementAtIndex(8).objectReferenceValue = hoverTankBpLive;
             }
             stateSO.ApplyModifiedPropertiesWithoutUndo();
 

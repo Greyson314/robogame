@@ -53,6 +53,8 @@ namespace Robogame.Block
         {
             if (blockId == BlockIds.Aero || blockId == BlockIds.AeroFin)
                 return ComputeFoilSweptBoundsLocal(gridPos, up, dims, cellSize);
+            if (blockId == BlockIds.HoverBlade)
+                return ComputeHoverBladeSweptBoundsLocal(gridPos, up, dims, cellSize);
             return DefaultUnitCellBoundsLocal(gridPos, cellSize);
         }
 
@@ -169,6 +171,57 @@ namespace Robogame.Block
             Vector3 centerLocal = (Vector3)gridPos + rot * shiftLocal;
 
             return new Bounds(centerLocal * cellSize, chassisHalfExtents * 2f * cellSize);
+        }
+
+        // -----------------------------------------------------------------
+        // Hover blade — N×N×1 cells where the 1-cell axis is the mount-up
+        // direction (the block lies flush against its host face) and the
+        // N×N footprint extends in the two perpendicular axes.
+        //
+        // Lateral growth direction: always the + direction of each
+        // perpendicular axis, anchored at gridPos as the "near" corner.
+        // This means a size-2 blade placed at (5, 0, 5) with up=+Y
+        // occupies cells (5..6, 0, 5..6). Players who want the other
+        // diagonal click the opposite corner cell.
+        // -----------------------------------------------------------------
+
+        public const int HoverBladeMinSize = 2;
+        public const int HoverBladeMaxSize = 4;
+        public const int HoverBladeDefaultSize = 2;
+
+        /// <summary>
+        /// Clamp the raw <see cref="BlockBehaviour.Dims"/>.x into the valid
+        /// hover-blade size range. Used by occupancy, the variant panel,
+        /// and the runtime block — single source of truth.
+        /// </summary>
+        public static int ResolveHoverBladeSize(Vector3 dims)
+        {
+            if (dims.x <= 0f) return HoverBladeDefaultSize;
+            return Mathf.Clamp(Mathf.RoundToInt(dims.x), HoverBladeMinSize, HoverBladeMaxSize);
+        }
+
+        private static Bounds ComputeHoverBladeSweptBoundsLocal(
+            Vector3Int gridPos, Vector3Int up, Vector3 dims, float cellSize)
+        {
+            int n = ResolveHoverBladeSize(dims);
+            Vector3Int upN = up == Vector3Int.zero ? Vector3Int.up : up;
+
+            // Identify the mount-up axis (the one with non-zero component).
+            int axMountUp = Mathf.Abs(upN.x) > 0 ? 0 : (Mathf.Abs(upN.y) > 0 ? 1 : 2);
+
+            // Half-extents in cell units: 1-cell thick along mount-up,
+            // N cells wide along each of the two perpendicular axes.
+            Vector3 halfExtents = new Vector3(n * 0.5f, n * 0.5f, n * 0.5f);
+            halfExtents[axMountUp] = 0.5f;
+
+            // Center shift: lateral axes get (N-1)/2 of a cell offset so
+            // the AABB spans from gridPos to gridPos+(N-1) on each
+            // perpendicular axis. Mount-up axis stays put.
+            Vector3 shift = new Vector3((n - 1) * 0.5f, (n - 1) * 0.5f, (n - 1) * 0.5f);
+            shift[axMountUp] = 0f;
+
+            Vector3 center = ((Vector3)gridPos + shift) * cellSize;
+            return new Bounds(center, halfExtents * 2f * cellSize);
         }
     }
 }

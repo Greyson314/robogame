@@ -52,7 +52,7 @@ namespace Robogame.Gameplay
         // ----- UGUI -----
         private GameObject _root;
         private Text _titleText;
-        private GameObject _foilSection, _ropeSection, _rotorSection;
+        private GameObject _foilSection, _ropeSection, _rotorSection, _hoverSection;
 
         // Foil controls
         private Slider _foilPitchPrimary;
@@ -69,6 +69,10 @@ namespace Robogame.Gameplay
         private Slider _rotorCollectiveSlider;
         private Text _rotorCollectiveValue;
         private Text _rotorReadout;
+        // Hover blade controls
+        private Slider _hoverSizeSlider;
+        private Text _hoverSizeValue;
+        private Text _hoverReadout;
 
         private string _activeBlockId;
         private bool _suppressCallbacks;
@@ -190,7 +194,8 @@ namespace Robogame.Gameplay
             bool foil = blockId == BlockIds.Aero || blockId == BlockIds.AeroFin;
             bool rope = blockId == BlockIds.Rope;
             bool rotor = blockId == BlockIds.Rotor;
-            bool any = foil || rope || rotor;
+            bool hover = blockId == BlockIds.HoverBlade;
+            bool any = foil || rope || rotor || hover;
             SetVisible(any);
             if (!any) return;
 
@@ -200,11 +205,13 @@ namespace Robogame.Gameplay
                     ? "VARIANT — TAIL FIN"
                     : "VARIANT — AERO WING";
                 else if (rope) _titleText.text = "VARIANT — ROPE";
-                else _titleText.text = "VARIANT — ROTOR";
+                else if (rotor) _titleText.text = "VARIANT — ROTOR";
+                else _titleText.text = "VARIANT — HOVER BLADE";
             }
             _foilSection.SetActive(foil);
             _ropeSection.SetActive(rope);
             _rotorSection.SetActive(rotor);
+            _hoverSection.SetActive(hover);
 
             _suppressCallbacks = true;
             if (foil)
@@ -237,6 +244,14 @@ namespace Robogame.Gameplay
                 _rotorCollectiveSlider.value = pitch;
                 UpdateValueText(_rotorCollectiveValue, pitch, "F0");
                 UpdateRotorReadout();
+            }
+            else if (hover)
+            {
+                Vector3 cached = GetDimsForBlock(blockId);
+                int size = BlockOccupancy.ResolveHoverBladeSize(cached);
+                _hoverSizeSlider.value = size;
+                UpdateValueText(_hoverSizeValue, size, "F0");
+                UpdateHoverReadout();
             }
             _suppressCallbacks = false;
         }
@@ -311,6 +326,38 @@ namespace Robogame.Gameplay
             _session?.SetVariantPitch(id, snapped);
             UpdateValueText(_rotorCollectiveValue, snapped, "F0");
             UpdateRotorReadout();
+        }
+
+        private void OnHoverSizeChanged(float v)
+        {
+            if (_suppressCallbacks) return;
+            int snapped = Mathf.Clamp(
+                Mathf.RoundToInt(v),
+                BlockOccupancy.HoverBladeMinSize,
+                BlockOccupancy.HoverBladeMaxSize);
+            string id = _activeBlockId;
+            if (string.IsNullOrEmpty(id)) return;
+            _suppressCallbacks = true;
+            _hoverSizeSlider.value = snapped;
+            _suppressCallbacks = false;
+            Vector3 dims = GetDimsForBlock(id);
+            dims.x = snapped;
+            _session?.SetVariantDims(id, dims);
+            UpdateValueText(_hoverSizeValue, snapped, "F0");
+            UpdateHoverReadout();
+        }
+
+        private void UpdateHoverReadout()
+        {
+            if (_hoverReadout == null) return;
+            Vector3 cached = GetDimsForBlock(_activeBlockId);
+            int n = BlockOccupancy.ResolveHoverBladeSize(cached);
+            // N² lift scaling: size-2 = 1.0× baseline (~800 N/m spring),
+            // size-3 = 2.25×, size-4 = 4×. Mass/CPU don't scale per-instance
+            // in v1, so the readout focuses on footprint + lift multiplier.
+            float multiplier = (n / (float)BlockOccupancy.HoverBladeDefaultSize) *
+                               (n / (float)BlockOccupancy.HoverBladeDefaultSize);
+            _hoverReadout.text = $"{n}×{n}×1 footprint  •  {multiplier:F2}× lift";
         }
 
         // Snap-and-cache helper for foil dim sliders (span/thickness/chord).
@@ -501,10 +548,42 @@ namespace Robogame.Gameplay
             _foilSection  = BuildFoilSection(panel.transform);
             _ropeSection  = BuildRopeSection(panel.transform);
             _rotorSection = BuildRotorSection(panel.transform);
+            _hoverSection = BuildHoverSection(panel.transform);
 
             _foilSection.SetActive(false);
             _ropeSection.SetActive(false);
             _rotorSection.SetActive(false);
+            _hoverSection.SetActive(false);
+        }
+
+        private GameObject BuildHoverSection(Transform parent)
+        {
+            var section = NewChild("Hover", parent);
+            var rt = section.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.offsetMin = new Vector2(12f, 12f);
+            rt.offsetMax = new Vector2(-12f, -40f);
+
+            // Single integer slider 2-4. SnapInt in the callback enforces
+            // integer steps; the slider's wholeNumbers flag is set for
+            // visual feedback during drag.
+            _hoverSizeSlider = BuildLabeledSlider(section.transform, "Size", slot: 0,
+                min: BlockOccupancy.HoverBladeMinSize,
+                max: BlockOccupancy.HoverBladeMaxSize,
+                def: BlockOccupancy.HoverBladeDefaultSize,
+                onChanged: OnHoverSizeChanged, out _hoverSizeValue);
+            _hoverSizeSlider.wholeNumbers = true;
+
+            _hoverReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
+                anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
+                size: 12, style: FontStyle.Italic, anchor: TextAnchor.MiddleCenter, color: s_dim);
+            var rrt = _hoverReadout.rectTransform;
+            rrt.pivot = new Vector2(0.5f, 1f);
+            rrt.anchoredPosition = new Vector2(0f, -56f - 4f);
+            rrt.sizeDelta = new Vector2(0f, 22f);
+
+            return section;
         }
 
         private GameObject BuildFoilSection(Transform parent)

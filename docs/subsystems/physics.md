@@ -122,6 +122,29 @@ and don't start writing damage code until the migration lands. The
 Verlet replacement is somewhere between a long afternoon and a
 short weekend depending on how nice we want the API to be.
 
+### 2.1 Raycast spring-damper (hover blade) — the non-joint propulsion pattern
+
+Session 99 introduced [`HoverBladeBlock`](../../Assets/_Project/Scripts/Movement/HoverBladeBlock.cs)
+as Robogame's first propulsion block that uses neither joint chains
+nor PhysX vehicle wheels: one `Physics.RaycastNonAlloc` per blade
+per `FixedUpdate`, force applied via `chassisRb.AddForceAtPosition`
+at the blade's attach point. The ray direction comes from
+`GravityField.SampleAt()` so the same code works on flat and
+spherical arenas without branching.
+
+The spring-damper formula is clamped ≥ 0 (blade can't pull the
+chassis downward or propel it above target altitude) with damping
+gated to active spring (no drag-when-above-range surprise). Passive
+banking, passive auto-leveling, and per-corner failure all emerge
+for free from the attach-point force application — no explicit
+torque code.
+
+This is the pattern future propulsion blocks should reach for first
+when "raycast + force on chassis" suffices. Joints stay reserved
+for cases that genuinely need geometric constraints (rope chains,
+spinning rotors with adopted bodies), and even those are migrating
+toward Verlet per § 2.
+
 ---
 
 ## 3. Damage model for kinetic / contact weapons

@@ -46,6 +46,10 @@ namespace Robogame.Core
         public static readonly ProfilerMarker WheelFixedUpdate
             = new ProfilerMarker("Robogame.Wheel.FixedUpdate");
 
+        /// <summary>Hover blade's ground raycast + spring-damper lift.</summary>
+        public static readonly ProfilerMarker HoverBladeFixedUpdate
+            = new ProfilerMarker("Robogame.HoverBlade.FixedUpdate");
+
         // -----------------------------------------------------------------
         // Robot / chassis aggregates
         // -----------------------------------------------------------------

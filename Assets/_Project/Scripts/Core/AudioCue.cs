@@ -44,6 +44,8 @@ namespace Robogame.Core
         WindLoop,          // passive wind, scales with chassis speed — the "rushing past your ears" cue
         WaterSplash,
         FlipActivate,      // snap-rotate self-righting kick — single short "schwop" cue
+        HoverBladeLoop,    // looped while a hover blade is producing lift — low whoosh, modulated by lift magnitude
+        HoverBladeContactLost, // one-shot when a hover blade's ground raycast goes from hitting → missing (cliff-edge or terraformed pit)
 
         // Repair pad
         RepairPadEnter,    // chassis crosses into the pad's trigger volume — the "field engages" tone

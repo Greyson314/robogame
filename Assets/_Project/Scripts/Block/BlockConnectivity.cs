@@ -45,6 +45,7 @@ namespace Robogame.Block
             BlockIds.Wheel,
             BlockIds.WheelSteer,
             BlockIds.Rope,
+            BlockIds.HoverBlade,
         };
 
         /// <summary>True if the definition's faces are all non-connective —

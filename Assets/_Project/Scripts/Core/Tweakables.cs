@@ -190,6 +190,13 @@ namespace Robogame.Core
 
         public const string DevThrusterIdleThrottle    = "Dev.Thruster.IdleThrottle";
         public const string DevThrusterThrottleResponse = "Dev.Thruster.ThrottleResponse";
+
+        // Hover blade live-tuning overrides — N=2 baseline values; lift /
+        // damping scale with N² per-instance in HoverBladeBlock. Same
+        // master-toggle gate as the rest of this section.
+        public const string DevHoverSpringK            = "Dev.HoverBlade.SpringK";
+        public const string DevHoverDampingC           = "Dev.HoverBlade.DampingC";
+        public const string DevHoverTargetAltitude     = "Dev.HoverBlade.TargetAltitude";
 #endif
 
         // -----------------------------------------------------------------
@@ -414,6 +421,10 @@ namespace Robogame.Core
 
             Register(DevThrusterIdleThrottle,    "Dev (Override Chassis Tuning)", "Thruster: Idle Throttle",    0.4f, 0f, 1f);
             Register(DevThrusterThrottleResponse, "Dev (Override Chassis Tuning)", "Thruster: Throttle Response", 2.6f, 0f, 20f);
+
+            Register(DevHoverSpringK,         "Dev (Override Chassis Tuning)", "Hover: Spring K (N=2)",       800f,  0f, 4000f);
+            Register(DevHoverDampingC,        "Dev (Override Chassis Tuning)", "Hover: Damping C (N=2)",       60f,  0f, 400f);
+            Register(DevHoverTargetAltitude,  "Dev (Override Chassis Tuning)", "Hover: Target Altitude (m)",  2.5f,  0f, 10f);
 #endif
 
             Load();

@@ -48,5 +48,12 @@ namespace Robogame.Block
         // mounted on the chassis grid. See Robogame.Voxel.DrillBlock and
         // TERRAFORMING_PLAN §12 Phase 3 for the design.
         public const string Drill      = "block.tool.drill";
+        // Hover blade (session 99): raycast-based spring-damper hover
+        // propulsion. Scalable footprint N×N×1 cells (N ∈ {2,3,4}) via
+        // the variable-dim pattern. Applies vertical lift along the
+        // gravity vector when within range of ground; clamped ≥ 0 so it
+        // can't propel above target altitude. First non-joint propulsion
+        // block — see docs/subsystems/physics.md §6.
+        public const string HoverBlade = "block.movement.hoverblade";
     }
 }
