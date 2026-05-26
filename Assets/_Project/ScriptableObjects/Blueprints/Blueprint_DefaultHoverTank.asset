@@ -189,6 +189,18 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     BlockConfig: 0
+  - BlockId: block.movement.thruster
+    Position: {x: 0, y: 1, z: -2}
+    Up: {x: 0, y: 1, z: 0}
+    Dims: {x: 0, y: 0, z: 0}
+    Pitch: 0
+    BlockConfig: 0
+  - BlockId: block.movement.rudder
+    Position: {x: 0, y: -1, z: -2}
+    Up: {x: 0, y: -1, z: 0}
+    Dims: {x: 0, y: 0, z: 0}
+    Pitch: 0
+    BlockConfig: 0
   - BlockId: block.movement.hoverblade
     Position: {x: -2, y: -1, z: -2}
     Up: {x: 0, y: -1, z: 0}

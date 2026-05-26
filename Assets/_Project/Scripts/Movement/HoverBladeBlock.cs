@@ -57,6 +57,7 @@ namespace Robogame.Movement
         [SerializeField] private LayerMask _groundMask = ~0;
 
         private BlockBehaviour _block;
+        private BlockGrid _grid;
         private Rigidbody _chassisRb;
         private bool _active = true;
         private bool _wasInRange;
@@ -67,6 +68,14 @@ namespace Robogame.Movement
         // OnEnable and on every Tweakables.Changed pulse so slider drags
         // take effect live in editor / development builds.
         private HoverBladeTuningConfig _tuning = HoverBladeTuningConfig.Default;
+        // Offset from transform.position to the AABB center, expressed in
+        // both chassis-local (for physics/raycast) and block-local (for
+        // visual placement of the disc + plume children). transform sits
+        // at gridPos — the "near corner" of the N×N footprint — so without
+        // this shift all four corner blades push from the same block-
+        // local offset and the chassis tips toward one side.
+        private Vector3 _aabbCenterShiftChassis;
+        private Vector3 _aabbCenterShiftBlockLocal;
 
         // Audio — looped while the blade is producing lift, modulated by
         // lift magnitude. ContactLost one-shot fires when raycast goes
@@ -91,6 +100,7 @@ namespace Robogame.Movement
         private void OnEnable()
         {
             _chassisRb = GetComponentInParent<Rigidbody>();
+            _grid = GetComponentInParent<BlockGrid>();
             if (_block != null)
             {
                 _block.Destroyed += HandleDestroyed;
@@ -155,7 +165,40 @@ namespace Robogame.Movement
             // (N/baseline)² so size-2 = 1.0, size-3 = 2.25, size-4 = 4.0.
             float ratio = n / (float)BlockOccupancy.HoverBladeDefaultSize;
             _liftScale = ratio * ratio;
+
+            // Lateral shift from transform (gridPos) to AABB center. Mirrors
+            // BlockOccupancy.ComputeHoverBladeSweptBoundsLocal: (N-1)/2 in
+            // each axis perpendicular to mount-up, zero on mount-up axis.
+            Vector3Int upN = _block != null && _block.Up != Vector3Int.zero
+                ? _block.Up
+                : Vector3Int.up;
+            int axMountUp = Mathf.Abs(upN.x) > 0 ? 0 : (Mathf.Abs(upN.y) > 0 ? 1 : 2);
+            float half = (n - 1) * 0.5f;
+            Vector3 shiftChassis = new Vector3(half, half, half);
+            shiftChassis[axMountUp] = 0f;
+            _aabbCenterShiftChassis = shiftChassis;
+            // Block-local equivalent (the disc/plume children are parented
+            // to this transform whose localRotation = OrientationFromUp).
+            Quaternion blockToChassis = BlockGrid.OrientationFromUp(_block != null ? _block.Up : Vector3Int.up);
+            _aabbCenterShiftBlockLocal = Quaternion.Inverse(blockToChassis) * shiftChassis;
+
             ResizeRig();
+        }
+
+        // World-space position where lift force is applied AND where the
+        // raycast originates. Equal to the AABB center, NOT transform.position.
+        // transform.position is the "near corner" of the N×N footprint —
+        // using it directly would offset all four corner blades by the
+        // same block-local vector, biasing lift toward one side and tipping
+        // the chassis.
+        //
+        // _aabbCenterShiftChassis is in cell units; multiply by CellSize to
+        // get a world-metre delta before applying the chassis transform.
+        private Vector3 GetLiftWorldPosition()
+        {
+            if (_grid == null) return transform.position;
+            return transform.position
+                 + _grid.transform.TransformVector(_aabbCenterShiftChassis * _grid.CellSize);
         }
 
         /// <summary>
@@ -186,7 +229,7 @@ namespace Robogame.Movement
             if (gravity.sqrMagnitude < 1e-4f) return;
             Vector3 gravityDir = gravity.normalized;
 
-            Vector3 origin = transform.position;
+            Vector3 origin = GetLiftWorldPosition();
             if (!RaycastIgnoringSelf(origin, gravityDir, MaxRaycastDistance, out RaycastHit hit))
             {
                 // Ray missed (terraformed pit, off a cliff, above max
@@ -340,6 +383,13 @@ namespace Robogame.Movement
             if (_disc != null)
             {
                 _disc.localScale = new Vector3(n, 0.12f, n);
+                // Position disc at the AABB center (block-local lateral
+                // shift) PLUS the standard chassis-outward visual offset
+                // (0.4 along block-local +Y = mount-up direction).
+                _disc.localPosition = new Vector3(
+                    _aabbCenterShiftBlockLocal.x,
+                    0.4f + _aabbCenterShiftBlockLocal.y,
+                    _aabbCenterShiftBlockLocal.z);
             }
             if (_hub != null)
             {
@@ -353,6 +403,12 @@ namespace Robogame.Movement
             {
                 var shape = _plumePs.shape;
                 shape.radius = Mathf.Max(0.35f, n * 0.45f);
+                // Plume origin also tracks the AABB center, on the
+                // outward side of the disc.
+                _plumePs.transform.localPosition = new Vector3(
+                    _aabbCenterShiftBlockLocal.x,
+                    0.55f + _aabbCenterShiftBlockLocal.y,
+                    _aabbCenterShiftBlockLocal.z);
             }
         }
 
