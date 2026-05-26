@@ -1352,6 +1352,26 @@ namespace Robogame.Gameplay
             if (announcer == null) announcer = mainCam.gameObject.AddComponent<KillAnnouncer>();
             if (_match != null) announcer.BindMatch(_match);
 
+            // Persistent kill feed — counterpart to the announcer
+            // banner. Shows the recent-kill log on the right side of
+            // the screen. Both fire from MatchController.KillRegistered
+            // so they stay in sync without any cross-component plumbing.
+            KillFeedHud killFeed = mainCam.GetComponent<KillFeedHud>();
+            if (killFeed == null) killFeed = mainCam.gameObject.AddComponent<KillFeedHud>();
+            if (_match != null) killFeed.BindMatch(_match);
+
+            // Tab-held scoreboard overlay. Renders nothing until the
+            // player holds Tab; reads MatchController state directly.
+            ScoreboardOverlay scoreboard = mainCam.GetComponent<ScoreboardOverlay>();
+            if (scoreboard == null) scoreboard = mainCam.gameObject.AddComponent<ScoreboardOverlay>();
+            if (_match != null) scoreboard.BindMatch(_match);
+
+            // World-space chassis nameplates — one central overlay walks
+            // the cached Robot list every OnGUI event and renders a name
+            // + HP bar above each non-local chassis.
+            if (mainCam.GetComponent<NameplateOverlay>() == null)
+                mainCam.gameObject.AddComponent<NameplateOverlay>();
+
             // Worldspace per-robot scrap-carried indicator. Lets the player
             // target high-load enemies (juicy kill) vs respawn-fresh ones.
             ScrapCarriedIndicator indicator = mainCam.GetComponent<ScrapCarriedIndicator>();
