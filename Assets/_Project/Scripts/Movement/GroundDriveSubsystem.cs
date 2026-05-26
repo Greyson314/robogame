@@ -75,9 +75,10 @@ namespace Robogame.Movement
             _rb = GetComponentInParent<Rigidbody>();
             _drive = GetComponentInParent<RobotDrive>();
             _drive?.Register(this);
-            _cfg = _drive != null && _drive.Blueprint != null
-                ? _drive.Blueprint.GroundTuning
-                : new GroundTuningConfig();
+            ResolveTuning();
+            // Re-resolve on Tweakables.Changed so dev-only override sliders
+            // update live without a chassis respawn.
+            Robogame.Core.Tweakables.Changed += ResolveTuning;
             SubscribeToGrid();
             SeedWheelsFromHierarchy();
         }
@@ -85,8 +86,18 @@ namespace Robogame.Movement
         private void OnDisable()
         {
             _drive?.Unregister(this);
+            Robogame.Core.Tweakables.Changed -= ResolveTuning;
             UnsubscribeFromGrid();
             _wheels.Clear();
+        }
+
+        private void ResolveTuning()
+        {
+            _cfg = _drive != null && _drive.Blueprint != null
+                ? _drive.Blueprint.GroundTuning
+                : new GroundTuningConfig();
+            // Dev-only override (compile-stripped from shipping builds).
+            Robogame.Block.DevTuningOverride.ApplyGround(ref _cfg);
         }
 
         private void SubscribeToGrid()

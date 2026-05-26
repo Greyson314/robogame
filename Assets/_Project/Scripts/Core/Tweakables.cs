@@ -161,6 +161,37 @@ namespace Robogame.Core
         public const string AirDummySpawn  = "Stress.AirDummy";        // 0/1 toggle: spawn / despawn the patrolling air bot
         public const string AirDummyFire   = "Stress.AirDummyFire";    // 0/1 toggle: air bot engages + fires at player
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // -----------------------------------------------------------------
+        // Dev-only chassis-tuning overrides (compile-stripped from shipping
+        // builds). Familiar pitch / roll / thrust / damping sliders for
+        // live tuning iteration. When the master DevOverrideChassisTuning
+        // toggle is on, every plane / ground / damping / thruster
+        // subsystem reads from these Tweakables instead of the chassis
+        // blueprint — see DevTuningOverride for the override application
+        // path. Shipping builds strip these entries entirely, so the
+        // production binary has zero MP-desync risk (the override code
+        // path doesn't exist).
+        public const string DevOverrideChassisTuning   = "Dev.OverrideChassisTuning"; // 0/1 master toggle
+
+        public const string DevPlanePitchPower         = "Dev.Plane.PitchPower";
+        public const string DevPlaneRollPower          = "Dev.Plane.RollPower";
+        public const string DevPlaneYawFromBank        = "Dev.Plane.YawFromBank";
+        public const string DevPlanePitchDamping       = "Dev.Plane.PitchDamping";
+        public const string DevPlaneRollDamping        = "Dev.Plane.RollDamping";
+        public const string DevPlaneYawDamping         = "Dev.Plane.YawDamping";
+
+        public const string DevGroundAcceleration      = "Dev.Ground.Acceleration";
+        public const string DevGroundMaxSpeed          = "Dev.Ground.MaxSpeed";
+        public const string DevGroundTurnRate          = "Dev.Ground.TurnRate";
+
+        public const string DevChassisLinearDamping    = "Dev.Chassis.LinearDamping";
+        public const string DevChassisAngularDamping   = "Dev.Chassis.AngularDamping";
+
+        public const string DevThrusterIdleThrottle    = "Dev.Thruster.IdleThrottle";
+        public const string DevThrusterThrottleResponse = "Dev.Thruster.ThrottleResponse";
+#endif
+
         // -----------------------------------------------------------------
         // Spec
         // -----------------------------------------------------------------
@@ -357,6 +388,33 @@ namespace Robogame.Core
 
             // QoL.
             RegisterBool(SettingsPause, "QoL", "Pause When Settings Open", true);
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            // Dev-only chassis-tuning override layer. Off by default; flip
+            // the master toggle to start overriding blueprint values with
+            // these sliders. Defaults match the historical Tweakable
+            // values that lived here before session 85's migration —
+            // toggling on with sliders untouched preserves the old
+            // per-machine feel for a sanity check. See DevTuningOverride.
+            RegisterBool(DevOverrideChassisTuning, "Dev (Override Chassis Tuning)", "Master Enable", false);
+
+            Register(DevPlanePitchPower,    "Dev (Override Chassis Tuning)", "Plane: Pitch Power",    7.5f,  0f, 30f);
+            Register(DevPlaneRollPower,     "Dev (Override Chassis Tuning)", "Plane: Roll Power",     9.0f,  0f, 30f);
+            Register(DevPlaneYawFromBank,   "Dev (Override Chassis Tuning)", "Plane: Yaw From Bank",  2.0f,  0f, 10f);
+            Register(DevPlanePitchDamping,  "Dev (Override Chassis Tuning)", "Plane: Pitch Damping",  3.5f,  0f, 15f);
+            Register(DevPlaneRollDamping,   "Dev (Override Chassis Tuning)", "Plane: Roll Damping",   2.8f,  0f, 15f);
+            Register(DevPlaneYawDamping,    "Dev (Override Chassis Tuning)", "Plane: Yaw Damping",    1.6f,  0f, 15f);
+
+            Register(DevGroundAcceleration, "Dev (Override Chassis Tuning)", "Ground: Acceleration",  26.25f, 0f, 100f);
+            Register(DevGroundMaxSpeed,     "Dev (Override Chassis Tuning)", "Ground: Max Speed",     13.5f,  0f, 60f);
+            Register(DevGroundTurnRate,     "Dev (Override Chassis Tuning)", "Ground: Turn Rate",     7.5f,   0f, 30f);
+
+            Register(DevChassisLinearDamping,  "Dev (Override Chassis Tuning)", "Chassis: Linear Damping",  0.2f, 0f, 10f);
+            Register(DevChassisAngularDamping, "Dev (Override Chassis Tuning)", "Chassis: Angular Damping", 2.0f, 0f, 15f);
+
+            Register(DevThrusterIdleThrottle,    "Dev (Override Chassis Tuning)", "Thruster: Idle Throttle",    0.4f, 0f, 1f);
+            Register(DevThrusterThrottleResponse, "Dev (Override Chassis Tuning)", "Thruster: Throttle Response", 2.6f, 0f, 20f);
+#endif
 
             Load();
         }

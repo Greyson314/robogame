@@ -80,12 +80,10 @@ namespace Robogame.Movement
             _rb = GetComponentInParent<Rigidbody>();
             _drive = GetComponentInParent<RobotDrive>();
             _drive?.Register(this);
-            // Blueprint is server-authoritative; null only for a subsystem
-            // used outside ChassisAssembler (tests / hand-built scenes),
-            // where the defaults equal the historical Tweakable defaults.
-            _cfg = _drive != null && _drive.Blueprint != null
-                ? _drive.Blueprint.PlaneTuning
-                : new PlaneTuningConfig();
+            ResolveTuning();
+            // Re-resolve on Tweakables.Changed so the dev-only override
+            // sliders update live without a chassis respawn.
+            Tweakables.Changed += ResolveTuning;
             Debug.Log(
                 $"[Robogame] PlaneControl live values (source=blueprint): " +
                 $"pitch={PitchPower:F2} roll={RollPower:F2} yawFromBank={YawFromBank:F2} " +
@@ -96,6 +94,21 @@ namespace Robogame.Movement
         private void OnDisable()
         {
             _drive?.Unregister(this);
+            Tweakables.Changed -= ResolveTuning;
+        }
+
+        private void ResolveTuning()
+        {
+            // Blueprint is server-authoritative; null only for a subsystem
+            // used outside ChassisAssembler (tests / hand-built scenes),
+            // where the defaults equal the historical Tweakable defaults.
+            _cfg = _drive != null && _drive.Blueprint != null
+                ? _drive.Blueprint.PlaneTuning
+                : new PlaneTuningConfig();
+            // Dev-only override layer. No-op in shipping builds — the
+            // DevTuningOverride.Apply* methods are compile-stripped to a
+            // bare return when not (UNITY_EDITOR || DEVELOPMENT_BUILD).
+            DevTuningOverride.ApplyPlane(ref _cfg);
         }
 
         public void Tick(in DriveControl control)

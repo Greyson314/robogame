@@ -92,12 +92,8 @@ namespace Robogame.Movement
             _rb = GetComponentInParent<Rigidbody>();
             _drive = GetComponentInParent<RobotDrive>();
             _drive?.Register(this);
-            // Chassis-level idle/response from the server-authoritative
-            // blueprint; null only outside ChassisAssembler (tests),
-            // where the defaults equal the historical Tweakable defaults.
-            _thrCfg = _drive != null && _drive.Blueprint != null
-                ? _drive.Blueprint.ThrusterTuning
-                : new ThrusterTuningConfig();
+            ResolveTuning();
+            Robogame.Core.Tweakables.Changed += ResolveTuning;
             Debug.Log(
                 $"[Robogame] Thruster live values (source=blueprint): " +
                 $"maxThrust={MaxThrust:F1} idle={IdleThrottle:F2} response={ThrottleResponse:F2}",
@@ -107,6 +103,19 @@ namespace Robogame.Movement
         private void OnDisable()
         {
             _drive?.Unregister(this);
+            Robogame.Core.Tweakables.Changed -= ResolveTuning;
+        }
+
+        private void ResolveTuning()
+        {
+            // Chassis-level idle/response from the server-authoritative
+            // blueprint; null only outside ChassisAssembler (tests),
+            // where the defaults equal the historical Tweakable defaults.
+            _thrCfg = _drive != null && _drive.Blueprint != null
+                ? _drive.Blueprint.ThrusterTuning
+                : new ThrusterTuningConfig();
+            // Dev-only override (compile-stripped from shipping builds).
+            Robogame.Block.DevTuningOverride.ApplyThruster(ref _thrCfg);
         }
 
         public void Tick(in DriveControl control)

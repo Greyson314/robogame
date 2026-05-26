@@ -134,11 +134,31 @@ namespace Robogame.Movement
 
         private void OnEnable()
         {
-            // Chassis damping is now server-authoritative (blueprint), not
-            // a live Tweakable, so there's no Tweakables.Changed push to
-            // subscribe — Awake reads the blueprint value once (the
-            // blueprint is set by ChassisAssembler before activation).
+            // Subscribe to Tweakables.Changed for the dev-only chassis-
+            // damping override. In shipping builds DevTuningOverride.Apply*
+            // is a compile-stripped no-op, so the subscription is the
+            // entire override surface and there's no MP-desync risk.
+            // Also re-push once now so a build-mode chassis spawn picks
+            // up the override at hand-off.
+            Robogame.Core.Tweakables.Changed += PushChassisDamping;
+            PushChassisDamping();
             if (_logChassisInertia) StartCoroutine(LogInertiaDiagnostics());
+        }
+
+        private void OnDisable()
+        {
+            Robogame.Core.Tweakables.Changed -= PushChassisDamping;
+        }
+
+        private void PushChassisDamping()
+        {
+            if (_rb == null) return;
+            ChassisDampingConfig cfg = Blueprint != null
+                ? Blueprint.ChassisDamping
+                : new ChassisDampingConfig { LinearDamping = _linearDamping, AngularDamping = _angularDamping };
+            Robogame.Block.DevTuningOverride.ApplyChassisDamping(ref cfg);
+            _rb.linearDamping = cfg.LinearDamping;
+            _rb.angularDamping = cfg.AngularDamping;
         }
 
         private IEnumerator LogInertiaDiagnostics()
