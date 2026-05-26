@@ -33,8 +33,6 @@ MonoBehaviour:
     IdleThrottle: 0.4
     ThrottleResponse: 2.6
   _entries:
-  # ----- Structure layer (y=0): 5x5 = 25 cells, X:-2..2, Z:-2..2.
-  # Center cell (0,0,0) is the CPU; everything else is a structure cube.
   - BlockId: block.structure.cube
     Position: {x: -2, y: 0, z: -2}
     Up: {x: 0, y: 1, z: 0}
@@ -185,19 +183,12 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     BlockConfig: 0
-  # ----- Weapon on top of the CPU (y=1).
   - BlockId: block.weapon.hitscan
     Position: {x: 0, y: 1, z: 0}
     Up: {x: 0, y: 1, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     BlockConfig: 0
-  # ----- Hover blades (y=-1): four size-2 blades, one per corner.
-  # Each blade's gridPos is the "near" corner cell; the N×N=2×2 footprint
-  # grows in +X +Z from there (BlockOccupancy.ComputeHoverBladeSweptBoundsLocal).
-  # Dims.x carries the integer size (2). Up=(0,-1,0) → mounts on the
-  # chassis bottom face, blade extends downward / particles blow at the
-  # ground.
   - BlockId: block.movement.hoverblade
     Position: {x: -2, y: -1, z: -2}
     Up: {x: 0, y: -1, z: 0}
