@@ -61,6 +61,9 @@ namespace Robogame.Core
         ReloadComplete,    // weapon-pool reload finishes — pool refilled
         WeaponEmpty,       // attempted fire on an empty pool — dry click
 
+        // Player state
+        LowHealthAlert,    // looped pulse while local chassis HP < ~30% — the "you're about to die" warning
+
         // UI / match
         UiHover,
         UiClick,

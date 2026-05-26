@@ -43,5 +43,8 @@ namespace Robogame.Core
 
         /// <summary>Warm pop at a scrap pickup — used both on drop (low scale) and on collect (full scale).</summary>
         ScrapBurst,
+
+        /// <summary>Tiny sparkling trail emitted by a scrap pickup while it's drifting toward a chassis in magnetic-pull range. Reads as "this is coming to you" without spawning a per-pickup line renderer.</summary>
+        MagnetTrail,
     }
 }

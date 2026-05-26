@@ -50,7 +50,37 @@ namespace Robogame.Gameplay
         public BuildSession Session
         {
             get => _session;
-            set => _session = value;
+            set
+            {
+                if (_session == value) return;
+                if (_session != null) _session.VariantChanged -= PropagateVariantToLiveBlocks;
+                _session = value;
+                if (_session != null) _session.VariantChanged += PropagateVariantToLiveBlocks;
+            }
+        }
+
+        // VariantConfigPanel writes pitch / dims into the session cache —
+        // historically that only affected NEXT placements, leaving placed
+        // blocks visually stale until re-placed (foil-rotation-plan §10A
+        // "the slider feels inert until the rotor is re-placed"). This
+        // walks the active chassis grid on every variant change and
+        // pushes the new value through SetPitch / SetDims, whose
+        // PitchChanged / DimsChanged events drive each block's visual
+        // refresh. Cheap: O(blocks of matching id), invoked only on a
+        // human-rate slider drag.
+        private void PropagateVariantToLiveBlocks(string blockId)
+        {
+            if (_grid == null || _session == null || string.IsNullOrEmpty(blockId)) return;
+            float pitch = _session.GetVariantPitch(blockId);
+            Vector3 dims = _session.GetVariantDims(blockId);
+            foreach (var kvp in _grid.Blocks)
+            {
+                BlockBehaviour block = kvp.Value;
+                if (block == null || block.Definition == null) continue;
+                if (block.Definition.Id != blockId) continue;
+                block.SetPitch(pitch);
+                block.SetDims(dims);
+            }
         }
 
         public VariantConfigPanel VariantPanel { get => _variantPanel; set => _variantPanel = value; }
@@ -203,6 +233,7 @@ namespace Robogame.Gameplay
         private void OnEnable()
         {
             Subscribe();
+            OnEnable_RehookSession();
             // If build mode is already active when we wake up, behave as if Entered just fired.
             if (_buildMode != null && _buildMode.IsActive) HandleEntered();
         }
@@ -210,8 +241,20 @@ namespace Robogame.Gameplay
         private void OnDisable()
         {
             Unsubscribe();
+            if (_session != null) _session.VariantChanged -= PropagateVariantToLiveBlocks;
             if (_ghostRenderer != null) _ghostRenderer.Clear();
             if (_feedbackHud != null) _feedbackHud.Hide();
+        }
+
+        private void OnEnable_RehookSession()
+        {
+            // Re-hook on enable (in case OnDisable detached us but the
+            // Session reference is still live). Unsubscribe first so we're
+            // idempotent regardless of whether the Session setter already
+            // subscribed before OnEnable ran.
+            if (_session == null) return;
+            _session.VariantChanged -= PropagateVariantToLiveBlocks;
+            _session.VariantChanged += PropagateVariantToLiveBlocks;
         }
 
         private void Subscribe()

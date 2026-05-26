@@ -1,4 +1,5 @@
 using Robogame.Block;
+using Robogame.Combat;
 using Robogame.Core;
 using Robogame.Robots;
 using UnityEngine;
@@ -39,6 +40,11 @@ namespace Robogame.Player
 
         [SerializeField] private Color _color = new Color(1f, 1f, 1f, 0.85f);
         [SerializeField] private Color _enemyColor = new Color(0.95f, 0.30f, 0.20f, 0.95f);
+        [Tooltip("Crosshair colour while every weapon pool is empty or reloading. " +
+                 "Blended over the base/enemy colour to dim the crosshair as a " +
+                 "glance-state \"you can't fire right now\" signal — the detailed " +
+                 "ammo breakdown stays in VehicleStatsHud.")]
+        [SerializeField] private Color _reloadColor = new Color(0.55f, 0.55f, 0.55f, 0.8f);
         [SerializeField] private Color _outlineColor = new Color(0f, 0f, 0f, 0.65f);
         [SerializeField, Min(0f)] private float _outline = 1f;
 
@@ -49,9 +55,28 @@ namespace Robogame.Player
         [Tooltip("Maximum aim-detection distance.")]
         [SerializeField, Min(1f)] private float _aimRange = 300f;
 
+        [Header("Ammo readout")]
+        [Tooltip("Show the chassis's total loaded ammo as a small number under the crosshair. " +
+                 "Quick glance-state; the per-weapon breakdown is in VehicleStatsHud.")]
+        [SerializeField] private bool _showAmmoCount = true;
+
+        [Tooltip("Font size of the under-crosshair ammo number.")]
+        [SerializeField, Min(8)] private int _ammoFontSize = 12;
+
         private Camera _camera;
         private FollowCamera _follow;
         private bool _hasEnemyTarget;
+        // Ammo-state mirror, refreshed in Update so OnGUI is allocation-
+        // free. _anyCanFire goes false when every weapon pool is in a
+        // reload or empty — the crosshair tints toward _reloadColor.
+        private WeaponAmmoState _ammoCached;
+        private Transform _ammoCacheTarget;
+        private bool _anyCanFire;
+        private bool _hasAnyPool;
+        private int _totalLoaded;
+        private string _ammoText = "0";
+        private int _lastAmmoText = int.MinValue;
+        private GUIStyle _ammoStyle;
         private static readonly RaycastHit[] s_hits = new RaycastHit[8];
 
         private void Awake()
@@ -62,6 +87,8 @@ namespace Robogame.Player
 
         private void Update()
         {
+            RefreshAmmoState();
+
             // Cheap target check: ray from screen-centre, look for an
             // IDamageable that isn't the local chassis. Allocates zero
             // (RaycastNonAlloc into a static buffer).
@@ -93,6 +120,35 @@ namespace Robogame.Player
             }
         }
 
+        // Resolves the chassis's WeaponAmmoState from the FollowCamera
+        // target and snapshots loaded-rounds totals. Re-resolves only
+        // when the target changes (respawn) — cheap per-frame loop after
+        // that, no GetComponent walk on the hot path.
+        private void RefreshAmmoState()
+        {
+            Transform target = _follow != null ? _follow.Target : null;
+            if (target != _ammoCacheTarget)
+            {
+                _ammoCacheTarget = target;
+                _ammoCached = target != null ? target.GetComponentInParent<WeaponAmmoState>() : null;
+            }
+            _anyCanFire = false;
+            _hasAnyPool = false;
+            _totalLoaded = 0;
+            if (_ammoCached == null) return;
+            foreach (var kvp in _ammoCached.EnumeratePools())
+            {
+                _hasAnyPool = true;
+                _totalLoaded += kvp.Value.current;
+                if (kvp.Value.current > 0 && !kvp.Value.reloading) _anyCanFire = true;
+            }
+            if (_totalLoaded != _lastAmmoText)
+            {
+                _lastAmmoText = _totalLoaded;
+                _ammoText = _totalLoaded.ToString();
+            }
+        }
+
         private void OnGUI()
         {
             float cx = Screen.width  * 0.5f;
@@ -102,7 +158,13 @@ namespace Robogame.Player
             float th  = _thickness;
             float gap = _gap;
 
+            // Layered tint: base/enemy is the primary signal; if the
+            // chassis has weapons AND none can fire right now, blend
+            // 70% toward the reload colour to dim the crosshair as a
+            // glance "you can't shoot" cue. Both signals coexist (a red
+            // crosshair that's also dim = enemy in sight while reloading).
             Color tint = _hasEnemyTarget ? _enemyColor : _color;
+            if (_hasAnyPool && !_anyCanFire) tint = Color.Lerp(tint, _reloadColor, 0.7f);
 
             // Horizontal & vertical arms (left, right, up, down).
             DrawBar(cx - gap - len, cy - th * 0.5f, len, th, tint);
@@ -113,6 +175,25 @@ namespace Robogame.Player
             if (_dotSize > 0f)
             {
                 DrawBar(cx - _dotSize * 0.5f, cy - _dotSize * 0.5f, _dotSize, _dotSize, tint);
+            }
+
+            if (_showAmmoCount && _hasAnyPool)
+            {
+                if (_ammoStyle == null)
+                {
+                    _ammoStyle = new GUIStyle(GUI.skin.label)
+                    {
+                        fontSize = _ammoFontSize,
+                        alignment = TextAnchor.MiddleCenter,
+                        fontStyle = FontStyle.Bold,
+                    };
+                    _ammoStyle.normal.textColor = new Color(1f, 1f, 1f, 0.85f);
+                }
+                _ammoStyle.normal.textColor = tint;
+                float labelW = 48f;
+                float labelH = _ammoFontSize + 4f;
+                Rect r = new Rect(cx - labelW * 0.5f, cy + gap + len + 2f, labelW, labelH);
+                GUI.Label(r, _ammoText, _ammoStyle);
             }
         }
 

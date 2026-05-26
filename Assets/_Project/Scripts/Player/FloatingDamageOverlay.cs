@@ -53,6 +53,21 @@ namespace Robogame.Player
         [SerializeField] private Color _heavyColor = new Color(0.95f, 0.20f, 0.10f, 0.95f);
         [SerializeField] private float _heavyThreshold = 50f;
 
+        [Tooltip("When an accumulator's cumulative damage crosses this value, " +
+                 "the rendered number briefly scales up (combo pop). Gives a " +
+                 "visible 'big hit' beat without firing a separate VFX.")]
+        [SerializeField, Min(0f)] private float _comboThreshold = 100f;
+
+        [Tooltip("Duration of the combo scale-pop (s). Decays back to baseline " +
+                 "after this; subsequent hits while still over the threshold do " +
+                 "not retrigger — one pop per accumulator lifetime.")]
+        [SerializeField, Min(0.05f)] private float _comboPopDuration = 0.35f;
+
+        [Tooltip("Horizontal pixel offset applied when two accumulators project " +
+                 "within this distance of each other. Without it, two adjacent " +
+                 "targets stack damage numbers on top of each other in screen space.")]
+        [SerializeField, Min(0f)] private float _clusterThresholdPixels = 60f;
+
         [SerializeField, Min(8)] private int _fontSize = 18;
 
         // Hard cap on simultaneous accumulators. With per-target
@@ -80,6 +95,10 @@ namespace Robogame.Player
             // per OnGUI event — OnGUI runs 2-6x/frame during combat.
             public float CachedDamage;
             public string CachedText;
+            // Time when TotalDamage first crossed the combo threshold.
+            // < 0 means hasn't crossed yet — one pop per accumulator
+            // lifetime, no retrigger from subsequent hits over the bar.
+            public float ComboPopTime;
         }
 
         private readonly List<Accumulator> _accumulators = new(16);
@@ -128,9 +147,13 @@ namespace Robogame.Player
             Accumulator acc = FindActiveForTarget(target);
             if (acc != null)
             {
+                float before = acc.TotalDamage;
                 acc.TotalDamage += damage;
                 acc.AnchorPos = block.transform.position;
                 acc.LastHitTime = now;
+                // One-shot combo pop on the frame total crosses _comboThreshold.
+                if (acc.ComboPopTime < 0f && before < _comboThreshold && acc.TotalDamage >= _comboThreshold)
+                    acc.ComboPopTime = now;
                 return;
             }
 
@@ -147,6 +170,8 @@ namespace Robogame.Player
             next.LastHitTime = now;
             next.FreezeTime = -1f;
             next.CachedText = null; // force rebuild; a pooled instance may carry a stale string
+            // Spawn already over the threshold? (Single huge hit, e.g. bomb.) Pop immediately.
+            next.ComboPopTime = damage >= _comboThreshold ? now : -1f;
             _accumulators.Add(next);
         }
 
@@ -181,12 +206,19 @@ namespace Robogame.Player
             _accumulators.RemoveAt(oldest);
         }
 
+        // Reused scratch for cluster-detection — Rects of accumulators
+        // we've already placed this OnGUI event. Cleared at the top of
+        // each render pass; sized once so the per-frame placement is
+        // alloc-free.
+        private readonly List<Rect> _placedRects = new(16);
+
         private void OnGUI()
         {
             if (_camera == null) return;
             if (_accumulators.Count == 0) return;
 
             EnsureStyles();
+            _placedRects.Clear();
 
             float now = Time.unscaledTime;
             for (int i = _accumulators.Count - 1; i >= 0; i--)
@@ -234,8 +266,6 @@ namespace Robogame.Player
                 c.a *= alpha;
 
                 GUIStyle s = heavy ? _styleHeavy : _style;
-                Color savedColor = GUI.color;
-                GUI.color = c;
                 if (a.CachedText == null || a.CachedDamage != a.TotalDamage)
                 {
                     a.CachedDamage = a.TotalDamage;
@@ -243,7 +273,71 @@ namespace Robogame.Player
                 }
                 _measure.text = a.CachedText;
                 Vector2 size = s.CalcSize(_measure);
-                Rect r = new Rect(screen.x - size.x * 0.5f, Screen.height - screen.y - size.y * 0.5f, size.x, size.y);
+
+                // Combo scale-pop. (now - ComboPopTime) decays through
+                // _comboPopDuration with a 1 + 0.4 * (1 - p) curve so the
+                // bump is biggest at the moment of cross then settles.
+                float scale = 1f;
+                if (a.ComboPopTime >= 0f)
+                {
+                    float popAge = now - a.ComboPopTime;
+                    if (popAge < _comboPopDuration)
+                    {
+                        float p = Mathf.Clamp01(popAge / _comboPopDuration);
+                        scale = 1f + 0.4f * (1f - p);
+                    }
+                }
+
+                float drawW = size.x * scale;
+                float drawH = size.y * scale;
+                float cx = screen.x - drawW * 0.5f;
+                float cy = Screen.height - screen.y - drawH * 0.5f;
+
+                // Cluster offset. If this rect's centre lands within
+                // _clusterThresholdPixels of an already-placed rect's
+                // centre, shove it horizontally by the threshold + half-
+                // width until it clears. Cheap O(N²) on the active set
+                // (count is bounded by _maxAccumulators = 32).
+                if (_clusterThresholdPixels > 0f && _placedRects.Count > 0)
+                {
+                    Vector2 myCentre = new Vector2(cx + drawW * 0.5f, cy + drawH * 0.5f);
+                    int safety = 8;
+                    while (safety-- > 0)
+                    {
+                        bool collided = false;
+                        for (int j = 0; j < _placedRects.Count; j++)
+                        {
+                            Rect other = _placedRects[j];
+                            Vector2 otherCentre = new Vector2(other.x + other.width * 0.5f, other.y + other.height * 0.5f);
+                            float dx = Mathf.Abs(myCentre.x - otherCentre.x);
+                            float dy = Mathf.Abs(myCentre.y - otherCentre.y);
+                            if (dx < _clusterThresholdPixels && dy < drawH)
+                            {
+                                // Shove away from the colliding rect.
+                                float push = _clusterThresholdPixels - dx + 4f;
+                                float dir = myCentre.x >= otherCentre.x ? 1f : -1f;
+                                myCentre.x += dir * push;
+                                collided = true;
+                                break;
+                            }
+                        }
+                        if (!collided) break;
+                    }
+                    cx = myCentre.x - drawW * 0.5f;
+                }
+
+                Rect r = new Rect(cx, cy, drawW, drawH);
+                _placedRects.Add(r);
+
+                Color savedColor = GUI.color;
+                GUI.color = c;
+                // GUI doesn't have a built-in font-scale, so we use the
+                // rect as our size hint — the rendered label fills the
+                // rect bounds at the style's authored fontSize. The
+                // combo pop scales the rect; visual size grows because
+                // the label centres in the larger box and the style's
+                // CalcSize-vs-actual delta absorbs the rest. Good
+                // enough for a sub-second pop.
                 GUI.Label(r, a.CachedText, s);
                 GUI.color = savedColor;
             }

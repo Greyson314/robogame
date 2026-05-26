@@ -335,6 +335,7 @@ namespace Robogame.Core
                 case VfxKind.RepairGlow:     ConfigureRepairGlow(ps, rend);    break;
                 case VfxKind.BlockRespawn:   ConfigureBlockRespawn(ps, rend);  break;
                 case VfxKind.ScrapBurst:     ConfigureScrapBurst(ps, rend);    break;
+                case VfxKind.MagnetTrail:    ConfigureMagnetTrail(ps, rend);   break;
             }
 
             return ps;
@@ -648,6 +649,41 @@ namespace Robogame.Core
         // Scrap burst: warm hazard-orange pop with a few sparks. Used at
         // both drop and collect — drop call passes a smaller scale, so the
         // same recipe reads as "spawned" vs "vacuumed up" via scale alone.
+        // Tiny "drawn-toward-you" sparkle emitted at intervals by a
+        // ScrapPickup while in magnetic-pull range. Deliberately small
+        // count + brief lifetime — pickup events can fire in bursts
+        // after a kill, and a heavy trail VFX would dominate the screen.
+        private static void ConfigureMagnetTrail(ParticleSystem ps, ParticleSystemRenderer rend)
+        {
+            var main = ps.main;
+            main.duration = 0.05f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.22f, 0.40f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.4f, 0.9f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.04f, 0.08f);
+            main.startColor = new ParticleSystem.MinMaxGradient(RuntimePalette.HotCore, RuntimePalette.Hazard);
+            main.gravityModifier = 0f;
+            main.maxParticles = 6;
+
+            var burst = ps.emission;
+            burst.SetBursts(new[] { new ParticleSystem.Burst(0f, 3) });
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Sphere;
+            shape.radius = 0.05f;
+
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            col.color = MakeFadeOutGradient(RuntimePalette.HotCore, RuntimePalette.Hazard);
+
+            var size = ps.sizeOverLifetime;
+            size.enabled = true;
+            size.size = new ParticleSystem.MinMaxCurve(1f, MakeFadeOutCurve());
+
+            rend.renderMode = ParticleSystemRenderMode.Mesh;
+            rend.mesh = CubeMesh;
+            rend.sharedMaterial = UnlitMeshMaterial;
+        }
+
         private static void ConfigureScrapBurst(ParticleSystem ps, ParticleSystemRenderer rend)
         {
             var main = ps.main;

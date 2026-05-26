@@ -89,11 +89,19 @@ namespace Robogame.Gameplay
         public int Value => _value;
         public float Lifetime => _lifetime;
 
+        [Tooltip("Seconds between magnetic-trail VFX bursts while being pulled toward a chassis. " +
+                 "Lower = denser sparkle, higher = quieter. Set to 0 to disable the trail.")]
+        [SerializeField, Min(0f)] private float _trailInterval = 0.15f;
+
         // Runtime state.
         private Vector3 _anchorPosition; // bob centre — set at spawn
         private float _spawnTime;
         private float _phaseOffset;      // per-instance bob desync so a pile doesn't pulse in unison
         private bool _collected;
+        // Time of the next magnet-trail VFX. Refreshed every emit; resets
+        // when the pickup leaves the pull range so re-entry pings fresh.
+        private float _nextTrailAt;
+        private bool _trailLastFrame;
 
         // Search buffer for the magnetic-pull overlap query. Static so
         // multiple pickups share one allocation; per-step usage is fine
@@ -160,6 +168,7 @@ namespace Robogame.Gameplay
             // within radius and drift toward it. We update _anchorPosition
             // (not transform directly) so the bob curve continues to
             // apply on top of the pulled-toward base.
+            bool pulling = false;
             if (_magneticRadius > 0f && t >= _armDelay)
             {
                 Robot nearest = FindNearestChassis(_anchorPosition, _magneticRadius);
@@ -171,9 +180,25 @@ namespace Robogame.Gameplay
                     {
                         float step = Mathf.Min(_magneticPullSpeed * Time.deltaTime, dist);
                         _anchorPosition += toChassis.normalized * step;
+                        pulling = true;
                     }
                 }
             }
+
+            // Sparkle trail while being pulled — visual "this scrap is
+            // coming to you" signal after a kill. Uses the pooled
+            // VfxSpawner path so a 6-bot frag burst doesn't allocate per
+            // spark. Reset the cadence on the leading edge so re-entering
+            // pull range pings fresh.
+            if (pulling && _trailInterval > 0f)
+            {
+                if (!_trailLastFrame || Time.time >= _nextTrailAt)
+                {
+                    VfxSpawner.Spawn(VfxKind.MagnetTrail, transform.position, Quaternion.identity);
+                    _nextTrailAt = Time.time + _trailInterval;
+                }
+            }
+            _trailLastFrame = pulling;
 
             // Bob + spin.
             Vector3 pos = _anchorPosition;

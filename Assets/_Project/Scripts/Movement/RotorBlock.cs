@@ -211,7 +211,36 @@ namespace Robogame.Movement
             // detach) moves the rotor under a different chassis.
             _chassisRbCached = GetComponentInParent<Rigidbody>();
             _chassisRbCacheValid = true;
+            // When the rotor's own pitch (collective) is mutated through
+            // BlockBehaviour.SetPitch — by BlockEditor's variant-change
+            // propagation or by a future select-and-retune flow — push
+            // the new value down to every adopted foil so adopted blades
+            // retune live instead of "feeling inert until the rotor is
+            // re-placed" (foil-rotation-plan §10A). In build mode the
+            // chassis is kinematic so _adoptedFoils is empty — this is
+            // a no-op there; in arena it keeps the blades in sync.
+            // Unsubscribe-then-subscribe makes the hookup idempotent
+            // against the template-snapshot OnDisable/OnEnable cycle
+            // (OnDisable below intentionally doesn't unsubscribe so we
+            // could double-add otherwise).
+            if (_bb != null)
+            {
+                _bb.PitchChanged -= OnOwnPitchChanged;
+                _bb.PitchChanged += OnOwnPitchChanged;
+            }
             BuildLiftRig();
+        }
+
+        private void OnOwnPitchChanged(BlockBehaviour _)
+        {
+            float pitch = EffectiveCollectivePitchDeg;
+            for (int i = 0; i < _adoptedFoils.Count; i++)
+            {
+                AeroSurfaceBlock aero = _adoptedFoils[i].Aero;
+                if (aero == null) continue;
+                BlockBehaviour aeroBb = aero.GetComponent<BlockBehaviour>();
+                if (aeroBb != null) aeroBb.SetPitch(pitch);
+            }
         }
 
         private Rigidbody _chassisRbCached;

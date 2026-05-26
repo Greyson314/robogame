@@ -1308,6 +1308,13 @@ namespace Robogame.Gameplay
                 mainCam.gameObject.AddComponent<VehicleStatsHud>();
             if (mainCam.GetComponent<DeathOverlay>() == null)
                 mainCam.gameObject.AddComponent<DeathOverlay>();
+            // Low-HP danger vignette + audio pulse. Reads the chassis Robot
+            // via FollowCamera.Target the same way every other Player HUD
+            // does — no extra binder needed. Renders nothing until HP
+            // drops below its threshold (default 30 %), so it's free in
+            // steady state.
+            if (mainCam.GetComponent<LowHealthVignetteHud>() == null)
+                mainCam.gameObject.AddComponent<LowHealthVignetteHud>();
             // FloatingDamageOverlay subscribes to BlockBehaviour.DamageDealt
             // and renders per-target accumulating damage numbers
             // (session 31's summation behaviour). Re-enable by default
