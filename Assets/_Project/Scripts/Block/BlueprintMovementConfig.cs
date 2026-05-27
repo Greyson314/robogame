@@ -15,15 +15,20 @@ namespace Robogame.Block
     // pre-migration Tweakable defaults, so v1–v3 saves and old
     // ChassisBlueprint .asset files load behaviour-identical.
 
-    /// <summary>Per-chassis plane control authority + damping. Defaults equal the pre-migration Plane.* Tweakables.</summary>
+    /// <summary>
+    /// Per-chassis plane control authority + damping. Defaults retuned in
+    /// session 99 after in-engine dev-slider playtest: PitchPower /
+    /// RollPower bumped (planes felt mushy at the old 7.5 / 9), RollDamping
+    /// dropped so banks settle faster.
+    /// </summary>
     [Serializable]
     public sealed class PlaneTuningConfig
     {
-        public float PitchPower   = 7.5f;
-        public float RollPower    = 9.0f;
+        public float PitchPower   = 10.0f;
+        public float RollPower    = 30.0f;
         public float YawFromBank  = 2.0f;
         public float PitchDamping = 3.5f;
-        public float RollDamping  = 2.8f;
+        public float RollDamping  = 0.8f;
         public float YawDamping   = 1.6f;
     }
 
@@ -54,6 +59,8 @@ namespace Robogame.Block
     public sealed class ThrusterTuningConfig
     {
         public float IdleThrottle     = 0.4f;
-        public float ThrottleResponse = 2.6f;
+        // Session 99 retune: bumped from 2.6 so thruster throttle slews
+        // faster — the old default felt sluggish vs. the new plane authority.
+        public float ThrottleResponse = 3.5f;
     }
 }

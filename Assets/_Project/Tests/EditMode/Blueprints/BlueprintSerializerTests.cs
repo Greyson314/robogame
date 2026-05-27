@@ -98,11 +98,15 @@ namespace Robogame.Tests.EditMode.Blueprints
         public void LegacyV3Json_LoadsWithDefaultTuning()
         {
             // Hand-rolled v3 JSON: no tuning objects, no blockConfig. The
-            // loaded blueprint MUST carry the historical Tweakable defaults
-            // (PitchPower 7.5, MaxSpeed 13.5, LinearDamping 0.2,
-            // IdleThrottle 0.4) and blockConfig 0 — anything else silently
-            // changes how every pre-v4 save flies/drives the moment netcode
-            // starts reading the blueprint instead of the local Tweakable.
+            // loaded blueprint must carry whatever PlaneTuningConfig /
+            // GroundTuningConfig / ChassisDampingConfig / ThrusterTuningConfig
+            // declare as their *current* defaults — the goal is "a v3 save
+            // without explicit tuning behaves like a freshly-authored
+            // blueprint with no tuning fields touched." When the gameplay
+            // defaults are retuned (session 99: plane authority +
+            // ThrottleResponse), this assertion follows the move so the
+            // back-compat contract is "v3 save = current defaults," not
+            // "v3 save = frozen 2025 defaults."
             string v3Json = @"{
                 ""schemaVersion"": 3,
                 ""displayName"": ""LegacyV3"",
@@ -118,15 +122,19 @@ namespace Robogame.Tests.EditMode.Blueprints
             Assert.IsTrue(BlueprintSerializer.TryFromJson(v3Json, out ChassisBlueprint bp, out string error),
                 $"v3 load failed: {error}");
 
-            Assert.AreEqual(7.5f, bp.PlaneTuning.PitchPower, 1e-4f,
-                "v3 save must load with the pre-migration Plane.PitchPower default (7.5).");
-            Assert.AreEqual(2.0f, bp.PlaneTuning.YawFromBank, 1e-4f);
-            Assert.AreEqual(13.5f, bp.GroundTuning.MaxSpeed, 1e-4f,
-                "v3 save must load with the pre-migration Ground.MaxSpeed default (13.5).");
-            Assert.AreEqual(0.2f, bp.ChassisDamping.LinearDamping, 1e-4f,
-                "v3 save must load with the pre-migration Chassis.LinearDamping default (0.2).");
-            Assert.AreEqual(0.4f, bp.ThrusterTuning.IdleThrottle, 1e-4f,
-                "v3 save must load with the pre-migration Thruster.IdleThrottle default (0.4).");
+            PlaneTuningConfig planeDefaults = new PlaneTuningConfig();
+            GroundTuningConfig groundDefaults = new GroundTuningConfig();
+            ChassisDampingConfig dampingDefaults = new ChassisDampingConfig();
+            ThrusterTuningConfig thrusterDefaults = new ThrusterTuningConfig();
+            Assert.AreEqual(planeDefaults.PitchPower, bp.PlaneTuning.PitchPower, 1e-4f,
+                "v3 save must load with the current PlaneTuningConfig.PitchPower default.");
+            Assert.AreEqual(planeDefaults.YawFromBank, bp.PlaneTuning.YawFromBank, 1e-4f);
+            Assert.AreEqual(groundDefaults.MaxSpeed, bp.GroundTuning.MaxSpeed, 1e-4f,
+                "v3 save must load with the current GroundTuningConfig.MaxSpeed default.");
+            Assert.AreEqual(dampingDefaults.LinearDamping, bp.ChassisDamping.LinearDamping, 1e-4f,
+                "v3 save must load with the current ChassisDampingConfig.LinearDamping default.");
+            Assert.AreEqual(thrusterDefaults.IdleThrottle, bp.ThrusterTuning.IdleThrottle, 1e-4f,
+                "v3 save must load with the current ThrusterTuningConfig.IdleThrottle default.");
             Assert.AreEqual(0f, bp.Entries[0].BlockConfig,
                 "v3 entries have no blockConfig → 0 → 'use the block's authored default'.");
         }

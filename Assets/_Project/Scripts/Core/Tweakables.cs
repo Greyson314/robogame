@@ -405,11 +405,14 @@ namespace Robogame.Core
             // per-machine feel for a sanity check. See DevTuningOverride.
             RegisterBool(DevOverrideChassisTuning, "Dev (Override Chassis Tuning)", "Master Enable", false);
 
-            Register(DevPlanePitchPower,    "Dev (Override Chassis Tuning)", "Plane: Pitch Power",    7.5f,  0f, 30f);
-            Register(DevPlaneRollPower,     "Dev (Override Chassis Tuning)", "Plane: Roll Power",     9.0f,  0f, 30f);
+            Register(DevPlanePitchPower,    "Dev (Override Chassis Tuning)", "Plane: Pitch Power",   10.0f,  0f, 30f);
+            // Session-99 retune put the default at the prior max (30); bumped
+            // the upper bound to 50 so the slider still has headroom for
+            // further iteration above the new baseline.
+            Register(DevPlaneRollPower,     "Dev (Override Chassis Tuning)", "Plane: Roll Power",    30.0f,  0f, 50f);
             Register(DevPlaneYawFromBank,   "Dev (Override Chassis Tuning)", "Plane: Yaw From Bank",  2.0f,  0f, 10f);
             Register(DevPlanePitchDamping,  "Dev (Override Chassis Tuning)", "Plane: Pitch Damping",  3.5f,  0f, 15f);
-            Register(DevPlaneRollDamping,   "Dev (Override Chassis Tuning)", "Plane: Roll Damping",   2.8f,  0f, 15f);
+            Register(DevPlaneRollDamping,   "Dev (Override Chassis Tuning)", "Plane: Roll Damping",   0.8f,  0f, 15f);
             Register(DevPlaneYawDamping,    "Dev (Override Chassis Tuning)", "Plane: Yaw Damping",    1.6f,  0f, 15f);
 
             Register(DevGroundAcceleration, "Dev (Override Chassis Tuning)", "Ground: Acceleration",  26.25f, 0f, 100f);
@@ -420,7 +423,7 @@ namespace Robogame.Core
             Register(DevChassisAngularDamping, "Dev (Override Chassis Tuning)", "Chassis: Angular Damping", 2.0f, 0f, 15f);
 
             Register(DevThrusterIdleThrottle,    "Dev (Override Chassis Tuning)", "Thruster: Idle Throttle",    0.4f, 0f, 1f);
-            Register(DevThrusterThrottleResponse, "Dev (Override Chassis Tuning)", "Thruster: Throttle Response", 2.6f, 0f, 20f);
+            Register(DevThrusterThrottleResponse, "Dev (Override Chassis Tuning)", "Thruster: Throttle Response", 3.5f, 0f, 20f);
 
             Register(DevHoverSpringK,         "Dev (Override Chassis Tuning)", "Hover: Spring K (N=2)",       800f,  0f, 4000f);
             Register(DevHoverDampingC,        "Dev (Override Chassis Tuning)", "Hover: Damping C (N=2)",       60f,  0f, 400f);
