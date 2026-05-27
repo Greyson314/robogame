@@ -86,6 +86,22 @@ namespace Robogame.Gameplay
                  "vacuuming up scrap they just spawned via residual velocity.")]
         [SerializeField, Min(0f)] private float _armDelay = 0.35f;
 
+        [Header("Gravity-rest (session 100)")]
+        [Tooltip("Vertical acceleration (m/s²) pulling airborne scrap toward the ground. " +
+                 "Lower than real gravity (9.81) so a kill in the sky drops scrap gently — " +
+                 "ground bots get a few seconds to drive over before it lands, but it does " +
+                 "land. Set 0 to disable falling entirely (returns to v0 sky-floater behaviour).")]
+        [SerializeField, Min(0f)] private float _gravity = 3.5f;
+
+        [Tooltip("Resting altitude above the ground beneath the pickup (metres). The bob " +
+                 "amplitude applies on top — slight hover, never sitting on the dirt.")]
+        [SerializeField, Min(0f)] private float _restHeightAboveGround = 0.4f;
+
+        [Tooltip("Max distance the ground-probe ray searches downward each frame. Anything " +
+                 "beyond this counts as 'open air' and the pickup keeps falling. 80 m covers " +
+                 "the highest realistic plane-kill altitude with margin.")]
+        [SerializeField, Min(1f)] private float _groundProbeDistance = 80f;
+
         public int Value => _value;
         public float Lifetime => _lifetime;
 
@@ -94,7 +110,7 @@ namespace Robogame.Gameplay
         [SerializeField, Min(0f)] private float _trailInterval = 0.15f;
 
         // Runtime state.
-        private Vector3 _anchorPosition; // bob centre — set at spawn
+        private Vector3 _anchorPosition; // bob centre — set at spawn, then driven down by gravity-rest
         private float _spawnTime;
         private float _phaseOffset;      // per-instance bob desync so a pile doesn't pulse in unison
         private bool _collected;
@@ -102,6 +118,10 @@ namespace Robogame.Gameplay
         // when the pickup leaves the pull range so re-entry pings fresh.
         private float _nextTrailAt;
         private bool _trailLastFrame;
+        // Accumulated downward velocity for the reduced-gravity fall.
+        // Reset to 0 once the pickup settles at rest height; integrated each
+        // Update while airborne.
+        private float _fallVel;
 
         // Search buffer for the magnetic-pull overlap query. Static so
         // multiple pickups share one allocation; per-step usage is fine
@@ -164,10 +184,22 @@ namespace Robogame.Gameplay
                 return;
             }
 
+            // Gravity-rest. Each frame, probe downward to find the resting
+            // altitude (ground.y + _restHeightAboveGround). If we're above
+            // that, accelerate downward at reduced gravity; once we reach
+            // it, snap and zero the fall velocity so the bob curve has a
+            // stable centre. Result: a plane-kill at high altitude drops
+            // scrap that settles to the ground over a few seconds, which
+            // is collectable by wheeled / hover bots.
+            ApplyGravityRest(Time.deltaTime);
+
             // Magnetic pull. After arm delay, find the nearest chassis
-            // within radius and drift toward it. We update _anchorPosition
-            // (not transform directly) so the bob curve continues to
-            // apply on top of the pulled-toward base.
+            // within radius and drift toward it on the ground plane —
+            // gravity-rest already governs Y, so we strip the vertical
+            // component to keep scrap from being yanked into the sky by a
+            // hovering chassis. We update _anchorPosition (not transform
+            // directly) so the bob curve continues to apply on top of the
+            // pulled-toward base.
             bool pulling = false;
             if (_magneticRadius > 0f && t >= _armDelay)
             {
@@ -175,6 +207,7 @@ namespace Robogame.Gameplay
                 if (nearest != null)
                 {
                     Vector3 toChassis = nearest.transform.position - _anchorPosition;
+                    toChassis.y = 0f; // ground-plane pull only
                     float dist = toChassis.magnitude;
                     if (dist > 0.05f)
                     {
@@ -205,6 +238,42 @@ namespace Robogame.Gameplay
             pos.y += Mathf.Sin((t * _bobFrequency * Mathf.PI * 2f) + _phaseOffset) * _bobAmplitude;
             transform.position = pos;
             transform.Rotate(Vector3.up, _spinDegPerSec * Time.deltaTime, Space.World);
+        }
+
+        // Reduced-gravity rest. Cast straight down from a bit above the
+        // current anchor (the small offset keeps the cast clear of any
+        // collider sitting at the anchor position itself) and aim for
+        // ground.y + _restHeightAboveGround. QueryTriggerInteraction.Ignore
+        // skips other pickups, depot beacons, and the repair pad's trigger
+        // — none of those should act as "ground". A chassis cube IS a
+        // valid ground surface for this purpose; scrap landing on a
+        // moving chassis just rides it briefly until the trigger collects.
+        private void ApplyGravityRest(float dt)
+        {
+            if (_gravity <= 0f) return; // disabled — return to v0 floater behaviour
+            Vector3 probeOrigin = _anchorPosition + Vector3.up * 0.5f;
+            if (Physics.Raycast(probeOrigin, Vector3.down, out RaycastHit hit,
+                    _groundProbeDistance, ~0, QueryTriggerInteraction.Ignore))
+            {
+                float restY = hit.point.y + _restHeightAboveGround;
+                if (_anchorPosition.y > restY + 1e-3f)
+                {
+                    _fallVel += _gravity * dt;
+                    _anchorPosition.y -= _fallVel * dt;
+                    if (_anchorPosition.y < restY) { _anchorPosition.y = restY; _fallVel = 0f; }
+                }
+                else
+                {
+                    _anchorPosition.y = restY;
+                    _fallVel = 0f;
+                }
+            }
+            else
+            {
+                // No ground within probe range — keep falling.
+                _fallVel += _gravity * dt;
+                _anchorPosition.y -= _fallVel * dt;
+            }
         }
 
         private static Robot FindNearestChassis(Vector3 worldPos, float radius)

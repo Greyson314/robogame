@@ -239,19 +239,18 @@ namespace Robogame.Movement
         {
             if (_rb == null) return;
 
-            // --- Altitude setpoint. Space held → climb toward ceiling;
-            //     Shift held → descend toward ground; neither → return to
-            //     baseline. Lerped via MoveTowards so the spring sees a
-            //     smoothly-moving target and doesn't slam the chassis
-            //     between altitudes. Always runs (even airborne) so the
-            //     player can pre-set altitude before contact returns.
+            // --- Altitude setpoint. Hold Space → climb toward ceiling;
+            //     hold Shift → descend toward ground; release both →
+            //     altitude LATCHES at the current value (does not return
+            //     to baseline). The model is "hold to change, release to
+            //     hold" — Robocraft-style altitude trim rather than
+            //     spring-loaded throttle. Always runs (even airborne) so
+            //     the player can pre-set altitude before contact returns.
             float vert = control.Vertical;
-            float goal;
-            if      (vert >  0.05f) goal = _maxTargetAlt;
-            else if (vert < -0.05f) goal = MinTargetAltitude;
-            else                    goal = _baseTargetAlt;
-            _currentTargetAlt = Mathf.MoveTowards(
-                _currentTargetAlt, goal, AltitudeLerpRate * control.DeltaTime);
+            float step = AltitudeLerpRate * control.DeltaTime;
+            if      (vert >  0.05f) _currentTargetAlt = Mathf.MoveTowards(_currentTargetAlt, _maxTargetAlt,     step);
+            else if (vert < -0.05f) _currentTargetAlt = Mathf.MoveTowards(_currentTargetAlt, MinTargetAltitude, step);
+            // Neither held: leave _currentTargetAlt where the player set it.
 
             // No ground beneath ANY blade → no LATERAL propulsion. The
             // chassis glides on momentum until lift returns; matches the
