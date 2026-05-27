@@ -194,12 +194,9 @@ namespace Robogame.Gameplay
             ApplyGravityRest(Time.deltaTime);
 
             // Magnetic pull. After arm delay, find the nearest chassis
-            // within radius and drift toward it on the ground plane —
-            // gravity-rest already governs Y, so we strip the vertical
-            // component to keep scrap from being yanked into the sky by a
-            // hovering chassis. We update _anchorPosition (not transform
-            // directly) so the bob curve continues to apply on top of the
-            // pulled-toward base.
+            // within radius and drift toward it. We update _anchorPosition
+            // (not transform directly) so the bob curve continues to
+            // apply on top of the pulled-toward base.
             bool pulling = false;
             if (_magneticRadius > 0f && t >= _armDelay)
             {
@@ -207,7 +204,6 @@ namespace Robogame.Gameplay
                 if (nearest != null)
                 {
                     Vector3 toChassis = nearest.transform.position - _anchorPosition;
-                    toChassis.y = 0f; // ground-plane pull only
                     float dist = toChassis.magnitude;
                     if (dist > 0.05f)
                     {

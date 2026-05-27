@@ -539,14 +539,24 @@ namespace Robogame.Movement
             // just enforce their own segment lengths in isolation. Without
             // this physics-side joint, a grappled hook would let the plane
             // fly off forever while the rope visually stretches. The joint
-            // is a hard linear-distance limit: chassis can move freely
-            // anywhere within (totalRopeLength) of the tip; beyond that
-            // PhysX applies the constraint to halt the chassis. Always-
-            // on (works in both free-flight and grappled modes; in free
-            // flight the simulator keeps the chain inside the limit so
-            // the joint is inactive). Linear motion Limited; angular Free
-            // so the chain still swings naturally.
+            // is the OUTER leash: chassis can move anywhere within
+            // (totalRopeLength × LeashSlack) of the tip; beyond that PhysX
+            // applies the constraint to halt the chassis. Angular Free so
+            // the chain still swings naturally.
+            //
+            // Session 100 retune: during normal flight the Verlet chain
+            // self-constrains the tip to exactly totalLen from the chassis,
+            // putting the joint right at its limit. With damper > 0, PhysX
+            // applies a restoring force on EVERY chassis acceleration along
+            // the joint's radial axis — the plane feels like it's flying
+            // through molasses. Fix: (a) add 10% leash slack so the joint
+            // limit sits past the chain's natural extension and never
+            // engages during free flight; (b) zero the damper so even if
+            // the chassis briefly clips the limit (sub-step overshoot,
+            // grapple yank), no damping force is applied. The spring alone
+            // is the leash; damping was always belt-and-suspenders.
             float totalLen = segLen * (N - 1);
+            const float LeashSlack = 1.10f; // joint limit sits 10% past natural chain length
             _chassisTipJoint = _tipGo.AddComponent<ConfigurableJoint>();
             _chassisTipJoint.connectedBody = _hubRb;
             _chassisTipJoint.autoConfigureConnectedAnchor = false;
@@ -558,14 +568,12 @@ namespace Robogame.Movement
             _chassisTipJoint.angularXMotion = ConfigurableJointMotion.Free;
             _chassisTipJoint.angularYMotion = ConfigurableJointMotion.Free;
             _chassisTipJoint.angularZMotion = ConfigurableJointMotion.Free;
-            _chassisTipJoint.linearLimit = new SoftJointLimit { limit = totalLen, contactDistance = 0f };
-            // Soft spring on the limit gives a slight rubber-band tug
-            // instead of a brick-wall halt — matches the "rope stretches
-            // a little, then yanks" feel real grappling has. Spring
-            // stiffness chosen so a chassis at a few m/s past the limit
-            // is decelerated within ~half a second; tune higher for
-            // stiffer cables, lower for stretchier ropes.
-            _chassisTipJoint.linearLimitSpring = new SoftJointLimitSpring { spring = 8000f, damper = 250f };
+            _chassisTipJoint.linearLimit = new SoftJointLimit { limit = totalLen * LeashSlack, contactDistance = 0f };
+            // Spring without damper. Spring stiffness chosen so a chassis
+            // at a few m/s past the limit is decelerated within ~half a
+            // second; tune higher for stiffer cables, lower for stretchier
+            // ropes. Damper = 0 by design — see comment block above.
+            _chassisTipJoint.linearLimitSpring = new SoftJointLimitSpring { spring = 8000f, damper = 0f };
             _chassisTipJoint.enableCollision     = false;
             _chassisTipJoint.enablePreprocessing = false;
 

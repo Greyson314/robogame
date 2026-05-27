@@ -118,10 +118,21 @@ namespace Robogame.Combat
             float startSpeed = def != null ? def.InitialSpeed : _initialSpeed;
 
             Vector3 dropWorld = DropPoint.position;
-            // Chassis-relative "down" so on a planet (where chassis up
-            // = away from centre) bombs fall sensibly toward the surface.
-            Vector3 down = transform.parent != null
-                ? -transform.parent.up
+            // True world gravity at the drop point. On flat arenas this
+            // is Physics.gravity (≈ (0, -9.81, 0)); on planet arenas it
+            // points toward the planet center via GravityField's per-source
+            // sum. Critically NOT chassis-relative — a banked plane should
+            // drop bombs that fall WORLD-down, not chassis-down. The old
+            // chassis-relative code applied gravity along -transform.parent.up,
+            // so a 30°-banked plane gave bombs a sideways gravity component
+            // (sin(30°) × g ≈ 4.9 m/s² horizontal) and they drifted in the
+            // bank direction instead of dropping straight. That violated
+            // Newtonian expectation and let the player fling bombs sideways
+            // by banking the drop.
+            Vector3 gravity = GravityField.SampleAt(dropWorld);
+            float gravMag = gravity.magnitude;
+            Vector3 down = gravMag > 1e-4f
+                ? gravity / gravMag
                 : Vector3.down;
 
             Vector3 velocity = down * startSpeed;
@@ -132,10 +143,11 @@ namespace Robogame.Combat
                 Kind = ProjectileKind.Bomb,
                 Origin = dropWorld,
                 InitialVelocity = velocity,
-                // Gravity along chassis-relative down. Adequate today;
-                // a planet-aware projectile would re-evaluate gravity
-                // each step against the planet centre.
-                GravityWorld = down * Physics.gravity.magnitude,
+                // Full gravity vector (magnitude + direction). The integrator
+                // is constant-gravity, so a bomb whose flight crosses planet
+                // arenas' SOI boundary won't re-evaluate; the spawn-time
+                // sample is good enough for v1 since bombs are short-lived.
+                GravityWorld = gravity,
                 MaxLifetime = BombLifetime,
                 CastRadius = _bombRadius,
                 Damage = damage,
