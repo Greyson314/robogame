@@ -68,6 +68,11 @@ namespace Robogame.Movement
         // FixedUpdate guard can distinguish "joint exists, target gone"
         // (target chassis was destroyed mid-grapple) from "no joint."
         private Rigidbody _grappleTarget;
+        // The target's RobotDrive — cached at attach so Release can
+        // un-suppress movement even if the target Rigidbody has gone
+        // through a parent change between attach and release. Null when
+        // the target wasn't a chassis (e.g. arena prop, terrain).
+        private RobotDrive _suppressedTargetDrive;
         // Last release time (Time.time). Used to gate immediate
         // re-attach so the player can pull the rope free between swings.
         private float _releaseTime = -999f;
@@ -330,6 +335,16 @@ namespace Robogame.Movement
             _grappleJoint  = joint;
             _grappleTarget = targetRb;
 
+            // Suppress target movement until release/destroy. Session-100
+            // "fun over physics" call: an opponent dragged by a hook
+            // shouldn't be able to fight the pull with their own thrust.
+            // The chassis Rigidbody stays dynamic so the spring tether
+            // pulls it around; only the input-driven force path is gated.
+            // GetComponentInParent so a hit on a block-cube collider
+            // resolves up to the chassis root where RobotDrive lives.
+            _suppressedTargetDrive = targetRb.GetComponentInParent<RobotDrive>();
+            if (_suppressedTargetDrive != null) _suppressedTargetDrive.AddHookSuppression();
+
             // No chassis-tip spring softening, no tip mass fattening.
             // Both were band-aids for the locked-joint impulse-spike
             // problem the SpringJoint design avoids by construction.
@@ -351,6 +366,15 @@ namespace Robogame.Movement
             // Restore kinematic mode so the Verlet simulator owns the
             // body again. Matches the inverse of Attach.
             if (_hostRb != null) _hostRb.isKinematic = true;
+            // Lift the movement-suppression hold we placed on the target
+            // at attach time. Unity's overloaded == handles the target-
+            // destroyed case (returns null after the Robot is gone, so
+            // the call is a no-op rather than a NRE).
+            if (_suppressedTargetDrive != null)
+            {
+                _suppressedTargetDrive.RemoveHookSuppression();
+                _suppressedTargetDrive = null;
+            }
             _grappleTarget = null;
             _releaseTime   = Time.time;
         }

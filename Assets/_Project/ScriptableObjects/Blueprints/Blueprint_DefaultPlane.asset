@@ -46,7 +46,7 @@ MonoBehaviour:
     Pitch: 0
     BlockConfig: 0
   - BlockId: block.weapon.tip.hook
-    Position: {x: 0, y: -2, z: -2}
+    Position: {x: 0, y: -9, z: -2}
     Up: {x: 0, y: -1, z: 0}
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
@@ -54,7 +54,7 @@ MonoBehaviour:
   - BlockId: block.cosmetic.rope
     Position: {x: 0, y: -1, z: -2}
     Up: {x: 0, y: -1, z: 0}
-    Dims: {x: 1, y: 0, z: 0}
+    Dims: {x: 8, y: 0, z: 0}
     Pitch: 0
     BlockConfig: 0
   - BlockId: block.movement.aero

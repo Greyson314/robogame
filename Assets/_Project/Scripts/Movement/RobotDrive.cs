@@ -83,6 +83,27 @@ namespace Robogame.Movement
 
         public bool IsOperational => isActiveAndEnabled;
 
+        // Hook-suppression counter. Incremented by each hook that latches
+        // onto this chassis, decremented on release/destroy. While > 0,
+        // ApplyMovement still computes the aim ray but skips the drive-
+        // subsystem ticks — chassis Rigidbody is still dynamic (joints
+        // pull it around), but no input-driven forces are applied.
+        // Session-100 hook QoL: "hooked = movement-disabled," handwaves
+        // physics in favor of fun.
+        private int _hookedByCount;
+
+        /// <summary>True while at least one external hook holds this chassis. Input is gated; physics remain.</summary>
+        public bool IsHooked => _hookedByCount > 0;
+
+        /// <summary>Increment the hook-suppression count. Called by HookBlock.Attach.</summary>
+        public void AddHookSuppression() => _hookedByCount++;
+
+        /// <summary>Decrement the hook-suppression count (clamped at 0). Called by HookBlock.Release.</summary>
+        public void RemoveHookSuppression()
+        {
+            if (_hookedByCount > 0) _hookedByCount--;
+        }
+
         /// <summary>Last computed world-space aim target.</summary>
         public Vector3 AimPoint => _aimPoint;
 
@@ -237,6 +258,14 @@ namespace Robogame.Movement
 
             if (_aimCamera == null) _aimCamera = Camera.main;
             _aimPoint = ComputeAimPoint();
+
+            // Hook-suppression: a hook latched onto this chassis disables
+            // its movement until release/destroy. Aim still updates (so
+            // weapons / camera don't freeze mid-grapple), but drive
+            // subsystems skip their tick — no thrust, no yaw, no ground
+            // drive, no hover thrust. The chassis Rigidbody remains
+            // dynamic so the grapple joint can pull it around physically.
+            if (IsHooked) return;
 
             DriveControl control = new DriveControl(
                 move,
