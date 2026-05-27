@@ -59,6 +59,7 @@ namespace Robogame.Movement
         private BlockBehaviour _block;
         private BlockGrid _grid;
         private Rigidbody _chassisRb;
+        private HoverDriveSubsystem _drive;
         private bool _active = true;
         private bool _wasInRange;
 
@@ -70,6 +71,14 @@ namespace Robogame.Movement
         /// chassis laterally, only fall.
         /// </summary>
         public bool HasGroundContact => _active && _wasInRange;
+
+        /// <summary>
+        /// This blade's per-instance lift capacity, in "size-2 baseline
+        /// units" (N/2)². Read by <see cref="HoverDriveSubsystem"/> to
+        /// compute the chassis-wide max hover ceiling — more blades or
+        /// bigger blades = higher ceiling.
+        /// </summary>
+        public float LiftScale => _liftScale;
         // Per-instance scale factor applied to spring + damping. N²/baseline²
         // = (N/2)². Recomputed on enable and when Dims changes.
         private float _liftScale = 1f;
@@ -110,6 +119,7 @@ namespace Robogame.Movement
         {
             _chassisRb = GetComponentInParent<Rigidbody>();
             _grid = GetComponentInParent<BlockGrid>();
+            _drive = GetComponentInParent<HoverDriveSubsystem>();
             if (_block != null)
             {
                 _block.Destroyed += HandleDestroyed;
@@ -118,6 +128,14 @@ namespace Robogame.Movement
             ResolveTuning();
             Tweakables.Changed += ResolveTuning;
             RecomputeLiftScale();
+            // Self-register with the chassis-level drive so the ceiling
+            // formula and shared target-altitude state include this blade.
+            // The drive subsystem runs its own SeedBladesFromHierarchy at
+            // OnEnable but the binder adds HoverBladeBlock components
+            // AFTER the drive subsystem activates — by which time the seed
+            // has already run with zero blades visible. Self-registration
+            // is the canonical pickup path.
+            if (_drive != null) _drive.RegisterBlade(this);
 
             // Start the loop voice now so it tracks live block lifetime.
             // ChassisWindAudio pattern: idempotent re-check via IsValid so
@@ -137,6 +155,7 @@ namespace Robogame.Movement
                 _block.DimsChanged -= HandleDimsChanged;
             }
             Tweakables.Changed -= ResolveTuning;
+            if (_drive != null) _drive.UnregisterBlade(this);
             _loop?.Stop();
             _loop = null;
         }
@@ -238,8 +257,19 @@ namespace Robogame.Movement
             if (gravity.sqrMagnitude < 1e-4f) return;
             Vector3 gravityDir = gravity.normalized;
 
+            // Target altitude + max raycast may be driven by the chassis-
+            // level HoverDriveSubsystem (so Space/Shift can raise/lower
+            // the whole craft as a unit). When absent (test rigs, or any
+            // chassis without a HoverDriveSubsystem present), fall back
+            // to the baseline tuning constants. `_drive != null` uses
+            // Unity's overloaded == so a destroyed-but-not-yet-cleared
+            // reference reads as null.
+            bool driveAlive = _drive != null;
+            float targetAlt = driveAlive ? _drive.CurrentTargetAltitude : _tuning.TargetAltitude;
+            float maxRay    = driveAlive ? _drive.EffectiveMaxRaycast   : MaxRaycastDistance;
+
             Vector3 origin = GetLiftWorldPosition();
-            if (!RaycastIgnoringSelf(origin, gravityDir, MaxRaycastDistance, out RaycastHit hit))
+            if (!RaycastIgnoringSelf(origin, gravityDir, maxRay, out RaycastHit hit))
             {
                 // Ray missed (terraformed pit, off a cliff, above max
                 // range). Zero lift; gravity does the rest.
@@ -252,7 +282,7 @@ namespace Robogame.Movement
             // Spring term, clamped ≥ 0. At gap >= targetAltitude the
             // blade contributes zero force — no suction toward the
             // ground, no propulsion above target altitude.
-            float springForce = _tuning.SpringK * _liftScale * (_tuning.TargetAltitude - gap);
+            float springForce = _tuning.SpringK * _liftScale * (targetAlt - gap);
             if (springForce <= 0f)
             {
                 HandleContactState(true);
