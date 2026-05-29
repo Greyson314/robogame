@@ -1083,6 +1083,10 @@ namespace Robogame.Voxel
             int dim = chunk.Dim;
             int dimSq = dim * dim;
             NativeArray<sbyte> sdf = chunk.Sdf;
+            Vector3Int coord = chunk.ChunkCoord;
+            int totalCellsX = _chunkGridSize.x * _chunkSizeCells;
+            int totalCellsY = _chunkGridSize.y * _chunkSizeCells;
+            int totalCellsZ = _chunkGridSize.z * _chunkSizeCells;
             // localY range to restore: [1, min(BedrockCells, dim-1)].
             // localY = 0 corresponds to globalY = 0 (the watertight floor
             // shell, kept exterior); localY > _bedrockCells is dirt that
@@ -1093,6 +1097,21 @@ namespace Robogame.Voxel
             for (int z = 0; z < dim; z++)
             for (int x = 0; x < dim; x++)
             {
+                // Skip the zone's outer face planes. The seed gives the
+                // watertight exterior shell (MaxValue) precedence over
+                // bedrock, so these cells are NOT bedrock — a subtract
+                // brush can never lift them above MaxValue, so they never
+                // need restoring. Counting them here (they read != MinValue)
+                // would over-report `restored` and drive the brush's NET
+                // changedCount negative for any brush in the bottom chunk
+                // row, swallowing real carves above the bedrock band.
+                int globalX = coord.x * _chunkSizeCells + x;
+                int globalY = y; // coord.y == 0 in this method
+                int globalZ = coord.z * _chunkSizeCells + z;
+                if (globalX == 0 || globalX == totalCellsX ||
+                    globalY == 0 || globalY == totalCellsY ||
+                    globalZ == 0 || globalZ == totalCellsZ) continue;
+
                 int idx = z * dimSq + y * dim + x;
                 if (sdf[idx] != sbyte.MinValue)
                 {
