@@ -153,6 +153,8 @@ namespace Robogame.Gameplay
         public bool FirePressed => false;
         // Bots auto-reload on empty — they never manually press R.
         public bool ReloadPressed => false;
+        // Bots don't trigger active modules yet.
+        public bool ModulePressed => false;
         public BotState State => _state;
 
         public float HealthFraction

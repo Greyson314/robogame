@@ -101,6 +101,26 @@ namespace Robogame.Input
             }
         }
 
+        /// <summary>
+        /// True only on the frame the player presses Q. Reads the keyboard
+        /// device directly (Module isn't a binding in the project
+        /// InputActionAsset — same approach as <see cref="ReloadPressed"/>'s
+        /// R key). HUD-pointer suppression so a Q press over the UI doesn't
+        /// fire the ability.
+        /// </summary>
+        public bool ModulePressed
+        {
+            get
+            {
+                Keyboard kb = Keyboard.current;
+                if (kb == null) return false;
+                if (!kb.qKey.wasPressedThisFrame) return false;
+                if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+                    return false;
+                return true;
+            }
+        }
+
         private void OnEnable()
         {
             if (_actions == null)

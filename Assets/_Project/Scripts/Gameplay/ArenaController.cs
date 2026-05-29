@@ -1306,6 +1306,11 @@ namespace Robogame.Gameplay
                 mainCam.gameObject.AddComponent<HitMarkerOverlay>();
             if (mainCam.GetComponent<VehicleStatsHud>() == null)
                 mainCam.gameObject.AddComponent<VehicleStatsHud>();
+            // Active-module cooldown indicator. Resolves its chassis via
+            // FollowCamera.Target like the other Player HUDs; draws nothing
+            // until the chassis actually carries a live module block.
+            if (mainCam.GetComponent<ModuleHud>() == null)
+                mainCam.gameObject.AddComponent<ModuleHud>();
             if (mainCam.GetComponent<DeathOverlay>() == null)
                 mainCam.gameObject.AddComponent<DeathOverlay>();
             // Low-HP danger vignette + audio pulse. Reads the chassis Robot

@@ -75,14 +75,14 @@ namespace Robogame.Voxel
                  "physics + gravity resume within ~1.5 emit intervals — it is NOT an " +
                  "anti-gravity button you can hold mid-air. Keep this notably below drive " +
                  "speed so tunnelling reads as the slow, deliberate option.")]
-        [SerializeField, Min(0.1f)] private float _digTargetSpeed = 2.0f;
+        [SerializeField, Min(0.1f)] private float _digTargetSpeed = 2.6f;
 
         [Tooltip("How fast (deg/sec) the chassis swings to point along the bore while gliding. " +
                  "Without this the kinematic body keeps its entry orientation and reads as " +
                  "'suspended in space'; with it the bot noses into the dig direction. Rate-" +
                  "capped so it banks in smoothly rather than snapping. 0 disables the turn " +
                  "(translate only).")]
-        [SerializeField, Min(0f)] private float _glideTurnSpeed = 270f;
+        [SerializeField, Min(0f)] private float _glideTurnSpeed = 360f;
 
         [Tooltip("When cutting stops because the drill broke THROUGH into air while you're " +
                  "still holding fire, glide carries the chassis this many extra metres along " +

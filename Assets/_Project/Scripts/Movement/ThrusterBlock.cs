@@ -74,13 +74,6 @@ namespace Robogame.Movement
         // PlumeMaxRate).
         private const float PlumeMaxRate = 60f;
 
-        // Audio: ignite / shutdown one-shots fire on throttle threshold
-        // crossings rather than every tick. Hysteresis prevents a noisy
-        // joystick from re-triggering the cue every other frame.
-        private const float AudioIgniteThreshold  = 0.55f;
-        private const float AudioShutdownThreshold = 0.45f;
-        private bool _audioIgnited;
-
         private void Awake()
         {
             _bb = GetComponent<BlockBehaviour>();
@@ -152,21 +145,12 @@ namespace Robogame.Movement
             float t = Mathf.Max(0f, _throttle - 0.05f);
             _plumeEmission.rateOverTime = t * PlumeMaxRate;
 
-            // Audio: ignite when throttle crosses up through the
-            // ignite threshold, shutdown when it crosses down through
-            // the shutdown threshold. Hysteresis between the two
-            // prevents stutter at the boundary. Both cues are 3D so
-            // they pan and attenuate from the thruster's world position.
-            if (!_audioIgnited && _throttle >= AudioIgniteThreshold)
-            {
-                _audioIgnited = true;
-                AudioRouter.PlayOneShot(AudioCue.ThrusterIgnite, transform.position);
-            }
-            else if (_audioIgnited && _throttle <= AudioShutdownThreshold)
-            {
-                _audioIgnited = false;
-                AudioRouter.PlayOneShot(AudioCue.ThrusterShutdown, transform.position);
-            }
+            // Accel/decel intentionally has no audio cue — the original
+            // ignite/shutdown pitch-sweep was loud and chatter-prone on
+            // multi-thruster chassis, and the user's call (session 101)
+            // was that throttle adjustment doesn't need a discrete cue
+            // at all. ChassisWindAudio + WheelRoll + RotorSpin already
+            // give continuous movement feedback.
         }
 
         // -----------------------------------------------------------------

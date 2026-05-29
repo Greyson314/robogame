@@ -154,20 +154,64 @@ namespace Robogame.Tests.PlayMode.Voxel
         [Test]
         public void FullArenaConfig_CoversArena_AndContainsPlay()
         {
-            // Real 6×1×6 grid shape, coarsened cells so 36 chunks mesh
-            // fast: 8 cells × 4 m = 32 m/chunk → 192 m footprint, same as
-            // the shipped 32-cell × 1 m config.
-            DigZone zone = MakeZone(new Vector3(-96f, -16f, -96f),
-                new Vector3Int(6, 1, 6), chunkCells: 8, cellSize: 4.0f, Flat());
+            // Real 11x1x11 grid shape, coarsened cells so 121 chunks mesh
+            // fast: 8 cells x 4 m = 32 m/chunk -> 352 m footprint, same
+            // as the shipped 32-cell x 1 m config. The arena walls ring at
+            // +-170 m per SceneScaffolder.PopulateTestTerrain, so the dig
+            // zone has to span past that. The 7x1x7 / 224 m predecessor
+            // left a 58 m strip of non-dig terrain between dig zone edge
+            // and wall, where flying chassis could drive past and fall
+            // through the world (session 101 bug).
+            DigZone zone = MakeZone(new Vector3(-176f, -16f, -176f),
+                new Vector3Int(11, 1, 11), chunkCells: 8, cellSize: 4.0f, Flat());
 
-            Assert.AreEqual(36, zone.ChunkCount, "6×1×6 must spawn 36 chunks.");
+            Assert.AreEqual(121, zone.ChunkCount, "11x1x11 must spawn 121 chunks.");
             Bounds b = zone.WorldBounds;
-            Assert.AreEqual(192f, b.size.x, 0.01f);
-            Assert.AreEqual(192f, b.size.z, 0.01f);
+            Assert.AreEqual(352f, b.size.x, 0.01f);
+            Assert.AreEqual(352f, b.size.z, 0.01f);
             Assert.AreEqual(32f, b.size.y, 0.01f);
             Assert.IsTrue(zone.ContainsPoint(new Vector3(0f, 0f, 0f)), "Arena origin must be inside.");
             Assert.IsTrue(zone.ContainsPoint(new Vector3(90f, 0f, -90f)), "Far playfield must be inside.");
-            Assert.IsFalse(zone.ContainsPoint(new Vector3(300f, 0f, 0f)), "Well outside must be outside.");
+            // The wall ring is at +-170 m. The dig zone must extend past
+            // it so a chassis at the wall is still on diggable ground.
+            Assert.IsTrue(zone.ContainsPoint(new Vector3(168f, 0f, -168f)),
+                "Wall-perimeter band (+-170 m) must be inside the diggable zone.");
+            Assert.IsFalse(zone.ContainsPoint(new Vector3(400f, 0f, 0f)), "Well outside must be outside.");
+        }
+
+        [Test]
+        public void Bedrock_BottomCellsStaySolid_AcrossBrushes()
+        {
+            // Default _bedrockCells = 3: cells at globalY in [1, 3] must
+            // stay deeply solid (sbyte.MinValue) even after a brush tries
+            // to carve through them. Without this, a player drilling
+            // straight down would punch through the zone floor.
+            var zone = MakeZone(new Vector3(0f, -4f, 0f),
+                new Vector3Int(1, 1, 1), chunkCells: 8, cellSize: 1.0f, Flat());
+
+            DigChunk chunk = zone.GetChunk(0, 0, 0);
+            int dim = chunk.Dim;
+            int dimSq = dim * dim;
+
+            // Sanity: bedrock cell (4, 2, 4) starts at MinValue.
+            int bedrockIdx = 4 * dimSq + 2 * dim + 4;
+            Assert.AreEqual(sbyte.MinValue, chunk.Sdf[bedrockIdx],
+                "Pre-brush: bedrock cell must be seeded at deep-solid.");
+
+            // Carve a big sphere straight through the bedrock band.
+            // worldY for globalY=2 is -4 + 2 = -2; centre the brush there
+            // with a 4 m radius so it tries to wipe the whole bedrock slab.
+            zone.ApplyBrush(Sphere(new Vector3(4f, -2f, 4f), 4f));
+
+            Assert.AreEqual(sbyte.MinValue, chunk.Sdf[bedrockIdx],
+                "Post-brush: bedrock cell must be restored to deep-solid.");
+
+            // And a cell ABOVE bedrock (globalY = 5, worldY = 1) should
+            // have been carved exterior — bedrock doesn't shield the dirt
+            // above it.
+            int dirtIdx = 4 * dimSq + 5 * dim + 4;
+            Assert.GreaterOrEqual(chunk.Sdf[dirtIdx], (sbyte)0,
+                "Cells above the bedrock band must still be carveable.");
         }
 
         [Test]
@@ -175,8 +219,8 @@ namespace Robogame.Tests.PlayMode.Voxel
         {
             // Pre-83 only a tiny authored cube was diggable. Now any
             // surface column is. Dig at (70,·,70), far from the old cube.
-            DigZone zone = MakeZone(new Vector3(-96f, -16f, -96f),
-                new Vector3Int(6, 1, 6), chunkCells: 8, cellSize: 4.0f, Flat());
+            DigZone zone = MakeZone(new Vector3(-176f, -16f, -176f),
+                new Vector3Int(11, 1, 11), chunkCells: 8, cellSize: 4.0f, Flat());
 
             // Flat surface ≈ y = -0.25; centre the brush on it.
             int changed = zone.ApplyBrush(Sphere(new Vector3(70f, 0f, 70f), 6f));

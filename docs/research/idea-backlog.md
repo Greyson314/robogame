@@ -48,11 +48,12 @@ Payoff: chip damage along block graph + detach subgraph as debris + functional d
 Reference: Robocraft block graph; Crossout functional disable.
 Notes: Approved by /ideate run then found ALREADY IMPLEMENTED — splash via SMG SplashRings + BlockGrid.ApplySplashDamage (graph-BFS); detach via Robot.RunConnectivityNextFrame + DetachAsDebris; functional disable via isActiveAndEnabled + RotorBlock.OnDestroy. The only net work done this run: made ApplySplashDamage + FindDisconnectedFrom allocation-free (invariant #6, was allocating per SMG hit).
 
-## Approved
+### Active Module Slot — shipped (2026-05-29)
+Payoff: one garage-chosen keybind ability (EMP / Blink / Disc Shield), fixed at match start, server-authoritative cooldown, destructible carrier block disables it; turns "drive and shoot" into "wait for your moment."
+Reference: Robocraft modules (Blink/EMP/Disc Shield); Crossout active abilities.
+Notes: Shipped session 101. Module-category block + ActiveModuleSystem (server-gated cooldown), per-kind ModuleDefinition tuning, ModulePressed on Q, VFX+audio, arena cooldown HUD + garage select panel. Default Tank carries one. See docs/changes/101-active-module-slot.md.
 
-### Active Module Slot — approved (2026-05-28)
-Payoff: one garage-chosen keybind ability (EMP / Blink / shield), fixed at match start, server cooldown, destructible block disables it; turns "drive and shoot" into "wait for your moment."
-Reference: Robocraft modules (Blink/EMP/Disc Shield); Crossout active abilities. ~2 sessions.
+## Approved
 
 ### CPU Budget + Garage HUD — approved (2026-05-28)
 Payoff: per-block CPU cost + live garage spend-vs-cap bar + strip-at-spawn over budget; garage becomes a resource-allocation puzzle and the balance lever for future blocks.

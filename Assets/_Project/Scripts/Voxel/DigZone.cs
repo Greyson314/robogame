@@ -92,6 +92,31 @@ namespace Robogame.Voxel
                  "bomb removes several metres, well past this.")]
         [SerializeField, Min(0.05f)] private float _grassClipDepth = 2.0f;
 
+        [Header("Bedrock")]
+        [Tooltip("Number of cell layers at the BOTTOM of the zone (globalY in [1, BedrockCells]) " +
+                 "that are permanently solid — brushes carve them as a no-op so the player can't " +
+                 "tunnel out the bottom of the world. The visible mesh emits a floor at the " +
+                 "bedrock/exterior interface (chunk-bottom shell), so digging straight down ends " +
+                 "at a flat unbreakable floor a few metres beneath the dig zone's lowest mesh. " +
+                 "ApplyBrush returns NET changed cells (gross minus what ClampBedrock restored), " +
+                 "so a brush that touches only bedrock returns 0 — preserves the max-fold " +
+                 "idempotency contract that drill-glide gating + tests rely on. 0 disables " +
+                 "bedrock entirely.")]
+        [SerializeField, Min(0)] private int _bedrockCells = 3;
+
+        /// <summary>
+        /// Test-friendly setter for <see cref="_bedrockCells"/>. Must be
+        /// set before the zone activates (same throw-once-initialised
+        /// pattern as the chunk-grid / cell-size knobs). Tests use this
+        /// directly; production zones can override via the inspector or
+        /// the SerializedField path in EnvironmentBuilder.
+        /// </summary>
+        public int BedrockCells
+        {
+            get => _bedrockCells;
+            set { ThrowIfInitialised(nameof(BedrockCells)); _bedrockCells = value; }
+        }
+
         /// <summary>
         /// Editor-authored / scaffolder-authored brush to apply once at
         /// zone init, after SDF seeding but before occupancy + mesh
@@ -922,6 +947,14 @@ namespace Robogame.Voxel
                     {
                         sample = sbyte.MaxValue;
                     }
+                    else if (_bedrockCells > 0 && globalY <= _bedrockCells)
+                    {
+                        // Bedrock — the bottom N cell layers stay deeply
+                        // solid even at fresh init. ApplyBrush / Deferred
+                        // re-clamps after every brush so it's not just an
+                        // init-time setting; it's the floor of the world.
+                        sample = sbyte.MinValue;
+                    }
                     else
                     {
                         float worldX = transform.position.x + globalX * _cellSize;
@@ -964,6 +997,16 @@ namespace Robogame.Voxel
             for (int i = 0; i < _chunks.Length; i++)
             {
                 int c = _chunks[i].ApplyBrushNoRemesh(op);
+                if (c > 0)
+                {
+                    // Subtract bedrock cells the clamp restored — those
+                    // cells went MinValue → MaxValue → MinValue, net zero.
+                    // Reporting them as "changed" would break the drill's
+                    // glide-end gate (DrillBlock.Drill refreshes glide
+                    // only on changed > 0) and the max-fold idempotency
+                    // tests, both correctly.
+                    c -= ClampBedrock(_chunks[i]);
+                }
                 _chunkChanged[i] = c > 0;
                 totalChanged += c;
             }
@@ -994,7 +1037,17 @@ namespace Robogame.Voxel
             for (int i = 0; i < _chunks.Length; i++)
             {
                 int c = _chunks[i].ApplyBrushNoRemesh(op);
-                if (c > 0) _pendingDirty[i] = true;
+                if (c > 0)
+                {
+                    // See ApplyBrush above — subtract restored bedrock
+                    // cells from the change count so a brush that only
+                    // hit bedrock returns 0. The drill's `if (changed > 0)`
+                    // gate then correctly ends glide one emit-interval
+                    // later, so the bot drops back to dynamic physics
+                    // instead of kinematic-floating through the floor.
+                    c -= ClampBedrock(_chunks[i]);
+                    if (c > 0) _pendingDirty[i] = true;
+                }
                 totalChanged += c;
             }
             s_mApplyDeferred.End();
@@ -1004,6 +1057,50 @@ namespace Robogame.Voxel
                 _hasPendingDirty = true;
             }
             return totalChanged;
+        }
+
+        /// <summary>
+        /// Restore the chunk's bedrock cells (own-SDF localY in
+        /// [1, BedrockCells] for the bottom row of chunks) to deep-solid
+        /// after a brush ran. Returns the count of cells that were
+        /// actually restored — callers subtract this from the brush's
+        /// gross changedCount so the public ApplyBrush return reflects
+        /// NET cells changed (not MinValue → MaxValue → MinValue
+        /// round-trips). Called only on chunks the brush actually
+        /// touched (changed > 0), so this stays a few hundred writes
+        /// per drill tick. globalY = 0 stays exterior (the watertight-
+        /// cube rule), so the mesher emits a flat floor between the
+        /// bedrock slab and the boundary cell — that's the visible
+        /// "this is the bottom of the world" surface.
+        /// </summary>
+        private int ClampBedrock(DigChunk chunk)
+        {
+            if (_bedrockCells <= 0) return 0;
+            // Only the lowest row of chunks (chunkY = 0) holds bedrock
+            // cells. Any chunk above that is exclusively dirt.
+            if (chunk.ChunkCoord.y != 0) return 0;
+
+            int dim = chunk.Dim;
+            int dimSq = dim * dim;
+            NativeArray<sbyte> sdf = chunk.Sdf;
+            // localY range to restore: [1, min(BedrockCells, dim-1)].
+            // localY = 0 corresponds to globalY = 0 (the watertight floor
+            // shell, kept exterior); localY > _bedrockCells is dirt that
+            // remains carveable.
+            int yMax = Mathf.Min(_bedrockCells, dim - 1);
+            int restored = 0;
+            for (int y = 1; y <= yMax; y++)
+            for (int z = 0; z < dim; z++)
+            for (int x = 0; x < dim; x++)
+            {
+                int idx = z * dimSq + y * dim + x;
+                if (sdf[idx] != sbyte.MinValue)
+                {
+                    sdf[idx] = sbyte.MinValue;
+                    restored++;
+                }
+            }
+            return restored;
         }
 
         /// <summary>

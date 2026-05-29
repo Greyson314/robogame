@@ -42,5 +42,13 @@ namespace Robogame.Input
         /// — they rely on auto-reload-on-empty.
         /// </summary>
         bool ReloadPressed { get; }
+
+        /// <summary>
+        /// True for exactly one tick on the frame the player pressed the
+        /// active-module key (Q). Consumed by the chassis-root
+        /// <c>ActiveModuleSystem</c> to fire the garage-chosen ability when
+        /// off cooldown. Bots stub to false until they author module logic.
+        /// </summary>
+        bool ModulePressed { get; }
     }
 }

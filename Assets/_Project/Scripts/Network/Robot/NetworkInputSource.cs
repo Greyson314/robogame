@@ -17,6 +17,7 @@ namespace Robogame.Network.Robot
         public bool FireHeld;
         public bool FirePressed;
         public bool ReloadPressed;
+        public bool ModulePressed;
 
         public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
         {
@@ -27,6 +28,7 @@ namespace Robogame.Network.Robot
             serializer.SerializeValue(ref FireHeld);
             serializer.SerializeValue(ref FirePressed);
             serializer.SerializeValue(ref ReloadPressed);
+            serializer.SerializeValue(ref ModulePressed);
         }
     }
 
@@ -99,6 +101,7 @@ namespace Robogame.Network.Robot
         public bool FireHeld => UseCmd ? _cmd.FireHeld : _live.FireHeld;
         public bool FirePressed => UseCmd ? _cmd.FirePressed : _live.FirePressed;
         public bool ReloadPressed => UseCmd ? _cmd.ReloadPressed : _live.ReloadPressed;
+        public bool ModulePressed => UseCmd ? _cmd.ModulePressed : _live.ModulePressed;
 
         private bool UseCmd => _replayMode || _live == null;
     }

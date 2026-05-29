@@ -189,12 +189,13 @@ namespace Robogame.Gameplay
                 // blueprint contents. Skipped on passive targets.
                 if (options.AddDriveSubsystems)
                 {
-                    bool hasWheels = false, hasAero = false, hasWeapon = false, hasHovers = false;
+                    bool hasWheels = false, hasAero = false, hasWeapon = false, hasHovers = false, hasModule = false;
                     foreach (ChassisBlueprint.Entry e in blueprint.Entries)
                     {
                         if (e.BlockId == BlockIds.Wheel || e.BlockId == BlockIds.WheelSteer) hasWheels = true;
                         if (e.BlockId == BlockIds.Aero || e.BlockId == BlockIds.AeroFin) hasAero = true;
                         if (e.BlockId == BlockIds.HoverBlade) hasHovers = true;
+                        if (e.BlockId == BlockIds.ActiveModule) hasModule = true;
                         if (e.BlockId == BlockIds.Weapon
                             || e.BlockId == BlockIds.BombBay
                             || e.BlockId == BlockIds.Cannon
@@ -218,6 +219,16 @@ namespace Robogame.Gameplay
                     // without a respawn. Zero per-frame cost when no
                     // aero blocks are present.
                     EnsureComponent<RobotAeroBinder>(root);
+
+                    // Module binder is likewise unconditional (dragging an
+                    // ActiveModule block on should just work). The chassis-
+                    // root controller is only added when a module block is
+                    // present so a moduleless chassis pays zero per-frame
+                    // cost (invariant #5). The system must exist before the
+                    // block's OnEnable runs so ActiveModuleBlock.Register
+                    // finds it on activation.
+                    EnsureComponent<RobotModuleBinder>(root);
+                    if (hasModule) EnsureComponent<ActiveModuleSystem>(root);
 
                     if (hasAero || blueprint.Kind == ChassisKind.Plane)
                         EnsureComponent<PlaneControlSubsystem>(root);

@@ -95,6 +95,52 @@ namespace Robogame.Tests.EditMode.Blueprints
         }
 
         [Test]
+        public void RoundTrip_V5_PreservesActiveModuleKind()
+        {
+            var bp = ScriptableObject.CreateInstance<ChassisBlueprint>();
+            bp.DisplayName = "Shielded";
+            bp.Kind = ChassisKind.Ground;
+            bp.ActiveModuleKind = ModuleKind.DiscShield;
+            bp.SetEntries(new[]
+            {
+                new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)),
+                new ChassisBlueprint.Entry(BlockIds.ActiveModule,
+                    new Vector3Int(0, 1, 0), Vector3Int.up),
+            });
+
+            string json = BlueprintSerializer.ToJson(bp, prettyPrint: false);
+            Assert.IsTrue(BlueprintSerializer.TryFromJson(json, out ChassisBlueprint loaded, out string error),
+                $"v5 round-trip failed: {error}");
+
+            Assert.AreEqual(ModuleKind.DiscShield, loaded.ActiveModuleKind,
+                "The garage-chosen active module must survive a save/load — losing it " +
+                "would silently reset every loaded chassis to the EMP default.");
+        }
+
+        [Test]
+        public void LegacyV4Json_LoadsWithEmpBurstDefault()
+        {
+            // v4 JSON has no activeModuleKind field. Loader must default to
+            // EmpBurst (the enum's zero value) so pre-module saves stay valid.
+            string v4Json = @"{
+                ""schemaVersion"": 4,
+                ""displayName"": ""LegacyV4"",
+                ""kind"": ""Ground"",
+                ""createdUtc"": ""2026-05-20T00:00:00Z"",
+                ""rotorsGenerateLift"": false,
+                ""entries"": [
+                    { ""id"": ""block.cpu.standard"", ""x"": 0, ""y"": 0, ""z"": 0,
+                      ""ux"": 0, ""uy"": 1, ""uz"": 0,
+                      ""dx"": 0, ""dy"": 0, ""dz"": 0, ""pitch"": 0, ""blockConfig"": 0 }
+                ]
+            }";
+            Assert.IsTrue(BlueprintSerializer.TryFromJson(v4Json, out ChassisBlueprint bp, out string error),
+                $"v4 load failed: {error}");
+            Assert.AreEqual(ModuleKind.EmpBurst, bp.ActiveModuleKind,
+                "v4 saves predate the module field and must default to EmpBurst.");
+        }
+
+        [Test]
         public void LegacyV3Json_LoadsWithDefaultTuning()
         {
             // Hand-rolled v3 JSON: no tuning objects, no blockConfig. The

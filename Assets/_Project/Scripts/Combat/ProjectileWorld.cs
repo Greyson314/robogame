@@ -139,6 +139,18 @@ namespace Robogame.Combat
         /// </summary>
         public const float TerrainCraterScale = 0.3f;
 
+        /// <summary>
+        /// Fraction of the crater radius the SphereSubtract centre is
+        /// pushed UP (along -gravity) from the bomb's impact point. The
+        /// sphere then bites the terrain as a shallow dish — a thin cap
+        /// of the sphere ends up below the surface — instead of a deep
+        /// bowl with its full diameter buried. 0.6 leaves ~40% of the
+        /// sphere diameter underground (visible crater depth ≈ 0.4 × R),
+        /// which reads as a real impact crater on hilly ground without
+        /// punching deep pits the player has to climb out of.
+        /// </summary>
+        public const float TerrainCraterUpwardBias = 0.6f;
+
         // Visual pools (separate per kind because the underlying GO
         // shape differs: trail-only vs mesh vs both).
         private readonly Stack<ProjectileVisual> _trailPool = new(32);
@@ -466,13 +478,20 @@ namespace Robogame.Combat
                     // Phase 3c: if the bomb detonated inside a dig zone,
                     // emit a SphereSubtract crater. No-op outside any zone.
                     // The terrain crater radius is the combat splash
-                    // scaled by `TerrainCraterScale` — a default-18m
-                    // bomb splash is balanced for chassis damage and
-                    // would obliterate a small dig zone (16m deep)
-                    // outright. 0.3× gives a proportional crater
-                    // (~5–6m for the default bomb) and leaves room to
-                    // see tunneling as the player keeps bombing.
-                    Voxel.TerrainCratering.OnBombDetonation(pos, spec.SplashRadius * TerrainCraterScale);
+                    // scaled by `TerrainCraterScale`. The sphere centre
+                    // is then biased upward along -gravity by
+                    // `TerrainCraterUpwardBias × R` so the crater reads
+                    // as a shallow dish rather than a deep bowl — see
+                    // the const's doc comment. -gravity (not world up)
+                    // keeps this correct on spherical arenas; arc
+                    // weapons store the local gravity vector on the
+                    // bomb's spec at fire time.
+                    float craterR = spec.SplashRadius * TerrainCraterScale;
+                    Vector3 upDir = spec.GravityWorld.sqrMagnitude > 1e-4f
+                        ? -spec.GravityWorld.normalized
+                        : Vector3.up;
+                    Vector3 craterCentre = pos + upDir * (craterR * TerrainCraterUpwardBias);
+                    Voxel.TerrainCratering.OnBombDetonation(craterCentre, craterR);
                     break;
             }
         }

@@ -66,6 +66,10 @@ namespace Robogame.Core
         // Player state
         LowHealthAlert,    // looped pulse while local chassis HP < ~30% — the "you're about to die" warning
 
+        // Active module (session 101)
+        ModuleActivate,    // active-module ability fires (EMP / Blink / Shield) — punchy "ka-chunk" trigger
+        ModuleReady,       // active-module cooldown finishes — subtle "ready" chirp
+
         // UI / match
         UiHover,
         UiClick,

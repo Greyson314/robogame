@@ -336,6 +336,9 @@ namespace Robogame.Core
                 case VfxKind.BlockRespawn:   ConfigureBlockRespawn(ps, rend);  break;
                 case VfxKind.ScrapBurst:     ConfigureScrapBurst(ps, rend);    break;
                 case VfxKind.MagnetTrail:    ConfigureMagnetTrail(ps, rend);   break;
+                case VfxKind.EmpBurst:       ConfigureEmpBurst(ps, rend);      break;
+                case VfxKind.BlinkArrive:    ConfigureBlinkArrive(ps, rend);   break;
+                case VfxKind.ShieldActivate: ConfigureShieldActivate(ps, rend); break;
             }
 
             return ps;
@@ -709,6 +712,111 @@ namespace Robogame.Core
             var size = ps.sizeOverLifetime;
             size.enabled = true;
             size.size = new ParticleSystem.MinMaxCurve(1f, MakeFadeOutCurve());
+
+            rend.renderMode = ParticleSystemRenderMode.Mesh;
+            rend.mesh = CubeMesh;
+            rend.sharedMaterial = UnlitMeshMaterial;
+        }
+
+        // EMP burst: a fast, wide electric ring + a few outward sparks.
+        // Cyan→plasma so it reads as "electronic shockwave" rather than a
+        // fire explosion. Spherical, orientation-independent — the player
+        // sees a pulse expand from their chassis. Scaled per-spawn to the
+        // module's effect radius by the caller.
+        private static void ConfigureEmpBurst(ParticleSystem ps, ParticleSystemRenderer rend)
+        {
+            var main = ps.main;
+            main.duration = 0.1f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.25f, 0.55f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(10f, 22f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.10f, 0.26f);
+            main.startColor = new ParticleSystem.MinMaxGradient(RuntimePalette.Cyan, RuntimePalette.Plasma);
+            main.gravityModifier = 0f;
+            main.maxParticles = 80;
+
+            var burst = ps.emission;
+            burst.SetBursts(new[] { new ParticleSystem.Burst(0f, 48) });
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Sphere;
+            shape.radius = 0.25f;
+
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            col.color = MakeFadeOutGradient(RuntimePalette.HotCore, RuntimePalette.Cyan);
+
+            var size = ps.sizeOverLifetime;
+            size.enabled = true;
+            size.size = new ParticleSystem.MinMaxCurve(1f, MakeFadeOutCurve());
+
+            rend.renderMode = ParticleSystemRenderMode.Mesh;
+            rend.mesh = CubeMesh;
+            rend.sharedMaterial = UnlitMeshMaterial;
+        }
+
+        // Blink arrive: a tight bright pop at the teleport destination —
+        // plasma/cyan, very short, reads as "snapped into existence here".
+        private static void ConfigureBlinkArrive(ParticleSystem ps, ParticleSystemRenderer rend)
+        {
+            var main = ps.main;
+            main.duration = 0.05f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.12f, 0.3f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(5f, 12f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.2f);
+            main.startColor = new ParticleSystem.MinMaxGradient(RuntimePalette.Plasma, RuntimePalette.HotCore);
+            main.gravityModifier = 0f;
+            main.maxParticles = 32;
+
+            var burst = ps.emission;
+            burst.SetBursts(new[] { new ParticleSystem.Burst(0f, 20) });
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Sphere;
+            shape.radius = 0.15f;
+
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            col.color = MakeFadeOutGradient(RuntimePalette.HotCore, RuntimePalette.Plasma);
+
+            var size = ps.sizeOverLifetime;
+            size.enabled = true;
+            size.size = new ParticleSystem.MinMaxCurve(1f, MakeFadeOutCurve());
+
+            rend.renderMode = ParticleSystemRenderMode.Mesh;
+            rend.mesh = CubeMesh;
+            rend.sharedMaterial = UnlitMeshMaterial;
+        }
+
+        // Shield activate: a rising cyan/mint disc shimmer as the bubble
+        // engages. Cone pointed up with slight upward drift — reads as a
+        // protective field powering on around the chassis.
+        private static void ConfigureShieldActivate(ParticleSystem ps, ParticleSystemRenderer rend)
+        {
+            var main = ps.main;
+            main.duration = 0.2f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.6f, 1.1f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(1.5f, 3.5f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.1f, 0.22f);
+            main.startColor = new ParticleSystem.MinMaxGradient(RuntimePalette.Cyan, RuntimePalette.Mint);
+            main.gravityModifier = -0.15f; // slight upward bias
+            main.maxParticles = 64;
+
+            var burst = ps.emission;
+            burst.SetBursts(new[] { new ParticleSystem.Burst(0f, 36) });
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Cone;
+            shape.angle = 80f; // wide — sprays outward into a disc-ish dome
+            shape.radius = 1.2f;
+            shape.rotation = new Vector3(-90f, 0f, 0f); // open upward
+
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            col.color = MakeFadeOutGradient(RuntimePalette.Mint, RuntimePalette.Cyan);
+
+            var size = ps.sizeOverLifetime;
+            size.enabled = true;
+            size.size = new ParticleSystem.MinMaxCurve(1f, MakeGrowAndFadeCurve());
 
             rend.renderMode = ParticleSystemRenderMode.Mesh;
             rend.mesh = CubeMesh;

@@ -87,8 +87,12 @@ namespace Robogame.Tools.Editor
             new CueRow(AudioCue.DrillActive,       "MACHINES/Construction/MACHINE_Construction_Stone_Crusher_loop_mono.wav",                                   AudioBus.Sfx,   spatial: 1f, vol: 0.40f, jitter: 0f,    solo: true),
 
             // Movement
-            new CueRow(AudioCue.ThrusterIgnite,    "CHARGE_UPS_DOWNS/CHARGE_Complex_Wet_12_Semi_Up_1000ms_mono.wav",                                            AudioBus.Sfx,   spatial: 1f, vol: 0.55f, jitter: 0.05f, solo: true),
-            new CueRow(AudioCue.ThrusterShutdown,  "CHARGE_UPS_DOWNS/CHARGE_Complex_Wet_12_Semi_Down_1000ms_mono.wav",                                          AudioBus.Sfx,   spatial: 1f, vol: 0.50f, jitter: 0.05f, solo: true),
+            // ThrusterIgnite / ThrusterShutdown intentionally absent —
+            // user call (session 101): accel/decel doesn't need a discrete
+            // cue. ChassisWindAudio + WheelRoll + RotorSpin already cover
+            // movement feedback continuously. The enum entries stay so any
+            // code still calling these cues no-ops via the missing-cue
+            // logger; the calls themselves are gone from ThrusterBlock.
             new CueRow(AudioCue.WheelRoll,         "ENGINES_MOTORS_GENERATORS/ENGINE_Generic_01_loop_mono.wav",                                                 AudioBus.Sfx,   spatial: 1f, vol: 0.55f, jitter: 0f,    solo: true),
             new CueRow(AudioCue.RotorSpin,         "VEHICLES/Air/Helicopters/HELICOPTER_Hover_Fast_loop_mono.wav",                                              AudioBus.Sfx,   spatial: 1f, vol: 0.45f, jitter: 0f,    solo: true),
             // PropellerLoop — engine-driven prop (rotor + adopted foils).
@@ -105,6 +109,31 @@ namespace Robogame.Tools.Editor
             // overrides via SetBaseVolume from the speed curve.
             new CueRow(AudioCue.WindLoop,          "WIND/WIND_Storm_Blowing_Deep_01_loop_mono.wav",                                                             AudioBus.Sfx,   spatial: 1f, vol: 0.50f, jitter: 0f,    solo: false),
             new CueRow(AudioCue.WaterSplash,       "ELEMENTS/Water/Splashes/SPLASH_Designed_Medium_01_mono.wav",                                                AudioBus.Sfx,   spatial: 1f, vol: 0.85f, jitter: 0.05f, solo: false),
+
+            // Weapon ammo / reload — subtle player-state cues. The user
+            // (session 101) asked for sounds on running-out-of-ammo and
+            // reload-completing specifically; ReloadStart intentionally
+            // stays unwired (logs missing-cue once, no spam) since
+            // pressing fire on an empty pool already produces WeaponEmpty,
+            // which is the player's "oh, reload starting" tell.
+            // ReloadComplete: two-tone clean-up beep at low vol = "ready
+            // to fire again" affirmation. Solo so a multi-pool chassis
+            // reload finishing at near-identical times doesn't double-up.
+            new CueRow(AudioCue.ReloadComplete,    "USER_INTERFACES/Beeps/UI_Beep_Double_Clean_Up_stereo.wav",                                                 AudioBus.UI,    spatial: 0f, vol: 0.30f, jitter: 0f,    solo: true),
+            // WeaponEmpty: muffled short error tone, the "dry click" of
+            // an empty mag. 3D / Sfx because it fires at the firing
+            // block's world position (BombBay / Cannon / ProjectileGun
+            // all call PlayOneShot with their transform.position).
+            new CueRow(AudioCue.WeaponEmpty,       "USER_INTERFACES/Errors/UI_Error_Double_Note_Down_Muffled_Short_stereo.wav",                                AudioBus.Sfx,   spatial: 1f, vol: 0.35f, jitter: 0.04f, solo: true),
+
+            // Active module (session 101)
+            // ModuleActivate: a punchy powered "ka-chunk" when the ability
+            // fires. 3D / Sfx — played at the chassis world position so it
+            // localises to the bot that triggered it.
+            new CueRow(AudioCue.ModuleActivate,    "8BIT/Powerups/8BIT_RETRO_Powerup_Spawn_Quick_Climbing_mono.wav",                                            AudioBus.Sfx,   spatial: 1f, vol: 0.90f, jitter: 0.04f, solo: true),
+            // ModuleReady: subtle two-tone "recharged" chirp. UI bus —
+            // it's feedback to the local player, not a world event.
+            new CueRow(AudioCue.ModuleReady,       "USER_INTERFACES/Beeps/UI_Beep_Double_Clean_Up_stereo.wav",                                                 AudioBus.UI,    spatial: 0f, vol: 0.30f, jitter: 0f,    solo: true),
 
             // UI / match
             new CueRow(AudioCue.UiHover,           "USER_INTERFACES/Beeps/UI_Beep_Bend_Short_stereo.wav",                                                       AudioBus.UI,    spatial: 0f, vol: 0.40f, jitter: 0f,    solo: false),

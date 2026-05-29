@@ -46,5 +46,14 @@ namespace Robogame.Core
 
         /// <summary>Tiny sparkling trail emitted by a scrap pickup while it's drifting toward a chassis in magnetic-pull range. Reads as "this is coming to you" without spawning a per-pickup line renderer.</summary>
         MagnetTrail,
+
+        /// <summary>Fast outward electric ring — the EMP active module detonating. Cyan/white, spherical, brief.</summary>
+        EmpBurst,
+
+        /// <summary>Tight bright pop at a Blink module's arrival point — accent-coloured, very short.</summary>
+        BlinkArrive,
+
+        /// <summary>Rising disc-ring shimmer as a Disc Shield module engages — cyan, low upward drift, ~1s.</summary>
+        ShieldActivate,
     }
 }

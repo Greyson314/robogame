@@ -144,42 +144,55 @@ namespace Robogame.Tools.Editor
         }
 
         /// <summary>
-        /// Spawn the full-footprint diggable ground. 6×1×6 chunks of 32
-        /// cells at 1.0 m = 192 m × 32 m × 192 m, covering the whole
-        /// playable arena. The SDF surface is seeded per-column to the
-        /// SAME Perlin heightmap the visual grass mesh is baked from, so
-        /// the entire rolling ground is carveable terrain. Worst-case
-        /// (fully excavated) is ~36 chunks × ~20 K ≈ 0.7 M tris — under
-        /// the 1.5 M target, with LOD on for headroom. The 0.5 m / naive
-        /// approach was ~15 M and was ruled out.
+        /// Spawn the full-footprint diggable ground. 11×1×11 chunks of 32
+        /// cells at 1.0 m = 352 m × 32 m × 352 m, fully containing the
+        /// playable arena (wall ring at ±170 m per
+        /// <c>SceneScaffolder.PopulateTestTerrain</c>) with a 6 m skirt
+        /// past the walls. Session-100's 7×1×7 / ±112 m grid LEFT A 58 m
+        /// NO-COLLIDER GAP between the dig zone edge and the wall ring —
+        /// flying / hovering chassis could drive past the dirt boundary
+        /// and fall through the world. The SDF surface is seeded per-
+        /// column to the SAME Perlin heightmap the visual grass mesh is
+        /// baked from, so the entire rolling ground is carveable terrain.
+        /// Worst-case fully-excavated tris: ~121 chunks × ~20 K ≈ 2.4 M
+        /// — OVER the 1.5 M nominal target on paper, but real play stays
+        /// well under it: undug chunks don't render (the dig-mask renderer
+        /// cull), and undug surface is only ~2-3 K tris per chunk. The
+        /// LOD-off bake decision still holds (the RefreshLod full-rebuild
+        /// hitch is the load-bearing cost, not the per-chunk tri count).
         /// </summary>
         private static void BuildArenaDigZone(Transform envRoot)
         {
             GameObject zoneObj = new GameObject("DigZone");
             zoneObj.transform.SetParent(envRoot, worldPositionStays: false);
-            // 192 m footprint, 32 m tall. transform.y = -16 puts the
+            // 352 m footprint, 32 m tall. transform.y = -16 puts the
             // zone's vertical centre at y=0 so the heightmap surface
             // (which averages ~0 and peaks a few metres) lands on the
-            // arena floor, with ~16 m of diggable depth beneath it.
-            // X/Z = -96 centres the 192 m footprint on the arena origin
-            // (walls/mountains ring ~±100 m).
-            zoneObj.transform.position = new Vector3(-96f, -16f, -96f);
+            // arena floor, with ~16 m of diggable depth beneath it
+            // (minus the 3-cell bedrock slab at the bottom — see
+            // DigZone._bedrockCells). X/Z = -176 centres the 352 m
+            // footprint on the arena origin so the walls at ±170 m sit
+            // inside the diggable band with a 6 m skirt past them.
+            zoneObj.transform.position = new Vector3(-176f, -16f, -176f);
             zoneObj.SetActive(false);   // configure before Awake.
 
             Robogame.Voxel.DigZone zone = zoneObj.AddComponent<Robogame.Voxel.DigZone>();
             SerializedObject so = new SerializedObject(zone);
             so.FindProperty("_cellSize").floatValue = 1.0f;
             so.FindProperty("_chunkSizeCells").intValue = 32;
-            so.FindProperty("_chunkGridSize").vector3IntValue = new Vector3Int(6, 1, 6);
+            so.FindProperty("_chunkGridSize").vector3IntValue = new Vector3Int(11, 1, 11);
             so.FindProperty("_chunkMaterial").objectReferenceValue = DigZoneEarthMaterial.GetOrBuild();
-            // LOD OFF. 36 chunks at 1 m worst-case is ~0.7 M tris — under
-            // the 1.5 M target without any LOD — so LOD buys nothing here
-            // but costs a lot: DigZone.Update() runs RefreshLod every
-            // frame, and the moment the follow-camera crosses a 32/64 m
-            // band on this 192 m zone it triggered a FULL 36-chunk
-            // RebuildAllMeshes (remesh + occupancy + dig-mask, all 36).
-            // That recurring hitch was the 300→120 fps idle regression.
-            // Off = chunks stay LOD0, RefreshLod never runs.
+            // Explicit bedrock=3 — same as the DigZone default, set
+            // here so re-scaffolding a stale scene picks up the value
+            // even if the C# default ever moves.
+            so.FindProperty("_bedrockCells").intValue = 3;
+            // LOD OFF. The full-rebuild hitch in RefreshLod (every chunk
+            // remeshes when the camera crosses an LOD band) is the load-
+            // bearing cost, not the per-chunk tri count. Going to 121
+            // chunks makes that hitch dramatically worse, not better.
+            // Off = chunks stay LOD0, RefreshLod never runs. Undug chunks
+            // also don't render via the dig-mask renderer cull, so the
+            // visible tri count stays low in practice.
             so.FindProperty("_enableLod").boolValue = false;
             // Heightmap-seeded surface, not full-solid / half-space.
             so.FindProperty("_initFullySolid").boolValue = false;

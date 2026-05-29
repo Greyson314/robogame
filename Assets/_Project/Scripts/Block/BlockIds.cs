@@ -55,5 +55,11 @@ namespace Robogame.Block
         // can't propel above target altitude. First non-joint propulsion
         // block — see docs/subsystems/physics.md §6.
         public const string HoverBlade = "block.movement.hoverblade";
+        // Active module (session 101): a Module-category block that grants
+        // one garage-chosen keybind ability (EMP / Blink / Disc Shield).
+        // The chassis-wide choice rides ChassisBlueprint.ActiveModuleKind;
+        // the block itself is the destructible carrier — destroy it and the
+        // ability goes dark (functional disable). See ActiveModuleBlock.
+        public const string ActiveModule = "block.module.active";
     }
 }
