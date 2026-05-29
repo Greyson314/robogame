@@ -109,6 +109,12 @@ namespace Robogame.Tools.Editor
             // overrides via SetBaseVolume from the speed curve.
             new CueRow(AudioCue.WindLoop,          "WIND/WIND_Storm_Blowing_Deep_01_loop_mono.wav",                                                             AudioBus.Sfx,   spatial: 1f, vol: 0.50f, jitter: 0f,    solo: false),
             new CueRow(AudioCue.WaterSplash,       "ELEMENTS/Water/Splashes/SPLASH_Designed_Medium_01_mono.wav",                                                AudioBus.Sfx,   spatial: 1f, vol: 0.85f, jitter: 0.05f, solo: false),
+            // SpringLaunch — the "boing" pop when a jump spring fires. The
+            // 8-bit upward powerup climb reads as a cartoon spring release;
+            // 3D / Sfx so it localises to the spring on the chassis. Not solo
+            // (a multi-spring bot fires several at once on one Space tap) and
+            // jittered so the stack doesn't sound like one mechanical note.
+            new CueRow(AudioCue.SpringLaunch,      "8BIT/Powerups/8BIT_RETRO_Powerup_Spawn_Quick_Climbing_mono.wav",                                            AudioBus.Sfx,   spatial: 1f, vol: 0.70f, jitter: 0.08f, solo: false),
 
             // Weapon ammo / reload — subtle player-state cues. The user
             // (session 101) asked for sounds on running-out-of-ammo and

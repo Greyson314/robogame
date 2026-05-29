@@ -339,6 +339,7 @@ namespace Robogame.Core
                 case VfxKind.EmpBurst:       ConfigureEmpBurst(ps, rend);      break;
                 case VfxKind.BlinkArrive:    ConfigureBlinkArrive(ps, rend);   break;
                 case VfxKind.ShieldActivate: ConfigureShieldActivate(ps, rend); break;
+                case VfxKind.SpringBurst:    ConfigureSpringBurst(ps, rend);   break;
             }
 
             return ps;
@@ -565,6 +566,44 @@ namespace Robogame.Core
             var col = ps.colorOverLifetime;
             col.enabled = true;
             col.color = MakeFadeOutGradient(RuntimePalette.HotCore, RuntimePalette.Cyan);
+
+            var size = ps.sizeOverLifetime;
+            size.enabled = true;
+            size.size = new ParticleSystem.MinMaxCurve(1f, MakeFadeOutCurve());
+
+            rend.renderMode = ParticleSystemRenderMode.Mesh;
+            rend.mesh = CubeMesh;
+            rend.sharedMaterial = UnlitMeshMaterial;
+        }
+
+        // Spring burst: a quick cone of pale dust + slate fragments kicked
+        // along the spring's launch axis (the spawn forward = launch dir, and
+        // the cone emits along local +Z). Reads as "the spring shoved off the
+        // ground" — small and grounded, not an explosion. Slate→dust palette
+        // matches the debris family so a jumping bot's kick looks of-a-piece
+        // with block detach dust.
+        private static void ConfigureSpringBurst(ParticleSystem ps, ParticleSystemRenderer rend)
+        {
+            var main = ps.main;
+            main.duration = 0.08f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.25f, 0.55f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(2.5f, 5.5f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.10f, 0.22f);
+            main.startColor = new ParticleSystem.MinMaxGradient(RuntimePalette.SlateLight, RuntimePalette.DustLight);
+            main.gravityModifier = 0.15f; // fragments arc back down a touch
+            main.maxParticles = 32;
+
+            var burst = ps.emission;
+            burst.SetBursts(new[] { new ParticleSystem.Burst(0f, 18) });
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Cone;
+            shape.angle = 35f;
+            shape.radius = 0.18f;
+
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            col.color = MakeFadeOutGradient(RuntimePalette.DustLight, RuntimePalette.Slate);
 
             var size = ps.sizeOverLifetime;
             size.enabled = true;

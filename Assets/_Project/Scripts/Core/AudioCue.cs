@@ -46,6 +46,7 @@ namespace Robogame.Core
         FlipActivate,      // snap-rotate self-righting kick — single short "schwop" cue
         HoverBladeLoop,    // looped while a hover blade is producing lift — low whoosh, modulated by lift magnitude
         HoverBladeContactLost, // one-shot when a hover blade's ground raycast goes from hitting → missing (cliff-edge or terraformed pit)
+        SpringLaunch,      // one-shot when a spring block fires its jump impulse — sharp percussive "boing" / launch pop
 
         // Repair pad
         RepairPadEnter,    // chassis crosses into the pad's trigger volume — the "field engages" tone

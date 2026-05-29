@@ -98,6 +98,11 @@ namespace Robogame.Tools.Editor
             // mid-cost CPU. No componentData yet — drill radius + emit
             // rate live on the DrillBlock MonoBehaviour as SerializeFields.
             CreateOrUpdate("BlockDef_Drill",      BlockIds.Drill,      "Drill",          BlockCategory.Weapon,    maxHealth: 130f, mass: 3.5f, cpuCost: 32, tint: w);
+            // Spring (session 104): a jump block. Movement category; light
+            // mass + modest CPU (it's a positional pop, not primary
+            // propulsion). Mounted on the underside it jumps the chassis;
+            // launch strength can ride the blueprint ConfigValue.
+            CreateOrUpdate("BlockDef_Spring",     BlockIds.Spring,     "Jump Spring",    BlockCategory.Movement,  maxHealth:  80f, mass: 1.8f, cpuCost: 20, tint: w);
             // Active module (session 101): the destructible carrier for the
             // garage-chosen EMP / Blink / Disc Shield ability. Module
             // category, mid mass + CPU. Per-ability tuning lives on the

@@ -55,5 +55,8 @@ namespace Robogame.Core
 
         /// <summary>Rising disc-ring shimmer as a Disc Shield module engages — cyan, low upward drift, ~1s.</summary>
         ShieldActivate,
+
+        /// <summary>Quick cone of pale dust + slate fragments kicked along a spring block's launch axis when it jumps.</summary>
+        SpringBurst,
     }
 }

@@ -38,6 +38,7 @@ namespace Robogame.Tools.Editor
         private const string DefaultHelicopterPath = BlueprintFolder + "/Blueprint_DefaultHelicopter.asset";
         private const string DefaultDrillBotPath = BlueprintFolder + "/Blueprint_DefaultDrillBot.asset";
         private const string DefaultHoverTankPath = BlueprintFolder + "/Blueprint_DefaultHoverTank.asset";
+        private const string DefaultSpringBotPath = BlueprintFolder + "/Blueprint_DefaultSpringBot.asset";
         private const string CombatDummyPath = BlueprintFolder + "/Blueprint_CombatDummy.asset";
         private const string StressTowerPath = BlueprintFolder + "/Blueprint_StressRotorTower.asset";
         private const string ArchDummyPath = BlueprintFolder + "/Blueprint_ArchDummy.asset";
@@ -118,6 +119,9 @@ namespace Robogame.Tools.Editor
             // top-mounted drill that floats above the terrain on its
             // wheels.
             CreateOrUpdateBlueprint(DefaultDrillBotPath, BuildDrillBotPlan(lib));
+            // SpringBot: ground rover with two underside jump springs. Space
+            // pops the chassis up off the ground (session 104 spring-block demo).
+            CreateOrUpdateBlueprint(DefaultSpringBotPath, BuildSpringBotPlan(lib));
             CreateOrUpdateBlueprint(CombatDummyPath, BuildCombatDummyPlan(lib));
             // Stress-test target: tall column of rotors. Spawn-gated by
             // Stress.RotorTower tweakable in the settings panel.
@@ -560,6 +564,43 @@ namespace Robogame.Tools.Editor
             finally { sb.Dispose(); }
         }
 
+        private static BlueprintPlan BuildSpringBotPlan(BlockDefinitionLibrary lib)
+        {
+            // Same compact 3-wide × 3-long rover as the DrillBot, but the
+            // front-face tool is swapped for two jump springs mounted on the
+            // UNDERSIDE of the rear spine cubes. Pressing Space fires both at
+            // once (additive impulses); their off-centre rear placement gives
+            // the hop a slight nose-up kick, which reads as a spring-car
+            // bounce. Demonstrates session-104's spring block.
+            Vector3Int forwardStep = new Vector3Int(0, 0, 1);
+            Vector3Int backStep    = new Vector3Int(0, 0, -1);
+            Vector3Int rightStep   = new Vector3Int(1, 0, 0);
+            Vector3Int downStep    = new Vector3Int(0, -1, 0);
+
+            var sb = ScriptedChassisBuilder.Create("SpringBot", ChassisKind.Ground, lib);
+            try
+            {
+                sb.Place(BlockIds.Cpu, 0, 0, 0);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  1), forwardStep);
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -1), backStep);
+                sb.MirrorX(b => b
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0,  0), rightStep)
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0,  1), rightStep)
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0, -1), rightStep));
+                // Springs on the −Y face of the rear spine + CPU cubes. up =
+                // downStep mounts on the host's bottom face, so the spring
+                // launches the chassis up (−transform.up).
+                sb.Place(BlockIds.Spring, new Vector3Int(0, -1,  0), downStep);
+                sb.Place(BlockIds.Spring, new Vector3Int(0, -1, -1), downStep);
+                // Wheels — side stems, steerers front, drivers back.
+                sb.MirrorX(b => b
+                    .Place(BlockIds.WheelSteer, new Vector3Int(2, 0,  1), rightStep)
+                    .Place(BlockIds.Wheel,      new Vector3Int(2, 0, -1), rightStep));
+                return sb.Build();
+            }
+            finally { sb.Dispose(); }
+        }
+
         private static BlueprintPlan BuildCombatDummyPlan(BlockDefinitionLibrary lib)
         {
             // Solid 5×5×6 fortress with a CPU head one cell above the
@@ -809,6 +850,7 @@ namespace Robogame.Tools.Editor
             ChassisBlueprint helicopterBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultHelicopterPath);
             ChassisBlueprint drillBotBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultDrillBotPath);
             ChassisBlueprint hoverTankBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultHoverTankPath);
+            ChassisBlueprint springBotBpLive = AssetDatabase.LoadAssetAtPath<ChassisBlueprint>(DefaultSpringBotPath);
             InputActionAsset actionsLive = AssetDatabase.LoadAssetAtPath<InputActionAsset>(ScaffoldUtils.InputActionsAsset);
 
             if (libLive == null)
@@ -825,10 +867,11 @@ namespace Robogame.Tools.Editor
             // Session 61: replaced Buggy slot with Grappler (utility plane).
             // Session 78: added DrillBot at the tail of the list.
             // Session 99: added HoverTank at the tail (hover-blade demo bot).
+            // Session 104: added SpringBot at the tail (jump-spring demo bot).
             SerializedProperty presets = stateSO.FindProperty("_presetBlueprints");
             if (presets != null)
             {
-                presets.arraySize = 9;
+                presets.arraySize = 10;
                 presets.GetArrayElementAtIndex(0).objectReferenceValue = defaultBpLive;
                 presets.GetArrayElementAtIndex(1).objectReferenceValue = planeBpLive;
                 presets.GetArrayElementAtIndex(2).objectReferenceValue = grapplerBpLive;
@@ -838,6 +881,7 @@ namespace Robogame.Tools.Editor
                 presets.GetArrayElementAtIndex(6).objectReferenceValue = helicopterBpLive;
                 presets.GetArrayElementAtIndex(7).objectReferenceValue = drillBotBpLive;
                 presets.GetArrayElementAtIndex(8).objectReferenceValue = hoverTankBpLive;
+                presets.GetArrayElementAtIndex(9).objectReferenceValue = springBotBpLive;
             }
             stateSO.ApplyModifiedPropertiesWithoutUndo();
 

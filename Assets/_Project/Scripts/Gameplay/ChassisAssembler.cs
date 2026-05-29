@@ -247,6 +247,7 @@ namespace Robogame.Gameplay
                 EnsureComponent<RobotRopeBinder>(root);
                 EnsureComponent<RobotRotorBinder>(root);
                 EnsureComponent<RobotHoverBladeBinder>(root);
+                EnsureComponent<RobotSpringBinder>(root);
                 // Phase 3b: attach DrillBlock components to placed
                 // "block.tool.drill" cells. Lives in Robogame.Voxel.
                 EnsureComponent<Voxel.RobotDrillBinder>(root);

@@ -55,6 +55,12 @@ namespace Robogame.Block
         // can't propel above target altitude. First non-joint propulsion
         // block — see docs/subsystems/physics.md §6.
         public const string HoverBlade = "block.movement.hoverblade";
+        // Spring (session 104): a jump block. Mounted on a chassis face
+        // (typically the underside), it fires a cooldown-gated impulse on the
+        // jump input, shoving the chassis off the surface its outward face
+        // braces against — an underside spring jumps the bot up. Shares the
+        // reusable SpringSolver math with the hover blade. See SpringBlock.
+        public const string Spring     = "block.movement.spring";
         // Active module (session 101): a Module-category block that grants
         // one garage-chosen keybind ability (EMP / Blink / Disc Shield).
         // The chassis-wide choice rides ChassisBlueprint.ActiveModuleKind;

@@ -100,6 +100,43 @@ namespace Robogame.Block
             cfg.TargetAltitude = Tweakables.Get(Tweakables.DevHoverTargetAltitude);
 #endif
         }
+
+        /// <summary>
+        /// Spring (jump) block tuning. Two knobs: launch impulse + cooldown.
+        /// Per-instance launch strength can also ride the blueprint via
+        /// <c>BlockBehaviour.ConfigValue</c>; this dev layer overrides the
+        /// fallback default + cooldown for live feel iteration.
+        /// </summary>
+        public static void ApplySpring(ref SpringTuningConfig cfg)
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (!Active) return;
+            cfg.DefaultImpulse = Tweakables.Get(Tweakables.DevSpringImpulse);
+            cfg.Cooldown       = Tweakables.Get(Tweakables.DevSpringCooldown);
+#endif
+        }
+    }
+
+    /// <summary>
+    /// Tuning struct for <see cref="Robogame.Movement.SpringBlock"/>.
+    /// <see cref="DefaultImpulse"/> is the fallback launch strength (N·s)
+    /// when the block's per-instance <c>ConfigValue</c> is 0;
+    /// <see cref="Cooldown"/> is the recharge time between launches.
+    /// Initialised to the shipped defaults so the dev override layer can
+    /// mutate it in place when the master toggle is on, leave it otherwise.
+    /// </summary>
+    public struct SpringTuningConfig
+    {
+        public float DefaultImpulse;
+        public float Cooldown;
+
+        public static SpringTuningConfig Default => new SpringTuningConfig
+        {
+            // Tuned for a ~light ground bot: a crisp pop, not a launch into
+            // orbit. ConfigValue on the blueprint overrides per-build.
+            DefaultImpulse = 14f,
+            Cooldown = 1.2f,
+        };
     }
 
     /// <summary>

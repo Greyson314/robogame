@@ -297,12 +297,15 @@ namespace Robogame.Movement
             // damping, just gravity.
             Vector3 pointVel = _chassisRb.GetPointVelocity(origin);
             // verticalVel > 0 means moving AWAY from ground (climbing).
-            // Subtract damping × verticalVel from the spring term so a
-            // climbing chassis is decelerated.
+            // SpringSolver subtracts damping × verticalVel from the spring
+            // term (and clamps ≥ 0) so a climbing chassis is decelerated —
+            // the shared spring math (session 104), behaviour-identical to
+            // the prior inline springForce − dampForce.
             float verticalVel = Vector3.Dot(pointVel, -gravityDir);
-            float dampForce = _tuning.DampingC * _liftScale * verticalVel;
-
-            float liftMagnitude = springForce - dampForce;
+            float liftMagnitude = SpringSolver.HookeDamped(
+                _tuning.SpringK * _liftScale,
+                _tuning.DampingC * _liftScale,
+                gap, targetAlt, verticalVel);
             if (liftMagnitude <= 0f)
             {
                 HandleContactState(true);
