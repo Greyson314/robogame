@@ -114,7 +114,7 @@ namespace Robogame.Tools.Editor
             // 3D / Sfx so it localises to the spring on the chassis. Not solo
             // (a multi-spring bot fires several at once on one Space tap) and
             // jittered so the stack doesn't sound like one mechanical note.
-            new CueRow(AudioCue.SpringLaunch,      "8BIT/Powerups/8BIT_RETRO_Powerup_Spawn_Quick_Climbing_mono.wav",                                            AudioBus.Sfx,   spatial: 1f, vol: 0.70f, jitter: 0.08f, solo: false),
+            new CueRow(AudioCue.SpringLaunch,      "8BIT/Powerups/8BIT_RETRO_Powerup_Spawn_Quick_Climbing_mono.wav",                                            AudioBus.Sfx,   spatial: 1f, vol: 0.35f, jitter: 0.08f, solo: false),
 
             // Weapon ammo / reload — subtle player-state cues. The user
             // (session 101) asked for sounds on running-out-of-ammo and

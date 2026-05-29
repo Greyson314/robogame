@@ -436,7 +436,7 @@ namespace Robogame.Core
             Register(DevHoverDampingC,        "Dev (Override Chassis Tuning)", "Hover: Damping C (N=2)",       60f,  0f, 400f);
             Register(DevHoverTargetAltitude,  "Dev (Override Chassis Tuning)", "Hover: Target Altitude (m)",  2.5f,  0f, 10f);
 
-            Register(DevSpringImpulse,        "Dev (Override Chassis Tuning)", "Spring: Launch Impulse (N·s)", 14f,  0f, 80f);
+            Register(DevSpringImpulse,        "Dev (Override Chassis Tuning)", "Spring: Launch Impulse (N·s)",140f,  0f, 400f);
             Register(DevSpringCooldown,       "Dev (Override Chassis Tuning)", "Spring: Cooldown (s)",        1.2f,  0f, 6f);
 #endif
 

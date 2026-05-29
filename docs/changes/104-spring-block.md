@@ -30,7 +30,9 @@ mount face: an underside spring jumps the bot up, a side spring dashes it
 sideways, and it's derived from the chassis pose so it works on flat and
 spherical arenas. Launch strength rides `BlockBehaviour.ConfigValue`
 (blueprint-authoritative) with a `SpringTuningConfig.Default` fallback
-(14 N·s, 1.2 s cooldown).
+(140 N·s, 1.2 s cooldown — bumped 10× from an initial 14 after the first
+playtest read as a back-end nudge rather than a hop; launch audio also
+halved to vol 0.35).
 
 **VFX + audio (invariant #8).** New `VfxKind.SpringBurst` — a short cone of
 slate/dust fragments kicked along the launch axis (slate→dust palette,

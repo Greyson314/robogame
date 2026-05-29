@@ -132,9 +132,10 @@ namespace Robogame.Block
 
         public static SpringTuningConfig Default => new SpringTuningConfig
         {
-            // Tuned for a ~light ground bot: a crisp pop, not a launch into
-            // orbit. ConfigValue on the blueprint overrides per-build.
-            DefaultImpulse = 14f,
+            // Tuned (session 104 playtest) for a real hop off the ground on
+            // a light ground bot, not a back-end nudge. ConfigValue on the
+            // blueprint overrides per-build.
+            DefaultImpulse = 140f,
             Cooldown = 1.2f,
         };
     }
