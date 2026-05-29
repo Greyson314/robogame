@@ -92,18 +92,20 @@ smoke/stealth/clone theme are all parked as `proposed` in
 - **#6** — refs cached OnEnable; FixedUpdate allocation-free.
 - **#8** — ships VFX (SpringBurst) + wired audio (SpringLaunch).
 
-## Follow-up: wheels can't drive in mid-air
+## Follow-up: air-control rules + bigger wheel hop
 
-Playtest of the SpringBot surfaced that a wheels-only chassis could
-accelerate and steer while airborne (after a spring hop). `GroundDriveSubsystem`
-applied forward drive force + steering yaw every tick with no ground check
-— only lateral grip was gated. Now the forward-drive and steering branches
-are gated on `AnyWheelGrounded()` too (computed once per Tick). Self-right
-+ roll/pitch damping stay ungated on purpose (stability assists, not
-propulsion — an airborne tumble must stay recoverable). New PlayMode
-`GroundDriveGroundingTests` (air → no momentum; grounded → drives forward).
-The `GroundDriveSubsystem`'s own small jump impulse (Vertical > 0.5) is
-left ungated for now — separate from horizontal maneuvering.
+Playtest of the SpringBot surfaced that a wheels-only chassis could fully
+maneuver (accelerate + steer) while airborne. The chosen rule (a fun middle
+ground): **forward drive force is gated on `AnyWheelGrounded()`** (no linear
+momentum from wheels with nothing to push against), but **steering yaw stays
+ungated** so you can turn the bot mid-hop. Self-right + roll/pitch damping
+stay ungated (stability assists, not propulsion). Lateral grip is gated with
+drive. The `GroundDriveSubsystem`'s own wheel "hop" (jump impulse on
+Vertical > 0.5) stays ungated and was bumped 6 → 40 N·s — the old value was
+imperceptible. A spring block's launch stacks additively on top of the hop
+(both `AddForce` the chassis Rb on the same Space press). New PlayMode
+`GroundDriveGroundingTests`: air → no drive, air → can still steer, hop fires
+airborne, grounded → drives forward.
 
 ## Followups / known gaps
 

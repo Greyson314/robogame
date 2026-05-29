@@ -79,6 +79,37 @@ namespace Robogame.Tests.PlayMode.Movement
         }
 
         [UnityTest]
+        public IEnumerator GroundDrive_NoWheelGrounded_CanStillSteer()
+        {
+            // Turning in the air IS allowed (intentional middle ground) — only
+            // linear drive is gated. A turn input aloft must still yaw.
+            for (int i = 0; i < 6; i++)
+            {
+                _drive.Tick(new DriveControl(new Vector2(1f, 0f), vertical: 0f, fireHeld: false,
+                                             aimPoint: Vector3.zero, dt: Time.fixedDeltaTime, speedMultiplier: 1f));
+                yield return new WaitForFixedUpdate();
+            }
+
+            Assert.Greater(Mathf.Abs(_chassisRb.angularVelocity.y), 0.05f,
+                $"Air-steering must still yaw the chassis; got angVel {_chassisRb.angularVelocity}.");
+        }
+
+        [UnityTest]
+        public IEnumerator GroundDrive_JumpImpulse_FiresInAir()
+        {
+            // The wheel "hop" is ungated on purpose (a small air boost that
+            // springs stack on top of). A jump input aloft must apply upward
+            // velocity even with no wheel grounded.
+            _drive.Tick(new DriveControl(Vector2.zero, vertical: 1f, fireHeld: false,
+                                         aimPoint: Vector3.zero, dt: Time.fixedDeltaTime, speedMultiplier: 1f));
+            yield return new WaitForFixedUpdate();
+            yield return new WaitForFixedUpdate();
+
+            Assert.Greater(_chassisRb.linearVelocity.y, 1f,
+                $"Wheel hop must fire even airborne; got velocity {_chassisRb.linearVelocity}.");
+        }
+
+        [UnityTest]
         public IEnumerator GroundDrive_WheelGrounded_DrivesForward()
         {
             // Ground plane just under the wheel → IsGrounded true → the same

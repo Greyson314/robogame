@@ -31,7 +31,12 @@ namespace Robogame.Movement
         [SerializeField, Min(0f)] private float _turnRate = 7.5f;
 
         [Header("Tuning — Jump")]
-        [SerializeField, Min(0f)] private float _jumpImpulse = 6f;
+        // Baseline wheel "hop" on the jump input. Kept deliberately below a
+        // spring block's launch so springs read as a real boost ON TOP of
+        // the hop (both apply an impulse to the chassis Rb on the same Space
+        // press — additive). Bumped 6 → 40 (session 104): the 6 N·s hop was
+        // imperceptible on a multi-kg chassis.
+        [SerializeField, Min(0f)] private float _jumpImpulse = 40f;
         [SerializeField, Min(0f)] private float _jumpCooldown = 0.4f;
 
         [Header("Tuning — Stability")]
@@ -155,19 +160,19 @@ namespace Robogame.Movement
         {
             if (_rb == null) return;
 
-            // Wheels can only put down power — drive force AND steering yaw —
-            // while at least one is touching ground. Without this gate a
-            // wheels-only chassis can accelerate and turn in mid-air (e.g.
-            // after a spring jump), which reads as wrong: wheels with nothing
-            // to push against shouldn't generate momentum. Self-right + roll
-            // damping below stay UNGATED on purpose — they're stability
-            // assists, not propulsion, so an airborne tumble is still
-            // recoverable. Lateral grip is likewise gated (further down).
+            // Wheels can only put down FORWARD drive force while at least one
+            // is touching ground — wheels with nothing to push against can't
+            // generate linear momentum. Steering yaw, by contrast, IS allowed
+            // in the air: turning the bot mid-hop is a fun, low-stakes bit of
+            // air control that doesn't let you cheat distance. Self-right +
+            // roll damping below stay ungated (stability assists, not
+            // propulsion). Lateral grip is gated with drive (further down).
             bool grounded = AnyWheelGrounded();
 
             // --- Steering: yaw around WORLD up so a tilted chassis doesn't
-            //     accidentally roll itself when the player presses A/D. ---
-            if (grounded && !Mathf.Approximately(control.Move.x, 0f))
+            //     accidentally roll itself when the player presses A/D.
+            //     Ungated — air-steering is intentional (see above). ---
+            if (!Mathf.Approximately(control.Move.x, 0f))
             {
                 Vector3 torque = Vector3.up * (control.Move.x * TurnRate);
                 _rb.AddTorque(torque, ForceMode.Acceleration);
