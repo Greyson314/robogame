@@ -251,8 +251,10 @@ namespace Robogame.Movement
                 }
             }
 
-            // --- Jump. ---
-            if (control.Vertical > 0.5f && Time.time >= _nextJumpTime)
+            // --- Jump. Grounded-only: an airborne re-hop would let a bot
+            //     fly forever by spamming Space. You hop off the ground, then
+            //     must land before hopping again. ---
+            if (grounded && control.Vertical > 0.5f && Time.time >= _nextJumpTime)
             {
                 _rb.AddForce(Vector3.up * JumpImpulse, ForceMode.Impulse);
                 _nextJumpTime = Time.time + JumpCooldown;

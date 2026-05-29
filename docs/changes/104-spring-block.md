@@ -107,6 +107,22 @@ stacks additively on top of the hop (both `AddForce` the chassis Rb on the
 same Space press). New PlayMode `GroundDriveGroundingTests`: air → no drive,
 air → can still steer, hop fires airborne, grounded → drives forward.
 
+## Follow-up: jump + spring are grounded-only (no infinite flight)
+
+The bigger hop + additive spring made it possible to spam Space and fly
+forever (re-firing mid-air). Both now require ground contact:
+- `GroundDriveSubsystem`'s hop is gated on `AnyWheelGrounded()` (supersedes
+  the earlier "keep air hops" — air re-hops are what enable infinite flight).
+- `SpringBlock` runs its own short gravity-aligned ground probe
+  (`GroundProbeDistance` 2.5 m, self-filtered like the wheel/hover casts) and
+  only launches when ground is in range. The probe is short enough that once
+  a launch carries the chassis up, the spring is out of range until it falls
+  back — so you hop off the ground, not out of the air.
+
+You can still steer in the air (that's harmless); you just can't generate new
+vertical/forward momentum there. PlayMode tests updated: hop/spring fire when
+grounded, do nothing airborne.
+
 ## Follow-up: SpringBot rebuilt 2-tall (no more forward lean)
 
 The first SpringBot mounted its springs a full cell BELOW the floor (cell

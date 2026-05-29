@@ -95,18 +95,39 @@ namespace Robogame.Tests.PlayMode.Movement
         }
 
         [UnityTest]
-        public IEnumerator GroundDrive_JumpImpulse_FiresInAir()
+        public IEnumerator GroundDrive_JumpImpulse_DoesNotFireInAir()
         {
-            // The wheel "hop" is ungated on purpose (a small air boost that
-            // springs stack on top of). A jump input aloft must apply upward
-            // velocity even with no wheel grounded.
+            // The wheel "hop" is grounded-only: re-hopping mid-air would let a
+            // bot fly forever by spamming Space. No ground → no hop.
+            for (int i = 0; i < 4; i++)
+            {
+                _drive.Tick(new DriveControl(Vector2.zero, vertical: 1f, fireHeld: false,
+                                             aimPoint: Vector3.zero, dt: Time.fixedDeltaTime, speedMultiplier: 1f));
+                yield return new WaitForFixedUpdate();
+            }
+
+            Assert.Less(_chassisRb.linearVelocity.magnitude, 0.01f,
+                $"Wheel hop must NOT fire airborne; got velocity {_chassisRb.linearVelocity}.");
+        }
+
+        [UnityTest]
+        public IEnumerator GroundDrive_JumpImpulse_FiresWhenGrounded()
+        {
+            // With a wheel on the ground, the hop fires (upward velocity).
+            _ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            _ground.name = "TestGround";
+            _ground.transform.position = new Vector3(0f, -2.0f, 0f); // top ≈ -1.5, within wheel cast
+            _ground.transform.localScale = new Vector3(50f, 1f, 50f);
+
+            yield return new WaitForFixedUpdate(); // let the wheel register ground
+
             _drive.Tick(new DriveControl(Vector2.zero, vertical: 1f, fireHeld: false,
                                          aimPoint: Vector3.zero, dt: Time.fixedDeltaTime, speedMultiplier: 1f));
             yield return new WaitForFixedUpdate();
             yield return new WaitForFixedUpdate();
 
             Assert.Greater(_chassisRb.linearVelocity.y, 1f,
-                $"Wheel hop must fire even airborne; got velocity {_chassisRb.linearVelocity}.");
+                $"Grounded hop must apply upward velocity; got {_chassisRb.linearVelocity}.");
         }
 
         [UnityTest]

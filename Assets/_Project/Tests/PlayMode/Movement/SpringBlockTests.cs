@@ -60,6 +60,26 @@ namespace Robogame.Tests.PlayMode.Movement
         public void TearDown()
         {
             if (_root != null) Object.Destroy(_root);
+            if (_ground != null) Object.Destroy(_ground);
+        }
+
+        private GameObject _ground;
+
+        // Ground plane within the spring's ground probe (2.5 m) so the spring
+        // has something to push off. The chassis has useGravity off, so it
+        // doesn't rest on this — it's purely for the spring's downward probe.
+        private void CreateGround()
+        {
+            _ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            _ground.name = "TestGround";
+            _ground.transform.position = new Vector3(0f, -1.5f, 0f); // top ≈ -1.0, within 2.5 m
+            _ground.transform.localScale = new Vector3(50f, 1f, 50f);
+            // CreatePrimitive spawns at the origin; push the new collider's
+            // moved transform into the physics scene NOW so the spring's
+            // first-step ground probe (a one-shot on the rising edge) sees it.
+            // Without this the collider is still at the origin until the next
+            // physics step and the probe misses.
+            Physics.SyncTransforms();
         }
 
         private static BlockDefinition MakeDef(string id)
@@ -89,6 +109,7 @@ namespace Robogame.Tests.PlayMode.Movement
         {
             // Underside mount: up = chassis-down → transform.up = world-down →
             // launch = -transform.up = world-up.
+            CreateGround();
             PlaceSpring(Vector3Int.zero, new Vector3Int(0, -1, 0));
             _input.VerticalValue = 1f;       // jump pressed (rising edge this step)
 
@@ -104,6 +125,7 @@ namespace Robogame.Tests.PlayMode.Movement
         [UnityTest]
         public IEnumerator SpringBlock_Cooldown_PreventsImmediateRefire()
         {
+            CreateGround();
             PlaceSpring(Vector3Int.zero, new Vector3Int(0, -1, 0));
 
             // First launch.
@@ -128,6 +150,7 @@ namespace Robogame.Tests.PlayMode.Movement
         [UnityTest]
         public IEnumerator SpringBlock_Destroyed_AppliesNoImpulse()
         {
+            CreateGround(); // so the only reason it doesn't fire is the destruction
             SpringBlock spring = PlaceSpring(Vector3Int.zero, new Vector3Int(0, -1, 0));
             BlockBehaviour bb = spring.GetComponent<BlockBehaviour>();
 
@@ -150,6 +173,7 @@ namespace Robogame.Tests.PlayMode.Movement
             // Side mount: up = chassis +X → transform.up = world +X → launch
             // = -transform.up = world -X. Confirms the generic direction model
             // (a side spring dashes the chassis, not jumps it).
+            CreateGround();
             PlaceSpring(Vector3Int.zero, new Vector3Int(1, 0, 0));
             _input.VerticalValue = 1f;
 
@@ -160,6 +184,24 @@ namespace Robogame.Tests.PlayMode.Movement
             Assert.Less(v.x, -1f, $"A +X-mounted spring must launch toward -X; got {v}.");
             Assert.Greater(Mathf.Abs(v.x), Mathf.Abs(v.y), "Launch must be dominantly along -X.");
             Assert.Greater(Mathf.Abs(v.x), Mathf.Abs(v.z), "Launch must be dominantly along -X.");
+        }
+
+        [UnityTest]
+        public IEnumerator SpringBlock_NotGrounded_DoesNotLaunch()
+        {
+            // No ground anywhere → the spring has nothing to push off and must
+            // not fire. This is the anti-infinite-flight guarantee: you can't
+            // re-launch in mid-air.
+            PlaceSpring(Vector3Int.zero, new Vector3Int(0, -1, 0));
+
+            for (int i = 0; i < 4; i++)
+            {
+                _input.VerticalValue = 1f;
+                yield return new WaitForFixedUpdate();
+            }
+
+            Assert.Less(_chassisRb.linearVelocity.magnitude, 0.01f,
+                $"Airborne spring (no ground) must not launch; got velocity {_chassisRb.linearVelocity}.");
         }
     }
 }

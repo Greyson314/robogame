@@ -51,6 +51,14 @@ namespace Robogame.Movement
         private const float CoilCompressedScaleY = 0.45f;
         private const float CoilRestorePerSecond = 6f;
 
+        // A spring can only fire when it has ground close enough to push off.
+        // Without this gate you could re-fire mid-air and fly forever. The
+        // probe runs along gravity (so it works on spherical arenas too) and
+        // is short enough that once a launch carries the chassis up, the
+        // spring is out of range and can't re-fire until it falls back down.
+        private const float GroundProbeDistance = 2.5f;
+        private static readonly RaycastHit[] s_groundHits = new RaycastHit[8];
+
         private BlockBehaviour _block;
         private Rigidbody _chassisRb;
         private IInputSource _input;
@@ -113,8 +121,31 @@ namespace Robogame.Movement
             _wasVerticalPositive = verticalPositive;
 
             if (!risingEdge || _cooldownRemaining > 0f) return;
+            // Must be pushing off something — no mid-air re-launch.
+            if (!IsGrounded()) return;
 
             Launch();
+        }
+
+        /// <summary>
+        /// True when ground is within <see cref="GroundProbeDistance"/> along
+        /// the gravity vector — i.e. the spring has something to push off.
+        /// Mirrors the wheel / hover-blade self-filtered downward cast so own
+        /// chassis blocks don't count as ground.
+        /// </summary>
+        private bool IsGrounded()
+        {
+            Vector3 gravity = GravityField.SampleAt(transform.position);
+            if (gravity.sqrMagnitude < 1e-4f) return false;
+            Vector3 down = gravity.normalized;
+            int count = Physics.RaycastNonAlloc(
+                transform.position, down, s_groundHits, GroundProbeDistance, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < count; i++)
+            {
+                if (s_groundHits[i].collider.attachedRigidbody == _chassisRb) continue; // own chassis
+                return true;
+            }
+            return false;
         }
 
         private void Launch()
