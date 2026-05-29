@@ -136,6 +136,7 @@ namespace Robogame.Gameplay
         private readonly List<Tab> _tabs = new();
         private readonly List<Slot> _slots = new();
         private Text _cpuReadout;
+        private Image _cpuBarFill;
         private Text _detailText;
         private bool _subscribed;
         private bool _libraryDirty = true;
@@ -326,6 +327,16 @@ namespace Robogame.Gameplay
             _cpuReadout.color = hot
                 ? new Color(0.95f, 0.30f, 0.25f, 1f)
                 : new Color(1f, 1f, 1f, 0.9f);
+
+            if (_cpuBarFill != null)
+            {
+                _cpuBarFill.fillAmount = s.CpuCap > 0
+                    ? Mathf.Clamp01((float)s.CpuUsed / s.CpuCap)
+                    : 1f;
+                _cpuBarFill.color = hot
+                    ? new Color(0.95f, 0.30f, 0.25f, 1f)
+                    : new Color(0.30f, 0.75f, 0.40f, 1f);
+            }
         }
 
         private void RefreshDetailText()
@@ -405,6 +416,36 @@ namespace Robogame.Gameplay
             crt.pivot     = new Vector2(0.5f, 0f);
             crt.sizeDelta = new Vector2(360f, 48f);
             crt.anchoredPosition = new Vector2(0f, _bottomMargin + _slotSize.y + _tabSize.y + 30f);
+
+            // CPU spend-vs-cap fill bar, just below the readout. Background
+            // track + a left-anchored fill whose width tracks used/cap.
+            const float barW = 300f, barH = 8f;
+            float barY = _bottomMargin + _slotSize.y + _tabSize.y + 24f;
+
+            var barBgGO = new GameObject("CpuBarBg");
+            barBgGO.transform.SetParent(_root.transform, worldPositionStays: false);
+            var barBg = barBgGO.AddComponent<Image>();
+            barBg.color = new Color(0f, 0f, 0f, 0.55f);
+            var bgrt = barBgGO.GetComponent<RectTransform>();
+            bgrt.anchorMin = new Vector2(0.5f, 0f);
+            bgrt.anchorMax = new Vector2(0.5f, 0f);
+            bgrt.pivot     = new Vector2(0.5f, 0f);
+            bgrt.sizeDelta = new Vector2(barW, barH);
+            bgrt.anchoredPosition = new Vector2(0f, barY);
+
+            var barFillGO = new GameObject("CpuBarFill");
+            barFillGO.transform.SetParent(barBgGO.transform, worldPositionStays: false);
+            _cpuBarFill = barFillGO.AddComponent<Image>();
+            _cpuBarFill.color = new Color(0.30f, 0.75f, 0.40f, 1f);
+            _cpuBarFill.type = Image.Type.Filled;
+            _cpuBarFill.fillMethod = Image.FillMethod.Horizontal;
+            _cpuBarFill.fillOrigin = (int)Image.OriginHorizontal.Left;
+            _cpuBarFill.fillAmount = 0f;
+            var fillrt = barFillGO.GetComponent<RectTransform>();
+            fillrt.anchorMin = Vector2.zero;
+            fillrt.anchorMax = Vector2.one;
+            fillrt.offsetMin = Vector2.zero;
+            fillrt.offsetMax = Vector2.zero;
         }
 
         private void RebuildTabs()

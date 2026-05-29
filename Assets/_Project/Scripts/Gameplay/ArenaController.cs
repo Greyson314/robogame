@@ -336,7 +336,23 @@ namespace Robogame.Gameplay
             var go = new GameObject(_chassisName);
             go.transform.SetPositionAndRotation(pos, Quaternion.identity);
 
-            ChassisFactory.Build(go, bp, state.Library, state.InputActions);
+            // CPU budget enforcement at the match-start freeze (invariant #2),
+            // server-authoritative (invariant #3 — SP offline stub is always
+            // server). Over-budget builds get peripheral blocks stripped to
+            // fit before the chassis is assembled; the garage budget HUD is
+            // advisory, this is where it bites. Trims a clone, never the
+            // shared asset.
+            ChassisBlueprint spawnBp = bp;
+            if (bp != null && Core.NetworkContext.Instance.IsServer)
+            {
+                spawnBp = CpuBudget.TrimmedClone(bp, state.Library, out int stripped);
+                if (stripped > 0)
+                    Debug.LogWarning(
+                        $"[Robogame] '{bp.DisplayName}' was over the CPU budget; " +
+                        $"stripped {stripped} block(s) at spawn to fit.");
+            }
+
+            ChassisFactory.Build(go, spawnBp, state.Library, state.InputActions);
 
             if (isPlane && _planeSpawnForwardSpeed > 0f)
             {

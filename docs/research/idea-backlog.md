@@ -53,11 +53,12 @@ Payoff: one garage-chosen keybind ability (EMP / Blink / Disc Shield), fixed at 
 Reference: Robocraft modules (Blink/EMP/Disc Shield); Crossout active abilities.
 Notes: Shipped session 101. Module-category block + ActiveModuleSystem (server-gated cooldown), per-kind ModuleDefinition tuning, ModulePressed on Q, VFX+audio, arena cooldown HUD + garage select panel. Default Tank carries one. See docs/changes/101-active-module-slot.md.
 
-## Approved
-
-### CPU Budget + Garage HUD — approved (2026-05-28)
+### CPU Budget + Garage HUD — shipped (2026-05-29)
 Payoff: per-block CPU cost + live garage spend-vs-cap bar + strip-at-spawn over budget; garage becomes a resource-allocation puzzle and the balance lever for future blocks.
-Reference: Robocraft 2000-CPU cap; Crossout tonnage/energy. Resolves OPEN pillar question (cap shape). ~1 session.
+Reference: Robocraft 2000-CPU cap; Crossout tonnage/energy. Cap shape resolved: 250 budget per CPU block.
+Notes: Shipped session 102. Found ~70% already built (CpuCost, cap shape, hot readout). Net-new: Block/CpuBudget connectivity-preserving TrimToFit, server-gated strip at ArenaController spawn, garage fill bar. See docs/changes/102-cpu-budget-enforcement.md.
+
+## Approved
 
 ## Proposed
 

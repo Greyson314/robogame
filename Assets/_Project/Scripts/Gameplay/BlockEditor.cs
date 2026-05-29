@@ -110,11 +110,10 @@ namespace Robogame.Gameplay
         [Tooltip("Maximum picking distance.")]
         [SerializeField, Min(1f)] private float _raycastDistance = 100f;
 
-        [Tooltip("Reference CPU budget contributed per CPU block on the chassis. " +
-                 "Used only to compute the cap shown in the BuildHotbar readout — " +
-                 "placements are NOT rejected when the cap is exceeded; the readout " +
-                 "just turns hot to flag it.")]
-        [SerializeField, Min(0)] private int _cpuBudgetPerCpu = 250;
+        // CPU budget cap shape lives in Block.CpuBudget (one source of truth,
+        // shared with the spawn-time enforcer). The garage readout is
+        // advisory — placements aren't rejected over-cap; ArenaController
+        // strips to fit at match start.
 
         public BuildModeController BuildMode
         {
@@ -160,7 +159,7 @@ namespace Robogame.Gameplay
                 used += Mathf.Max(0, b.Definition.CpuCost);
                 if (b.Definition.Category == BlockCategory.Cpu) cpus++;
             }
-            return new CpuUsage(used, cpus * _cpuBudgetPerCpu);
+            return new CpuUsage(used, cpus * Block.CpuBudget.BudgetPerCpuBlock);
         }
 
         /// <summary>
@@ -183,7 +182,7 @@ namespace Robogame.Gameplay
                 mass += b.Definition.Mass;
                 count++;
             }
-            return new ChassisStats(used, cpus * _cpuBudgetPerCpu, count, mass);
+            return new ChassisStats(used, cpus * Block.CpuBudget.BudgetPerCpuBlock, count, mass);
         }
 
         // Visual feedback components — own ghost lifecycle + error
