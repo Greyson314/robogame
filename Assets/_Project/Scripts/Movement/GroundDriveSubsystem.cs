@@ -155,9 +155,19 @@ namespace Robogame.Movement
         {
             if (_rb == null) return;
 
+            // Wheels can only put down power — drive force AND steering yaw —
+            // while at least one is touching ground. Without this gate a
+            // wheels-only chassis can accelerate and turn in mid-air (e.g.
+            // after a spring jump), which reads as wrong: wheels with nothing
+            // to push against shouldn't generate momentum. Self-right + roll
+            // damping below stay UNGATED on purpose — they're stability
+            // assists, not propulsion, so an airborne tumble is still
+            // recoverable. Lateral grip is likewise gated (further down).
+            bool grounded = AnyWheelGrounded();
+
             // --- Steering: yaw around WORLD up so a tilted chassis doesn't
             //     accidentally roll itself when the player presses A/D. ---
-            if (!Mathf.Approximately(control.Move.x, 0f))
+            if (grounded && !Mathf.Approximately(control.Move.x, 0f))
             {
                 Vector3 torque = Vector3.up * (control.Move.x * TurnRate);
                 _rb.AddTorque(torque, ForceMode.Acceleration);
@@ -199,7 +209,7 @@ namespace Robogame.Movement
             // to both accel and max speed so the chassis feels
             // unambiguously heavier.
             float carryMul = control.SpeedMultiplier;
-            if (!Mathf.Approximately(control.Move.y, 0f))
+            if (grounded && !Mathf.Approximately(control.Move.y, 0f))
             {
                 Vector3 fwd = transform.forward;
                 fwd.y = 0f;
@@ -220,7 +230,7 @@ namespace Robogame.Movement
             //     positional offset, so it never produces a roll moment.
             //     Only active when at least one wheel is grounded so the
             //     car can still drift through the air after a jump. ---
-            if (LateralGrip > 0f && AnyWheelGrounded())
+            if (LateralGrip > 0f && grounded)
             {
                 Vector3 right = transform.right;
                 right.y = 0f;
