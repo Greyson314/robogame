@@ -43,12 +43,12 @@ Payoff: damage-number clustering, low-HP vignette + audio, scrap-pickup magnet t
 ### Multiple arena types (flat / spherical planet / water) — shipped (2026-05-28)
 Payoff: three distinct battlegrounds incl. planet arena with radial gravity. Ref: spherical-arenas subsystem.
 
-## Approved
+### Block-graph damage propagation — shipped (2026-05-28)
+Payoff: chip damage along block graph + detach subgraph as debris + functional disable; the "mechanical core" per robocraft-reference.
+Reference: Robocraft block graph; Crossout functional disable.
+Notes: Approved by /ideate run then found ALREADY IMPLEMENTED — splash via SMG SplashRings + BlockGrid.ApplySplashDamage (graph-BFS); detach via Robot.RunConnectivityNextFrame + DetachAsDebris; functional disable via isActiveAndEnabled + RotorBlock.OnDestroy. The only net work done this run: made ApplySplashDamage + FindDisconnectedFrom allocation-free (invariant #6, was allocating per SMG hit).
 
-### Block-graph damage propagation — approved (2026-05-28)
-Payoff: chip damage along block graph + detach subgraph as debris + functional disable; retroactively makes every weapon-placement decision a defensive puzzle. The "mechanical core" per robocraft-reference.
-Reference: Robocraft block graph (struct snaps, turret clusters fall off); Crossout functional disable without propagation.
-Notes: **PERF-GATED by user** — build only if it stays within budget (invariant #6 no per-frame alloc, server-authoritative). If not performant, skip and surface. ~3-session arc.
+## Approved
 
 ### Active Module Slot — approved (2026-05-28)
 Payoff: one garage-chosen keybind ability (EMP / Blink / shield), fixed at match start, server cooldown, destructible block disables it; turns "drive and shoot" into "wait for your moment."

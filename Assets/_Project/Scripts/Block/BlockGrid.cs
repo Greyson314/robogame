@@ -322,6 +322,17 @@ namespace Robogame.Block
         // Damage propagation
         // -----------------------------------------------------------------
 
+        // Reusable splash-BFS scratch. ApplySplashDamage fires on every SMG
+        // impact, so per-call allocation here is a real combat-time GC hit
+        // (invariant #6). These can't reuse BlockGraph.Buffers — the splash
+        // frontier carries a per-cell ring index, not a bare cell. Not
+        // re-entrant: TakeDamage → Destroyed → RemoveBlock defers the
+        // connectivity pass a frame (Robot.RunConnectivityNextFrame), so
+        // nothing calls ApplySplashDamage synchronously from within itself.
+        private readonly HashSet<Vector3Int> _splashVisited = new HashSet<Vector3Int>(64);
+        private readonly Queue<(Vector3Int pos, int ring)> _splashFrontier = new Queue<(Vector3Int, int)>(64);
+        private readonly List<(BlockBehaviour block, float amount)> _splashPending = new List<(BlockBehaviour, float)>(64);
+
         /// <summary>
         /// Apply damage centred at <paramref name="gridPos"/>, falling off through
         /// neighbouring blocks. <paramref name="ringDamage"/>[i] is the damage applied
@@ -329,29 +340,31 @@ namespace Robogame.Block
         /// </summary>
         /// <remarks>
         /// Uses BFS across existing block neighbours, so damage only propagates
-        /// through actually-connected blocks (no leaping across gaps).
+        /// through actually-connected blocks (no leaping across gaps). Allocation-free
+        /// past the scratch buffers' initial capacity.
         /// </remarks>
         public void ApplySplashDamage(Vector3Int gridPos, IReadOnlyList<float> ringDamage)
         {
             if (ringDamage == null || ringDamage.Count == 0) return;
             if (!_blocks.ContainsKey(gridPos)) return;
 
-            var visited = new HashSet<Vector3Int> { gridPos };
-            var frontier = new Queue<(Vector3Int pos, int ring)>();
-            frontier.Enqueue((gridPos, 0));
+            _splashVisited.Clear();
+            _splashFrontier.Clear();
+            // Snapshot per ring so all blocks in a ring take damage before any
+            // of them fall off — avoids order-dependent destruction.
+            _splashPending.Clear();
 
-            // Snapshot the queue per ring so all blocks in a ring take damage
-            // before any of them fall off — avoids order-dependent destruction.
-            var pendingDamage = new List<(BlockBehaviour block, float amount)>();
+            _splashVisited.Add(gridPos);
+            _splashFrontier.Enqueue((gridPos, 0));
 
-            while (frontier.Count > 0)
+            while (_splashFrontier.Count > 0)
             {
-                var (pos, ring) = frontier.Dequeue();
+                var (pos, ring) = _splashFrontier.Dequeue();
                 if (ring >= ringDamage.Count) continue;
 
                 if (_blocks.TryGetValue(pos, out BlockBehaviour b) && b.IsAlive)
                 {
-                    pendingDamage.Add((b, ringDamage[ring]));
+                    _splashPending.Add((b, ringDamage[ring]));
                 }
 
                 if (ring + 1 < ringDamage.Count)
@@ -359,16 +372,17 @@ namespace Robogame.Block
                     foreach (Vector3Int offset in s_neighborOffsets)
                     {
                         Vector3Int next = pos + offset;
-                        if (visited.Add(next) && _blocks.ContainsKey(next))
+                        if (_splashVisited.Add(next) && _blocks.ContainsKey(next))
                         {
-                            frontier.Enqueue((next, ring + 1));
+                            _splashFrontier.Enqueue((next, ring + 1));
                         }
                     }
                 }
             }
 
-            foreach (var (block, amount) in pendingDamage)
+            for (int i = 0; i < _splashPending.Count; i++)
             {
+                var (block, amount) = _splashPending[i];
                 if (block != null && block.IsAlive)
                 {
                     block.TakeDamage(amount);
@@ -401,19 +415,29 @@ namespace Robogame.Block
             return new HashSet<Vector3Int>(_bfsBuffers.Visited);
         }
 
+        // Reusable orphan-result scratch. FindDisconnectedFrom runs on every
+        // block-removal connectivity pass; allocating a fresh list each time
+        // is a combat-time GC hit (invariant #6). The returned list is THIS
+        // instance — valid only until the next FindDisconnectedFrom call. The
+        // sole runtime caller (Robot.RunConnectivityNextFrame, a coroutine that
+        // runs to completion before any re-entry) consumes it fully each pass.
+        private readonly List<BlockBehaviour> _orphanScratch = new List<BlockBehaviour>(64);
+
         /// <summary>
         /// Find every block <i>not</i> reachable from <paramref name="root"/>.
-        /// Useful for "CPU lost connection" detachment passes.
+        /// Useful for "CPU lost connection" detachment passes. The returned
+        /// list is a reused buffer — copy it if you need to retain it past the
+        /// next call. Allocation-free past the buffer's initial capacity.
         /// </summary>
         public List<BlockBehaviour> FindDisconnectedFrom(Vector3Int root)
         {
             BlockGraph.BfsFrom(this, root, _bfsBuffers);
-            var orphans = new List<BlockBehaviour>();
+            _orphanScratch.Clear();
             foreach (var kvp in _blocks)
             {
-                if (!_bfsBuffers.Visited.Contains(kvp.Key)) orphans.Add(kvp.Value);
+                if (!_bfsBuffers.Visited.Contains(kvp.Key)) _orphanScratch.Add(kvp.Value);
             }
-            return orphans;
+            return _orphanScratch;
         }
 
         // -----------------------------------------------------------------
