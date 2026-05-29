@@ -45,6 +45,23 @@ Payoff: three distinct battlegrounds incl. planet arena with radial gravity. Ref
 
 ## Approved
 
+### Block-graph damage propagation — approved (2026-05-28)
+Payoff: chip damage along block graph + detach subgraph as debris + functional disable; retroactively makes every weapon-placement decision a defensive puzzle. The "mechanical core" per robocraft-reference.
+Reference: Robocraft block graph (struct snaps, turret clusters fall off); Crossout functional disable without propagation.
+Notes: **PERF-GATED by user** — build only if it stays within budget (invariant #6 no per-frame alloc, server-authoritative). If not performant, skip and surface. ~3-session arc.
+
+### Active Module Slot — approved (2026-05-28)
+Payoff: one garage-chosen keybind ability (EMP / Blink / shield), fixed at match start, server cooldown, destructible block disables it; turns "drive and shoot" into "wait for your moment."
+Reference: Robocraft modules (Blink/EMP/Disc Shield); Crossout active abilities. ~2 sessions.
+
+### CPU Budget + Garage HUD — approved (2026-05-28)
+Payoff: per-block CPU cost + live garage spend-vs-cap bar + strip-at-spawn over budget; garage becomes a resource-allocation puzzle and the balance lever for future blocks.
+Reference: Robocraft 2000-CPU cap; Crossout tonnage/energy. Resolves OPEN pillar question (cap shape). ~1 session.
+
 ## Proposed
+
+### Dynamic Hazard Objects — proposed (2026-05-28)
+Payoff: 2-4 non-AI arena physics hazards (swinging wrecking ball, crater-carving rolling boulder), reset on respawn; arena becomes a "place," third party every fight navigates.
+Reference: Besiege boulders/pendulums; TerraTech Worlds roaming hazards. ~1-2 sessions; needs per-contact dig cooldown for tri budget.
 
 ## Rejected
