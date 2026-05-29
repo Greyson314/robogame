@@ -34,9 +34,9 @@ namespace Robogame.Movement
         // Baseline wheel "hop" on the jump input. Kept deliberately below a
         // spring block's launch so springs read as a real boost ON TOP of
         // the hop (both apply an impulse to the chassis Rb on the same Space
-        // press — additive). Bumped 6 → 40 (session 104): the 6 N·s hop was
-        // imperceptible on a multi-kg chassis.
-        [SerializeField, Min(0f)] private float _jumpImpulse = 40f;
+        // press — additive). Bumped 6 → 40 → 120 (session 104 playtest): the
+        // chassis is heavy enough that 40 N·s was still barely legible.
+        [SerializeField, Min(0f)] private float _jumpImpulse = 120f;
         [SerializeField, Min(0f)] private float _jumpCooldown = 0.4f;
 
         [Header("Tuning — Stability")]

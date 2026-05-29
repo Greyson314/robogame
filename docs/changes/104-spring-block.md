@@ -101,11 +101,26 @@ momentum from wheels with nothing to push against), but **steering yaw stays
 ungated** so you can turn the bot mid-hop. Self-right + roll/pitch damping
 stay ungated (stability assists, not propulsion). Lateral grip is gated with
 drive. The `GroundDriveSubsystem`'s own wheel "hop" (jump impulse on
-Vertical > 0.5) stays ungated and was bumped 6 → 40 N·s — the old value was
-imperceptible. A spring block's launch stacks additively on top of the hop
-(both `AddForce` the chassis Rb on the same Space press). New PlayMode
-`GroundDriveGroundingTests`: air → no drive, air → can still steer, hop fires
-airborne, grounded → drives forward.
+Vertical > 0.5) stays ungated and was bumped 6 → 40 → 120 N·s — the chassis
+is heavy enough that 40 was still barely legible. A spring block's launch
+stacks additively on top of the hop (both `AddForce` the chassis Rb on the
+same Space press). New PlayMode `GroundDriveGroundingTests`: air → no drive,
+air → can still steer, hop fires airborne, grounded → drives forward.
+
+## Follow-up: SpringBot rebuilt 2-tall (no more forward lean)
+
+The first SpringBot mounted its springs a full cell BELOW the floor (cell
+y = −1). Because an up-launching spring's host is the cell ABOVE it
+(`host = pos − up`), a flat 1-tall bot has nowhere to put the spring except
+under the floor — where, given the wheels only float the chassis ~1 m and
+sag under load, the rear spring colliders became the lowest point, buried in
+the ground, and dragged the chassis into a slow forward pitch while driving.
+(Not the air-control change — that's a no-op while grounded.) Rebuilt
+SpringBot as a 2-tall rover: an upper body (y=1) with the floor + wheels hung
+beneath, and the two springs at the floor-plane front/back ends hanging off
+the body tips. The springs now sit level with the floor (clear of the
+ground) and still launch up. Added `Blueprint_DefaultSpringBot` to
+`PresetBlueprintTests` so the shape is validated once baked.
 
 ## Followups / known gaps
 

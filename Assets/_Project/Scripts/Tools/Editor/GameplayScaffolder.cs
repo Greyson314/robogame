@@ -566,12 +566,16 @@ namespace Robogame.Tools.Editor
 
         private static BlueprintPlan BuildSpringBotPlan(BlockDefinitionLibrary lib)
         {
-            // Same compact 3-wide × 3-long rover as the DrillBot, but the
-            // front-face tool is swapped for two jump springs mounted on the
-            // UNDERSIDE of the rear spine cubes. Pressing Space fires both at
-            // once (additive impulses); their off-centre rear placement gives
-            // the hop a slight nose-up kick, which reads as a spring-car
-            // bounce. Demonstrates session-104's spring block.
+            // 2-tall rover: an upper body (y=1) with a floor (y=0) hung
+            // beneath it on wheels, plus two jump springs at the FRONT and
+            // BACK floor ends. An up-launching spring must hang under a host
+            // (host = cell ABOVE it), so a flat 1-tall bot forces the spring
+            // a full cell BELOW the floor — where it buries in the ground and
+            // drags the chassis into a forward pitch (session 104 playtest).
+            // Giving the springs a body to hang from lets them sit AT the
+            // floor plane instead, clearing the ground while still launching
+            // the chassis up. The two springs fire together on Space and
+            // stack additively on top of the wheel hop.
             Vector3Int forwardStep = new Vector3Int(0, 0, 1);
             Vector3Int backStep    = new Vector3Int(0, 0, -1);
             Vector3Int rightStep   = new Vector3Int(1, 0, 0);
@@ -580,22 +584,28 @@ namespace Robogame.Tools.Editor
             var sb = ScriptedChassisBuilder.Create("SpringBot", ChassisKind.Ground, lib);
             try
             {
-                sb.Place(BlockIds.Cpu, 0, 0, 0);
-                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  1), forwardStep);
-                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -1), backStep);
+                // Upper body spine (y=1) — CPU elevated + protected.
+                sb.Place(BlockIds.Cpu, new Vector3Int(0, 1, 0));
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 1,  1), forwardStep); // host CPU
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 1,  2), forwardStep); // host (0,1,1)
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 1, -1), backStep);    // host CPU
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 1, -2), backStep);    // host (0,1,-1)
+                // Floor spine (y=0), hung under the body via downStep.
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  0), downStep);    // host CPU
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  1), downStep);    // host (0,1,1)
+                sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -1), downStep);    // host (0,1,-1)
+                // Side floor strips + wheels (mirrored across X).
                 sb.MirrorX(b => b
-                    .Place(BlockIds.Cube, new Vector3Int(1, 0,  0), rightStep)
-                    .Place(BlockIds.Cube, new Vector3Int(1, 0,  1), rightStep)
-                    .Place(BlockIds.Cube, new Vector3Int(1, 0, -1), rightStep));
-                // Springs on the −Y face of the rear spine + CPU cubes. up =
-                // downStep mounts on the host's bottom face, so the spring
-                // launches the chassis up (−transform.up).
-                sb.Place(BlockIds.Spring, new Vector3Int(0, -1,  0), downStep);
-                sb.Place(BlockIds.Spring, new Vector3Int(0, -1, -1), downStep);
-                // Wheels — side stems, steerers front, drivers back.
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0,  0), rightStep)   // host (0,0,0)
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0,  1), rightStep)   // host (0,0,1)
+                    .Place(BlockIds.Cube, new Vector3Int(1, 0, -1), rightStep)); // host (0,0,-1)
                 sb.MirrorX(b => b
-                    .Place(BlockIds.WheelSteer, new Vector3Int(2, 0,  1), rightStep)
-                    .Place(BlockIds.Wheel,      new Vector3Int(2, 0, -1), rightStep));
+                    .Place(BlockIds.WheelSteer, new Vector3Int(2, 0,  1), rightStep)   // host (1,0,1)
+                    .Place(BlockIds.Wheel,      new Vector3Int(2, 0, -1), rightStep)); // host (1,0,-1)
+                // Jump springs at the floor-plane front + back ends, hung
+                // under the body tips (host = the cell directly above).
+                sb.Place(BlockIds.Spring, new Vector3Int(0, 0,  2), downStep);  // host (0,1,2)
+                sb.Place(BlockIds.Spring, new Vector3Int(0, 0, -2), downStep);  // host (0,1,-2)
                 return sb.Build();
             }
             finally { sb.Dispose(); }
