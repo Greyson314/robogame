@@ -118,7 +118,12 @@ namespace Robogame.Block
     }
 
     /// <summary>
-    /// Tuning struct for <see cref="Robogame.Movement.SpringBlock"/>.
+    /// Tuning struct for the legacy spring movement block. <b>Obsolete</b> as
+    /// of session 105 — the spring is a module now, tuned via
+    /// <c>ModuleTuning</c> + the per-block <c>ConfigValue</c> power slider.
+    /// Kept (with <c>ApplySpring</c> + the two <c>Dev.Spring.*</c> keys) as
+    /// dead-but-compiling code; safe to delete once the Tweakables dev-key
+    /// registration is revisited.
     /// <see cref="DefaultImpulse"/> is the fallback launch strength (N·s)
     /// when the block's per-instance <c>ConfigValue</c> is 0;
     /// <see cref="Cooldown"/> is the recharge time between launches.

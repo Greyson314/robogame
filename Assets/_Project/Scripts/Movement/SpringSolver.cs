@@ -2,10 +2,11 @@ namespace Robogame.Movement
 {
     /// <summary>
     /// Pure, allocation-free spring math shared by every block that models a
-    /// spring. The first two consumers are <see cref="HoverBladeBlock"/> (a
-    /// continuous Hooke spring-damper holding a target altitude) and
-    /// <see cref="SpringBlock"/> (a one-shot jump impulse). Future suspension
-    /// / bumper / pogo blocks should call into here rather than re-deriving
+    /// spring. The primary consumer is <see cref="HoverBladeBlock"/> (a
+    /// continuous Hooke spring-damper holding a target altitude); the spring
+    /// module's one-shot launch impulse is a trivial <c>dir × magnitude</c> so
+    /// it no longer routes through here. Future suspension / bumper / pogo
+    /// blocks should call into here rather than re-deriving
     /// the same formulas inline — the user's "generalise spring mechanics"
     /// directive (session 104) is what this file is for.
     /// </summary>

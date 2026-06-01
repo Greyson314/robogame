@@ -140,6 +140,12 @@ namespace Robogame.Tools.Editor
             // ModuleReady: subtle two-tone "recharged" chirp. UI bus —
             // it's feedback to the local player, not a world event.
             new CueRow(AudioCue.ModuleReady,       "USER_INTERFACES/Beeps/UI_Beep_Double_Clean_Up_stereo.wav",                                                 AudioBus.UI,    spatial: 0f, vol: 0.30f, jitter: 0f,    solo: true),
+            // SmokeDeploy (session 105): pressurised "fwoomp" as the cloud
+            // erupts. Compressed-air burst, 3D at the bot.
+            new CueRow(AudioCue.SmokeDeploy,       "TOOLS/Impact_Wrench/TOOL_Impact_Wrench_Comperssed_Air_Short_Burst_01_mono.wav",                            AudioBus.Sfx,   spatial: 1f, vol: 0.75f, jitter: 0.06f, solo: false),
+            // Cloak (session 105): digital "phase" sweep on cloak engage /
+            // disengage. Robotic air-lock burst reads as a stealth field.
+            new CueRow(AudioCue.Cloak,             "ROBOTICS/Short_Bursts/ROBOTIC_Short_Burst_12_Digital_Air_Lock_mono.wav",                                    AudioBus.Sfx,   spatial: 1f, vol: 0.70f, jitter: 0.05f, solo: false),
 
             // UI / match
             new CueRow(AudioCue.UiHover,           "USER_INTERFACES/Beeps/UI_Beep_Bend_Short_stereo.wav",                                                       AudioBus.UI,    spatial: 0f, vol: 0.40f, jitter: 0f,    solo: false),

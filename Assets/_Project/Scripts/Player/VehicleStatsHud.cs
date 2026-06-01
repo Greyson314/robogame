@@ -47,6 +47,7 @@ namespace Robogame.Player
         private Rigidbody _rb;
         private Robot _robot;
         private WeaponAmmoState _ammo;
+        private ModuleSystem _module;
         private Transform _target;
         private int _maxBlockCount;
         private float _displaySpeed;
@@ -91,6 +92,7 @@ namespace Robogame.Player
                 _rb = _target != null ? _target.GetComponent<Rigidbody>() : null;
                 _robot = _target != null ? _target.GetComponent<Robot>() : null;
                 _ammo = _target != null ? _target.GetComponent<WeaponAmmoState>() : null;
+                _module = _target != null ? _target.GetComponent<ModuleSystem>() : null;
                 // Capture the chassis's full block count on respawn so the
                 // BLOCKS line can render N/Max. Counts include every cell in
                 // the BlockGrid; foils adopted under a kinematic rotor hub
@@ -134,16 +136,22 @@ namespace Robogame.Player
                 _altText = $"ALT  {altDeci / 10f:F1} m";
             }
 
+            // Smoke / invisibility hide the health surrogate (the BLK count) —
+            // the in-arena stand-in for "your healthbar". Concealed while the
+            // module's HealthbarHidden flag is up; never reads as damaged then.
+            bool concealed = _module != null && _module.HealthbarHidden;
             int blocks = _robot != null ? _robot.BlockCount : 0;
-            if (blocks != _lastBlocks || _maxBlockCount != _lastMaxBlocks)
+            // -1 sentinel forces a rebuild on the frame conceal toggles.
+            int effBlocks = concealed ? -1 : blocks;
+            if (effBlocks != _lastBlocks || _maxBlockCount != _lastMaxBlocks)
             {
-                _lastBlocks = blocks;
+                _lastBlocks = effBlocks;
                 _lastMaxBlocks = _maxBlockCount;
-                _blocksText = _maxBlockCount > 0
-                    ? $"BLK  {blocks} / {_maxBlockCount}"
-                    : $"BLK  {blocks}";
+                _blocksText = concealed
+                    ? "BLK  —"
+                    : (_maxBlockCount > 0 ? $"BLK  {blocks} / {_maxBlockCount}" : $"BLK  {blocks}");
             }
-            _damaged = _maxBlockCount > 0 && blocks < _maxBlockCount;
+            _damaged = !concealed && _maxBlockCount > 0 && blocks < _maxBlockCount;
 
             int scrap = _robot != null ? _robot.ScrapHeld : 0;
             int scrapCap = _robot != null ? _robot.ScrapCarryCapacity : 0;

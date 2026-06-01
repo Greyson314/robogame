@@ -350,6 +350,14 @@ namespace Robogame.Gameplay
                     Debug.LogWarning(
                         $"[Robogame] '{bp.DisplayName}' was over the CPU budget; " +
                         $"stripped {stripped} block(s) at spawn to fit.");
+
+                // Module cap enforcement at the same freeze: a hand-authored or
+                // imported blueprint can never field more than ModuleBudget.MaxModules.
+                spawnBp = ModuleBudget.TrimmedClone(spawnBp, out int strippedModules);
+                if (strippedModules > 0)
+                    Debug.LogWarning(
+                        $"[Robogame] '{bp.DisplayName}' carried more than {ModuleBudget.MaxModules} modules; " +
+                        $"dropped {strippedModules} at spawn to fit.");
             }
 
             ChassisFactory.Build(go, spawnBp, state.Library, state.InputActions);
@@ -1322,11 +1330,11 @@ namespace Robogame.Gameplay
                 mainCam.gameObject.AddComponent<HitMarkerOverlay>();
             if (mainCam.GetComponent<VehicleStatsHud>() == null)
                 mainCam.gameObject.AddComponent<VehicleStatsHud>();
-            // Active-module cooldown indicator. Resolves its chassis via
+            // Module ability bar (MOBA-style). Resolves its chassis via
             // FollowCamera.Target like the other Player HUDs; draws nothing
             // until the chassis actually carries a live module block.
-            if (mainCam.GetComponent<ModuleHud>() == null)
-                mainCam.gameObject.AddComponent<ModuleHud>();
+            if (mainCam.GetComponent<ModuleBarHud>() == null)
+                mainCam.gameObject.AddComponent<ModuleBarHud>();
             if (mainCam.GetComponent<DeathOverlay>() == null)
                 mainCam.gameObject.AddComponent<DeathOverlay>();
             // Low-HP danger vignette + audio pulse. Reads the chassis Robot

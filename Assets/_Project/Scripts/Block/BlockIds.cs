@@ -55,17 +55,23 @@ namespace Robogame.Block
         // can't propel above target altitude. First non-joint propulsion
         // block — see docs/subsystems/physics.md §6.
         public const string HoverBlade = "block.movement.hoverblade";
-        // Spring (session 104): a jump block. Mounted on a chassis face
-        // (typically the underside), it fires a cooldown-gated impulse on the
-        // jump input, shoving the chassis off the surface its outward face
-        // braces against — an underside spring jumps the bot up. Shares the
-        // reusable SpringSolver math with the hover blade. See SpringBlock.
-        public const string Spring     = "block.movement.spring";
-        // Active module (session 101): a Module-category block that grants
-        // one garage-chosen keybind ability (EMP / Blink / Disc Shield).
-        // The chassis-wide choice rides ChassisBlueprint.ActiveModuleKind;
-        // the block itself is the destructible carrier — destroy it and the
-        // ability goes dark (functional disable). See ActiveModuleBlock.
-        public const string ActiveModule = "block.module.active";
+        // Modules (session 105): each Module-category block grants one
+        // triggered, cooldown-gated ability surfaced on the in-match ability
+        // bar. Identity is the block type — ModuleKinds maps each id ↔ a
+        // ModuleKind. A chassis carries up to ModuleBudget.MaxModules of them;
+        // each is the destructible carrier whose death disables its slot. The
+        // per-instance power rides BlockBehaviour.ConfigValue (trades power for
+        // a longer cooldown). See ModuleBlock / ModuleSystem.
+        //
+        // Spring keeps its original id string (shipped session 104) but is a
+        // Module now: a grounded-only impulse launch off its mount face. Id
+        // strings never change once shipped, so the "movement" prefix is
+        // cosmetic — ModuleKinds.IsModuleId treats it as a module.
+        public const string Spring      = "block.movement.spring";
+        public const string ModuleEmp   = "block.module.emp";
+        public const string ModuleBlink = "block.module.blink";
+        public const string ModuleShield = "block.module.shield";
+        public const string ModuleSmoke = "block.module.smoke";
+        public const string ModuleInvis = "block.module.invis";
     }
 }

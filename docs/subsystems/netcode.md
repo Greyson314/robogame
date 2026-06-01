@@ -95,7 +95,7 @@ This is non-negotiable. Every multiplayer bug ever filed comes down to "two mach
 
 ### Client responsibilities
 
-- **Send inputs**, not state. `InputCommand { tick, move, vertical, fireHeld, aimDir }` arrives on the server every tick.
+- **Send inputs**, not state. `InputCommand { tick, move, vertical, fireHeld, aimDir }` arrives on the server every tick. (Session 105: the single `ModulePressed` bool became a `byte ModuleMask` — bit *i* = module slot *i* pressed — when modules went multi-slot; `IInputSource.GetModulePressed(int slot)` is the matching contract change.)
 - **Predict the local player** for snappy controls. Replay the same command stream on top of the last authoritative snapshot.
 - **Interpolate remote players** between server snapshots (≈100 ms behind for jitter buffer).
 - **Render visual-only effects** (tracers, muzzle flashes, screen shake, HUD pings) the moment they're locally relevant — these never need to be authoritative.

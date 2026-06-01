@@ -54,7 +54,6 @@ namespace Robogame.Gameplay
         private BuildMirrorMode _mirrorMode;
         private BlockGhostRenderer _ghostRenderer;
         private PlacementFeedbackHud _feedbackHud;
-        private ModuleSelectHud _moduleSelect;
         // Plain-C# build-mode model. Owns the variant cache + mirror
         // state + place/remove verbs so the MonoBehaviour drivers stay
         // thin and EditMode tests can drive build-mode logic without
@@ -289,11 +288,9 @@ namespace Robogame.Gameplay
             _editor.GhostRenderer = _ghostRenderer;
             if (_feedbackHud == null) _feedbackHud = gameObject.AddComponent<PlacementFeedbackHud>();
             _editor.FeedbackHud = _feedbackHud;
-
-            // Active-module selector. Self-hides unless the current build
-            // carries an ActiveModule block, so it costs nothing on chassis
-            // without one.
-            if (_moduleSelect == null) _moduleSelect = gameObject.AddComponent<ModuleSelectHud>();
+            // Module abilities are now per-block (the block type IS the
+            // ability), so there's no chassis-level module picker — the
+            // per-module power slider lives in the VariantConfigPanel.
         }
 
         /// <summary>Toggle build mode. Forwarded by HUD button + hotkey.</summary>

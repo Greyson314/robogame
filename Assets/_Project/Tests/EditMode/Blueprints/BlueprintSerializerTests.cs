@@ -95,49 +95,60 @@ namespace Robogame.Tests.EditMode.Blueprints
         }
 
         [Test]
-        public void RoundTrip_V5_PreservesActiveModuleKind()
+        public void RoundTrip_V6_PreservesModuleBlockAndPower()
         {
+            // Modules are per-block: the block id IS the ability, and per-block
+            // power rides BlockConfig. Both must survive a save/load — losing
+            // either would silently drop or re-default a tuned ability.
             var bp = ScriptableObject.CreateInstance<ChassisBlueprint>();
             bp.DisplayName = "Shielded";
             bp.Kind = ChassisKind.Ground;
-            bp.ActiveModuleKind = ModuleKind.DiscShield;
             bp.SetEntries(new[]
             {
                 new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)),
-                new ChassisBlueprint.Entry(BlockIds.ActiveModule,
-                    new Vector3Int(0, 1, 0), Vector3Int.up),
+                new ChassisBlueprint.Entry(BlockIds.ModuleShield,
+                    new Vector3Int(0, 1, 0), Vector3Int.up, Vector3.zero, 0f, 3.5f),
             });
 
             string json = BlueprintSerializer.ToJson(bp, prettyPrint: false);
             Assert.IsTrue(BlueprintSerializer.TryFromJson(json, out ChassisBlueprint loaded, out string error),
-                $"v5 round-trip failed: {error}");
+                $"v6 round-trip failed: {error}");
 
-            Assert.AreEqual(ModuleKind.DiscShield, loaded.ActiveModuleKind,
-                "The garage-chosen active module must survive a save/load — losing it " +
-                "would silently reset every loaded chassis to the EMP default.");
+            ChassisBlueprint.Entry mod = System.Array.Find(loaded.Entries, e => e.BlockId == BlockIds.ModuleShield);
+            Assert.AreEqual(BlockIds.ModuleShield, mod.BlockId,
+                "The placed module block must survive a save/load.");
+            Assert.AreEqual(3.5f, mod.BlockConfig, 1e-4f,
+                "Per-module power (BlockConfig) must survive — losing it reverts a tuned module to default.");
+            Assert.AreEqual(ModuleKind.DiscShield, ModuleKinds.ForBlockId(mod.BlockId),
+                "The module block must self-describe its ability via ModuleKinds.");
         }
 
         [Test]
-        public void LegacyV4Json_LoadsWithEmpBurstDefault()
+        public void LegacyV5Json_IgnoresActiveModuleKindField()
         {
-            // v4 JSON has no activeModuleKind field. Loader must default to
-            // EmpBurst (the enum's zero value) so pre-module saves stay valid.
-            string v4Json = @"{
-                ""schemaVersion"": 4,
-                ""displayName"": ""LegacyV4"",
+            // v5 carried a chassis-level activeModuleKind string. v6 dropped it
+            // (modules are per-block now); the loader must ignore the stale
+            // field and keep the module block, not error out.
+            string v5Json = @"{
+                ""schemaVersion"": 5,
+                ""displayName"": ""LegacyV5"",
                 ""kind"": ""Ground"",
-                ""createdUtc"": ""2026-05-20T00:00:00Z"",
+                ""createdUtc"": ""2026-05-29T00:00:00Z"",
                 ""rotorsGenerateLift"": false,
+                ""activeModuleKind"": ""DiscShield"",
                 ""entries"": [
                     { ""id"": ""block.cpu.standard"", ""x"": 0, ""y"": 0, ""z"": 0,
+                      ""ux"": 0, ""uy"": 1, ""uz"": 0,
+                      ""dx"": 0, ""dy"": 0, ""dz"": 0, ""pitch"": 0, ""blockConfig"": 0 },
+                    { ""id"": ""block.module.emp"", ""x"": 0, ""y"": 1, ""z"": 0,
                       ""ux"": 0, ""uy"": 1, ""uz"": 0,
                       ""dx"": 0, ""dy"": 0, ""dz"": 0, ""pitch"": 0, ""blockConfig"": 0 }
                 ]
             }";
-            Assert.IsTrue(BlueprintSerializer.TryFromJson(v4Json, out ChassisBlueprint bp, out string error),
-                $"v4 load failed: {error}");
-            Assert.AreEqual(ModuleKind.EmpBurst, bp.ActiveModuleKind,
-                "v4 saves predate the module field and must default to EmpBurst.");
+            Assert.IsTrue(BlueprintSerializer.TryFromJson(v5Json, out ChassisBlueprint bp, out string error),
+                $"v5 load failed: {error}");
+            Assert.IsTrue(System.Array.Exists(bp.Entries, e => e.BlockId == BlockIds.ModuleEmp),
+                "The module block must survive a v5 load even though activeModuleKind is ignored.");
         }
 
         [Test]

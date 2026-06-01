@@ -53,6 +53,7 @@ namespace Robogame.Block
             SecondCpu,
             WouldOverlapNeighbour,
             WouldOrphanOnRemoval,
+            ModuleLimitReached,
         }
 
         /// <summary>
@@ -159,6 +160,27 @@ namespace Robogame.Block
             return PlacementError.None;
         }
 
+        /// <summary>
+        /// A chassis may carry at most <see cref="ModuleBudget.MaxModules"/>
+        /// module blocks (the ability-bar cap). Count-based rule, mirrors
+        /// <see cref="CheckSecondCpu"/>.
+        /// </summary>
+        public static PlacementError CheckModuleLimit(BlockGrid grid, in Candidate c)
+        {
+            if (grid == null || c.Definition == null) return PlacementError.None;
+            if (!ModuleKinds.IsModuleId(c.Definition.Id)) return PlacementError.None;
+            int modules = 0;
+            foreach (var kvp in grid.Blocks)
+            {
+                BlockBehaviour b = kvp.Value;
+                if (b == null || b.Definition == null) continue;
+                if (ModuleKinds.IsModuleId(b.Definition.Id)) modules++;
+            }
+            return modules >= ModuleBudget.MaxModules
+                ? PlacementError.ModuleLimitReached
+                : PlacementError.None;
+        }
+
         public static PlacementError CheckSweptOverlap(BlockGrid grid, in Candidate c)
         {
             if (grid == null || c.Definition == null) return PlacementError.None;
@@ -188,6 +210,7 @@ namespace Robogame.Block
             if ((e = CheckHostIsConnective(grid, candidate)) != PlacementError.None) return e;
             if ((e = CheckHostIsCpuReachable(grid, candidate, cpuReachable)) != PlacementError.None) return e;
             if ((e = CheckSecondCpu(grid, candidate)) != PlacementError.None) return e;
+            if ((e = CheckModuleLimit(grid, candidate)) != PlacementError.None) return e;
             if ((e = CheckMountFace(candidate)) != PlacementError.None) return e;
             if ((e = CheckSweptOverlap(grid, candidate)) != PlacementError.None) return e;
             return PlacementError.None;

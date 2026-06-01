@@ -195,7 +195,7 @@ namespace Robogame.Gameplay
                         if (e.BlockId == BlockIds.Wheel || e.BlockId == BlockIds.WheelSteer) hasWheels = true;
                         if (e.BlockId == BlockIds.Aero || e.BlockId == BlockIds.AeroFin) hasAero = true;
                         if (e.BlockId == BlockIds.HoverBlade) hasHovers = true;
-                        if (e.BlockId == BlockIds.ActiveModule) hasModule = true;
+                        if (ModuleKinds.IsModuleId(e.BlockId)) hasModule = true;
                         if (e.BlockId == BlockIds.Weapon
                             || e.BlockId == BlockIds.BombBay
                             || e.BlockId == BlockIds.Cannon
@@ -220,15 +220,16 @@ namespace Robogame.Gameplay
                     // aero blocks are present.
                     EnsureComponent<RobotAeroBinder>(root);
 
-                    // Module binder is likewise unconditional (dragging an
-                    // ActiveModule block on should just work). The chassis-
-                    // root controller is only added when a module block is
-                    // present so a moduleless chassis pays zero per-frame
-                    // cost (invariant #5). The system must exist before the
-                    // block's OnEnable runs so ActiveModuleBlock.Register
-                    // finds it on activation.
+                    // Module binder is likewise unconditional (dragging a
+                    // module block on should just work). The chassis-root
+                    // controller is only added when a module block is present
+                    // so a moduleless chassis pays zero per-frame cost
+                    // (invariant #5). The system must exist before the block's
+                    // OnEnable runs so ModuleBlock.Register finds it on
+                    // activation. The spring is a module now, so the module
+                    // binder handles it too (no separate spring binder).
                     EnsureComponent<RobotModuleBinder>(root);
-                    if (hasModule) EnsureComponent<ActiveModuleSystem>(root);
+                    if (hasModule) EnsureComponent<ModuleSystem>(root);
 
                     if (hasAero || blueprint.Kind == ChassisKind.Plane)
                         EnsureComponent<PlaneControlSubsystem>(root);
@@ -247,7 +248,6 @@ namespace Robogame.Gameplay
                 EnsureComponent<RobotRopeBinder>(root);
                 EnsureComponent<RobotRotorBinder>(root);
                 EnsureComponent<RobotHoverBladeBinder>(root);
-                EnsureComponent<RobotSpringBinder>(root);
                 // Phase 3b: attach DrillBlock components to placed
                 // "block.tool.drill" cells. Lives in Robogame.Voxel.
                 EnsureComponent<Voxel.RobotDrillBinder>(root);

@@ -52,7 +52,7 @@ namespace Robogame.Gameplay
         // ----- UGUI -----
         private GameObject _root;
         private Text _titleText;
-        private GameObject _foilSection, _ropeSection, _rotorSection, _hoverSection;
+        private GameObject _foilSection, _ropeSection, _rotorSection, _hoverSection, _moduleSection;
 
         // Foil controls
         private Slider _foilPitchPrimary;
@@ -73,6 +73,12 @@ namespace Robogame.Gameplay
         private Slider _hoverSizeSlider;
         private Text _hoverSizeValue;
         private Text _hoverReadout;
+        // Module controls — one "Power" slider (writes ConfigValue) with a
+        // live cooldown readout. Slider range is reconfigured per kind.
+        private Slider _modulePowerSlider;
+        private Text _modulePowerValue;
+        private Text _moduleReadout;
+        private ModuleKind _moduleKind;
 
         private string _activeBlockId;
         private bool _suppressCallbacks;
@@ -135,6 +141,14 @@ namespace Robogame.Gameplay
             => _session != null ? _session.GetVariantPitch(blockId) : 0f;
 
         /// <summary>
+        /// Read the cached "next placement" scalar config for
+        /// <paramref name="blockId"/> (module power, etc). 0 means "use the
+        /// block default".
+        /// </summary>
+        public float GetConfigForBlock(string blockId)
+            => _session != null ? _session.GetVariantConfig(blockId) : 0f;
+
+        /// <summary>
         /// True when the block id participates in the variant config UI.
         /// Delegates to <see cref="BlockVariants.HasVariantConfigId"/>
         /// so the hotbar 'VAR' badge, the panel visibility, and any
@@ -195,7 +209,8 @@ namespace Robogame.Gameplay
             bool rope = blockId == BlockIds.Rope;
             bool rotor = blockId == BlockIds.Rotor;
             bool hover = blockId == BlockIds.HoverBlade;
-            bool any = foil || rope || rotor || hover;
+            bool module = ModuleKinds.IsModuleId(blockId);
+            bool any = foil || rope || rotor || hover || module;
             SetVisible(any);
             if (!any) return;
 
@@ -206,12 +221,14 @@ namespace Robogame.Gameplay
                     : "VARIANT — AERO WING";
                 else if (rope) _titleText.text = "VARIANT — ROPE";
                 else if (rotor) _titleText.text = "VARIANT — ROTOR";
-                else _titleText.text = "VARIANT — HOVER BLADE";
+                else if (hover) _titleText.text = "VARIANT — HOVER BLADE";
+                else _titleText.text = $"MODULE — {ModuleKinds.Label(ModuleKinds.ForBlockId(blockId) ?? ModuleKind.EmpBurst)}";
             }
             _foilSection.SetActive(foil);
             _ropeSection.SetActive(rope);
             _rotorSection.SetActive(rotor);
             _hoverSection.SetActive(hover);
+            _moduleSection.SetActive(module);
 
             _suppressCallbacks = true;
             if (foil)
@@ -252,6 +269,19 @@ namespace Robogame.Gameplay
                 _hoverSizeSlider.value = size;
                 UpdateValueText(_hoverSizeValue, size, "F0");
                 UpdateHoverReadout();
+            }
+            else if (module)
+            {
+                _moduleKind = ModuleKinds.ForBlockId(blockId) ?? ModuleKind.EmpBurst;
+                float def = ModuleTuning.DefaultPower(_moduleKind);
+                float cachedPower = GetConfigForBlock(blockId);
+                float power = cachedPower > 0f ? cachedPower : def;
+                // Reconfigure the single slider to this kind's power range.
+                _modulePowerSlider.minValue = ModuleTuning.MinPower(_moduleKind);
+                _modulePowerSlider.maxValue = ModuleTuning.MaxPower(_moduleKind);
+                _modulePowerSlider.value = power;
+                UpdateValueText(_modulePowerValue, power, "F1");
+                UpdateModuleReadout(power);
             }
             _suppressCallbacks = false;
         }
@@ -549,11 +579,13 @@ namespace Robogame.Gameplay
             _ropeSection  = BuildRopeSection(panel.transform);
             _rotorSection = BuildRotorSection(panel.transform);
             _hoverSection = BuildHoverSection(panel.transform);
+            _moduleSection = BuildModuleSection(panel.transform);
 
             _foilSection.SetActive(false);
             _ropeSection.SetActive(false);
             _rotorSection.SetActive(false);
             _hoverSection.SetActive(false);
+            _moduleSection.SetActive(false);
         }
 
         private GameObject BuildHoverSection(Transform parent)
@@ -584,6 +616,53 @@ namespace Robogame.Gameplay
             rrt.sizeDelta = new Vector2(0f, 22f);
 
             return section;
+        }
+
+        private GameObject BuildModuleSection(Transform parent)
+        {
+            var section = NewChild("Module", parent);
+            var rt = section.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.offsetMin = new Vector2(12f, 12f);
+            rt.offsetMax = new Vector2(-12f, -40f);
+
+            // Single "Power" slider; its range is reconfigured per module kind
+            // in HandleSelectedBlockChanged. Writing it caches ConfigValue,
+            // which rides the blueprint and trades power for cooldown.
+            _modulePowerSlider = BuildLabeledSlider(section.transform, "Power", slot: 0,
+                min: 0f, max: 1f, def: 0f, onChanged: OnModulePowerChanged, out _modulePowerValue);
+
+            _moduleReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
+                anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
+                size: 12, style: FontStyle.Italic, anchor: TextAnchor.MiddleCenter, color: s_dim);
+            var rrt = _moduleReadout.rectTransform;
+            rrt.pivot = new Vector2(0.5f, 1f);
+            rrt.anchoredPosition = new Vector2(0f, -56f - 4f);
+            rrt.sizeDelta = new Vector2(0f, 22f);
+
+            return section;
+        }
+
+        private void OnModulePowerChanged(float v)
+        {
+            if (_suppressCallbacks) return;
+            float snapped = Mathf.Round(v * 2f) / 2f; // 0.5 steps
+            string id = _activeBlockId;
+            if (string.IsNullOrEmpty(id)) return;
+            _suppressCallbacks = true;
+            _modulePowerSlider.value = snapped;
+            _suppressCallbacks = false;
+            _session?.SetVariantConfig(id, snapped);
+            UpdateValueText(_modulePowerValue, snapped, "F1");
+            UpdateModuleReadout(snapped);
+        }
+
+        private void UpdateModuleReadout(float power)
+        {
+            if (_moduleReadout == null) return;
+            float cd = ModuleTuning.CooldownFor(_moduleKind, power);
+            _moduleReadout.text = $"{power:F1} power  •  {cd:F1}s cooldown";
         }
 
         private GameObject BuildFoilSection(Transform parent)

@@ -63,6 +63,19 @@ namespace Robogame.Block
     /// </list>
     /// </para>
     /// <para>
+    /// v5 schema (superseded). Added a top-level <c>activeModuleKind</c> string
+    /// (the single garage-chosen ability of the one ActiveModule block).
+    /// </para>
+    /// <para>
+    /// v6 schema (current). Modules became a per-block category: each module
+    /// block type IS its ability (resolved via <c>ModuleKinds.ForBlockId</c>),
+    /// and per-block power rides the existing <c>blockConfig</c> scalar. The
+    /// chassis-level <c>activeModuleKind</c> is gone — a v5 JSON's field is
+    /// simply ignored on load (JsonUtility drops unknown keys), which is
+    /// behaviour-identical because the module block ids it referenced still
+    /// serialize and now self-describe their ability.
+    /// </para>
+    /// <para>
     /// v1–v3 saves load behaviour-identical: the config objects' field
     /// initializers equal the historical Tweakable defaults, and absent
     /// objects are coalesced to a fresh default instance on load; absent
@@ -73,7 +86,7 @@ namespace Robogame.Block
     /// </remarks>
     public static class BlueprintSerializer
     {
-        public const int CurrentSchemaVersion = 5;
+        public const int CurrentSchemaVersion = 6;
 
         // -----------------------------------------------------------------
         // DTOs (private — JsonUtility needs concrete [Serializable] types)
@@ -87,10 +100,6 @@ namespace Robogame.Block
             public string kind;
             public string createdUtc;
             public bool rotorsGenerateLift;
-            // v5 addition. Garage-chosen active-module ability. Absent in
-            // v1–v4 JSON; JsonUtility leaves it null/"" and TryFromJson
-            // coalesces to EmpBurst (the enum's zero default).
-            public string activeModuleKind;
             // v4: server-authoritative chassis-level drive tuning. Nested
             // [Serializable] classes; absent in v1–v3 JSON and coalesced
             // to defaults on load (TryFromJson).
@@ -168,7 +177,6 @@ namespace Robogame.Block
                 kind = blueprint.Kind.ToString(),
                 createdUtc = DateTime.UtcNow.ToString("o"),
                 rotorsGenerateLift = blueprint.RotorsGenerateLift,
-                activeModuleKind = blueprint.ActiveModuleKind.ToString(),
                 planeTuning = blueprint.PlaneTuning,
                 groundTuning = blueprint.GroundTuning,
                 chassisDamping = blueprint.ChassisDamping,
@@ -253,15 +261,8 @@ namespace Robogame.Block
             bp.DisplayName = string.IsNullOrEmpty(dto.displayName) ? "Untitled" : dto.displayName;
             bp.Kind = kind;
             bp.RotorsGenerateLift = dto.rotorsGenerateLift;
-            // v5 active module — absent in v1–v4 (null/"") → EmpBurst default.
-            ModuleKind moduleKind = ModuleKind.EmpBurst;
-            if (!string.IsNullOrEmpty(dto.activeModuleKind) &&
-                !Enum.TryParse(dto.activeModuleKind, ignoreCase: true, out moduleKind))
-            {
-                error = $"Unknown active module kind '{dto.activeModuleKind}'.";
-                return false;
-            }
-            bp.ActiveModuleKind = moduleKind;
+            // v5's activeModuleKind is intentionally ignored — modules are now
+            // per-block (the block ids in `entries` self-describe the ability).
             // v1–v3 saves have no tuning objects; JsonUtility leaves the
             // struct's class fields null. Coalesce to fresh defaults whose
             // field initializers equal the historical Tweakable defaults,

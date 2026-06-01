@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 
 namespace Robogame.Input
 {
@@ -102,23 +103,30 @@ namespace Robogame.Input
         }
 
         /// <summary>
-        /// True only on the frame the player presses Q. Reads the keyboard
-        /// device directly (Module isn't a binding in the project
-        /// InputActionAsset — same approach as <see cref="ReloadPressed"/>'s
-        /// R key). HUD-pointer suppression so a Q press over the UI doesn't
-        /// fire the ability.
+        /// True only on the frame the player presses the number key for module
+        /// <paramref name="slot"/> (0→1, 1→2, 2→3, 3→4). Reads the keyboard
+        /// device directly (modules aren't bindings in the project
+        /// InputActionAsset — same approach as <see cref="ReloadPressed"/>'s R
+        /// key). The digit row is free in arena; R is avoided because it's the
+        /// reload / hook-release key. HUD-pointer suppression so a press over
+        /// the UI doesn't fire the ability.
         /// </summary>
-        public bool ModulePressed
+        public bool GetModulePressed(int slot)
         {
-            get
+            Keyboard kb = Keyboard.current;
+            if (kb == null) return false;
+            KeyControl key = slot switch
             {
-                Keyboard kb = Keyboard.current;
-                if (kb == null) return false;
-                if (!kb.qKey.wasPressedThisFrame) return false;
-                if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
-                    return false;
-                return true;
-            }
+                0 => kb.digit1Key,
+                1 => kb.digit2Key,
+                2 => kb.digit3Key,
+                3 => kb.digit4Key,
+                _ => null,
+            };
+            if (key == null || !key.wasPressedThisFrame) return false;
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+                return false;
+            return true;
         }
 
         private void OnEnable()

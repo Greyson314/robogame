@@ -14,13 +14,11 @@ namespace Robogame.Tools.Editor
     {
         public const string DefinitionsFolder = "Assets/_Project/ScriptableObjects/BlockDefinitions";
         public const string WeaponDefinitionsFolder = "Assets/_Project/ScriptableObjects/WeaponDefinitions";
-        public const string ModuleDefinitionsFolder = "Assets/_Project/ScriptableObjects/ModuleDefinitions";
 
         public static void CreateTestDefinitions()
         {
             EnsureFolder(DefinitionsFolder);
             EnsureFolder(WeaponDefinitionsFolder);
-            EnsureFolder(ModuleDefinitionsFolder);
 
             // Author the per-kind component-data SOs FIRST so the
             // BlockDefinition writes below can reference live assets.
@@ -32,7 +30,6 @@ namespace Robogame.Tools.Editor
                 "Cannon_Default",
                 fireInterval: 0.85f, muzzleSpeed: 80f, damage: 60f,
                 ballRadius: 0.28f, recoil: 28f, ballMass: 5f);
-            ModuleDefinition moduleDef = CreateOrUpdateModuleDefinition("Module_Default");
 
             // Phase 1+2: every block reads through a shared, palette-backed
             // MK Toon material. Build them BEFORE the definitions so the
@@ -98,16 +95,17 @@ namespace Robogame.Tools.Editor
             // mid-cost CPU. No componentData yet — drill radius + emit
             // rate live on the DrillBlock MonoBehaviour as SerializeFields.
             CreateOrUpdate("BlockDef_Drill",      BlockIds.Drill,      "Drill",          BlockCategory.Weapon,    maxHealth: 130f, mass: 3.5f, cpuCost: 32, tint: w);
-            // Spring (session 104): a jump block. Movement category; light
-            // mass + modest CPU (it's a positional pop, not primary
-            // propulsion). Mounted on the underside it jumps the chassis;
-            // launch strength can ride the blueprint ConfigValue.
-            CreateOrUpdate("BlockDef_Spring",     BlockIds.Spring,     "Jump Spring",    BlockCategory.Movement,  maxHealth:  80f, mass: 1.8f, cpuCost: 20, tint: w);
-            // Active module (session 101): the destructible carrier for the
-            // garage-chosen EMP / Blink / Disc Shield ability. Module
-            // category, mid mass + CPU. Per-ability tuning lives on the
-            // shared ModuleDefinition; the chassis picks which ability runs.
-            CreateOrUpdate("BlockDef_ActiveModule", BlockIds.ActiveModule, "Active Module", BlockCategory.Module, maxHealth: 90f, mass: 2.0f, cpuCost: 30, tint: w, componentData: moduleDef);
+            // Modules (session 105): each is its own destructible carrier whose
+            // block type IS its ability (ModuleKinds maps id ↔ kind). Per-module
+            // power rides the blueprint ConfigValue (no componentData SO — tuning
+            // lives in ModuleTuning). Up to ModuleBudget.MaxModules per chassis.
+            // Spring keeps its shipped id but is a Module now (a grounded launch).
+            CreateOrUpdate("BlockDef_Spring",      BlockIds.Spring,      "Spring",       BlockCategory.Module, maxHealth:  80f, mass: 1.8f, cpuCost: 20, tint: w);
+            CreateOrUpdate("BlockDef_ModuleEmp",   BlockIds.ModuleEmp,   "EMP Burst",    BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 30, tint: w);
+            CreateOrUpdate("BlockDef_ModuleBlink", BlockIds.ModuleBlink, "Blink",        BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 30, tint: w);
+            CreateOrUpdate("BlockDef_ModuleShield",BlockIds.ModuleShield,"Disc Shield",  BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 30, tint: w);
+            CreateOrUpdate("BlockDef_ModuleSmoke", BlockIds.ModuleSmoke, "Smoke",        BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 25, tint: w);
+            CreateOrUpdate("BlockDef_ModuleInvis", BlockIds.ModuleInvis, "Cloak",        BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 35, tint: w);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -246,30 +244,6 @@ namespace Robogame.Tools.Editor
             so.FindProperty("_ballRadius").floatValue     = ballRadius;
             so.FindProperty("_recoilImpulse").floatValue  = recoil;
             so.FindProperty("_ballMass").floatValue       = ballMass;
-            so.ApplyModifiedPropertiesWithoutUndo();
-            EditorUtility.SetDirty(def);
-            return def;
-        }
-
-        private static ModuleDefinition CreateOrUpdateModuleDefinition(string assetName)
-        {
-            string path = $"{ModuleDefinitionsFolder}/{assetName}.asset";
-            ModuleDefinition def = AssetDatabase.LoadAssetAtPath<ModuleDefinition>(path);
-            if (def == null)
-            {
-                def = ScriptableObject.CreateInstance<ModuleDefinition>();
-                AssetDatabase.CreateAsset(def, path);
-                Debug.Log($"[Robogame] Created {assetName} -> {path}");
-            }
-            SerializedObject so = new SerializedObject(def);
-            so.FindProperty("_empCooldown").floatValue   = 15f;
-            so.FindProperty("_empDuration").floatValue   = 3f;
-            so.FindProperty("_empRadius").floatValue      = 8f;
-            so.FindProperty("_blinkCooldown").floatValue = 10f;
-            so.FindProperty("_blinkRange").floatValue    = 12f;
-            so.FindProperty("_shieldCooldown").floatValue = 20f;
-            so.FindProperty("_shieldDuration").floatValue = 4f;
-            so.FindProperty("_shieldRadius").floatValue   = 2.5f;
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(def);
             return def;

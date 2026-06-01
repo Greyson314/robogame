@@ -30,6 +30,14 @@ namespace Robogame.Block
             BlockIds.Rope,
             BlockIds.Rotor,
             BlockIds.HoverBlade,
+            // Modules: their "variant config" is the power slider (ConfigValue),
+            // which trades power for cooldown. Every module id qualifies.
+            BlockIds.Spring,
+            BlockIds.ModuleEmp,
+            BlockIds.ModuleBlink,
+            BlockIds.ModuleShield,
+            BlockIds.ModuleSmoke,
+            BlockIds.ModuleInvis,
         };
 
         /// <summary>

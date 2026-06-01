@@ -4,22 +4,23 @@ using UnityEngine;
 namespace Robogame.Combat
 {
     /// <summary>
-    /// Attaches an <see cref="ActiveModuleBlock"/> to any placed
-    /// <see cref="BlockCategory.Module"/> block. Added unconditionally by the
-    /// assembler (like <c>RobotAeroBinder</c>) — zero per-frame cost when the
-    /// chassis carries no module block.
+    /// Attaches a <see cref="ModuleBlock"/> to any placed module block (every
+    /// id <see cref="ModuleKinds.IsModuleId"/> recognises, including the
+    /// spring). Added unconditionally by the assembler (like
+    /// <c>RobotAeroBinder</c>) — zero per-frame cost when the chassis carries
+    /// no module block.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class RobotModuleBinder : BlockBinder
     {
         protected override bool ShouldBind(BlockBehaviour block) =>
-            block.Definition.Category == BlockCategory.Module &&
-            block.Definition.Id == BlockIds.ActiveModule;
+            block != null && block.Definition != null &&
+            ModuleKinds.IsModuleId(block.Definition.Id);
 
         protected override void Bind(BlockBehaviour block)
         {
-            if (block.GetComponent<ActiveModuleBlock>() == null)
-                block.gameObject.AddComponent<ActiveModuleBlock>();
+            if (block.GetComponent<ModuleBlock>() == null)
+                block.gameObject.AddComponent<ModuleBlock>();
         }
     }
 }

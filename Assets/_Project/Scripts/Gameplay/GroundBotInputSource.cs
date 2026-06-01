@@ -160,9 +160,9 @@ namespace Robogame.Gameplay
         public bool FirePressed => false;
         // Bots auto-reload on empty — they never manually press R.
         public bool ReloadPressed => false;
-        // Bots don't trigger active modules yet. When they do, this becomes
-        // a strobed pulse gated on engagement state + module readiness.
-        public bool ModulePressed => false;
+        // Bots don't trigger modules yet. When they do, this becomes a
+        // strobed pulse gated on engagement state + module readiness.
+        public bool GetModulePressed(int slot) => false;
 
         public BotState State => _state;
 

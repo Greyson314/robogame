@@ -175,11 +175,11 @@ namespace Robogame.Tools.Editor
                     .Place(BlockIds.Cube, new Vector3Int(1, 0, -2), rightStep));
                 // Top weapon on CPU's +Y face.
                 sb.Place(BlockIds.Weapon, new Vector3Int(0, 1, 0), Vector3Int.up);
-                // Active-module block on the rear deck (+Y of the z=-2 cube)
-                // so the default tank can demo the EMP/Blink/Shield ability
-                // (press Q). The chassis-wide kind defaults to EmpBurst;
-                // change it in the garage module panel.
-                sb.Place(BlockIds.ActiveModule, new Vector3Int(0, 1, -2), Vector3Int.up);
+                // EMP module on the rear deck (+Y of the z=-2 cube) so the
+                // default tank can demo the ability bar (press 1). Each module
+                // is its own block now; swap it for any other Module-category
+                // block in the garage.
+                sb.Place(BlockIds.ModuleEmp, new Vector3Int(0, 1, -2), Vector3Int.up);
                 // Wheels: side-mount stem extends outward from the
                 // outermost cube. Each wheel's host = (±1, 0, z); up =
                 // ±X. Mirrored across X for the opposite side.

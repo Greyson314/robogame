@@ -45,10 +45,12 @@ namespace Robogame.Input
 
         /// <summary>
         /// True for exactly one tick on the frame the player pressed the
-        /// active-module key (Q). Consumed by the chassis-root
-        /// <c>ActiveModuleSystem</c> to fire the garage-chosen ability when
-        /// off cooldown. Bots stub to false until they author module logic.
+        /// ability key for module slot <paramref name="slot"/> (0→Q, 1→W,
+        /// 2→E, 3→R). Consumed by the chassis-root <c>ModuleSystem</c> to fire
+        /// the module in that slot when off cooldown and available. Out-of-range
+        /// indices return false. Bots stub to false until they author module
+        /// logic.
         /// </summary>
-        bool ModulePressed { get; }
+        bool GetModulePressed(int slot);
     }
 }

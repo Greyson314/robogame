@@ -78,6 +78,8 @@ namespace Robogame.Gameplay
                     return "swept volume overlaps a neighbour — try a smaller span / different cell.";
                 case PlacementRules.PlacementError.WouldOrphanOnRemoval:
                     return "removal would orphan blocks from the CPU.";
+                case PlacementRules.PlacementError.ModuleLimitReached:
+                    return $"module limit reached — a chassis carries at most {Block.ModuleBudget.MaxModules} modules.";
                 default:
                     return e.ToString();
             }

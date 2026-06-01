@@ -6,10 +6,13 @@ using UnityEngine;
 namespace Robogame.Combat
 {
     /// <summary>
-    /// Stateless executors for the three active-module abilities. Each is
-    /// invoked server-side only (the caller — <c>ActiveModuleSystem</c> —
+    /// Stateless executors for the module abilities that perform a world
+    /// mutation (spring launch, EMP lockout, blink teleport, disc shield).
+    /// Each is invoked server-side only (the caller — <c>ModuleSystem</c> —
     /// gates on <see cref="NetworkContext"/>). VFX + audio are fired by the
-    /// caller so these stay pure gameplay mutations.
+    /// caller so these stay pure gameplay mutations. Smoke + invisibility have
+    /// no world mutation (a cloud VFX + a healthbar-hidden flag, and a renderer
+    /// fade respectively) so they live on <c>ModuleSystem</c> / <c>StealthVisual</c>.
     /// </summary>
     /// <remarks>
     /// Allocation discipline (invariant #6): the EMP overlap uses a shared
@@ -22,6 +25,21 @@ namespace Robogame.Combat
     {
         private static readonly Collider[] s_overlap = new Collider[64];
         private static readonly HashSet<Robot> s_seen = new(16);
+
+        /// <summary>
+        /// Launch the chassis off the spring's mount face. Direction is
+        /// <c>-block.up</c> — the chassis-inward normal of the mount, so an
+        /// underside spring jumps the bot up and a side spring dashes it
+        /// sideways. Derived from the block pose, so it works on flat and
+        /// spherical arenas. <paramref name="impulse"/> is the resolved power
+        /// (N·s). The grounded gate lives on <c>ModuleBlock.ContextAvailable</c>.
+        /// </summary>
+        public static void SpringLaunch(Transform block, Rigidbody rb, float impulse)
+        {
+            if (block == null || rb == null) return;
+            Vector3 launchDir = -block.up;
+            rb.AddForceAtPosition(launchDir * impulse, block.position, ForceMode.Impulse);
+        }
 
         /// <summary>
         /// Disable every enemy <see cref="ProjectileGun"/> within

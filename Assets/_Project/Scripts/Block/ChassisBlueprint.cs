@@ -167,12 +167,6 @@ namespace Robogame.Block
                  "Per-thruster max thrust rides Entry.BlockConfig.")]
         [SerializeField] private ThrusterTuningConfig _thrusterTuning = new();
 
-        [Tooltip("Which active-module ability the chassis's ActiveModule block " +
-                 "performs. Garage-chosen, frozen at match start (invariant #2). " +
-                 "Dormant unless the build actually contains an ActiveModule block. " +
-                 "Default EmpBurst = 0 so pre-module saves load behaviour-identical.")]
-        [SerializeField] private ModuleKind _activeModuleKind = ModuleKind.EmpBurst;
-
         [Tooltip("Block placements that make up this chassis.")]
         [SerializeField] private Entry[] _entries = Array.Empty<Entry>();
 
@@ -230,18 +224,6 @@ namespace Robogame.Block
         {
             get => _thrusterTuning ??= new ThrusterTuningConfig();
             set => _thrusterTuning = value ?? new ThrusterTuningConfig();
-        }
-
-        /// <summary>
-        /// The active-module ability this chassis's <see cref="BlockIds.ActiveModule"/>
-        /// block performs. Garage-chosen, part of the spawn-time blueprint
-        /// payload (Bucket B) — frozen at match start per invariant #2.
-        /// Ignored if the build has no ActiveModule block.
-        /// </summary>
-        public ModuleKind ActiveModuleKind
-        {
-            get => _activeModuleKind;
-            set => _activeModuleKind = value;
         }
 
         public Entry[] Entries => _entries;

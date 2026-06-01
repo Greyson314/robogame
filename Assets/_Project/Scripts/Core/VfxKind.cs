@@ -58,5 +58,11 @@ namespace Robogame.Core
 
         /// <summary>Quick cone of pale dust + slate fragments kicked along a spring block's launch axis when it jumps.</summary>
         SpringBurst,
+
+        /// <summary>Lingering soft smoke cloud from the Smoke module — slate/grey, slow billow, ~several-second lifetime to obscure the bot.</summary>
+        SmokeCloud,
+
+        /// <summary>Brief refractive shimmer at the chassis on cloak engage / disengage (Invisibility module) — pale cyan, very short.</summary>
+        CloakShimmer,
     }
 }

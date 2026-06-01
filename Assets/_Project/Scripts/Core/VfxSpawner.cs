@@ -340,6 +340,8 @@ namespace Robogame.Core
                 case VfxKind.BlinkArrive:    ConfigureBlinkArrive(ps, rend);   break;
                 case VfxKind.ShieldActivate: ConfigureShieldActivate(ps, rend); break;
                 case VfxKind.SpringBurst:    ConfigureSpringBurst(ps, rend);   break;
+                case VfxKind.SmokeCloud:     ConfigureSmokeCloud(ps, rend);    break;
+                case VfxKind.CloakShimmer:   ConfigureCloakShimmer(ps, rend);  break;
             }
 
             return ps;
@@ -582,6 +584,76 @@ namespace Robogame.Core
         // ground" — small and grounded, not an explosion. Slate→dust palette
         // matches the debris family so a jumping bot's kick looks of-a-piece
         // with block detach dust.
+        private static void ConfigureSmokeCloud(ParticleSystem ps, ParticleSystemRenderer rend)
+        {
+            // A dense, long-lived slate cloud that billows up around the bot to
+            // obscure it. Big slow puffs, multi-second lifetime.
+            var main = ps.main;
+            main.duration = 0.5f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(3.0f, 5.0f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.3f, 1.2f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.8f, 1.6f);
+            main.startColor = new ParticleSystem.MinMaxGradient(RuntimePalette.Slate, RuntimePalette.SlateLight);
+            main.gravityModifier = -0.02f; // very slow rise
+            main.maxParticles = 80;
+
+            var burst = ps.emission;
+            burst.SetBursts(new[] { new ParticleSystem.Burst(0f, 48) });
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Sphere;
+            shape.radius = 0.6f;
+
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            col.color = MakeFadeOutGradient(RuntimePalette.SlateLight, RuntimePalette.Slate);
+
+            var size = ps.sizeOverLifetime;
+            size.enabled = true;
+            size.size = new ParticleSystem.MinMaxCurve(1f, MakeGrowAndFadeCurve());
+
+            var rot = ps.rotationOverLifetime;
+            rot.enabled = true;
+            rot.z = new ParticleSystem.MinMaxCurve(-45f, 45f);
+
+            rend.renderMode = ParticleSystemRenderMode.Mesh;
+            rend.mesh = CubeMesh;
+            rend.sharedMaterial = UnlitMeshMaterial;
+        }
+
+        private static void ConfigureCloakShimmer(ParticleSystem ps, ParticleSystemRenderer rend)
+        {
+            // A brief pale-cyan sparkle that envelops the bot on cloak engage /
+            // disengage — short, light, reads as a phase shift.
+            var main = ps.main;
+            main.duration = 0.15f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.3f, 0.6f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.6f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.18f);
+            main.startColor = new ParticleSystem.MinMaxGradient(RuntimePalette.Cyan, RuntimePalette.Mint);
+            main.gravityModifier = 0f;
+            main.maxParticles = 48;
+
+            var burst = ps.emission;
+            burst.SetBursts(new[] { new ParticleSystem.Burst(0f, 28) });
+
+            var shape = ps.shape;
+            shape.shapeType = ParticleSystemShapeType.Sphere;
+            shape.radius = 0.7f;
+
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            col.color = MakeFadeOutGradient(RuntimePalette.Mint, RuntimePalette.Cyan);
+
+            var size = ps.sizeOverLifetime;
+            size.enabled = true;
+            size.size = new ParticleSystem.MinMaxCurve(1f, MakeFadeOutCurve());
+
+            rend.renderMode = ParticleSystemRenderMode.Mesh;
+            rend.mesh = CubeMesh;
+            rend.sharedMaterial = UnlitMeshMaterial;
+        }
+
         private static void ConfigureSpringBurst(ParticleSystem ps, ParticleSystemRenderer rend)
         {
             var main = ps.main;

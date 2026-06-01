@@ -682,7 +682,7 @@ namespace Robogame.Tests.PlayMode.Voxel
             public bool FireHeld => ReportFireHeld;
             public bool FirePressed => false;
             public bool ReloadPressed => false;
-            public bool ModulePressed => false;
+            public bool GetModulePressed(int slot) => false;
         }
 
         private (DrillCollisionForwarder forwarder, DrillBlock drill, Collider drillCol, FireHeldInputStub input)
