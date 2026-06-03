@@ -43,6 +43,11 @@ namespace Robogame.Combat
                  "Visible kickback under sustained fire.")]
         [SerializeField, Min(0f)] private float _recoilImpulse = 5.0f;
 
+        [Tooltip("Newton-seconds of impulse imparted to the TARGET per pellet, along the shot direction. " +
+                 "Rapid-fire weapons route this through a per-target debt buffer so a sustained stream is one " +
+                 "smooth push, not jitter. Keep small — it accumulates.")]
+        [SerializeField, Min(0f)] private float _knockbackImpulse = 3.0f;
+
         [Header("Ammo + reload (Phase 5/6 — SCRAP_LOOP_PLAN)")]
         [Tooltip("Rounds per clip per weapon instance. Total pool size = ClipSize × instances of this weapon type on the chassis.")]
         [SerializeField, Min(1)] private int _clipSize = 30;
@@ -58,6 +63,7 @@ namespace Robogame.Combat
         public float SpreadDeg       => _spreadDeg;
         public float Damage          => _damage;
         public float RecoilImpulse   => _recoilImpulse;
+        public float KnockbackImpulse => _knockbackImpulse;
         public int ClipSize          => _clipSize;
         public float ReloadDuration  => _reloadDuration;
         public float AutoReloadDelay => _autoReloadDelay;

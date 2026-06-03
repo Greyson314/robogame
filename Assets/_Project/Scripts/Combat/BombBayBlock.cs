@@ -43,6 +43,7 @@ namespace Robogame.Combat
         [SerializeField, Min(0f)]    private float _damage       = 80f;
         [SerializeField, Min(0.1f)]  private float _radius       = 18f;
         [SerializeField, Min(0f)]    private float _initialSpeed = 2f;
+        [SerializeField, Min(0f)]    private float _knockbackImpulse = 40f;
 
         [Header("Layers")]
         [Tooltip("Layers the bomb's explosion can damage / hit.")]
@@ -113,9 +114,10 @@ namespace Robogame.Combat
         private void DropOne()
         {
             BombDefinition def = ResolveDef();
-            float damage     = def != null ? def.Damage       : _damage;
-            float radius     = def != null ? def.Radius       : _radius;
-            float startSpeed = def != null ? def.InitialSpeed : _initialSpeed;
+            float damage     = def != null ? def.Damage           : _damage;
+            float radius     = def != null ? def.Radius           : _radius;
+            float startSpeed = def != null ? def.InitialSpeed     : _initialSpeed;
+            float knockback  = def != null ? def.KnockbackImpulse : _knockbackImpulse;
 
             Vector3 dropWorld = DropPoint.position;
             // True world gravity at the drop point. On flat arenas this
@@ -155,6 +157,8 @@ namespace Robogame.Combat
                 SplashRadius = radius,
                 HitMask = _hitMask,
                 Owner = _ownerRobot,
+                Knockback = knockback,
+                KnockbackSmoothed = false,          // explosion — always immediate
                 ShowTrail = false,
                 ShowMesh = true,
                 VisualTint = s_bombTint,

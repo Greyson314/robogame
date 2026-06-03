@@ -28,6 +28,10 @@ namespace Robogame.Combat
         [Tooltip("Initial downward velocity at drop time (m/s). Adds to chassis velocity.")]
         [SerializeField, Min(0f)] private float _initialSpeed = 2.0f;
 
+        [Tooltip("Newton-seconds of impulse imparted to each caught chassis, pushing AWAY from the blast centre " +
+                 "with an upward pop. Scales by distance falloff (full at centre, zero at radius). Lands instantly.")]
+        [SerializeField, Min(0f)] private float _knockbackImpulse = 40.0f;
+
         [Header("Ammo + reload (Phase 5/6 — SCRAP_LOOP_PLAN)")]
         [Tooltip("Rounds per clip per bomb bay. Total pool = ClipSize × bomb bays on the chassis. Bombs are scarce — 4 by default.")]
         [SerializeField, Min(1)] private int _clipSize = 4;
@@ -42,6 +46,7 @@ namespace Robogame.Combat
         public float Damage          => _damage;
         public float Radius          => _radius;
         public float InitialSpeed    => _initialSpeed;
+        public float KnockbackImpulse => _knockbackImpulse;
         public int ClipSize          => _clipSize;
         public float ReloadDuration  => _reloadDuration;
         public float AutoReloadDelay => _autoReloadDelay;

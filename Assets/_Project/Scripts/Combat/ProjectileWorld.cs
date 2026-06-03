@@ -245,7 +245,7 @@ namespace Robogame.Combat
                     Vector3 dir = step / dist;
                     if (TrySweep(in p.Spec, p.Pos, dir, dist, out RaycastHit hit))
                     {
-                        Resolve(in p.Spec, hit);
+                        Resolve(in p.Spec, hit, dir);
                         Despawn(i);
                         continue;
                     }
@@ -302,7 +302,7 @@ namespace Robogame.Combat
         // Hit resolution
         // -----------------------------------------------------------------
 
-        private void Resolve(in ProjectileSpec spec, RaycastHit hit)
+        private void Resolve(in ProjectileSpec spec, RaycastHit hit, Vector3 travelDir)
         {
             Vector3 hitPoint = hit.point;
             Vector3 hitNormal = hit.normal.sqrMagnitude > 1e-4f ? hit.normal : Vector3.up;
@@ -315,17 +315,17 @@ namespace Robogame.Combat
             }
             else if (spec.SplashRings != null && spec.SplashRings.Length > 0)
             {
-                ApplyRingSplashOnHit(in spec, hit);
+                ApplyRingSplashOnHit(in spec, hit, travelDir);
             }
             else if (spec.Damage > 0f)
             {
-                ApplyDirect(in spec, hit);
+                ApplyDirect(in spec, hit, travelDir);
             }
 
             DispatchImpactFx(spec.Kind, hitPoint, hitNormal, in spec);
         }
 
-        private void ApplyDirect(in ProjectileSpec spec, RaycastHit hit)
+        private void ApplyDirect(in ProjectileSpec spec, RaycastHit hit, Vector3 travelDir)
         {
             IDamageable target = hit.collider.GetComponentInParent<IDamageable>();
             if (target == null || !target.IsAlive) return;
@@ -342,10 +342,12 @@ namespace Robogame.Combat
             // ally. See docs/changes/58-scrap-loop-v1.md § 2.
             if (IsFriendlyFire(spec.Owner, targetRobot)) return;
             target.TakeDamage(spec.Damage);
+            if (spec.Knockback > 0f)
+                ApplyKineticKnockback(targetRobot, travelDir, spec.Knockback, spec.KnockbackSmoothed);
             HitLanded?.Invoke(spec.Owner, hit.point);
         }
 
-        private void ApplyRingSplashOnHit(in ProjectileSpec spec, RaycastHit hit)
+        private void ApplyRingSplashOnHit(in ProjectileSpec spec, RaycastHit hit, Vector3 travelDir)
         {
             // Ring splash: prefer the BlockBehaviour's grid cell as the
             // splash centre — its position is exact (no rounding error
@@ -358,6 +360,8 @@ namespace Robogame.Combat
                 {
                     if (IsFriendlyFire(spec.Owner, targetRobot)) return;
                     targetRobot.Grid.ApplySplashDamage(block.GridPosition, spec.SplashRings);
+                    if (spec.Knockback > 0f)
+                        ApplyKineticKnockback(targetRobot, travelDir, spec.Knockback, spec.KnockbackSmoothed);
                     HitLanded?.Invoke(spec.Owner, hit.point);
                     return;
                 }
@@ -397,6 +401,8 @@ namespace Robogame.Combat
                     if (IsFriendlyFire(spec.Owner, robot)) continue;
                     if (!_splashRobots.Add(robot)) continue;
                     DamageRobotInRadius(robot, worldPoint, r2, spec.Damage);
+                    if (spec.Knockback > 0f)
+                        ApplyExplosiveKnockback(robot, worldPoint, spec.SplashRadius, spec.Knockback);
                     continue;
                 }
 
@@ -437,6 +443,56 @@ namespace Robogame.Combat
                 float t = 1f - (d2 / r2);
                 block.TakeDamage(headlineDamage * t);
             }
+        }
+
+        // -----------------------------------------------------------------
+        // Knockback
+        // -----------------------------------------------------------------
+
+        // Upward bias added to an explosion's radial push direction
+        // before normalising — gives the "knockUP" pop on a ground blast
+        // without launching bots straight up. Reserved for explosions;
+        // kinetic hits stay horizontal.
+        private const float ExplosiveUpwardBias = 0.4f;
+
+        private static KnockbackReceiver GetOrAddReceiver(Robot robot)
+        {
+            if (robot == null) return null;
+            KnockbackReceiver r = robot.GetComponent<KnockbackReceiver>();
+            if (r == null) r = robot.gameObject.AddComponent<KnockbackReceiver>();
+            return r;
+        }
+
+        // Kinetic: stagger the target along the shot's *horizontal* travel
+        // direction. Vertical is dropped so bullets shove, never pop —
+        // knockUP is reserved for explosions.
+        private static void ApplyKineticKnockback(Robot robot, Vector3 travelDir, float magnitude, bool smoothed)
+        {
+            Vector3 horiz = new Vector3(travelDir.x, 0f, travelDir.z);
+            float h = horiz.magnitude;
+            if (h < 1e-4f) return; // near-vertical shot — no sensible push direction
+            Vector3 impulse = (horiz / h) * magnitude;
+            KnockbackReceiver recv = GetOrAddReceiver(robot);
+            if (recv == null) return;
+            if (smoothed) recv.AddSmoothed(impulse);
+            else recv.ApplyImmediate(impulse);
+        }
+
+        // Explosive: push the chassis away from the blast centre with a
+        // slight upward bias (the pop), scaled by linear distance falloff.
+        // Always immediate — explosions never route through the debt buffer.
+        private static void ApplyExplosiveKnockback(Robot robot, Vector3 center, float radius, float magnitude)
+        {
+            if (robot == null || radius <= 1e-4f) return;
+            Rigidbody rb = robot.Rigidbody;
+            if (rb == null) return;
+            Vector3 toBot = rb.worldCenterOfMass - center;
+            float d = toBot.magnitude;
+            if (d > radius) return;
+            float falloff = 1f - (d / radius);             // 1 at centre → 0 at edge
+            Vector3 dir = d > 1e-4f ? toBot / d : Vector3.up;
+            dir = (dir + Vector3.up * ExplosiveUpwardBias).normalized;
+            GetOrAddReceiver(robot)?.ApplyImmediate(dir * magnitude * falloff);
         }
 
         // -----------------------------------------------------------------

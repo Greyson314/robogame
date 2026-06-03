@@ -54,6 +54,20 @@ namespace Robogame.Combat
         // Owner — used to filter own-chassis colliders out of hit queries.
         public Robot Owner;
 
+        // Knockback — impulse (N·s) imparted to the *target* chassis on a
+        // damaging hit, applied at its centre of mass by
+        // KnockbackReceiver. Kinetic hits (direct / ring) push along the
+        // shot's horizontal travel direction; area-splash hits push away
+        // from the blast centre with an upward pop. 0 = no knockback.
+        public float Knockback;
+
+        // When true the kinetic impulse is routed through the target's
+        // debt buffer (smoothed over time) instead of landing instantly —
+        // set for rapid-fire weapons (SMG) so a 12 Hz stream reads as one
+        // steady push, not per-frame jitter. The area-splash path ignores
+        // this: explosions are always immediate.
+        public bool KnockbackSmoothed;
+
         // Visual hints. The world picks pooled visuals based on these.
         public bool ShowTrail;              // SMG yes, others no
         public bool ShowMesh;               // bomb / cannonball yes

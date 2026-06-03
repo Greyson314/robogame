@@ -62,6 +62,7 @@ namespace Robogame.Combat
         [SerializeField, Min(0f)]   private float _damage = 60f;
         [SerializeField, Min(0.05f)] private float _ballRadius = 0.28f;
         [SerializeField, Min(0f)]   private float _recoilImpulse = 28f;
+        [SerializeField, Min(0f)]   private float _knockbackImpulse = 18f;
 
         [Header("Layers")]
         [Tooltip("Layers the cannonball can damage / collide with.")]
@@ -113,6 +114,7 @@ namespace Robogame.Combat
         private float ResolveDamage()        { var d = ResolveDef(); return d != null ? d.Damage        : _damage; }
         private float ResolveBallRadius()    { var d = ResolveDef(); return d != null ? d.BallRadius    : _ballRadius; }
         private float ResolveRecoilImpulse() { var d = ResolveDef(); return d != null ? d.RecoilImpulse : _recoilImpulse; }
+        private float ResolveKnockback()     { var d = ResolveDef(); return d != null ? d.KnockbackImpulse : _knockbackImpulse; }
 
         // -----------------------------------------------------------------
         // Aim
@@ -231,6 +233,8 @@ namespace Robogame.Combat
                 SplashRadius = 0f,                  // direct contact — single-target
                 HitMask = _hitMask,
                 Owner = _ownerRobot,
+                Knockback = ResolveKnockback(),
+                KnockbackSmoothed = false,          // single heavy hit → instant stagger
                 ShowTrail = false,
                 ShowMesh = true,
                 VisualTint = s_ballTint,

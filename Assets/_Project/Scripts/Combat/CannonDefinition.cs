@@ -33,6 +33,10 @@ namespace Robogame.Combat
         [Tooltip("Recoil impulse applied opposite the shot direction (N·s). Pushes the chassis back perceptibly.")]
         [SerializeField, Min(0f)] private float _recoilImpulse = 28f;
 
+        [Tooltip("Newton-seconds of impulse imparted to the TARGET on a direct hit, along the shot direction. " +
+                 "Lands instantly as a stagger. Roughly 50–70% of recoil reads well.")]
+        [SerializeField, Min(0f)] private float _knockbackImpulse = 18f;
+
         [Tooltip("Cannonball Rigidbody mass (kg). Affects collision response on contact.")]
         [SerializeField, Min(0.1f)] private float _ballMass = 5f;
 
@@ -51,6 +55,7 @@ namespace Robogame.Combat
         public float Damage          => _damage;
         public float BallRadius      => _ballRadius;
         public float RecoilImpulse   => _recoilImpulse;
+        public float KnockbackImpulse => _knockbackImpulse;
         public float BallMass        => _ballMass;
         public int ClipSize          => _clipSize;
         public float ReloadDuration  => _reloadDuration;

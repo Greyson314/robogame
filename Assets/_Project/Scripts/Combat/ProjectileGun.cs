@@ -35,6 +35,7 @@ namespace Robogame.Combat
         [SerializeField, Range(0f, 30f)] private float _spreadDeg = 1.2f;
         [SerializeField, Min(0f)]   private float _damage = 25f;
         [SerializeField, Min(0f)]   private float _recoilImpulse = 5f;
+        [SerializeField, Min(0f)]   private float _knockbackImpulse = 3f;
 
         [Header("Splash falloff (block-graph rings beyond direct hit)")]
         [Tooltip("Multipliers applied to the headline damage at ring i+1. Index 0 is replaced with " +
@@ -93,6 +94,7 @@ namespace Robogame.Combat
         private float ResolveSpread()        { var d = ResolveDef(); return d != null ? d.SpreadDeg     : _spreadDeg; }
         private float ResolveDamage()        { var d = ResolveDef(); return d != null ? d.Damage        : _damage; }
         private float ResolveRecoilImpulse() { var d = ResolveDef(); return d != null ? d.RecoilImpulse : _recoilImpulse; }
+        private float ResolveKnockback()     { var d = ResolveDef(); return d != null ? d.KnockbackImpulse : _knockbackImpulse; }
 
         /// <summary>Override the muzzle transform (used by <see cref="WeaponBlock"/> at spawn).</summary>
         public void SetMuzzle(Transform muzzle)
@@ -159,6 +161,8 @@ namespace Robogame.Combat
                 SplashRadius = 0f,
                 HitMask = _hitMask,
                 Owner = _ownerRobot,
+                Knockback = ResolveKnockback(),
+                KnockbackSmoothed = true,              // rapid fire → debt buffer
                 ShowTrail = true,
                 ShowMesh = false,
                 VisualTint = s_tracerHead,
