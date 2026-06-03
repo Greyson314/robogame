@@ -107,5 +107,38 @@ namespace Robogame.Tests.PlayMode.Movement
             Assert.AreEqual(7f / 3f, izz, 0.05f,
                 "Non-aero cube inertia must match the historical cube formula — the box model reduces to it.");
         }
+
+        // CPU at origin + one hover blade of the given N×N size on +X.
+        private Robot BuildHoverChassis(int size)
+        {
+            _root = new GameObject("HoverChassis");
+            _root.AddComponent<Rigidbody>();
+            BlockGrid grid = _root.AddComponent<BlockGrid>();
+            Robot robot = _root.AddComponent<Robot>();
+
+            grid.PlaceBlock(MakeDef(BlockIds.Cpu, BlockCategory.Cpu, 2f), new Vector3Int(0, 0, 0), Vector3Int.up);
+            BlockDefinition hover = MakeDef(BlockIds.HoverBlade, BlockCategory.Movement, 10f);
+            grid.PlaceBlock(hover, new Vector3Int(1, 0, 0), Vector3Int.up, new Vector3(size, 0f, 0f), 0f);
+            robot.RecalculateAggregates();
+            return robot;
+        }
+
+        [UnityTest]
+        public IEnumerator BiggerHoverBlade_ScalesMassByFootprint()
+        {
+            // Mass scales with N² (footprint), anchored at the default size 2.
+            Robot s2 = BuildHoverChassis(2);
+            float bladeMass2 = s2.TotalBlockMass - 2f; // minus the 2 kg CPU
+            Object.Destroy(_root);
+            yield return null;
+
+            Robot s4 = BuildHoverChassis(4);
+            float bladeMass4 = s4.TotalBlockMass - 2f;
+
+            Assert.AreEqual(10f, bladeMass2, 1e-3f,
+                "A default size-2 hover blade keeps its authored mass (anchor).");
+            Assert.AreEqual(40f, bladeMass4, 1e-2f,
+                "A size-4 blade has 4x the footprint, so 4x the mass — no more free hover lift.");
+        }
     }
 }

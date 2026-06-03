@@ -446,35 +446,50 @@ namespace Robogame.Robots
         private static bool IsAero(string id) => id == BlockIds.Aero || id == BlockIds.AeroFin;
 
         /// <summary>
-        /// Authored mass for most blocks; for aero blocks, mass scales with the
-        /// foil volume relative to the default foil so a bigger wing is
-        /// genuinely heavier (and a tiny one lighter). Anchored so default dims
-        /// resolve to <see cref="BlockDefinition.Mass"/> exactly — existing
-        /// chassis are unchanged. Clamped to keep extremes sane.
+        /// Authored mass for most blocks. Scalable propulsion blocks scale mass
+        /// with their footprint so a bigger one is genuinely heavier (and a
+        /// smaller one lighter): aero by foil volume (span·thickness·chord),
+        /// hover blade by its N×N footprint (lift already scales with N², so
+        /// mass matching it keeps lift-per-mass honest — no free hover). Both
+        /// anchored so default dims resolve to <see cref="BlockDefinition.Mass"/>
+        /// exactly, so existing chassis are unchanged. Clamped to keep extremes
+        /// sane.
         /// </summary>
         private static float EffectiveMass(BlockBehaviour b)
         {
             float baseMass = b.Definition.Mass;
-            if (!IsAero(b.Definition.Id)) return baseMass;
-            Vector3 d = b.Dims;
-            float span  = d.x > 0f ? d.x : BlockOccupancy.FoilDefaultSpan;
-            float thick = d.y > 0f ? d.y : BlockOccupancy.FoilDefaultThickness;
-            float chord = d.z > 0f ? d.z : BlockOccupancy.FoilDefaultChord;
-            float volRatio = (span * thick * chord) /
-                (BlockOccupancy.FoilDefaultSpan * BlockOccupancy.FoilDefaultThickness * BlockOccupancy.FoilDefaultChord);
-            return baseMass * Mathf.Clamp(volRatio, 0.25f, 6f);
+            string id = b.Definition.Id;
+            if (IsAero(id))
+            {
+                Vector3 d = b.Dims;
+                float span  = d.x > 0f ? d.x : BlockOccupancy.FoilDefaultSpan;
+                float thick = d.y > 0f ? d.y : BlockOccupancy.FoilDefaultThickness;
+                float chord = d.z > 0f ? d.z : BlockOccupancy.FoilDefaultChord;
+                float volRatio = (span * thick * chord) /
+                    (BlockOccupancy.FoilDefaultSpan * BlockOccupancy.FoilDefaultThickness * BlockOccupancy.FoilDefaultChord);
+                return baseMass * Mathf.Clamp(volRatio, 0.25f, 6f);
+            }
+            if (id == BlockIds.HoverBlade)
+            {
+                int n = BlockOccupancy.ResolveHoverBladeSize(b.Dims);
+                int def = BlockOccupancy.HoverBladeDefaultSize;
+                float areaRatio = (float)(n * n) / (def * def);
+                return baseMass * Mathf.Clamp(areaRatio, 0.25f, 6f);
+            }
+            return baseMass;
         }
 
         /// <summary>
         /// Chassis-local AABB used for a block's inertia box + COM contribution.
-        /// Aero blocks use their real swept foil bounds (span/chord/thickness,
-        /// oriented); everything else is a unit cell cube — keeping non-aero
-        /// inertia + COM byte-identical to the pre-change model.
+        /// Scalable propulsion blocks (aero foils, hover blades) use their real
+        /// swept bounds so footprint feeds inertia; everything else is a unit
+        /// cell cube — keeping those blocks' inertia + COM byte-identical to the
+        /// pre-change model.
         /// </summary>
         private static Bounds BlockInertiaBounds(BlockBehaviour b, Vector3Int cell, float cellSize)
         {
             string id = b.Definition.Id;
-            if (IsAero(id))
+            if (IsAero(id) || id == BlockIds.HoverBlade)
                 return BlockOccupancy.ComputeSweptBoundsLocal(id, cell, b.Up, b.Dims, cellSize);
             return BlockOccupancy.DefaultUnitCellBoundsLocal(cell, cellSize);
         }
