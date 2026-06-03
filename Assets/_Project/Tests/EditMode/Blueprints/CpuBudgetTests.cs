@@ -11,7 +11,7 @@ namespace Robogame.Tests.EditMode.Blueprints
     /// Pure-logic tests for <see cref="CpuBudget.TrimToFit"/> — the
     /// connectivity-preserving strip that enforces the CPU cap at match
     /// start. Uses the real authored library so CPU costs match shipping
-    /// values; the budget shape itself (250 / CPU block) is asserted via the
+    /// values; the budget shape itself (BudgetPerCpuBlock / CPU block) is asserted via the
     /// resulting cap rather than hard-coded counts, so a cost retune doesn't
     /// silently rot the test.
     /// </summary>
@@ -49,7 +49,7 @@ namespace Robogame.Tests.EditMode.Blueprints
         {
             int weaponCost = _lib.Get(BlockIds.Weapon).CpuCost;
             Assume.That(weaponCost, Is.GreaterThan(0));
-            // Enough weapons to blow well past one CPU block's 250 budget.
+            // Enough weapons to blow well past one CPU block's budget.
             int count = CpuBudget.BudgetPerCpuBlock / weaponCost + 5;
             ChassisBlueprint.Entry[] entries = LineOfWeapons(count);
 

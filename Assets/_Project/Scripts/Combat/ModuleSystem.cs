@@ -198,14 +198,15 @@ namespace Robogame.Combat
 
                 case ModuleKind.DiscShield:
                     ModuleEffects.DiscShield(_robot, t.Magnitude, t.Duration);
-                    VfxSpawner.Spawn(VfxKind.ShieldActivate, chassisPos, Quaternion.identity, t.Magnitude / 2.5f);
+                    VfxSpawner.Spawn(VfxKind.ShieldActivate, chassisPos, Quaternion.identity, t.Magnitude / 4f);
                     AudioRouter.PlayOneShot(AudioCue.ModuleActivate, chassisPos);
                     break;
 
                 case ModuleKind.Smoke:
                     // Visual-only obscurant: a lingering cloud + a healthbar
-                    // blackout. No world mutation. Cloud scale tracks radius.
-                    VfxSpawner.Spawn(VfxKind.SmokeCloud, chassisPos, Quaternion.identity, t.Magnitude / 6f);
+                    // blackout. No world mutation. Cloud scale tracks radius
+                    // (default magnitude 6 → ~1.5× the already-big recipe).
+                    VfxSpawner.Spawn(VfxKind.SmokeCloud, chassisPos, Quaternion.identity, t.Magnitude / 4f);
                     _smokeActiveUntil = Time.time + t.Duration;
                     AudioRouter.PlayOneShot(AudioCue.SmokeDeploy, chassisPos);
                     break;

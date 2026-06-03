@@ -586,23 +586,28 @@ namespace Robogame.Core
         // with block detach dust.
         private static void ConfigureSmokeCloud(ParticleSystem ps, ParticleSystemRenderer rend)
         {
-            // A dense, long-lived slate cloud that billows up around the bot to
-            // obscure it. Big slow puffs, multi-second lifetime.
+            // A big, long-lived slate cloud that billows out around the bot to
+            // obscure it. Large slow puffs, multi-second lifetime, a touch
+            // translucent so it reads as smoke, not a wall.
             var main = ps.main;
             main.duration = 0.5f;
-            main.startLifetime = new ParticleSystem.MinMaxCurve(3.0f, 5.0f);
-            main.startSpeed = new ParticleSystem.MinMaxCurve(0.3f, 1.2f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.8f, 1.6f);
-            main.startColor = new ParticleSystem.MinMaxGradient(RuntimePalette.Slate, RuntimePalette.SlateLight);
+            main.startLifetime = new ParticleSystem.MinMaxCurve(3.5f, 5.5f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0.6f, 2.4f);
+            main.startSize = new ParticleSystem.MinMaxCurve(2.0f, 4.0f);
+            // ~0.55 alpha (down from fully opaque) — the particle color
+            // multiplies the alpha-blended mesh material, so this thins it out.
+            Color smokeDark = RuntimePalette.Slate; smokeDark.a = 0.55f;
+            Color smokeLight = RuntimePalette.SlateLight; smokeLight.a = 0.55f;
+            main.startColor = new ParticleSystem.MinMaxGradient(smokeDark, smokeLight);
             main.gravityModifier = -0.02f; // very slow rise
-            main.maxParticles = 80;
+            main.maxParticles = 140;
 
             var burst = ps.emission;
-            burst.SetBursts(new[] { new ParticleSystem.Burst(0f, 48) });
+            burst.SetBursts(new[] { new ParticleSystem.Burst(0f, 80) });
 
             var shape = ps.shape;
             shape.shapeType = ParticleSystemShapeType.Sphere;
-            shape.radius = 0.6f;
+            shape.radius = 1.6f;
 
             var col = ps.colorOverLifetime;
             col.enabled = true;

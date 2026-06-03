@@ -95,15 +95,15 @@ namespace Robogame.Combat
         }
 
         /// <summary>
-        /// Spawn a transient projectile-blocking bubble around the chassis
-        /// for <paramref name="duration"/> seconds. Blocks incoming enemy
-        /// fire; the owner shoots straight through (its collider is folded
-        /// into the owner's projectile-exclusion filter).
+        /// Deploy a detached projectile-blocking dome on the ground at the
+        /// chassis's current position. Stays put (does not follow), blocks
+        /// every projectile that passes through it (cover for both sides), but
+        /// vehicles drive straight through. Lasts <paramref name="duration"/>s.
         /// </summary>
         public static void DiscShield(Robot owner, float radius, float duration)
         {
             if (owner == null) return;
-            ShieldBubble.Spawn(owner, radius, duration);
+            ShieldBubble.Spawn(owner.transform.position, radius, duration);
         }
     }
 
@@ -137,32 +137,32 @@ namespace Robogame.Combat
     }
 
     /// <summary>
-    /// A transient kinematic sphere that follows the chassis and physically
-    /// blocks enemy projectiles for its lifetime. Built procedurally; carries
-    /// its own kinematic <see cref="Rigidbody"/> so its collider stays out of
-    /// the chassis's compound collider (single-Rigidbody invariant #4).
+    /// A detached, world-anchored dome that blocks projectiles but lets
+    /// vehicles drive through. Deployed on the ground where the chassis stood,
+    /// it stays put for its lifetime. The blocking is a raycast fact, not a
+    /// physical one: its non-trigger collider sits on the projectile-
+    /// transparent <see cref="ShieldLayer"/> name — projectile sweeps
+    /// (<c>Physics.SphereCast</c> against <c>~0</c>) hit it, but its layer's
+    /// physics-collision matrix is cleared so no Rigidbody ever contacts it.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class ShieldBubble : MonoBehaviour
     {
-        private Robot _owner;
+        /// <summary>Named layer (TagManager index 8) for drive-through-but-shoot-blocking colliders.</summary>
+        public const string ShieldLayer = "ShieldField";
         private float _expireAt;
-        private static Material s_material;
 
-        internal static void Spawn(Robot owner, float radius, float duration)
+        internal static void Spawn(Vector3 worldPos, float radius, float duration)
         {
-            var go = new GameObject("[ShieldBubble]");
-            go.transform.SetParent(owner.transform, worldPositionStays: false);
-            go.transform.localPosition = Vector3.zero;
-            // Match a real block collider's layer so the bubble sits in the
-            // projectile HitMask (blocks already collide with projectiles).
-            Collider sample = owner.GetComponentInChildren<Collider>();
-            go.layer = sample != null ? sample.gameObject.layer : owner.gameObject.layer;
+            EnsureLayerIsCollisionFree();
 
-            var rb = go.AddComponent<Rigidbody>();
-            rb.isKinematic = true;
-            rb.useGravity = false;
+            var go = new GameObject("[ShieldDome]");
+            go.transform.position = worldPos; // detached — stays where deployed
+            go.layer = ResolveShieldLayer();
 
+            // No Rigidbody: a static non-trigger collider is raycast-hittable
+            // (projectiles stop on it) and, with its layer's collision matrix
+            // cleared, produces zero physical contacts (vehicles pass through).
             var col = go.AddComponent<SphereCollider>();
             col.radius = radius;
             col.isTrigger = false;
@@ -170,24 +170,47 @@ namespace Robogame.Combat
             BuildVisual(go.transform, radius);
 
             var bubble = go.AddComponent<ShieldBubble>();
-            bubble._owner = owner;
             bubble._expireAt = Time.time + duration;
-
-            // Fold the bubble collider into the owner's projectile-exclusion
-            // filter so the player can fire out through their own shield.
-            ProjectileWorld.InvalidateOwnerColliders(owner);
         }
 
         private void Update()
         {
-            if (_owner == null || Time.time >= _expireAt)
-            {
-                Robot owner = _owner;
-                Destroy(gameObject);
-                // Drop the now-stale collider from the owner's filter cache.
-                if (owner != null) ProjectileWorld.InvalidateOwnerColliders(owner);
-            }
+            if (Time.time >= _expireAt) Destroy(gameObject);
         }
+
+        // -----------------------------------------------------------------
+        // Layer plumbing: resolve the ShieldField layer and (once) clear its
+        // physics-collision matrix so nothing physically collides with the
+        // dome — raycasts ignore the matrix, so projectiles still stop on it.
+        // -----------------------------------------------------------------
+        private const int FallbackShieldLayer = 8;
+        private static bool s_matrixCleared;
+
+        private static int ResolveShieldLayer()
+        {
+            int l = LayerMask.NameToLayer(ShieldLayer);
+            return l >= 0 ? l : FallbackShieldLayer;
+        }
+
+        private static void EnsureLayerIsCollisionFree()
+        {
+            if (s_matrixCleared) return;
+            int shield = ResolveShieldLayer();
+            for (int other = 0; other < 32; other++)
+                Physics.IgnoreLayerCollision(shield, other, true);
+            s_matrixCleared = true;
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            // Statics survive domain reload; the physics matrix resets on play
+            // start, so re-clear it lazily on the next deploy.
+            s_material = null;
+            s_matrixCleared = false;
+        }
+
+        private static Material s_material;
 
         private static void BuildVisual(Transform parent, float radius)
         {
@@ -213,17 +236,10 @@ namespace Robogame.Combat
             get
             {
                 if (s_material != null) return s_material;
-                Shader shader = Shader.Find("Universal Render Pipeline/Lit")
-                                ?? Shader.Find("Standard");
-                s_material = new Material(shader) { name = "ShieldBubbleMat" };
                 Color c = RuntimePalette.Cyan;
-                c.a = 0.22f;
-                // URP transparent setup.
-                if (s_material.HasProperty("_Surface")) s_material.SetFloat("_Surface", 1f);
-                if (s_material.HasProperty("_Blend")) s_material.SetFloat("_Blend", 0f);
-                if (s_material.HasProperty("_BaseColor")) s_material.SetColor("_BaseColor", c);
-                if (s_material.HasProperty("_Color")) s_material.SetColor("_Color", c);
-                s_material.renderQueue = 3000;
+                c.a = 0.18f; // faint translucent dome, not an opaque ball
+                s_material = RuntimeMaterials.UnlitTransparent(c);
+                s_material.name = "ShieldDomeMat";
                 return s_material;
             }
         }

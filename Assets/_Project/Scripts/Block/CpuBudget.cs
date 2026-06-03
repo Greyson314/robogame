@@ -13,8 +13,10 @@ namespace Robogame.Block
     /// </summary>
     public static class CpuBudget
     {
-        /// <summary>Budget granted per CPU-category block on the chassis.</summary>
-        public const int BudgetPerCpuBlock = 250;
+        /// <summary>Budget granted per CPU-category block on the chassis.
+        /// One CPU per bot (the second-CPU placement rule), so this is the
+        /// per-bot CPU ceiling.</summary>
+        public const int BudgetPerCpuBlock = 1000;
 
         // -----------------------------------------------------------------
         // Blueprint-entry queries (used by the spawn-time enforcer)

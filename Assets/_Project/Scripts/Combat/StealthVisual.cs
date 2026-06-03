@@ -65,15 +65,12 @@ namespace Robogame.Combat
             get
             {
                 if (s_cloakMaterial != null) return s_cloakMaterial;
-                Shader shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
-                s_cloakMaterial = new Material(shader) { name = "CloakGhostMat" };
-                Color c = RuntimePalette.Cyan;
-                c.a = 0.06f; // ~95% invisible
-                if (s_cloakMaterial.HasProperty("_Surface")) s_cloakMaterial.SetFloat("_Surface", 1f); // transparent
-                if (s_cloakMaterial.HasProperty("_Blend")) s_cloakMaterial.SetFloat("_Blend", 0f);
-                if (s_cloakMaterial.HasProperty("_BaseColor")) s_cloakMaterial.SetColor("_BaseColor", c);
-                if (s_cloakMaterial.HasProperty("_Color")) s_cloakMaterial.SetColor("_Color", c);
-                s_cloakMaterial.renderQueue = 3000;
+                // Near-colourless faint film at ~5% alpha — reads as "barely
+                // there", not a bright turquoise ghost. The transparent setup
+                // (keyword + ZWrite off) is what actually makes it see-through.
+                var c = new Color(0.7f, 0.85f, 0.95f, 0.05f);
+                s_cloakMaterial = RuntimeMaterials.UnlitTransparent(c);
+                s_cloakMaterial.name = "CloakGhostMat";
                 return s_cloakMaterial;
             }
         }

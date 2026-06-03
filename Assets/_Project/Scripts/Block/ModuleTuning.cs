@@ -63,8 +63,9 @@ namespace Robogame.Block
             ModuleKind.EmpBurst => new Row(8f, 15f, 3f),
             // power = teleport range (m); instantaneous.
             ModuleKind.Blink => new Row(12f, 10f, 0f),
-            // power = bubble radius (m); duration scales with power.
-            ModuleKind.DiscShield => new Row(2.5f, 20f, 4f),
+            // power = dome radius (m); fixed 10 s lifetime. Default 10 m — a
+            // big deployable ground dome (≈4× the original 2.5 m bubble).
+            ModuleKind.DiscShield => new Row(10f, 20f, 10f),
             // power = cloud radius (m); duration scales with power.
             ModuleKind.Smoke => new Row(6f, 12f, 5f),
             // power = cloak duration (s) itself; 16 s base cooldown.
@@ -97,8 +98,8 @@ namespace Robogame.Block
             {
                 ModuleKind.Invisibility => p,                  // power IS the duration
                 ModuleKind.Smoke => row.BaseDuration * ratio,  // duration scales with power
-                ModuleKind.DiscShield => row.BaseDuration * ratio,
                 ModuleKind.EmpBurst => row.BaseDuration,       // fixed lockout
+                ModuleKind.DiscShield => row.BaseDuration,     // fixed 10 s deploy
                 _ => 0f,                                       // Spring / Blink: instantaneous
             };
 
