@@ -1,12 +1,17 @@
 # 108 — Combat pass: knockback, mortar, mines
 
-> Status: **Code complete; needs Unity verification + asset bake.** A
-> research-first feature pass adding three combat mechanics in dependency order:
-> shared weapon-hit **knockback** → **mortar** weapon (top-mounted, lobbed) →
-> **mines** module. Knockback is the shared foundation the other two lean on.
-> Committed as one checkpoint per mechanic. **Unity MCP was not connected this
-> session — none of it is compile-verified, asset-baked, or playtested. See the
-> handoff checklist at the bottom.**
+> Status: **Shipped (code + assets). Compile-verified, assets baked. Needs
+> playtest tuning only.** A research-first feature pass adding three combat
+> mechanics in dependency order: shared weapon-hit **knockback** → **mortar**
+> weapon (top-mounted, lobbed) → **mines** module. Knockback is the shared
+> foundation the other two lean on. Committed as one checkpoint per mechanic.
+>
+> Verified against `Editor.log` after the user's Build Everything run: **0
+> compile errors / exceptions**; `BlockDef_Mortar`, `BlockDef_ModuleMines`, and
+> `Mortar_Default` created and added to the library (mortar → Weapons tab, mine
+> → Modules tab). `qa-verifier`/`perf-checker` were not run (Unity MCP bridge
+> was in the revoked state all session); the log check stands in for the build
+> gate. Feel values are unplaytested — see the tuning list.
 >
 > Targeter/design decisions came from a `design-pilot` research round grounded
 > in the pillars + Robocraft/WoT/Crossout/TF2 references; the user picked the
@@ -163,21 +168,21 @@ Mines — Edited: `Combat/ModuleEffects.cs` (`DeployMine` + `DeployedMine` class
   ships a deploy cue + glow tell and the explosion treatment. (Both reuse
   existing cues — dedicated mortar/mine audio is a noted follow-up.)
 
-## Handoff — do this in Unity (could not be done headless)
+## Handoff
 
-1. **Recompile + check the console.** None of this compiled this session.
-2. **Run the block-definition wizard** (the menu that calls
-   `BlockDefinitionWizard.CreateTestDefinitions`) to bake `Mortar_Default`,
-   `BlockDef_Mortar`, and `BlockDef_ModuleMines`, then rebuild the
-   `BlockDefinitionLibrary` so the hotbar lists them.
-3. **`.meta` files** for the four new scripts (`KnockbackReceiver`,
-   `MortarBlock`, `MortarDefinition`, and the mine code lives in existing files)
-   generate on first import — commit them.
-4. **Playtest + tune feel:** knockback magnitudes (SMG 3 / cannon 18 / bomb 40),
+Done this session (verified via `Editor.log`): compile (0 errors), wizard bake
+(all 3 assets created + in library), `.meta` files generated and committed.
+
+Remaining:
+
+1. **Playtest + tune feel:** knockback magnitudes (SMG 3 / cannon 18 / bomb 40),
    the mortar lob (elevation offset 35°, muzzle speed 34, arc-preview length),
    and the mine (1.2 s arm, 2.2 m trigger, 7 m splash, 3-mine cap).
-5. **Optional:** author dedicated mortar-launch and mine cues instead of the
+2. **Optional:** author dedicated mortar-launch and mine cues instead of the
    reused cannon/bomb audio.
+3. **Unrelated:** the Build Everything run also persisted earlier movement
+   inertia fields (`PitchRefInertia` etc.) into the `Blueprint_*` assets — left
+   unstaged for a separate commit.
 
 ## Known limitations
 
