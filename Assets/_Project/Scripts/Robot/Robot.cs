@@ -353,21 +353,24 @@ namespace Robogame.Robots
             int cpu = 0;
             float mass = 0f;
             int count = 0;
-            Vector3 weightedPos = Vector3.zero;
+            Vector3 weightedCenter = Vector3.zero;
+            float cellSize = _grid.CellSize;
 
             foreach (var kvp in _grid.Blocks)
             {
                 BlockBehaviour b = kvp.Value;
                 if (b == null || b.Definition == null) continue;
                 cpu += b.Definition.CpuCost;
-                mass += b.Definition.Mass;
+                // Aero blocks scale mass with their span·thickness·chord
+                // (anchored so default dims == Definition.Mass); every other
+                // block keeps its authored mass. See EffectiveMass.
+                float m = EffectiveMass(b);
+                mass += m;
                 count++;
-                // Mass-weighted accumulation against the chassis-local
-                // grid origin. _grid.Blocks keys are integer cell coords;
-                // converting to chassis-local metres is a multiply by
-                // CellSize, which we do once at the end (cheaper than
-                // per-block).
-                weightedPos += (Vector3)kvp.Key * b.Definition.Mass;
+                // Mass-weighted accumulation in chassis-local metres, using the
+                // block's bounds centre so an outboard-shifted wing pulls COM
+                // the right way (for a unit cell this is just cell·cellSize).
+                weightedCenter += BlockInertiaBounds(b, kvp.Key, cellSize).center * m;
             }
 
             TotalCpu = cpu;
@@ -381,8 +384,7 @@ namespace Robogame.Robots
             // Mass-weighted COM in chassis-local metres. Apply the optional
             // tuning offset (RobotDrive.CenterOfMassOffset) so a ground
             // vehicle can keep the legacy "pull COM down 0.5" tip-resistance.
-            float cellSize = _grid.CellSize;
-            Vector3 com = (weightedPos / mass) * cellSize + ResolveCenterOfMassOffset();
+            Vector3 com = (weightedCenter / mass) + ResolveCenterOfMassOffset();
 
             // Explicit COM + inertia tensor management (PHYSICS_PLAN-aligned
             // determinism; session-25 latent fix). PhysX auto-computes the
@@ -413,16 +415,25 @@ namespace Robogame.Robots
         private Vector3 ComputeDiagonalInertiaTensor(Vector3 com, float cellSize)
         {
             float ixx = 0f, iyy = 0f, izz = 0f;
-            float selfTerm = (cellSize * cellSize) / 6f; // for a uniform cube
             foreach (var kvp in _grid.Blocks)
             {
                 BlockBehaviour b = kvp.Value;
                 if (b == null || b.Definition == null) continue;
-                float m = b.Definition.Mass;
-                Vector3 r = (Vector3)kvp.Key * cellSize - com;
-                ixx += m * (selfTerm + r.y * r.y + r.z * r.z);
-                iyy += m * (selfTerm + r.x * r.x + r.z * r.z);
-                izz += m * (selfTerm + r.x * r.x + r.y * r.y);
+                float m = EffectiveMass(b);
+                // Per-block solid-box inertia from its chassis-frame half-
+                // extents. A wing's real span/chord/thickness now feed in, so
+                // a wide wing genuinely resists roll (Izz ∝ span²/12 + offset²);
+                // a non-aero block is a cellSize cube, which reduces to the
+                // historical (1/6)·m·s² self-term — non-aero chassis unchanged.
+                Bounds bnd = BlockInertiaBounds(b, kvp.Key, cellSize);
+                Vector3 he = bnd.extents;                 // half-extents (m)
+                Vector3 r = bnd.center - com;
+                float selfX = (he.y * he.y + he.z * he.z) / 3f; // = ((2hy)²+(2hz)²)/12
+                float selfY = (he.x * he.x + he.z * he.z) / 3f;
+                float selfZ = (he.x * he.x + he.y * he.y) / 3f;
+                ixx += m * (selfX + r.y * r.y + r.z * r.z);
+                iyy += m * (selfY + r.x * r.x + r.z * r.z);
+                izz += m * (selfZ + r.x * r.x + r.y * r.y);
             }
             // PhysX disallows non-positive entries on the diagonal. Single-
             // block chassis would otherwise hit that floor.
@@ -430,6 +441,42 @@ namespace Robogame.Robots
                 Mathf.Max(0.001f, ixx),
                 Mathf.Max(0.001f, iyy),
                 Mathf.Max(0.001f, izz));
+        }
+
+        private static bool IsAero(string id) => id == BlockIds.Aero || id == BlockIds.AeroFin;
+
+        /// <summary>
+        /// Authored mass for most blocks; for aero blocks, mass scales with the
+        /// foil volume relative to the default foil so a bigger wing is
+        /// genuinely heavier (and a tiny one lighter). Anchored so default dims
+        /// resolve to <see cref="BlockDefinition.Mass"/> exactly — existing
+        /// chassis are unchanged. Clamped to keep extremes sane.
+        /// </summary>
+        private static float EffectiveMass(BlockBehaviour b)
+        {
+            float baseMass = b.Definition.Mass;
+            if (!IsAero(b.Definition.Id)) return baseMass;
+            Vector3 d = b.Dims;
+            float span  = d.x > 0f ? d.x : BlockOccupancy.FoilDefaultSpan;
+            float thick = d.y > 0f ? d.y : BlockOccupancy.FoilDefaultThickness;
+            float chord = d.z > 0f ? d.z : BlockOccupancy.FoilDefaultChord;
+            float volRatio = (span * thick * chord) /
+                (BlockOccupancy.FoilDefaultSpan * BlockOccupancy.FoilDefaultThickness * BlockOccupancy.FoilDefaultChord);
+            return baseMass * Mathf.Clamp(volRatio, 0.25f, 6f);
+        }
+
+        /// <summary>
+        /// Chassis-local AABB used for a block's inertia box + COM contribution.
+        /// Aero blocks use their real swept foil bounds (span/chord/thickness,
+        /// oriented); everything else is a unit cell cube — keeping non-aero
+        /// inertia + COM byte-identical to the pre-change model.
+        /// </summary>
+        private static Bounds BlockInertiaBounds(BlockBehaviour b, Vector3Int cell, float cellSize)
+        {
+            string id = b.Definition.Id;
+            if (IsAero(id))
+                return BlockOccupancy.ComputeSweptBoundsLocal(id, cell, b.Up, b.Dims, cellSize);
+            return BlockOccupancy.DefaultUnitCellBoundsLocal(cell, cellSize);
         }
 
         private BlockBehaviour FindCpuBlock()

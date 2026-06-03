@@ -68,6 +68,14 @@ namespace Robogame.Movement
         private float PitchDamping => _cfg.PitchDamping;
         private float RollDamping  => _cfg.RollDamping;
         private float YawDamping   => _cfg.YawDamping;
+        private float PitchRefInertia => _cfg.PitchRefInertia;
+        private float YawRefInertia   => _cfg.YawRefInertia;
+        private float RollRefInertia  => _cfg.RollRefInertia;
+
+        // Authority is scaled by ref/actual inertia. Clamp so a degenerate
+        // tiny- or huge-inertia chassis can't get absurd or zero control.
+        private const float MinAuthorityScale = 0.3f;
+        private const float MaxAuthorityScale = 2.5f;
 
         public int Order => 50; // between actuators (0) and assists (200)
         public bool IsOperational => isActiveAndEnabled;
@@ -118,26 +126,45 @@ namespace Robogame.Movement
             // Local angular velocity for damping.
             Vector3 localOmega = transform.InverseTransformDirection(_rb.angularVelocity);
 
+            // Inertia-scaled control authority (session 106). The chassis
+            // inertia tensor now reflects real wing span/chord, so a wide-winged
+            // plane has a larger roll inertia (Izz) and a smaller share of the
+            // authored authority — it rolls slower. At the reference inertia the
+            // scale is 1 (authored feel preserved). Damping stays inertia-
+            // independent so settling stays crisp. inertiaTensor is (Ixx,Iyy,Izz).
+            Vector3 inertia = _rb.inertiaTensor;
+            float pitchScale = AuthorityScale(PitchRefInertia, inertia.x);
+            float yawScale   = AuthorityScale(YawRefInertia,   inertia.y);
+            float rollScale  = AuthorityScale(RollRefInertia,  inertia.z);
+
             // Pitch around local right (X). Right-hand rule: a positive
             // torque around +X rotates +Y toward +Z, which is nose-DOWN. So
             // we negate to make Space (+Vertical) pitch up.
             float pitchInput = Mathf.Clamp(control.Vertical, -1f, 1f);
-            float pitchAccel = -pitchInput * PitchPower - localOmega.x * PitchDamping;
+            float pitchAccel = -pitchInput * PitchPower * pitchScale - localOmega.x * PitchDamping;
 
             // Roll around local forward (Z). Right-hand rule means rolling
             // right (top toward +X) is a NEGATIVE Z rotation, hence the sign flip.
             float rollInput = Mathf.Clamp(control.Move.x, -1f, 1f);
-            float rollAccel = -rollInput * RollPower - localOmega.z * RollDamping;
+            float rollAccel = -rollInput * RollPower * rollScale - localOmega.z * RollDamping;
 
             // Auto-yaw: when banked right, transform.right.y < 0, so we want
             // a positive yaw (turn right). Coupling sign: yaw = -right.y * gain.
             float bankSignal = -Vector3.Dot(transform.right, Vector3.up);
-            float yawAccel = bankSignal * YawFromBank - localOmega.y * YawDamping;
+            float yawAccel = bankSignal * YawFromBank * yawScale - localOmega.y * YawDamping;
 
             // Compose in local space then push out to world.
             Vector3 localTorque = new Vector3(pitchAccel, yawAccel, rollAccel);
             Vector3 worldTorque = transform.TransformDirection(localTorque);
             _rb.AddTorque(worldTorque, ForceMode.Acceleration);
+        }
+
+        // ref/actual inertia, clamped. ref <= 0 disables scaling (returns 1).
+        private static float AuthorityScale(float refInertia, float actualInertia)
+        {
+            if (refInertia <= 0f) return 1f;
+            return Mathf.Clamp(refInertia / Mathf.Max(actualInertia, 1e-3f),
+                MinAuthorityScale, MaxAuthorityScale);
         }
     }
 }

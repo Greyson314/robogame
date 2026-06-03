@@ -30,6 +30,17 @@ namespace Robogame.Block
         public float PitchDamping = 3.5f;
         public float RollDamping  = 0.8f;
         public float YawDamping   = 1.6f;
+
+        // Reference moments of inertia (kg·m²) of the canonical default plane,
+        // per axis (X=pitch, Y=yaw, Z=roll). Control authority is scaled by
+        // refInertia/actualInertia, so a chassis at the reference rolls exactly
+        // as authored, while a bigger-winged (higher-inertia) one rolls
+        // proportionally slower and a smaller one faster (session 106 wing
+        // physics). Measured from Blueprint_DefaultPlane under the box-inertia
+        // model. 0 disables the scaling (treated as "no reference").
+        public float PitchRefInertia = 105.0f;
+        public float YawRefInertia   = 128.0f;
+        public float RollRefInertia  = 71.0f;
     }
 
     /// <summary>Per-chassis ground drive tuning. Defaults equal the pre-migration Ground.* Tweakables.</summary>
