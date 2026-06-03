@@ -54,6 +54,7 @@ namespace Robogame.Gameplay
         private BuildMirrorMode _mirrorMode;
         private BlockGhostRenderer _ghostRenderer;
         private PlacementFeedbackHud _feedbackHud;
+        private CenterOverlay _centerOverlay;
         // Plain-C# build-mode model. Owns the variant cache + mirror
         // state + place/remove verbs so the MonoBehaviour drivers stay
         // thin and EditMode tests can drive build-mode logic without
@@ -288,6 +289,12 @@ namespace Robogame.Gameplay
             _editor.GhostRenderer = _ghostRenderer;
             if (_feedbackHud == null) _feedbackHud = gameObject.AddComponent<PlacementFeedbackHud>();
             _editor.FeedbackHud = _feedbackHud;
+
+            // CoM / CoL / CoT garage overlay (toggle G). Read-only; resolves the
+            // live chassis through GarageController.Chassis each frame.
+            if (_centerOverlay == null) _centerOverlay = gameObject.AddComponent<CenterOverlay>();
+            _centerOverlay.Garage = this;
+            _centerOverlay.BuildMode = _buildMode;
             // Module abilities are now per-block (the block type IS the
             // ability), so there's no chassis-level module picker — the
             // per-module power slider lives in the VariantConfigPanel.
