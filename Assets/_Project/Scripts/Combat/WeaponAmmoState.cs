@@ -281,7 +281,8 @@ namespace Robogame.Combat
             string id = b.Definition.Id;
             return id == BlockIds.Weapon
                 || id == BlockIds.BombBay
-                || id == BlockIds.Cannon;
+                || id == BlockIds.Cannon
+                || id == BlockIds.Mortar;
         }
 
         private void RecomputePoolsFromGrid()
@@ -375,6 +376,8 @@ namespace Robogame.Combat
             if (bd != null) return (bd.ClipSize, bd.ReloadDuration, bd.AutoReloadDelay);
             CannonDefinition cd = def.GetComponentData<CannonDefinition>();
             if (cd != null) return (cd.ClipSize, cd.ReloadDuration, cd.AutoReloadDelay);
+            MortarDefinition md = def.GetComponentData<MortarDefinition>();
+            if (md != null) return (md.ClipSize, md.ReloadDuration, md.AutoReloadDelay);
             // Defensive defaults. Shipped weapon assets that haven't been
             // re-saved against the Phase 5 fields default to a 10-round
             // clip + 1.5 s reload — playable, even if not tuned.
