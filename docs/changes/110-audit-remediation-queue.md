@@ -18,22 +18,19 @@ Five audit fixes — commit `7c2bf80f`:
 
 ## Queue (prioritized — do in this order)
 
-1. **Remaining safe quick wins** (low-risk, self-contained):
-   - **#18** `NameplateOverlay.FormatName` allocates per OnGUI — memoize the
-     display name per-Robot in `RefreshRobotList` (sibling `ScrapCarriedIndicator`
-     already does this).
-   - **#27** `AudioRouter._loops` never sweeps caller-leaked handles (a block
-     destroyed without `Stop()` leaks forever) — sweep dead `_source` in
-     `Update`, mirroring the existing one-shot voice sweep.
-   - **#19** WaterArena `Update` boxes a HashSet enumerator
-     (`WaterMeshAnimator.cs:164`, `BuoyancyController.cs:48`) — expose `Active`
-     as the concrete `HashSet`/a parallel `List`. (Lowest value; water arena only.)
+1. ~~**Remaining safe quick wins**~~ — **DONE** commit `7323af0` (session 111):
+   - **#18** NameplateOverlay name memoized in a `List` parallel to `_robots`.
+   - **#27** AudioRouter sweeps dead loop handles in `Update`.
+   - **#19** BuoyancyController exposes a parallel `List` (`IReadOnlyList`);
+     WaterMeshAnimator iterates by index (no per-vertex enumerator boxing).
 
-2. **#1 CRITICAL — CSP replay double-step.** `Network/Robot/NetworkRobotMovement.cs:226`
-   calls global `Physics.Simulate(dt)` per replay tick, advancing every Rigidbody.
-   Replace with hand-integration of the local-player Rigidbody only; until done,
-   mark replay loopback-only in `netcode.md §8`. **User is a netcode beginner —
-   write the glue, explain the why, don't hand them plumbing.**
+2. **#1 CRITICAL — CSP replay double-step.** User chose the **independent
+   PhysicsScene** fix (not hand-integration). Planner ran; ADR drafted:
+   [`docs/decisions/0002-prediction-scene-second-rigidbody.md`](../decisions/0002-prediction-scene-second-rigidbody.md)
+   (status **Proposed — awaiting sign-off**). Carves out invariant #4 for a
+   prediction-only mirror Rigidbody. Phased: scene plumbing → replay rewrite →
+   tests/docs. **Do not code until the ADR is Accepted.** Known gaps flagged in
+   the ADR (no arena geometry in mirror; planet-arena gravity; rotor-foil pose).
 
 3. **Doc-drift sweep** (#11/#12/#43/#44/#48/#50): rewrite `physics.md §2` (rope is
    Verlet now, not joint chains; RotorBlock has no joint chain); decide
