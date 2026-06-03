@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a12c4b505dba1c045884ede399f6e49d, type: 3}
+  m_Name: Mortar_Default
+  m_EditorClassIdentifier: Robogame.Combat::Robogame.Combat.MortarDefinition
+  _fireInterval: 2.2
+  _muzzleSpeed: 34
+  _damage: 90
+  _splashRadius: 9
+  _recoilImpulse: 22
+  _knockbackImpulse: 55
+  _shellRadius: 0.3
+  _clipSize: 5
+  _reloadDuration: 3.5
+  _autoReloadDelay: 0.3

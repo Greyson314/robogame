@@ -17,6 +17,7 @@ MonoBehaviour:
   _damage: 60
   _ballRadius: 0.28
   _recoilImpulse: 28
+  _knockbackImpulse: 18
   _ballMass: 5
   _clipSize: 6
   _reloadDuration: 3
