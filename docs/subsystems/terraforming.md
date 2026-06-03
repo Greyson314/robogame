@@ -361,9 +361,9 @@ A dig zone's worst-case triangle count is `chunks × 20K`. We author dig zones t
 
 Arenas budget worst-case for the *aggregate* of all dig zones, not per-zone. An arena ships with one medium zone OR three small zones, not three large zones.
 
-### Mechanism 2: Chunk LOD with transvoxel seams
+### Mechanism 2: Chunk LOD with seam handling
 
-Far chunks mesh at half resolution (16³ instead of 32³, ~5K tris worst case). Standard transvoxel-style seam handling at LOD boundaries — chunks at the boundary emit transition cells that join the high-res chunk to the low-res chunk without cracks. Reference: [Eric Lengyel's Transvoxel paper](http://transvoxel.org/).
+Far chunks mesh at half resolution (16³ instead of 32³, ~5K tris worst case). **What ships today is a partial seam fix, not full Transvoxel** (`SurfaceNetsMesher.cs` Phase 4c): boundary-strip vertices snap their *perpendicular* axis to the coarse neighbour's grid, so the seam plane aligns — but the two *in-plane* axes stay at fine resolution, so a residual mismatch (and occasional crack) remains where the surface doesn't pass through the cell midpoint. The full fix — computing the coarser neighbour's actual boundary-cell vertex from coarse-stride apron samples and snapping to it (true Transvoxel transition cells) — is deferred; see T5 and the Eric Lengyel reference in § 7.
 
 LOD threshold: chunks beyond `2 × cellSize × 32` ≈ 32m from the local player camera drop to half-res. Beyond 64m drop to quarter-res. Chunks behind the camera and not in the player's frustum mesh at lowest LOD and update at low priority.
 
@@ -691,7 +691,7 @@ Operationally split into four sub-phases — same pattern Phase 1 used:
 | T2 | Triangle budget blown by overzealous dig-zone authoring — designer ships an arena with 200 chunks because "the perf passes look OK at the start of the match." | `.dig` baker rejects zones whose worst-case (fully-excavated) tri count exceeds the per-arena budget. Hard fail at bake time. |
 | T3 | MeshCollider recook spike under sustained drilling — async bake is the mitigation but the main-thread swap is still cost. | Deferred dirty flush (§ 6) coalesces edits within N FixedUpdates. The Burst meshing is hidden on workers; only the upload + collider swap is main-thread. Profile at "16 simultaneous drillers" before claiming OK. |
 | T4 | Determinism drift between server and client due to float math in brush ops. | Fixed-point brush math (Vector3Fixed, int16 radius). Astroneer-style. Specified in § 4. |
-| T5 | LOD seam cracks at chunk boundaries. | Transvoxel transition cells. Reference implementation linked in § 7 (Eric Lengyel). Don't roll our own — port the reference. |
+| T5 | LOD seam cracks at chunk boundaries. | **Partial fix shipped** (perpendicular-axis snap, Phase 4c — see Mechanism 2); in-plane mismatch remains. Full fix = Transvoxel transition cells, reference in § 7 (Eric Lengyel). Don't roll our own — port the reference. |
 | T6 | Cumulative op-log grows unbounded for long matches. | Phase 7 checkpointing. Not v1. Track the actual op rate in a closed beta before committing dev time. |
 | T7 | Authoring tool cost — designers need a competent `.dig` baker, a worst-case-tri visualiser, and a brush-ops scrubber for QA. | All editor-only, all small. Budget ~1 week of editor tooling inside Phase 2. |
 | T8 | Fluff / outline render features creep into voxel terrain by accident. | Mat_DigZoneEarth material is the only voxel-terrain material at v1. Authoring rule: voxel chunks render this material only. Code review enforces. |

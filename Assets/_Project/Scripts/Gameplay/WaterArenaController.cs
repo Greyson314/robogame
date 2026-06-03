@@ -71,8 +71,8 @@ namespace Robogame.Gameplay
             {
                 Debug.LogError(
                     "[Robogame] WaterArenaController: GameStateController is missing its " +
-                    "blueprint or block-definition library. Run Robogame > Scaffold > " +
-                    "Gameplay > Build All Pass A.",
+                    "blueprint or block-definition library. Run Robogame > " +
+                    "Build Everything (Ctrl+Shift+B).",
                     this);
                 return;
             }

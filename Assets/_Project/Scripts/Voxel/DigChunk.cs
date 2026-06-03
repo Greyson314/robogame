@@ -33,8 +33,9 @@ namespace Robogame.Voxel
     /// on identical SDF samples) so the meshes meet seamlessly.
     /// </para>
     /// <para>
-    /// MeshCollider cooking is synchronous; Phase 2c moves to
-    /// <c>Physics.BakeMesh</c> on a worker thread.
+    /// MeshCollider cooking runs off the main thread via
+    /// <see cref="BakeMeshJob"/> (<c>Physics.BakeMesh</c> on a worker
+    /// thread); the collider is assigned once the bake handle completes.
     /// </para>
     /// </remarks>
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider))]

@@ -16,7 +16,7 @@ namespace Robogame.Movement
     /// <remarks>
     /// <para>
     /// First non-joint propulsion block — see docs/subsystems/physics.md
-    /// §6. Models the Robocraft hover blade: lift-only (no forward thrust,
+    /// §2.1. Models the Robocraft hover blade: lift-only (no forward thrust,
     /// no native strafe), passive auto-leveling via attach-point torque,
     /// dramatic per-corner failure on destruction.
     /// </para>

@@ -22,11 +22,11 @@ namespace Robogame.Voxel
     /// avoid false sign-crossings at the dig zone edge.
     /// </para>
     /// <para>
-    /// Brush ops apply to chunks' own SDFs (untouched by the apron). The
-    /// remesh pass then rebuilds aprons across ALL chunks and remeshes
-    /// every chunk in the zone — Phase 2b accepts the full-rebuild cost
-    /// for correctness; Phase 2c adds proper dirty-set propagation
-    /// (only -face neighbours of brushed chunks need apron rebuild).
+    /// Brush ops apply to chunks' own SDFs (untouched by the apron).
+    /// <see cref="RebuildChangedChunks"/> then remeshes only the chunks a
+    /// brush actually touched plus their -face apron neighbours — the
+    /// scoped dirty-set propagation that superseded the original
+    /// full-rebuild-every-chunk pass.
     /// </para>
     /// </remarks>
     [ExecuteAlways]

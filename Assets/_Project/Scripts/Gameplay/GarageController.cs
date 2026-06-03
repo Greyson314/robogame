@@ -131,7 +131,7 @@ namespace Robogame.Gameplay
             {
                 Debug.LogError(
                     "[Robogame] GarageController: GameStateController has no CurrentBlueprint. " +
-                    "Run Robogame > Scaffold > Gameplay > Build All Pass A to create the " +
+                    "Run Robogame > Build Everything (Ctrl+Shift+B) to create the " +
                     "default blueprints and wire them onto the Bootstrap scene.",
                     this);
                 return;
@@ -140,7 +140,7 @@ namespace Robogame.Gameplay
             {
                 Debug.LogError(
                     "[Robogame] GarageController: GameStateController has no BlockDefinitionLibrary. " +
-                    "Run Robogame > Scaffold > Gameplay > Build All Pass A.",
+                    "Run Robogame > Build Everything (Ctrl+Shift+B).",
                     this);
                 return;
             }

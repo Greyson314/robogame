@@ -214,7 +214,7 @@ namespace Robogame.Gameplay
             {
                 Debug.LogError(
                     "[Robogame] ArenaController: GameStateController is missing its blueprint " +
-                    "or block-definition library. Run Robogame > Scaffold > Gameplay > Build All Pass A.",
+                    "or block-definition library. Run Robogame > Build Everything (Ctrl+Shift+B).",
                     this);
                 return;
             }
@@ -377,7 +377,7 @@ namespace Robogame.Gameplay
             {
                 Debug.LogWarning(
                     "[Robogame] ArenaController: no _dummyBlueprint assigned on this scene's " +
-                    "ArenaController. Re-run Robogame > Scaffold > Gameplay > Build All Pass A " +
+                    "ArenaController. Re-run Robogame > Build Everything (Ctrl+Shift+B) " +
                     "(it auto-wires Blueprint_CombatDummy.asset).",
                     this);
                 return;
@@ -1020,8 +1020,8 @@ namespace Robogame.Gameplay
             {
                 Debug.LogWarning(
                     "[Robogame] ArenaController: stress tower requested but " +
-                    "_stressTowerBlueprint is unassigned. Re-run Robogame › Scaffold " +
-                    "› Gameplay › Build All Pass A.", this);
+                    "_stressTowerBlueprint is unassigned. Re-run Robogame › " +
+                    "Build Everything (Ctrl+Shift+B).", this);
                 return;
             }
             if (state.Library == null) return;

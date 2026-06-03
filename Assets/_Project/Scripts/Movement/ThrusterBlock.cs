@@ -53,7 +53,7 @@ namespace Robogame.Movement
         // Tweakable shipped at — NOT the vestigial _maxThrust SerializeField,
         // which the Tweakable always overrode). Idle/response are chassis-wide
         // feel (Option A) and come from the blueprint's ThrusterTuning.
-        // PHYSICS_PLAN §1.5 / §5.
+        // physics.md §1 / §5.
         private const float DefaultMaxThrust = 310f;
         private BlockBehaviour _bb;
         private ThrusterTuningConfig _thrCfg = new();

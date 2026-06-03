@@ -424,7 +424,7 @@ namespace Robogame.Movement
         // blueprint Entry (BlockBehaviour.ConfigValue); 0 = use this
         // historical default (old Rotor.RPM Tweakable shipped at 60). So a
         // slow main rotor and a fast tail rotor can coexist on one chassis.
-        // PHYSICS_PLAN §1.5 / §5.
+        // physics.md §1 / §5.
         private const float DefaultRpm = 60f;
         private float LiveRpm
         {

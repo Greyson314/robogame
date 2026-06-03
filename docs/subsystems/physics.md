@@ -43,84 +43,69 @@ These rules apply to every physics-driven block, full stop:
 
 ---
 
-## 2. Rope tech: where we are and where we're going
+## 2. Rope tech: custom Verlet particle solver (shipped)
 
-### Today (PhysX joint chains)
+> The rope chain migrated off PhysX joint chains to a custom Verlet / PBD
+> solver. This section describes what ships **today**; the joint-chain
+> story is kept below only as the rationale for the move.
+
+### Today (Verlet / PBD)
 
 - **What ships:** [`RopeBlock`](../Assets/_Project/Scripts/Movement/RopeBlock.cs)
-  (passive chain) and [`RotorBlock`](../Assets/_Project/Scripts/Movement/RotorBlock.cs)
-  (kinematic-hub-driven spinning chain) both build a chain of free-body
-  Rigidbodies linked by `ConfigurableJoint`s, parented to a scene-root
-  container.
-- **Tip collision:** Only the LAST segment of each chain has a
-  collider — see [`RopeTip`](../Assets/_Project/Scripts/Movement/RopeTip.cs).
-  Per-segment colliders are deliberately avoided (cost + the joint /
-  contact-solver fight that destabilises spinning chains under load).
-  The tip ignores its own chassis colliders via `Physics.IgnoreCollision`
-  at build time.
-- **Cost:** ~ N segments × M ropes dynamic Rigidbodies + 1 sphere
-  collider per rope. For the default rotor (4 ropes × 4 segs) that's
-  16 dynamic rbs + 4 colliders per rotor. The kinematic-hub trick
-  avoids any `AddForce` calls — PhysX synthesises tangential velocity
-  from the hub's `MovePosition` / `MoveRotation`.
-- **Known failure modes** (write these down so we recognise them
-  when they show up):
-  1. **Solver iteration cost balloons under sustained high RPM.** The
-     joint solver does extra work to keep the chain coherent at angular
-     velocities the engine wasn't tuned for. Use the rotor stress
-     tower (settings → Stress → "Spawn Rotor Tower") to stress-test.
-  2. **Chains "explode" under per-segment collision.** Joints try to
-     pull a contact-stuck segment back, contact resolution fights the
-     pull, angular limits get violated, the chain visibly snaps to a
-     mangled pose for one frame and then settles. This is exactly why
-     we do tip-only collision today.
-  3. **Networking pain.** N segments per chain means N rigid-body poses
-     to replicate per chain per tick. At 16 players × 2 rotors × 4
-     ropes × 4 segs that's 2,048 poses — beyond any sane bandwidth
-     budget. We will NEVER ship that. Ropes will be replicated as
-     hub-pose + tip-pose only and re-simulated client-side once we
-     migrate to Verlet.
+  dangles a Verlet particle chain simulated by the
+  [`VerletRopeSimulator`](../Assets/_Project/Scripts/Movement/VerletRopeSimulator.cs)
+  scene-root singleton — one batched tick over every active
+  `VerletRopeChain` per `FixedUpdate`. The **middle of the chain has no
+  Rigidbodies**; it is a positions array the solver integrates and
+  constraint-relaxes.
+- **Only two ends are real Rigidbodies.**
+  - *Hub-end* = the chassis itself; particle 0 is anchored to the host
+    cell's top face in chassis-local space.
+  - *Tip-end* = a fresh scene-root Rigidbody owned by the rope, hosting
+    the adopted Hook / Mace + the `TipCollisionForwarder`. The solver
+    drives it via `MovePosition` so PhysX still synthesises a velocity
+    and world collision stays sane.
+- **One joint, not a chain.** A single `ConfigurableJoint` couples
+  chassis ↔ tip as a hard distance limit (= total rope length). The
+  particle sim enforces chain *shape* but doesn't transmit force back to
+  the chassis, so without this joint a grappled hook would let the
+  chassis fly off forever. That is the only joint a rope uses.
+- **Tip-only collision.** Only the tip Rigidbody has a collider; the
+  chain middle is collisionless. Per-segment world collision is still
+  future work (see below).
+- **`RotorBlock` is not a rope.**
+  [`RotorBlock`](../Assets/_Project/Scripts/Movement/RotorBlock.cs) spins
+  via pure kinematic transform writes — a kinematic hub plus reparented
+  foil transforms driven by `MoveRotation`, **no joints and no dynamic
+  Rigidbodies**. It can *adopt* a rope (reparent so the rope swings with
+  the hub), but that rope is still the Verlet chain above.
+- **Cost / networking shape.** A chain replicates as hub-pose +
+  tip-pose + spawn-time data and re-simulates client-side — 2 poses per
+  rope, not N. Stress-test cost via the rotor stress tower (settings →
+  Stress → "Spawn Rotor Tower" + RPM slider) under the Unity Profiler.
 
-### Future (custom Verlet / PBD solver)
+### Why we left PhysX joint chains (historical rationale)
 
-- **Why:** Order-of-magnitude cheaper, deterministic, easy to network
-  (replicate hub + tip pose, clients simulate the chain locally), and
-  per-segment world collision becomes a single capsule cast per step
-  instead of a contact-solver tax. This is the unambiguously correct
-  long-term tool.
-- **API target:** Same external shape as today — a rope owns a
-  hub-end Rigidbody and a tip-end Rigidbody, the body of the chain
-  is a positions array updated each `FixedUpdate` by the solver,
-  and the tip drives a real collider that does damage / contact
-  effects. The middle of the chain has no Rigidbodies at all.
-- **Owner:** A single `RopeSimulator` MonoBehaviour scene-root
-  singleton that ticks every active chain in one batch (cache-friendly
-  Burst-able loop). Rope blocks register / unregister with it on
-  enable / disable.
+The original rope was N free-body Rigidbodies linked by N
+`ConfigurableJoint`s. It was abandoned because: (1) the joint-solver tax
+ballooned under sustained high RPM; (2) chains "exploded" under
+per-segment collision (joints fight contact resolution and snap to a
+mangled pose); (3) N segment poses per chain were unshippable over the
+wire (16 players × 2 rotors × 4 ropes × 4 segs ≈ 2,048 poses/tick). The
+Verlet solver is cheaper, deterministic, network-friendly, and turns
+per-segment collision into a capsule cast instead of a contact-solver
+tax.
 
-### Migration triggers
+### Remaining rope work (not yet shipped)
 
-Pick whichever lands first:
-
-1. **Profile shows the rotor stress tower (5 rotors × 4 ropes × 4
-   segs at 600 RPM) costs more than 1.5 ms of PhysX simulate per
-   step, *or* the joint solver iteration count spikes above the
-   default budget under that load.** Set up: enter the arena, settings
-   → Stress → "Spawn Rotor Tower" + slide RPM to 600, capture in the
-   Unity Profiler. Re-run after every rotor / rope-pipeline change
-   that could plausibly affect cost.
-2. **A flail-style weapon needs rope-vs-arena collision along the
-   full chain length** (not just the tip). At that point per-segment
-   collision is the feature, and PhysX joints can't deliver it
-   without the "explode on contact" pathology described above.
-3. **Networking lands.** The PhysX-joint replication cost is too
-   high regardless of profile numbers. Ropes go Verlet before any
-   over-the-wire chassis state ships.
-
-When *any* of these triggers, file an issue, name this section,
-and don't start writing damage code until the migration lands. The
-Verlet replacement is somewhere between a long afternoon and a
-short weekend depending on how nice we want the API to be.
+1. **Per-segment world collision** along the full chain length — today
+   only the tip collides. Needed for a flail-style weapon that scrapes
+   walls along its length; the Verlet design makes this a capsule cast
+   per segment per step rather than the joint-chain "explode on contact"
+   pathology. This is the gate before rope-along-length damage code.
+2. **Burst-compiling** the simulator's integrate + constraint loop — the
+   batched chain tick is the cache-friendly candidate. See
+   [burst-notes.md](burst-notes.md).
 
 ### 2.1 Raycast spring-damper (hover blade) — the non-joint propulsion pattern
 
