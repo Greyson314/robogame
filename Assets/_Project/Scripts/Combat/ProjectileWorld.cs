@@ -417,6 +417,7 @@ namespace Robogame.Combat
             _splashRobots.Clear();
             _splashLooseTargets.Clear();
             float r2 = spec.SplashRadius * spec.SplashRadius;
+            bool hitAny = false;
 
             for (int i = 0; i < count; i++)
             {
@@ -432,6 +433,7 @@ namespace Robogame.Combat
                     DamageRobotInRadius(robot, worldPoint, r2, spec.Damage);
                     if (spec.Knockback > 0f)
                         ApplyExplosiveKnockback(robot, worldPoint, spec.SplashRadius, spec.Knockback);
+                    hitAny = true;
                     continue;
                 }
 
@@ -439,11 +441,13 @@ namespace Robogame.Combat
                 if (d == null) continue;
                 if (!_splashLooseTargets.Add(d)) continue;
                 d.TakeDamage(spec.Damage);
+                hitAny = true;
             }
 
-            // Splash hit-marker: fire once with the most-damaged robot's
-            // anchor — for simplicity, the explosion centre.
-            HitLanded?.Invoke(spec.Owner, worldPoint);
+            // Splash hit-marker: fire once at the explosion centre, but ONLY if a
+            // real target actually took damage — a blast that overlapped only
+            // terrain / the owner / teammates shouldn't flash a hit marker.
+            if (hitAny) HitLanded?.Invoke(spec.Owner, worldPoint);
         }
 
         // Friendly-fire test. Returns true when both chassis are alive,

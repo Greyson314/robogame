@@ -75,7 +75,16 @@ namespace Robogame.Core
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
         {
-            // Statics survive domain reload; the GameObject does not.
+            // Statics survive domain reload; the GameObject does not. Under
+            // reload-DISABLED play the native objects also survive, so destroy
+            // the materials we own (`new Material`) to stop them orphaning across
+            // play sessions. The cube mesh is a BORROWED primitive sharedMesh —
+            // null the ref but never destroy it (that would corrupt every cube).
+            if (s_unlitMeshMat != null) UnityEngine.Object.Destroy(s_unlitMeshMat);
+            if (s_unlitBillboardMat != null) UnityEngine.Object.Destroy(s_unlitBillboardMat);
+            s_unlitMeshMat = null;
+            s_unlitBillboardMat = null;
+            s_cubeMesh = null;
             s_instance = null;
             s_root = null;
         }

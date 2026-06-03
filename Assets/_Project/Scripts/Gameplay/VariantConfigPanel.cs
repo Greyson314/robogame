@@ -117,6 +117,10 @@ namespace Robogame.Gameplay
                 _buildMode = value;
                 if (_buildMode != null)
                 {
+                    // Defensive -= before += on BOTH events (Entered previously
+                    // lacked it) so re-assigning the same controller per respawn
+                    // can't accumulate duplicate Entered subscriptions.
+                    _buildMode.Entered -= HandleEntered;
                     _buildMode.Entered += HandleEntered;
                     _buildMode.Exited -= HandleExited;
                     _buildMode.Exited += HandleExited;

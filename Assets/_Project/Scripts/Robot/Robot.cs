@@ -540,7 +540,12 @@ namespace Robogame.Robots
             if (block != null && block.Definition != null)
             {
                 TotalCpu = Mathf.Max(0, TotalCpu - block.Definition.CpuCost);
-                TotalBlockMass = Mathf.Max(0f, TotalBlockMass - block.Definition.Mass);
+                // Deduct the SCALED mass (EffectiveMass) the aggregate pass added,
+                // not the raw Definition.Mass — an oversized wing / hover pad
+                // contributes up to 6× its base mass, so subtracting the base
+                // here would drift _rb.mass (and the replicated health tier) on
+                // every clean single-block removal. Matches RecalculateAggregates.
+                TotalBlockMass = Mathf.Max(0f, TotalBlockMass - EffectiveMass(block));
                 BlockCount = Mathf.Max(0, BlockCount - 1);
                 if (_rb != null && TotalBlockMass > 0f) _rb.mass = TotalBlockMass;
             }

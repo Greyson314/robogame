@@ -476,7 +476,9 @@ namespace Robogame.Gameplay
                 if (b.Definition.Id == BlockIds.Rotor) hasRotor = true;
             }
             Blueprint.SetEntries(list.ToArray());
-            if (hasRotor) Blueprint.RotorsGenerateLift = true;
+            // Assign unconditionally — `if (hasRotor) = true` with no else left
+            // the flag latched on after the last rotor was removed.
+            Blueprint.RotorsGenerateLift = hasRotor;
         }
     }
 }
