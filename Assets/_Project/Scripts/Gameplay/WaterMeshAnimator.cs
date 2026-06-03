@@ -135,6 +135,9 @@ namespace Robogame.Gameplay
             float wakeRadius = _wakeFoamRadius;
             float wakeRadiusSqr = wakeRadius * wakeRadius;
             float wakeStrength = _wakeFoamStrength;
+            // IReadOnlyList (concrete List under the hood) so the per-vertex
+            // loop below iterates by index — a foreach over an interface
+            // collection would box the enumerator once per vertex.
             var bouys = BuoyancyController.Active;
 
             for (int i = 0; i < _baseVerts.Length; i++)
@@ -161,8 +164,9 @@ namespace Robogame.Gameplay
                 float wake = 0f;
                 if (wakeStrength > 0f && bouys.Count > 0)
                 {
-                    foreach (var bc in bouys)
+                    for (int bi = 0; bi < bouys.Count; bi++)
                     {
+                        var bc = bouys[bi];
                         if (bc == null) continue;
                         var pts = bc.SurfaceContacts;
                         for (int p = 0, n = pts.Count; p < n; p++)

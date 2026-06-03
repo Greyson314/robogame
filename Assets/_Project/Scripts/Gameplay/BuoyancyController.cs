@@ -43,9 +43,17 @@ namespace Robogame.Gameplay
         // Active controllers, exposed so the visual water mesh can ask
         // "where is anything currently touching me?" without us having to
         // re-walk Physics each frame. Populated in OnEnable / OnDisable.
+        // The HashSet is the dedup source of truth; the parallel List is
+        // what callers iterate — WaterMeshAnimator walks Active per vertex
+        // (thousands of times per frame), and a foreach over an interface-
+        // typed collection boxes the enumerator each time. Index iteration
+        // over the concrete List is allocation-free. Counts are tiny (one
+        // entry per chassis) so the O(n) List.Remove is negligible.
         private static readonly System.Collections.Generic.HashSet<BuoyancyController> s_active
             = new System.Collections.Generic.HashSet<BuoyancyController>();
-        public static System.Collections.Generic.IReadOnlyCollection<BuoyancyController> Active => s_active;
+        private static readonly System.Collections.Generic.List<BuoyancyController> s_activeList
+            = new System.Collections.Generic.List<BuoyancyController>();
+        public static System.Collections.Generic.IReadOnlyList<BuoyancyController> Active => s_activeList;
 
         // World-space XZ positions of blocks that straddled the waterline
         // during the most recent FixedUpdate. "Straddle" = depth in (0, cell):
@@ -67,12 +75,12 @@ namespace Robogame.Gameplay
 
         private void OnEnable()
         {
-            s_active.Add(this);
+            if (s_active.Add(this)) s_activeList.Add(this);
         }
 
         private void OnDisable()
         {
-            s_active.Remove(this);
+            if (s_active.Remove(this)) s_activeList.Remove(this);
             _surfaceContacts.Clear();
             // Don't leave the chassis with our overridden damping if this
             // component is removed mid-arena (e.g. on a respawn).

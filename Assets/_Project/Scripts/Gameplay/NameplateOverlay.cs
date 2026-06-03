@@ -59,6 +59,10 @@ namespace Robogame.Gameplay
         // Refreshed periodically; nulled-out entries (Unity-fake-null after
         // destroy) are filtered at render time.
         private readonly List<Robot> _robots = new(16);
+        // Display name per robot, index-parallel to _robots. Computed once
+        // per refresh instead of per-OnGUI (OnGUI fires 2–6×/frame and
+        // FormatName allocates a substring on the "(Clone)" trim path).
+        private readonly List<string> _names = new(16);
         private float _nextRefreshAt;
 
         private void Awake()
@@ -79,12 +83,14 @@ namespace Robogame.Gameplay
         private void RefreshRobotList()
         {
             _robots.Clear();
+            _names.Clear();
             Robot[] all = Object.FindObjectsByType<Robot>(FindObjectsSortMode.None);
             for (int i = 0; i < all.Length; i++)
             {
                 Robot r = all[i];
                 if (r == null || r.IsDestroyed) continue;
                 _robots.Add(r);
+                _names.Add(FormatName(r));
             }
         }
 
@@ -130,7 +136,7 @@ namespace Robogame.Gameplay
                 _labelStyle.normal.textColor = HudStyles.TextPrimary;
                 GUI.color = Color.white;
                 Rect labelRect = new Rect(x + 4f, y + 1f, _width - 8f, _height - _hpBarHeight - 4f);
-                GUI.Label(labelRect, FormatName(r), _labelStyle);
+                GUI.Label(labelRect, _names[i], _labelStyle);
 
                 // HP bar (bottom strip).
                 float barY = y + _height - _hpBarHeight - 2f;

@@ -266,6 +266,17 @@ namespace Robogame.Core
                     ReleaseVoice(i, returnToFree: true);
                 }
             }
+
+            // Sweep loop handles whose underlying voice was destroyed by
+            // its parent being despawned without an explicit Stop() (block
+            // destroyed mid-loop). Unity-null on _source means the child
+            // GameObject is gone; the handle would otherwise pin a _loops
+            // slot forever and keep getting touched on every volume change.
+            // Back-to-front so RemoveAt doesn't shift unseen entries.
+            for (int i = _loops.Count - 1; i >= 0; i--)
+            {
+                if (!_loops[i].IsValid) _loops.RemoveAt(i);
+            }
         }
 
         // -----------------------------------------------------------------
