@@ -214,6 +214,16 @@ namespace Robogame.Combat
                 case ModuleKind.Invisibility:
                     BeginInvisibility(t.Duration, chassisPos);
                     break;
+
+                case ModuleKind.Mines:
+                    // Drop a proximity mine on the ground below the chassis.
+                    // Magnitude = centre damage, Duration = mine lifetime.
+                    // The detonation's own explosion VFX/audio fire when it
+                    // goes off; this is just the deploy thunk.
+                    ModuleEffects.DeployMine(_robot, t.Magnitude, t.Duration);
+                    VfxSpawner.Spawn(VfxKind.HitSpark, modulePos, Vector3.up, 0.9f);
+                    AudioRouter.PlayOneShot(AudioCue.ModuleActivate, modulePos);
+                    break;
             }
 
             slot.CooldownDuration = t.Cooldown;

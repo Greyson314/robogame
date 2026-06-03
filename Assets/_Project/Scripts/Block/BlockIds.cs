@@ -80,5 +80,12 @@ namespace Robogame.Block
         public const string ModuleShield = "block.module.shield";
         public const string ModuleSmoke = "block.module.smoke";
         public const string ModuleInvis = "block.module.invis";
+        // Mines (session 108): deploys a proximity mine on the ground below
+        // the chassis. Arms after a short delay (so it can't pop in your
+        // face), then detonates one physics-tick after an enemy bot drives
+        // into its trigger radius. No friendly fire; the deployer is immune.
+        // Active mines are capped per chassis (oldest trims out). Mine TYPES
+        // are a later extension — DeployedMine takes its profile as params.
+        public const string ModuleMines = "block.module.mines";
     }
 }

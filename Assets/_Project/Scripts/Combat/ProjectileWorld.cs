@@ -75,6 +75,35 @@ namespace Robogame.Combat
         }
 
         /// <summary>
+        /// Detonate an explosion at <paramref name="center"/> with no
+        /// projectile in flight — area-splash damage + explosive knockback +
+        /// the bomb explosion VFX/audio/crater treatment, in one call. Used
+        /// by deployed explosives (mines) and any future "explode here" effect.
+        /// Owner + its teammates are spared (same friendly-fire rules as a
+        /// thrown bomb). Allocation-free in steady state.
+        /// </summary>
+        public static void Detonate(Vector3 center, float radius, float damage, float knockback,
+            Robot owner, LayerMask mask, Robogame.Core.AudioCue impactAudio)
+        {
+            EnsureBootstrap();
+            if (s_instance == null || radius <= 0f) return;
+            ProjectileSpec spec = new ProjectileSpec
+            {
+                Kind = ProjectileKind.Bomb,             // reuse the bomb explosion treatment
+                Origin = center,
+                GravityWorld = Physics.gravity,         // crater bias direction in DispatchImpactFx
+                Damage = damage,
+                SplashRadius = radius,
+                Knockback = knockback,
+                HitMask = mask,
+                Owner = owner,
+                ImpactAudioOverride = impactAudio,
+            };
+            s_instance.ApplyAreaSplash(in spec, center);
+            s_instance.DispatchImpactFx(ProjectileKind.Bomb, center, Vector3.up, in spec);
+        }
+
+        /// <summary>
         /// Drop the cached collider snapshot for <paramref name="owner"/>.
         /// Call this when the chassis loses or gains blocks (block
         /// detach, chassis rebuild) so subsequent shots respect the

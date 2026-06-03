@@ -115,6 +115,10 @@ namespace Robogame.Tools.Editor
             CreateOrUpdate("BlockDef_ModuleShield",BlockIds.ModuleShield,"Disc Shield",  BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 30, tint: w);
             CreateOrUpdate("BlockDef_ModuleSmoke", BlockIds.ModuleSmoke, "Smoke",        BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 25, tint: w);
             CreateOrUpdate("BlockDef_ModuleInvis", BlockIds.ModuleInvis, "Cloak",        BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 35, tint: w);
+            // Mines (session 108): drops a ground proximity mine that detonates
+            // when an enemy drives over it. Cheap-ish carrier; power (centre
+            // damage) + cooldown ride ModuleTuning like the other modules.
+            CreateOrUpdate("BlockDef_ModuleMines", BlockIds.ModuleMines, "Mines",        BlockCategory.Module, maxHealth:  90f, mass: 2.2f, cpuCost: 28, tint: w);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();

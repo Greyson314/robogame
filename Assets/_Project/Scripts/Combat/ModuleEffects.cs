@@ -105,6 +105,45 @@ namespace Robogame.Combat
             if (owner == null) return;
             ShieldBubble.Spawn(owner.transform.position, radius, duration);
         }
+
+        /// <summary>
+        /// Drop a proximity mine on the ground beneath the chassis. It arms
+        /// after a short delay, then detonates one physics-tick after an enemy
+        /// drives into its trigger radius. <paramref name="damage"/> is the
+        /// resolved module power (centre HP); <paramref name="lifetime"/> is
+        /// how long it sits before self-expiring. Active mines per owner are
+        /// capped (oldest trims out). No friendly fire; the deployer is immune.
+        /// </summary>
+        public static void DeployMine(Robot owner, float damage, float lifetime)
+        {
+            if (owner == null) return;
+
+            Rigidbody rb = owner.Rigidbody;
+            Vector3 from = rb != null ? rb.worldCenterOfMass : owner.transform.position;
+
+            // World-down along gravity (planet-aware), so the mine lands on the
+            // surface even on spherical arenas.
+            Vector3 g = GravityField.SampleAt(from);
+            Vector3 down = g.sqrMagnitude > 1e-4f ? g.normalized : Vector3.down;
+
+            // Start the ground ray just below the hull so we don't latch onto
+            // the chassis's own underside collider.
+            Vector3 start = from + down * 1.5f;
+            Vector3 pos, up;
+            if (Physics.Raycast(start, down, out RaycastHit hit, 12f, ~0, QueryTriggerInteraction.Ignore)
+                && hit.collider.GetComponentInParent<Robot>() != owner)
+            {
+                pos = hit.point + hit.normal * 0.06f; // rest just above the surface
+                up = hit.normal;
+            }
+            else
+            {
+                pos = start;        // airborne deploy — drop it where the hull was
+                up = -down;
+            }
+
+            DeployedMine.Spawn(owner, pos, up, damage, lifetime);
+        }
     }
 
     /// <summary>
@@ -242,6 +281,206 @@ namespace Robogame.Combat
                 s_material.name = "ShieldDomeMat";
                 return s_material;
             }
+        }
+    }
+
+    /// <summary>
+    /// A detached proximity mine resting on the ground. State machine:
+    /// <c>Arming</c> (red tell, can't trigger) → <c>Armed</c> (steady amber,
+    /// watching) → on an enemy entering the trigger radius, a one-physics-tick
+    /// fuse → <c>Detonate</c> (area-splash damage + explosive knockback via
+    /// <see cref="ProjectileWorld.Detonate"/>). The deployer and its teammates
+    /// are spared (no friendly fire). Self-expires after its lifetime.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Visible but subtle</b> (design brief): a small dark disc with a tiny
+    /// state-coloured glow dot — readable if you're looking at the ground, not
+    /// from across the arena at speed.
+    /// </para>
+    /// <para>
+    /// No collider: proximity is a per-tick <see cref="Physics.OverlapSphereNonAlloc"/>
+    /// from the mine against the shared buffer, so the mine never physically
+    /// blocks a bot and adds zero contact-solver cost. Mine TYPES later: pass a
+    /// profile to <see cref="Spawn"/> instead of the constants below.
+    /// </para>
+    /// </remarks>
+    [DisallowMultipleComponent]
+    public sealed class DeployedMine : MonoBehaviour
+    {
+        // One mine type today. Future types pass these as a profile.
+        private const float ArmDelay = 1.2f;          // settle + tell before live
+        private const float TriggerRadius = 2.2f;     // an enemy must basically drive over it
+        private const float SplashRadius = 7f;        // detonation damage radius
+        private const float KnockbackImpulse = 45f;   // explosive knockback at the blast
+        private const int   MaxActivePerOwner = 3;    // older mines trim out at the cap
+
+        private static readonly Color s_armingColor = new Color(0.85f, 0.12f, 0.10f); // red while arming
+        private static readonly Color s_armedColor  = new Color(0.95f, 0.62f, 0.10f); // amber when live
+
+        private static readonly Collider[] s_overlap = new Collider[32];
+        private static readonly List<DeployedMine> s_active = new(16);
+        private static Material s_glowMaterial;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            s_active.Clear();   // statics survive domain reload; deployed GameObjects don't
+            s_glowMaterial = null;
+        }
+
+        private Robot _owner;
+        private float _damage;
+        private float _armAt;
+        private float _expireAt;
+        private bool _armed;
+        private bool _detonatePending;
+        private Renderer _glow;
+
+        internal static DeployedMine Spawn(Robot owner, Vector3 pos, Vector3 up, float damage, float lifetime)
+        {
+            var go = new GameObject("[Mine]");
+            go.transform.position = pos;
+            if (up.sqrMagnitude > 1e-4f) go.transform.up = up; // lie flat on the surface
+
+            var mine = go.AddComponent<DeployedMine>();
+            mine._owner = owner;
+            mine._damage = damage;
+            mine._armAt = Time.time + ArmDelay;
+            mine._expireAt = Time.time + Mathf.Max(ArmDelay + 1f, lifetime);
+            mine.BuildVisual();
+            mine.SetGlow(s_armingColor);
+
+            s_active.Add(mine);
+            TrimToCap(owner);
+            return mine;
+        }
+
+        // Keep at most MaxActivePerOwner mines per deployer; destroy the oldest
+        // (front of the list) beyond the cap.
+        private static void TrimToCap(Robot owner)
+        {
+            int count = 0;
+            for (int i = 0; i < s_active.Count; i++)
+                if (s_active[i] != null && s_active[i]._owner == owner) count++;
+            while (count > MaxActivePerOwner)
+            {
+                for (int i = 0; i < s_active.Count; i++)
+                {
+                    DeployedMine m = s_active[i];
+                    if (m != null && m._owner == owner)
+                    {
+                        s_active.RemoveAt(i);
+                        Destroy(m.gameObject);
+                        count--;
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void OnDestroy() => s_active.Remove(this);
+
+        private void FixedUpdate()
+        {
+            // One-tick fuse: an enemy was detected last tick → boom now. This
+            // tiny gap is the "oh no" beat the design asks for, and cleanly
+            // separates the trigger event from the explosion in the server log.
+            if (_detonatePending) { Detonate(); return; }
+
+            if (Time.time >= _expireAt) { Destroy(gameObject); return; }
+
+            if (!_armed)
+            {
+                if (Time.time >= _armAt) { _armed = true; SetGlow(s_armedColor); }
+                return;
+            }
+
+            if (EnemyInRange()) _detonatePending = true;
+        }
+
+        private bool EnemyInRange()
+        {
+            int n = Physics.OverlapSphereNonAlloc(transform.position, TriggerRadius, s_overlap, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+            {
+                Collider c = s_overlap[i];
+                if (c == null) continue;
+                Robot r = c.GetComponentInParent<Robot>();
+                if (r == null || r == _owner) continue;
+                if (IsFriendly(_owner, r)) continue;   // teammates don't set it off
+                return true;
+            }
+            return false;
+        }
+
+        // Mirrors ProjectileWorld.IsFriendlyFire: neutral teams are always
+        // hostile so dev-sandbox dummies still trip mines.
+        private static bool IsFriendly(Robot a, Robot b)
+        {
+            if (a == null || b == null) return false;
+            if (a.Team == TeamId.None || b.Team == TeamId.None) return false;
+            return a.Team == b.Team;
+        }
+
+        private void Detonate()
+        {
+            // Owner + teammates spared by ProjectileWorld's friendly-fire rules.
+            ProjectileWorld.Detonate(transform.position, SplashRadius, _damage, KnockbackImpulse,
+                _owner, ~0, AudioCue.BombExplosion);
+            Destroy(gameObject);
+        }
+
+        // -----------------------------------------------------------------
+        // Visual: small dark disc + a state-coloured glow dot
+        // -----------------------------------------------------------------
+
+        private void BuildVisual()
+        {
+            // Flat disc body — a squashed cylinder. Strip its auto collider so
+            // the mine never physically interacts; detection is the overlap query.
+            GameObject disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            Collider dc = disc.GetComponent<Collider>();
+            if (dc != null) Destroy(dc);
+            disc.transform.SetParent(transform, worldPositionStays: false);
+            disc.transform.localScale = new Vector3(0.5f, 0.04f, 0.5f);
+            Tint(disc.GetComponent<Renderer>(), new Color(0.10f, 0.11f, 0.12f));
+
+            // Tiny glow dot on top — the subtle tell.
+            GameObject dot = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            Collider sc = dot.GetComponent<Collider>();
+            if (sc != null) Destroy(sc);
+            dot.transform.SetParent(transform, worldPositionStays: false);
+            dot.transform.localPosition = new Vector3(0f, 0.06f, 0f);
+            dot.transform.localScale = Vector3.one * 0.13f;
+            _glow = dot.GetComponent<Renderer>();
+            if (_glow != null)
+            {
+                if (s_glowMaterial == null) s_glowMaterial = RuntimeMaterials.UnlitTransparent(Color.white);
+                _glow.sharedMaterial = s_glowMaterial;       // colour comes from the per-mine MPB
+                _glow.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                _glow.receiveShadows = false;
+            }
+        }
+
+        private void SetGlow(Color color)
+        {
+            if (_glow == null) return;
+            MaterialPropertyBlock mpb = new MaterialPropertyBlock();
+            _glow.GetPropertyBlock(mpb);
+            mpb.SetColor(Shader.PropertyToID("_BaseColor"), color);
+            mpb.SetColor(Shader.PropertyToID("_Color"), color);
+            _glow.SetPropertyBlock(mpb);
+        }
+
+        private static void Tint(Renderer r, Color color)
+        {
+            if (r == null) return;
+            MaterialPropertyBlock mpb = new MaterialPropertyBlock();
+            r.GetPropertyBlock(mpb);
+            mpb.SetColor(Shader.PropertyToID("_BaseColor"), color);
+            mpb.SetColor(Shader.PropertyToID("_Color"), color);
+            r.SetPropertyBlock(mpb);
         }
     }
 }

@@ -70,6 +70,9 @@ namespace Robogame.Block
             ModuleKind.Smoke => new Row(6f, 12f, 5f),
             // power = cloak duration (s) itself; 16 s base cooldown.
             ModuleKind.Invisibility => new Row(5f, 16f, 0f),
+            // power = mine centre damage (HP); 8 s cooldown; BaseDuration is
+            // the deployed mine's active lifetime (s) before it self-expires.
+            ModuleKind.Mines => new Row(70f, 8f, 30f),
             _ => new Row(1f, 10f, 0f),
         };
 
@@ -100,6 +103,7 @@ namespace Robogame.Block
                 ModuleKind.Smoke => row.BaseDuration * ratio,  // duration scales with power
                 ModuleKind.EmpBurst => row.BaseDuration,       // fixed lockout
                 ModuleKind.DiscShield => row.BaseDuration,     // fixed 10 s deploy
+                ModuleKind.Mines => row.BaseDuration,          // fixed mine lifetime
                 _ => 0f,                                       // Spring / Blink: instantaneous
             };
 

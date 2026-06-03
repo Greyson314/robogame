@@ -37,5 +37,8 @@ namespace Robogame.Block
 
         /// <summary>Fades the bot to near-invisible and hides its healthbar until a timer or 5% HP damage.</summary>
         Invisibility = 5,
+
+        /// <summary>Deploys a proximity mine on the ground that detonates when an enemy bot drives over it.</summary>
+        Mines = 6,
     }
 }
