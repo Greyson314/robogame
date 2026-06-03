@@ -30,6 +30,10 @@ namespace Robogame.Tools.Editor
                 "Cannon_Default",
                 fireInterval: 0.85f, muzzleSpeed: 80f, damage: 60f,
                 ballRadius: 0.28f, recoil: 28f, ballMass: 5f);
+            MortarDefinition mortarDef = CreateOrUpdateMortarDefinition(
+                "Mortar_Default",
+                fireInterval: 2.2f, muzzleSpeed: 34f, damage: 90f,
+                splashRadius: 9f, recoil: 22f, knockback: 55f, shellRadius: 0.3f);
 
             // Phase 1+2: every block reads through a shared, palette-backed
             // MK Toon material. Build them BEFORE the definitions so the
@@ -57,6 +61,11 @@ namespace Robogame.Tools.Editor
             // Heavier than the SMG block so it reads as "real artillery"
             // when placed on a chassis.
             CreateOrUpdate("BlockDef_Cannon",     BlockIds.Cannon,     "Cannon",         BlockCategory.Weapon,    maxHealth:  90f, mass: 3.5f, cpuCost: 35, tint: w, componentData: cannonDef);
+            // Mortar (session 108): top-mounted indirect-fire artillery.
+            // Lobs an explosive shell on a camera-offset ballistic arc.
+            // Heavier than the SMG, on par with the cannon. Must mount on a
+            // top face (BlockConnectivity top-mount rule).
+            CreateOrUpdate("BlockDef_Mortar",     BlockIds.Mortar,     "Mortar",         BlockCategory.Weapon,    maxHealth: 100f, mass: 3.2f, cpuCost: 38, tint: w, componentData: mortarDef);
             // Rope is a Cosmetic free-body block: dangles a jointed
             // chain below the host cell. Cheap CPU + low mass so a
             // builder can hang one off any chassis without rebalancing.
@@ -244,6 +253,31 @@ namespace Robogame.Tools.Editor
             so.FindProperty("_ballRadius").floatValue     = ballRadius;
             so.FindProperty("_recoilImpulse").floatValue  = recoil;
             so.FindProperty("_ballMass").floatValue       = ballMass;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(def);
+            return def;
+        }
+
+        private static MortarDefinition CreateOrUpdateMortarDefinition(
+            string assetName, float fireInterval, float muzzleSpeed, float damage,
+            float splashRadius, float recoil, float knockback, float shellRadius)
+        {
+            string path = $"{WeaponDefinitionsFolder}/{assetName}.asset";
+            MortarDefinition def = AssetDatabase.LoadAssetAtPath<MortarDefinition>(path);
+            if (def == null)
+            {
+                def = ScriptableObject.CreateInstance<MortarDefinition>();
+                AssetDatabase.CreateAsset(def, path);
+                Debug.Log($"[Robogame] Created {assetName} -> {path}");
+            }
+            SerializedObject so = new SerializedObject(def);
+            so.FindProperty("_fireInterval").floatValue     = fireInterval;
+            so.FindProperty("_muzzleSpeed").floatValue      = muzzleSpeed;
+            so.FindProperty("_damage").floatValue           = damage;
+            so.FindProperty("_splashRadius").floatValue     = splashRadius;
+            so.FindProperty("_recoilImpulse").floatValue    = recoil;
+            so.FindProperty("_knockbackImpulse").floatValue = knockback;
+            so.FindProperty("_shellRadius").floatValue      = shellRadius;
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(def);
             return def;

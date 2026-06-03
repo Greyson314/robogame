@@ -23,6 +23,13 @@ namespace Robogame.Block
         public const string Weapon     = "block.weapon.hitscan";
         public const string BombBay    = "block.weapon.bombbay";
         public const string Cannon     = "block.weapon.cannon";
+        // Mortar (session 108): top-mounted indirect-fire weapon. Lobs an
+        // explosive shell on a ballistic arc; the launch elevation sits
+        // offset above the camera line so the player fires a lob without
+        // craning the camera skyward, and a short arc-preview shows the
+        // firing angle (not the landing spot). Must mount on a top face
+        // (BlockConnectivity top-mount rule). See MortarBlock.
+        public const string Mortar     = "block.weapon.mortar";
         public const string Rope       = "block.cosmetic.rope";
         public const string Rotor      = "block.cosmetic.rotor";
         // Tip blocks: adopted by an adjacent RopeBlock at game-start and

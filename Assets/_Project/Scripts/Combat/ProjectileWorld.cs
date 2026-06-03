@@ -521,8 +521,11 @@ namespace Robogame.Combat
                     break;
 
                 case ProjectileKind.Bomb:
+                case ProjectileKind.MortarShell:
                     // Combined CFXR explosion + procedural shockwave +
-                    // bomb-blast audio.
+                    // blast audio. Mortar shells reuse the bomb's explosion
+                    // treatment (both are area-splash detonations); the
+                    // distinct identity is the lobbed delivery, not the boom.
                     CombatVfxLibrary lib = CombatVfxLibrary.Load();
                     if (lib != null && lib.BombExplosion != null)
                     {

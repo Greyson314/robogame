@@ -52,6 +52,13 @@ namespace Robogame.Combat
                 cannon.Bind(_mount);
                 return;
             }
+            if (id == BlockIds.Mortar)
+            {
+                MortarBlock mortar = block.GetComponent<MortarBlock>();
+                if (mortar == null) mortar = block.gameObject.AddComponent<MortarBlock>();
+                mortar.Bind(_mount);
+                return;
+            }
             if (id == BlockIds.GrappleMagnet)
             {
                 GrappleMagnetBlock grapple = block.GetComponent<GrappleMagnetBlock>();

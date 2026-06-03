@@ -38,6 +38,7 @@ namespace Robogame.Block
             BlockIds.Weapon,
             BlockIds.Cannon,
             BlockIds.BombBay,
+            BlockIds.Mortar,
             BlockIds.Hook,
             BlockIds.Mace,
             BlockIds.Magnet,
@@ -228,15 +229,35 @@ namespace Robogame.Block
             return up.y == 0 && (up.x != 0 || up.z != 0);
         }
 
+        // Block ids that must mount on a TOP face (chassis +Y). The mortar
+        // is "placed on top of the bot" — its tube fires upward into a lob,
+        // so a side- or bottom-mount would be nonsensical. Hardcoded fallback
+        // so the shipped mortar asset works without a per-SO flag.
+        private static readonly HashSet<string> s_hardcodedTopMountOnlyIds = new()
+        {
+            BlockIds.Mortar,
+        };
+
+        /// <summary>
+        /// True if this block can only mount on the top face of a host
+        /// (chassis +Y). Caller rejects placements with up != +Y when true.
+        /// </summary>
+        public static bool RequiresTopMount(BlockDefinition def)
+        {
+            if (def == null) return false;
+            return s_hardcodedTopMountOnlyIds.Contains(def.Id);
+        }
+
         /// <summary>
         /// Combined check: would placing this block with this mount-up
-        /// satisfy the block's mount-face constraint? Returns true if
-        /// the block has no constraint OR the up is a valid side face.
+        /// satisfy the block's mount-face constraint? Returns true if the
+        /// block has no constraint OR the up matches its required face.
         /// </summary>
         public static bool IsValidMountFace(BlockDefinition def, Vector3Int up)
         {
-            if (!RequiresSideMount(def)) return true;
-            return IsSideMountFace(up);
+            if (RequiresSideMount(def)) return IsSideMountFace(up);
+            if (RequiresTopMount(def))  return up == Vector3Int.up;
+            return true;
         }
     }
 }

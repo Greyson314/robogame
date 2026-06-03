@@ -17,5 +17,9 @@ namespace Robogame.Combat
 
         /// <summary>Pirate cannonball. Sphere mesh visual, direct contact damage.</summary>
         Cannonball,
+
+        /// <summary>Lobbed mortar shell. Sphere mesh visual, area-splash damage with
+        /// quadratic falloff — shares the Bomb explosion treatment on impact.</summary>
+        MortarShell,
     }
 }

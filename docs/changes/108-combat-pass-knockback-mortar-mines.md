@@ -50,16 +50,56 @@ in the inspector.
 Knockback only fires when damage actually lands (it sits after the `TakeDamage`
 calls, so friendly-fire-suppressed hits impart nothing).
 
-## Mechanic 2 — Mortar (pending)
+## Mechanic 2 — Mortar (shipped, code; needs wizard run + playtest)
+
+A top-mounted indirect-fire weapon that lobs an explosive shell on a ballistic
+arc. New `MortarBlock` (`Combat`) mirrors `CannonBlock`'s yaw/pitch yoke rig but
+replaces the aim model with a **lob targeter**:
+
+- **Camera-offset launch elevation.** The yoke pitches to `aimPitchUp +
+  elevationOffset` (clamped 25–72°), so looking flat ahead still fires a 35°
+  lob — you never crane the camera at the sky. Looking up extends range, looking
+  down flattens it. The launch direction is the barrel direction, *decoupled*
+  from where the reticle points — that decoupling is what makes it a lob, not a
+  direct shot.
+- **Start-of-arc preview.** A world-space `LineRenderer` draws only the first
+  ~0.55 s of the trajectory from the muzzle (same `p = o + v₀t + ½gt²` the
+  projectile integrates). It reads the firing *angle* without revealing the
+  landing spot — per the user's call. Gated to the player's own mortar
+  (`IInputSource` present); refine to local-ownership when netcode lands.
+
+The shell is `ProjectileKind.MortarShell` — an area-splash projectile that
+reuses the bomb's explosion VFX/crater treatment on impact and picks up the
+explosive-knockback path for free (knockback magnitude 55, immediate, radial +
+pop). Chassis-relative gravity so the lob stays correct on planet arenas.
+
+**Placement: top-mount only.** New `BlockConnectivity.RequiresTopMount` +
+hardcoded id set; `IsValidMountFace` now rejects any mortar placement whose
+mount face isn't +Y. Enforced automatically through the existing
+`PlacementRules.CheckMountFace`. The mortar is also a leaf (nothing builds on
+it).
+
+**Wiring.** `RobotWeaponBinder` dispatches `BlockIds.Mortar` →
+`MortarBlock` (the binder already named mortar as the intended future case).
+Stats live on a new `MortarDefinition` SO. `BlockDefinitionWizard` scaffolds
+`Mortar_Default` + `BlockDef_Mortar` (Weapon category) — the build hotbar
+auto-lists it once the library is rebuilt. Launch FX/audio reuse the cannon
+report + bomb explosion cues (invariant #8 satisfied; a dedicated mortar cue
+can be authored later).
 
 ## Mechanic 3 — Mines (pending)
 
 ## Files
 
-New: `Combat/KnockbackReceiver.cs`. Edited: `Combat/ProjectileSpec.cs`,
+Knockback — New: `Combat/KnockbackReceiver.cs`. Edited: `Combat/ProjectileSpec.cs`,
 `Combat/ProjectileWorld.cs`, `Combat/WeaponDefinition.cs`,
 `Combat/CannonDefinition.cs`, `Combat/BombDefinition.cs`,
 `Combat/ProjectileGun.cs`, `Combat/CannonBlock.cs`, `Combat/BombBayBlock.cs`.
+
+Mortar — New: `Combat/MortarBlock.cs`, `Combat/MortarDefinition.cs`. Edited:
+`Combat/ProjectileKind.cs` (MortarShell), `Combat/ProjectileWorld.cs` (impact
+FX case), `Combat/RobotWeaponBinder.cs` (dispatch), `Block/BlockIds.cs`,
+`Block/BlockConnectivity.cs` (top-mount + leaf), `Tools/Editor/BlockDefinitionWizard.cs`.
 
 ## Verification
 
