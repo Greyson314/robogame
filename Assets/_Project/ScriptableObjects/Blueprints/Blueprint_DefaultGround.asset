@@ -32,7 +32,6 @@ MonoBehaviour:
   _thrusterTuning:
     IdleThrottle: 0.4
     ThrottleResponse: 3.5
-  _activeModuleKind: 0
   _entries:
   - BlockId: block.movement.wheel
     Position: {x: -2, y: 0, z: -2}
@@ -64,7 +63,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     BlockConfig: 0
-  - BlockId: block.module.active
+  - BlockId: block.module.emp
     Position: {x: 0, y: 1, z: -2}
     Up: {x: 0, y: 1, z: 0}
     Dims: {x: 0, y: 0, z: 0}

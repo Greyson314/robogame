@@ -32,7 +32,6 @@ MonoBehaviour:
   _thrusterTuning:
     IdleThrottle: 0.4
     ThrottleResponse: 3.5
-  _activeModuleKind: 0
   _entries:
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: -3}

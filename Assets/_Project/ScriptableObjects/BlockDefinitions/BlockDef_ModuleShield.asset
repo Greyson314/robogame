@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7c984c839f6be4847b115d05de5ac654, type: 3}
-  m_Name: BlockDef_Spring
+  m_Name: BlockDef_ModuleShield
   m_EditorClassIdentifier: Robogame.Block::Robogame.Block.BlockDefinition
-  _id: block.movement.spring
-  _displayName: Spring
+  _id: block.module.shield
+  _displayName: Disc Shield
   _category: 4
-  _maxHealth: 80
-  _mass: 1.8
-  _cpuCost: 20
+  _maxHealth: 90
+  _mass: 2
+  _cpuCost: 30
   _isLeafBlock: 0
   _sideMountOnly: 0
   _hasVariantConfig: 0
