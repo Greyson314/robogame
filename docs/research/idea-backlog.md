@@ -19,6 +19,21 @@ Notes: {optional — why rejected, or what shipped}
 > the game — `/ideate` should build *on* them, not re-pitch them. Infra work (netcode, perf
 > passes, test debt) is intentionally omitted; it isn't the kind of thing this workflow proposes.
 
+### CoM/CoL/CoT Garage Overlays — shipped (2026-06-02)
+Payoff: three sized colored spheres (mass/lift/thrust) in build mode make a lopsided rig obvious at a glance; the spatial mismatch IS the info, now that wing physics is honest.
+Reference: Robocraft garage CoM orb; Trailmakers CoM/CoL/CoT overlays.
+Notes: Shipped /ideate movement round. `CenterOverlay` (toggle G), read-only gizmo spheres via RuntimeMaterials; wired by GarageController. See docs/changes/107-movement-consistency.md.
+
+### Hover Blade Mass/Inertia Scaling — shipped (2026-06-02)
+Payoff: a hover blade's mass now scales with its N×N footprint (size-4 = 4× a size-2), so hover-vs-wheel is a real mass/CPU tradeoff and one big pad rocks more than four small ones.
+Reference: session-106 aero EffectiveMass + box-inertia pattern, extended to hover.
+Notes: Shipped /ideate movement round. Extended Robot.EffectiveMass + BlockInertiaBounds; anchored at default size 2 (HoverTank unchanged). See docs/changes/107.
+
+### Thrust-Offset Torque — shipped/already-implemented (2026-06-02)
+Payoff: asymmetric thruster placement pitches/yaws the bot under power.
+Reference: From the Depths / Besiege emergent thrust torque.
+Notes: Approved /ideate movement round then found ALREADY IMPLEMENTED — ThrusterBlock (+ aero, hover, rudder, wheel) already AddForceAtPosition at the block's world position, so off-CoM thrust already induces torque. Net-new this round: the CoT overlay (idea 1) now visualises that offset. The only remaining lever is making it more *felt* (less auto-damping) — a risky feel change, surfaced to the user, not done autonomously.
+
 ### Hover-blade propulsion + altitude control — shipped (2026-05-28)
 Payoff: raycast-based hover movement; Space climbs / Shift descends, altitude latches. First non-joint propulsion block (HoverTank preset). Refs: TerraTech/Trailmakers hover.
 
@@ -65,9 +80,11 @@ Notes: Shipped session 102. Found ~70% already built (CpuCost, cap shape, hot re
 
 ## Approved
 
-## Approved
-
 ## Proposed
+
+### Per-Movement-Type CPU Sub-Budget Display — proposed (2026-06-02)
+Payoff: split the CPU bar into colored bands (movement/weapon/structure/module) as a soft readout (no new caps) so build character is glanceable now that modules take a CPU slice.
+Reference: Crossout component categories; groundwork if the open CPU-sub-budget question resolves to "yes". ~½ session. Surfaced /ideate movement round; user kept as proposed.
 
 ### Phantom Shell (deception module) — proposed (2026-05-29)
 Payoff: drop an identical ghost-snapshot decoy + Blink away; phantom is shootable/shatters, bot targeting chases it. Novel in-genre misdirection, SP-demoable via Transform-target redirect.
