@@ -82,6 +82,38 @@ Notes: Shipped session 102. Found ~70% already built (CpuCost, cap shape, hot re
 
 ## Proposed
 
+### The Maw (devouring pit hazard) — proposed (2026-06-02)
+Payoff: a living arena pit that strips/consumes chassis blocks, grows hungrier (capped), and pays combo scrap to whoever last shoved something in — a neutral 3rd win-condition objective rewarding physics-shoving.
+Reference: Project P.I.T.T. the Maw. ~2 sessions. Reuses block-destruction + scrap-attribution paths. Surfaced /ideate P.I.T.T. round, user re-rolled.
+
+### Loose Junk Field — proposed (2026-06-02)
+Payoff: match-start loose debris cubes (no HP) that become weapons when rammed/sprung/magneted into enemies via existing mass×velocity contact damage; spring/magnet bots weaponize junk "correctly" un-taught.
+Reference: P.I.T.T. duck-redirect → weaponized junk; Garry's Mod props. ~1 session. Watch Rigidbody count + tri budget. Surfaced /ideate P.I.T.T. round, user re-rolled.
+
+### Fling Rig (garage launch sandbox) — proposed (2026-06-02)
+Payoff: garage "fling range" sub-mode scoring how far your springs/magnets/rotors yeet a dummy; distance high-score + cosmetic-only unlock. Teaches the spring/magnet composition space.
+Reference: P.I.T.T. contraption-fling joy. ~1.5 sessions. Cosmetics-only (invariant #1 safe). Surfaced /ideate P.I.T.T. round, user re-rolled.
+
+### Unlock Drip (discovery-by-use progression) — proposed (2026-06-02)
+Payoff: block size-tiers/variants unlock by performing the move (land a spring hit → next spring tier); teaches mechanics by rewarding the experiment.
+Reference: P.I.T.T. unlock-by-play; Robocraft tech tree. ~2.5 sessions. Flag: implies CPU-cost variants (nudges open budget-shape question); content-heavy. Surfaced /ideate P.I.T.T. round, user re-rolled.
+
+### Gust Block (directional blower) — proposed (2026-06-02)
+Payoff: a continuous directional force-cone block that shoves enemy bots + loose debris (repulsor bow, ground-effect boost, or a rotor-arm vortex that flings bots off ledges); composes with every movement/weapon block.
+Reference: P.I.T.T. fans. ~1 session. Distinct from Lodestone (directional push vs radial pull). Use OverlapNonAlloc (invariant #6). Surfaced /ideate P.I.T.T. re-roll, user paused.
+
+### Bouncer Pad (passive restitution block) — proposed (2026-06-02)
+Payoff: passive block that reverses+amplifies normal contact velocity — deflects projectiles/rammed bots, or springboards you/enemies on contact; cover a face for ram-then-launch combos.
+Reference: P.I.T.T. spring pads / panel backboards. ~1 session. Distinct from Spring module (passive structural vs active cooldown). Surfaced /ideate P.I.T.T. re-roll, user paused.
+
+### Combo Rail (multi-target hit-streak scrap multiplier) — proposed (2026-06-02)
+Payoff: hitting 2+ distinct enemies within a rolling 1.5s window scales scrap payout (4-chain ≈ 4×); rewards wide area-control builds over single-target snipers. Zero new physics.
+Reference: P.I.T.T. rapid-feed combo. ~½ session. In-match reward only (stays clear of the open win-condition question). Surfaced /ideate P.I.T.T. re-roll, user paused.
+
+### Sticky Patch (adhesion / tractor surface) — proposed (2026-06-02)
+Payoff: high-friction surface that grabs + briefly drags a touched bot via a per-tick pull (no joint — MagnetBlock approach, dodges the joint-instability warning); hover-claw / floor trap / sticky rotor flail.
+Reference: P.I.T.T. conveyor/tractor surfaces. ~1–2 sessions. Risk: two-bot tractor edge case needs hardening. Surfaced /ideate P.I.T.T. re-roll, user paused.
+
 ### Per-Movement-Type CPU Sub-Budget Display — proposed (2026-06-02)
 Payoff: split the CPU bar into colored bands (movement/weapon/structure/module) as a soft readout (no new caps) so build character is glanceable now that modules take a CPU slice.
 Reference: Crossout component categories; groundwork if the open CPU-sub-budget question resolves to "yes". ~½ session. Surfaced /ideate movement round; user kept as proposed.
