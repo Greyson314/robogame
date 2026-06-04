@@ -113,9 +113,19 @@ which `Combat` already references.
 
 ## Notes
 
+- **Phase B shipped with a refinement to the registry key.** The Decision
+  above proposed gating the ammo registry on `BlockCategory.Weapon`. In
+  implementation that proved wrong: the grapple and tip blocks are all
+  category `Weapon` (`block.weapon.*`) yet carry no ammo, so a category gate
+  would mint phantom ammo pools for them. Shipped instead with
+  `BlockDefinition.ComponentData is IWeaponStats` — exact parity with the old
+  `{Weapon, BombBay, Cannon, Mortar}` id-list and locally opt-in (a new ammo
+  weapon authors a `WeaponStatsDefinition`). `BlockCategory` is untouched. The
+  `IClientSilenceable` marker (the silence half of phase B) shipped as planned.
+  See session log [112](../changes/112-weapon-fork-phases-cdab.md).
 - Full file:line map and per-phase step list in the planner output folded
   into session log [111](../changes/111-prediction-scene-csp.md) →
-  successor log when this lands.
+  [112](../changes/112-weapon-fork-phases-cdab.md).
 - Riskiest phase: **A** (SO serialization) and **B** (touches
   `NetworkRobotCombat` server-authority silence). Land + verify each before
   the next.

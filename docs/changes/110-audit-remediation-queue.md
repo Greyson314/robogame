@@ -38,23 +38,21 @@ Five audit fixes — commit `7c2bf80f`:
    terraforming LOD seam) + NetworkSceneFlow status note in netcode.md §10
    (kept, not deleted — it's intentional infra).
 
-4. **Weapon-fork refactor** (#3/#4/#8/#15) — **IN PROGRESS.** ADR
-   [`0003`](../decisions/0003-weapon-fork-refactor.md) Accepted; 5 phases.
-   - ✅ **Phase E** (predicates) commit `3d547c2d`: `Teams.IsFriendlyFire`
-     (fixes EMP-hits-teammates #15), `ProjectileGravity.ForMuzzle` (fixes
-     cannon/mortar chassis-relative gravity on planet arenas).
-   - ⬜ **Phase C** — extract `TurretYoke`, fix the `Vector3.up` spherical-aim
-     bug (#8). Pure code, test-rig-verifiable.
-   - ⬜ **Phase D** — extract `WeaponFireGate`. Pure code, test-rig-verifiable.
-   - ⬜ **Phase A** — `IWeaponStats` + `WeaponStatsDefinition` base. **Needs a
-     live Unity bridge** to verify the SO-asset serialization round-trip
-     (field names must stay identical; capture asset values first).
-   - ⬜ **Phase B** — `Category`+`IClientSilenceable` registry (depends on A;
-     touches `NetworkRobotCombat` server-authority silence). Includes the
-     Phase-6 netcode marker comments (#9/#31). Verify on a live bridge.
-
-   Suggested order for the remainder: C, D (anytime) → A, B (when the Unity
-   bridge is up). #25 module-fork is out of scope (separate debt).
+4. ~~**Weapon-fork refactor** (#3/#4/#8/#15)~~ — **DONE.** ADR
+   [`0003`](../decisions/0003-weapon-fork-refactor.md) Accepted; all 5 phases
+   landed. Session log [112](112-weapon-fork-phases-cdab.md).
+   - ✅ **Phase E** (predicates) commit `3d547c2d`.
+   - ✅ **Phase C** — `TurretYoke` + `Vector3.up` spherical-aim fix (#8).
+   - ✅ **Phase D** — `WeaponFireGate`.
+   - ✅ **Phase A** — `IWeaponStats` + `WeaponStatsDefinition` base. Round-trip
+     verified by `.asset`/`.meta` YAML (field names identical; values captured)
+     + the test-rig's full asset import. Bridge was down (named-pipe revoked).
+   - ✅ **Phase B** — `IClientSilenceable` marker silence walk (fixes #4: mortar
+     + grapple now silenced) + `ComponentData is IWeaponStats` ammo registry.
+     **Deviated from the ADR's `Category == Weapon`** — that would wrongly mint
+     ammo pools for the category-`Weapon`-but-ammoless grapple/tip blocks; the
+     interface marker is exact parity with the old id-list. Phase-6 markers
+     (#9/#31) folded in. #25 module-fork stays out of scope.
 
 5. ~~**"Continual Traces"**~~ — **DONE** commit `4076c877`: `// TRACE[id]: note`
    convention + `ContinualTraces.cs` editor tool (Validate + Rebuild Index →

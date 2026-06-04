@@ -138,14 +138,17 @@ namespace Robogame.Network.Robot
             }
 
             // Every non-server copy: silence the firers so the client cannot
-            // spawn an authoritative projectile or compute a hit. (Phase-1
-            // behaviour, unchanged.)
-            foreach (ProjectileGun gun in GetComponentsInChildren<ProjectileGun>(true))
-                gun.enabled = false;
-            foreach (CannonBlock cannon in GetComponentsInChildren<CannonBlock>(true))
-                cannon.enabled = false;
-            foreach (BombBayBlock bay in GetComponentsInChildren<BombBayBlock>(true))
-                bay.enabled = false;
+            // spawn an authoritative projectile or compute a hit. One walk over
+            // the IClientSilenceable marker — Phase-1 behaviour, but the marker
+            // now also catches MortarBlock + GrappleMagnetBlock that the old
+            // hand-synced gun/cannon/bomb loop missed (audit #4).
+            // TRACE[ADR-0003]: marker-interface silence walk (phase B) — replaces the hand-synced list
+            // NETCODE Phase 6: #9 promote this to a true server-authority fire
+            // gate (today the firers are just disabled client-side); #31 the
+            // server cooldown table is one coarse chassis-wide key — make it
+            // per-weapon when per-block fire commands replace held-input fire.
+            foreach (IClientSilenceable firer in GetComponentsInChildren<IClientSilenceable>(true))
+                if (firer is Behaviour behaviour) behaviour.enabled = false;
 
             // Owner non-server: cache the local input source so Update can
             // dispatch FireCommandServerRpc on rising-edge / held fire.

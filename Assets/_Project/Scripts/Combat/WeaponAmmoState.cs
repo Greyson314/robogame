@@ -276,13 +276,16 @@ namespace Robogame.Combat
             }
         }
 
+        // TRACE[ADR-0003]: ammo-weapon registry = "definition carries IWeaponStats" (phase B), replaces the hand-synced id list
+        // A block is ammo-gated iff its definition's component-data implements
+        // IWeaponStats. Exact parity with the old {Weapon, BombBay, Cannon,
+        // Mortar} list (all four carry a WeaponStatsDefinition) and correctly
+        // excludes the grapple (no component-data) and tip blocks. A new ammo
+        // weapon opts in locally — author a definition deriving from
+        // WeaponStatsDefinition.
         private static bool IsWeaponBlock(BlockBehaviour b)
         {
-            string id = b.Definition.Id;
-            return id == BlockIds.Weapon
-                || id == BlockIds.BombBay
-                || id == BlockIds.Cannon
-                || id == BlockIds.Mortar;
+            return b.Definition != null && b.Definition.ComponentData is IWeaponStats;
         }
 
         private void RecomputePoolsFromGrid()
@@ -365,22 +368,16 @@ namespace Robogame.Combat
             return null;
         }
 
-        // Per-weapon-type ammo config resolution. Each weapon kind
-        // attaches its tuning SO to BlockDefinition.ComponentData; we
-        // try-cast against the known types.
+        // Per-weapon-type ammo config resolution. Every weapon kind's tuning SO
+        // derives from WeaponStatsDefinition (IWeaponStats), so a single cast
+        // replaces the four-way try-cast fork (ADR-0003 phase B).
+        // TRACE[ADR-0003]: single IWeaponStats cast (phase B), was a four-way try-cast
         private static (int clipSize, float reloadDuration, float autoReloadDelay) ResolveAmmoConfig(BlockDefinition def)
         {
-            WeaponDefinition wd = def.GetComponentData<WeaponDefinition>();
-            if (wd != null) return (wd.ClipSize, wd.ReloadDuration, wd.AutoReloadDelay);
-            BombDefinition bd = def.GetComponentData<BombDefinition>();
-            if (bd != null) return (bd.ClipSize, bd.ReloadDuration, bd.AutoReloadDelay);
-            CannonDefinition cd = def.GetComponentData<CannonDefinition>();
-            if (cd != null) return (cd.ClipSize, cd.ReloadDuration, cd.AutoReloadDelay);
-            MortarDefinition md = def.GetComponentData<MortarDefinition>();
-            if (md != null) return (md.ClipSize, md.ReloadDuration, md.AutoReloadDelay);
-            // Defensive defaults. Shipped weapon assets that haven't been
-            // re-saved against the Phase 5 fields default to a 10-round
-            // clip + 1.5 s reload — playable, even if not tuned.
+            if (def.ComponentData is IWeaponStats ws)
+                return (ws.ClipSize, ws.ReloadDuration, ws.AutoReloadDelay);
+            // Defensive defaults. A weapon block whose definition has no stats
+            // SO still gets a playable 10-round clip + 1.5 s reload.
             return (10, 1.5f, 0.3f);
         }
     }

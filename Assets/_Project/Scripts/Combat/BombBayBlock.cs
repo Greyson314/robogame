@@ -26,7 +26,7 @@ namespace Robogame.Combat
     /// </remarks>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(BlockBehaviour))]
-    public sealed class BombBayBlock : MonoBehaviour
+    public sealed class BombBayBlock : MonoBehaviour, IClientSilenceable
     {
         [Header("Drop geometry (block-local)")]
         [Tooltip("Local position of the drop point — should sit on the underside of the block so bombs don't clip the host cube.")]
@@ -59,8 +59,8 @@ namespace Robogame.Combat
         // Iron-bomb tint (near-black with a hint of blue).
         private static readonly Color s_bombTint = new Color(0.10f, 0.10f, 0.12f);
 
-        private float _nextDropTime;
-        private float _nextEmptyClickTime;
+        // TRACE[ADR-0003]: shared cooldown + ammo + dry-click gate (phase D)
+        private WeaponFireGate _gate;
         private IInputSource _input;
         private Robot _ownerRobot;
         private Rigidbody _ownerRb;
@@ -92,23 +92,10 @@ namespace Robogame.Combat
         private void Update()
         {
             if (_input == null || !_input.FireHeld) return;
-            if (Time.time < _nextDropTime) return;
-
-            if (_ammo != null && _blockId != null && !_ammo.CanFire(_blockId))
-            {
-                if (Time.time >= _nextEmptyClickTime)
-                {
-                    AudioRouter.PlayOneShot(AudioCue.WeaponEmpty, transform.position);
-                    _nextEmptyClickTime = Time.time + 0.40f;
-                }
-                return;
-            }
-
             BombDefinition def = ResolveDef();
             float interval = Mathf.Max(0.05f, def != null ? def.DropInterval : _dropInterval);
-            _nextDropTime = Time.time + interval;
-            if (_ammo != null && _blockId != null) _ammo.Consume(_blockId, 1);
-            DropOne();
+            if (_gate.TryFire(true, Time.time, interval, _ammo, _blockId, transform.position, 0.40f))
+                DropOne();
         }
 
         private void DropOne()

@@ -20,7 +20,7 @@ namespace Robogame.Combat
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class ProjectileGun : MonoBehaviour
+    public sealed class ProjectileGun : MonoBehaviour, IClientSilenceable
     {
         // -----------------------------------------------------------------
         // Fallback / non-tweakable knobs (overridable in inspector for the
@@ -64,8 +64,8 @@ namespace Robogame.Combat
         private Robogame.Block.BlockBehaviour _block;
         private WeaponAmmoState _ammo;
         private string _blockId;
-        private float _nextFireTime;
-        private float _nextEmptyClickTime;
+        // TRACE[ADR-0003]: shared cooldown + ammo + dry-click gate (phase D)
+        private WeaponFireGate _gate;
 
         // Tracer tint for the trail. Warm cream → tracer feel.
         private static readonly Color s_tracerHead = new Color(1f, 0.85f, 0.35f, 1f);
@@ -105,29 +105,11 @@ namespace Robogame.Combat
         private void Update()
         {
             if (_input == null || !_input.FireHeld) return;
-            if (Time.time < _nextFireTime) return;
-
-            // Ammo gate (Phase 5). Pool-empty plays a throttled dry-click
-            // so the player gets feedback that their pull isn't firing.
-            // Cooldown matches fire-rate so a held trigger on empty
-            // doesn't strobe the dry-click cue.
-            if (_ammo != null && _blockId != null && !_ammo.CanFire(_blockId))
-            {
-                if (Time.time >= _nextEmptyClickTime)
-                {
-                    AudioRouter.PlayOneShot(AudioCue.WeaponEmpty, transform.position);
-                    _nextEmptyClickTime = Time.time + 0.20f;
-                }
-                return;
-            }
-
             float fireRate = Mathf.Max(0.1f, ResolveFireRate());
-            _nextFireTime = Time.time + 1f / fireRate;
-            // Consume the round before firing — Consume is idempotent
-            // against an already-empty pool, so the if above and the
-            // Consume here can't both fail in the same frame.
-            if (_ammo != null && _blockId != null) _ammo.Consume(_blockId, 1);
-            Fire();
+            // Dry-click throttle matches a fast cadence so a held trigger on
+            // empty doesn't strobe the cue.
+            if (_gate.TryFire(true, Time.time, 1f / fireRate, _ammo, _blockId, transform.position, 0.20f))
+                Fire();
         }
 
         // -----------------------------------------------------------------

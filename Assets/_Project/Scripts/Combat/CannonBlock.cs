@@ -34,7 +34,7 @@ namespace Robogame.Combat
     /// </remarks>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(BlockBehaviour))]
-    public sealed class CannonBlock : MonoBehaviour
+    public sealed class CannonBlock : MonoBehaviour, IClientSilenceable
     {
         [Header("Rig layout (block-local)")]
         [Tooltip("Local position of the pitch yoke pivot — sits on top of the block by default; set to (0,0,0.5) for a forward-mounted barrel.")]
@@ -85,8 +85,8 @@ namespace Robogame.Combat
         private BlockBehaviour _block;
         private WeaponAmmoState _ammo;
         private string _blockId;
-        private float _nextFireTime;
-        private float _nextEmptyClickTime;
+        // TRACE[ADR-0003]: shared cooldown + ammo + dry-click gate (phase D)
+        private WeaponFireGate _gate;
 
         private void Awake()
         {
@@ -128,39 +128,10 @@ namespace Robogame.Combat
                 ? _mount.AimPoint
                 : transform.position + transform.forward * 30f;
 
-            // Yaw the whole block around Y.
-            Vector3 flat = aim - transform.position;
-            flat.y = 0f;
-            if (flat.sqrMagnitude > 0.0001f)
-            {
-                Quaternion targetWorldYaw = Quaternion.LookRotation(flat, Vector3.up);
-                Quaternion parentInv = transform.parent != null
-                    ? Quaternion.Inverse(transform.parent.rotation)
-                    : Quaternion.identity;
-                Quaternion targetLocal = parentInv * targetWorldYaw;
-                transform.localRotation = _yawSpeed <= 0f
-                    ? targetLocal
-                    : Quaternion.Slerp(transform.localRotation, targetLocal,
-                        1f - Mathf.Exp(-_yawSpeed * Time.deltaTime));
-            }
-
-            // Pitch the yoke.
-            Vector3 localAim = transform.InverseTransformPoint(aim) - _yoke.localPosition;
-            float horiz = new Vector2(localAim.x, localAim.z).magnitude;
-            float pitchDeg = Mathf.Atan2(-localAim.y, horiz) * Mathf.Rad2Deg;
-            pitchDeg = Mathf.Clamp(pitchDeg, _minPitch, _maxPitch);
-            Quaternion targetPitch = Quaternion.Euler(pitchDeg, 0f, 0f);
-            _yoke.localRotation = _pitchSpeed <= 0f
-                ? targetPitch
-                : Quaternion.Slerp(_yoke.localRotation, targetPitch,
-                    1f - Mathf.Exp(-_pitchSpeed * Time.deltaTime));
-
-            // Muzzle: precise lookat for barrel-line VFX / audio cue.
-            Vector3 dir = aim - _muzzle.position;
-            if (dir.sqrMagnitude > 0.0001f)
-            {
-                _muzzle.rotation = Quaternion.LookRotation(dir, Vector3.up);
-            }
+            // TRACE[ADR-0003]: shared yaw/pitch/muzzle track, surface-up aware (phase C)
+            Vector3 up = TurretYoke.UpAt(transform.position);
+            new TurretYoke(transform, _yoke, _muzzle, _yawSpeed, _pitchSpeed, _minPitch, _maxPitch)
+                .Track(aim, up, Time.deltaTime);
         }
 
         // -----------------------------------------------------------------
@@ -170,20 +141,9 @@ namespace Robogame.Combat
         private void Update()
         {
             if (_input == null || !_input.FireHeld) return;
-            if (Time.time < _nextFireTime) return;
-            if (_ammo != null && _blockId != null && !_ammo.CanFire(_blockId))
-            {
-                if (Time.time >= _nextEmptyClickTime)
-                {
-                    AudioRouter.PlayOneShot(AudioCue.WeaponEmpty, transform.position);
-                    _nextEmptyClickTime = Time.time + 0.30f;
-                }
-                return;
-            }
             float interval = Mathf.Max(0.05f, ResolveFireInterval());
-            _nextFireTime = Time.time + interval;
-            if (_ammo != null && _blockId != null) _ammo.Consume(_blockId, 1);
-            FireCannon();
+            if (_gate.TryFire(true, Time.time, interval, _ammo, _blockId, transform.position, 0.30f))
+                FireCannon();
         }
 
         // Iron-ball tint for the visual proxy.

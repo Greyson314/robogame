@@ -35,7 +35,7 @@ namespace Robogame.Combat
     /// </remarks>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(BlockBehaviour))]
-    public sealed class MortarBlock : MonoBehaviour
+    public sealed class MortarBlock : MonoBehaviour, IClientSilenceable
     {
         [Header("Rig layout (block-local)")]
         [Tooltip("Local position of the pitch-yoke pivot — sits on top of the block.")]
@@ -107,8 +107,8 @@ namespace Robogame.Combat
         private BlockBehaviour _block;
         private WeaponAmmoState _ammo;
         private string _blockId;
-        private float _nextFireTime;
-        private float _nextEmptyClickTime;
+        // TRACE[ADR-0003]: shared cooldown + ammo + dry-click gate (phase D)
+        private WeaponFireGate _gate;
 
         private LineRenderer _arcLine;
         private static Material s_arcMaterial;
@@ -155,21 +155,11 @@ namespace Robogame.Combat
                 ? _mount.AimPoint
                 : transform.position + transform.forward * 40f;
 
-            // ---- Yaw the whole block around Y toward the aim direction. ----
-            Vector3 flat = aim - transform.position;
-            flat.y = 0f;
-            if (flat.sqrMagnitude > 0.0001f)
-            {
-                Quaternion targetWorldYaw = Quaternion.LookRotation(flat, Vector3.up);
-                Quaternion parentInv = transform.parent != null
-                    ? Quaternion.Inverse(transform.parent.rotation)
-                    : Quaternion.identity;
-                Quaternion targetLocal = parentInv * targetWorldYaw;
-                transform.localRotation = _yawSpeed <= 0f
-                    ? targetLocal
-                    : Quaternion.Slerp(transform.localRotation, targetLocal,
-                        1f - Mathf.Exp(-_yawSpeed * Time.deltaTime));
-            }
+            // ---- Yaw the whole block toward the aim direction. ----
+            // TRACE[ADR-0003]: shared surface-up-aware yaw (phase C); the mortar
+            // drives its own lob pitch below, so it uses Yaw, not the full Track.
+            new TurretYoke(transform, _yoke, _muzzle, _yawSpeed, _pitchSpeed, 0f, 0f)
+                .Yaw(aim, TurretYoke.UpAt(transform.position), Time.deltaTime);
 
             // ---- Pitch the yoke to the launch elevation (offset above aim). ----
             // Unity X-rot: positive = nose down, so -elevation pitches the
@@ -234,20 +224,9 @@ namespace Robogame.Combat
         private void Update()
         {
             if (_input == null || !_input.FireHeld) return;
-            if (Time.time < _nextFireTime) return;
-            if (_ammo != null && _blockId != null && !_ammo.CanFire(_blockId))
-            {
-                if (Time.time >= _nextEmptyClickTime)
-                {
-                    AudioRouter.PlayOneShot(AudioCue.WeaponEmpty, transform.position);
-                    _nextEmptyClickTime = Time.time + 0.40f;
-                }
-                return;
-            }
             float interval = Mathf.Max(0.05f, ResolveFireInterval());
-            _nextFireTime = Time.time + interval;
-            if (_ammo != null && _blockId != null) _ammo.Consume(_blockId, 1);
-            FireMortar();
+            if (_gate.TryFire(true, Time.time, interval, _ammo, _blockId, transform.position, 0.40f))
+                FireMortar();
         }
 
         private void FireMortar()

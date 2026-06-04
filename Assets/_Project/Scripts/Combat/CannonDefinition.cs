@@ -16,16 +16,14 @@ namespace Robogame.Combat
     /// live here, NOT in per-machine Tweakables.
     /// </remarks>
     [CreateAssetMenu(menuName = "Robogame/Cannon Definition", fileName = "Cannon_New", order = 8)]
-    public sealed class CannonDefinition : ScriptableObject
+    public sealed class CannonDefinition : WeaponStatsDefinition
     {
+        [Header("Cannon ballistics")]
         [Tooltip("Seconds between shots while fire is held. Cannons are slow — typical 0.6–1.2 s.")]
         [SerializeField, Min(0.05f)] private float _fireInterval = 0.85f;
 
         [Tooltip("Muzzle velocity (m/s). Gravity drops the ball over distance, so a flat shot at 80 m/s arcs ~3 m over 50 m of travel.")]
         [SerializeField, Min(5f)] private float _muzzleSpeed = 80f;
-
-        [Tooltip("Damage on direct contact (HP). Single-target; no splash today.")]
-        [SerializeField, Min(0f)] private float _damage = 60f;
 
         [Tooltip("Cannonball radius (m). Larger reads as 'big iron ball', smaller as 'shotgun pellet'.")]
         [SerializeField, Min(0.05f)] private float _ballRadius = 0.28f;
@@ -33,32 +31,13 @@ namespace Robogame.Combat
         [Tooltip("Recoil impulse applied opposite the shot direction (N·s). Pushes the chassis back perceptibly.")]
         [SerializeField, Min(0f)] private float _recoilImpulse = 28f;
 
-        [Tooltip("Newton-seconds of impulse imparted to the TARGET on a direct hit, along the shot direction. " +
-                 "Lands instantly as a stagger. Roughly 50–70% of recoil reads well.")]
-        [SerializeField, Min(0f)] private float _knockbackImpulse = 18f;
-
         [Tooltip("Cannonball Rigidbody mass (kg). Affects collision response on contact.")]
         [SerializeField, Min(0.1f)] private float _ballMass = 5f;
 
-        [Header("Ammo + reload (Phase 5/6 — SCRAP_LOOP_PLAN)")]
-        [Tooltip("Rounds per clip per cannon. Total pool = ClipSize × cannons on the chassis. Slow-firing — 6 default.")]
-        [SerializeField, Min(1)] private int _clipSize = 6;
-
-        [Tooltip("Seconds the cannon-pool is locked during reload. Medium-long, signalling the long reload as part of cannon's slow-firing identity.")]
-        [SerializeField, Min(0.1f)] private float _reloadDuration = 3.0f;
-
-        [Tooltip("Grace window between firing the last round and the auto-reload kicking in.")]
-        [SerializeField, Min(0f)] private float _autoReloadDelay = 0.3f;
-
-        public float FireInterval    => _fireInterval;
+        public override float FireInterval => _fireInterval;
         public float MuzzleSpeed     => _muzzleSpeed;
-        public float Damage          => _damage;
         public float BallRadius      => _ballRadius;
         public float RecoilImpulse   => _recoilImpulse;
-        public float KnockbackImpulse => _knockbackImpulse;
         public float BallMass        => _ballMass;
-        public int ClipSize          => _clipSize;
-        public float ReloadDuration  => _reloadDuration;
-        public float AutoReloadDelay => _autoReloadDelay;
     }
 }

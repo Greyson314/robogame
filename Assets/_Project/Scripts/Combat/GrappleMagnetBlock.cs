@@ -54,7 +54,7 @@ namespace Robogame.Combat
     /// </remarks>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(BlockBehaviour))]
-    public sealed class GrappleMagnetBlock : MonoBehaviour
+    public sealed class GrappleMagnetBlock : MonoBehaviour, IClientSilenceable
     {
         // -----------------------------------------------------------------
         // State machine
@@ -261,34 +261,10 @@ namespace Robogame.Combat
             if (_yoke == null || _muzzle == null) return;
             Vector3 aim = _mount != null ? _mount.AimPoint : transform.position + transform.forward * 30f;
 
-            Vector3 flat = aim - transform.position;
-            flat.y = 0f;
-            if (flat.sqrMagnitude > 0.0001f)
-            {
-                Quaternion targetWorldYaw = Quaternion.LookRotation(flat, Vector3.up);
-                Quaternion parentInv = transform.parent != null
-                    ? Quaternion.Inverse(transform.parent.rotation)
-                    : Quaternion.identity;
-                Quaternion targetLocal = parentInv * targetWorldYaw;
-                transform.localRotation = _yawSpeed <= 0f
-                    ? targetLocal
-                    : Quaternion.Slerp(transform.localRotation, targetLocal, 1f - Mathf.Exp(-_yawSpeed * Time.deltaTime));
-            }
-
-            Vector3 localAim = transform.InverseTransformPoint(aim) - _yoke.localPosition;
-            float horiz = new Vector2(localAim.x, localAim.z).magnitude;
-            float pitchDeg = Mathf.Atan2(-localAim.y, horiz) * Mathf.Rad2Deg;
-            pitchDeg = Mathf.Clamp(pitchDeg, _minPitch, _maxPitch);
-            Quaternion targetPitch = Quaternion.Euler(pitchDeg, 0f, 0f);
-            _yoke.localRotation = _pitchSpeed <= 0f
-                ? targetPitch
-                : Quaternion.Slerp(_yoke.localRotation, targetPitch, 1f - Mathf.Exp(-_pitchSpeed * Time.deltaTime));
-
-            Vector3 dir = aim - _muzzle.position;
-            if (dir.sqrMagnitude > 0.0001f)
-            {
-                _muzzle.rotation = Quaternion.LookRotation(dir, Vector3.up);
-            }
+            // TRACE[ADR-0003]: shared yaw/pitch/muzzle track, surface-up aware (phase C)
+            Vector3 up = TurretYoke.UpAt(transform.position);
+            new TurretYoke(transform, _yoke, _muzzle, _yawSpeed, _pitchSpeed, _minPitch, _maxPitch)
+                .Track(aim, up, Time.deltaTime);
         }
 
         // -----------------------------------------------------------------
