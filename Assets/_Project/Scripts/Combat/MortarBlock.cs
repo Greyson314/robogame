@@ -197,13 +197,10 @@ namespace Robogame.Combat
             return Mathf.Clamp(aimPitchUp + _elevationOffsetDeg, _minLaunchElevationDeg, _maxLaunchElevationDeg);
         }
 
-        // Chassis-relative gravity so the lob (and its preview) stay correct
-        // on planet arenas. Matches CannonBlock's spawn-time convention.
-        private Vector3 GravityWorld()
-        {
-            Vector3 dir = transform.parent != null ? -transform.parent.up : Vector3.down;
-            return dir * Physics.gravity.magnitude;
-        }
+        // World gravity at the muzzle so the lob (and its preview) stay correct
+        // on flat and planet arenas.
+        // TRACE[AUDIT-15]: unified muzzle gravity (was chassis-relative -parent.up)
+        private Vector3 GravityWorld() => ProjectileGravity.ForMuzzle(_muzzle);
 
         private void UpdateArcPreview()
         {

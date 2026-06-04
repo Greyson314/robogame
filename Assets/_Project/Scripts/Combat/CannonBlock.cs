@@ -212,20 +212,13 @@ namespace Robogame.Combat
             // bay's drop velocity.
             if (_ownerRb != null) velocity += _ownerRb.linearVelocity;
 
-            // Chassis-relative gravity so cannon arcs work on planet
-            // arenas. Adequate today; full planet-aware projectiles
-            // would re-evaluate gravity per step against the planet
-            // centre.
-            Vector3 gravityDir = transform.parent != null
-                ? -transform.parent.up
-                : Vector3.down;
-
             ProjectileSpec spec = new ProjectileSpec
             {
                 Kind = ProjectileKind.Cannonball,
                 Origin = origin,
                 InitialVelocity = velocity,
-                GravityWorld = gravityDir * Physics.gravity.magnitude,
+                // TRACE[AUDIT-15]: world gravity at the muzzle (was chassis-relative -parent.up)
+                GravityWorld = ProjectileGravity.ForMuzzle(_muzzle),
                 MaxLifetime = CannonLifetime,
                 CastRadius = radius,
                 Damage = damage,

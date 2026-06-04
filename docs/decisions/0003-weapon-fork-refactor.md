@@ -1,6 +1,6 @@
 # 0003 — Unify the weapon fork (shared stats, registry, turret/fire helpers)
 
-- **Status.** Proposed
+- **Status.** Accepted
 - **Date.** 2026-06-03
 
 ## Context

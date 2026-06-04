@@ -4,6 +4,7 @@
     "references": [
         "Robogame.Core",
         "Robogame.Block",
+        "Robogame.Robots",
         "Robogame.Input",
         "Robogame.Movement",
         "Robogame.Gameplay",

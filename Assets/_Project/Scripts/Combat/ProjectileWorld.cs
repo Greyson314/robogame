@@ -369,7 +369,7 @@ namespace Robogame.Combat
             // teammate's collider but applies no damage. V1 limitation:
             // shots don't pass through, but they also don't grief the
             // ally. See docs/changes/58-scrap-loop-v1.md § 2.
-            if (IsFriendlyFire(spec.Owner, targetRobot)) return;
+            if (Teams.IsFriendlyFire(spec.Owner, targetRobot)) return;
             target.TakeDamage(spec.Damage);
             if (spec.Knockback > 0f)
                 ApplyKineticKnockback(targetRobot, travelDir, spec.Knockback, spec.KnockbackSmoothed);
@@ -387,7 +387,7 @@ namespace Robogame.Combat
                 Robot targetRobot = block.GetComponentInParent<Robot>();
                 if (targetRobot != null && targetRobot != spec.Owner && targetRobot.Grid != null)
                 {
-                    if (IsFriendlyFire(spec.Owner, targetRobot)) return;
+                    if (Teams.IsFriendlyFire(spec.Owner, targetRobot)) return;
                     targetRobot.Grid.ApplySplashDamage(block.GridPosition, spec.SplashRings);
                     if (spec.Knockback > 0f)
                         ApplyKineticKnockback(targetRobot, travelDir, spec.Knockback, spec.KnockbackSmoothed);
@@ -404,7 +404,7 @@ namespace Robogame.Combat
                 ? ((Component)dmg).GetComponentInParent<Robot>()
                 : null;
             if (owner != null && owner == spec.Owner) return;
-            if (IsFriendlyFire(spec.Owner, owner)) return;
+            if (Teams.IsFriendlyFire(spec.Owner, owner)) return;
             dmg.TakeDamage(spec.SplashRings[0]);
             HitLanded?.Invoke(spec.Owner, hit.point);
         }
@@ -428,7 +428,7 @@ namespace Robogame.Combat
                 if (robot != null)
                 {
                     if (robot == spec.Owner) continue;
-                    if (IsFriendlyFire(spec.Owner, robot)) continue;
+                    if (Teams.IsFriendlyFire(spec.Owner, robot)) continue;
                     if (!_splashRobots.Add(robot)) continue;
                     DamageRobotInRadius(robot, worldPoint, r2, spec.Damage);
                     if (spec.Knockback > 0f)
@@ -448,17 +448,6 @@ namespace Robogame.Combat
             // real target actually took damage — a blast that overlapped only
             // terrain / the owner / teammates shouldn't flash a hit marker.
             if (hitAny) HitLanded?.Invoke(spec.Owner, worldPoint);
-        }
-
-        // Friendly-fire test. Returns true when both chassis are alive,
-        // both have a non-neutral team, and those teams match. Neutral
-        // (TeamId.None) targets — training dummies, props — are always
-        // damageable so dev sandbox flows keep working.
-        private static bool IsFriendlyFire(Robot owner, Robot target)
-        {
-            if (owner == null || target == null) return false;
-            if (owner.Team == TeamId.None || target.Team == TeamId.None) return false;
-            return owner.Team == target.Team;
         }
 
         private static void DamageRobotInRadius(Robot robot, Vector3 worldPoint, float r2, float headlineDamage)

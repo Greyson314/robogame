@@ -56,7 +56,8 @@ namespace Robogame.Combat
                 Collider c = s_overlap[i];
                 if (c == null) continue;
                 Robot robot = c.GetComponentInParent<Robot>();
-                if (robot == null || robot == owner) continue;
+                // TRACE[AUDIT-15]: skip teammates, not just the owner (EMP used to disable allies)
+                if (robot == null || robot == owner || Teams.IsFriendlyFire(owner, robot)) continue;
                 if (!s_seen.Add(robot)) continue; // one pass per robot
 
                 foreach (ProjectileGun gun in robot.GetComponentsInChildren<ProjectileGun>(includeInactive: true))
