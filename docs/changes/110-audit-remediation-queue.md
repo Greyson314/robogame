@@ -38,23 +38,28 @@ Five audit fixes — commit `7c2bf80f`:
    terraforming LOD seam) + NetworkSceneFlow status note in netcode.md §10
    (kept, not deleted — it's intentional infra).
 
-4. **Weapon-fork refactor — PLAN FIRST, get sign-off** (#3/#4/#8/#15/#25). The
-   biggest debt: `IWeaponStats`/`abstract WeaponStatsDefinition` shared base; a
-   single weapon-kind registry replacing the 7+ hand-synced lists
-   (`RobotWeaponBinder`, `WeaponAmmoState.IsWeaponBlock`, `BlockConnectivity`,
-   `NetworkRobotCombat` client-silence, `BlockDefinitionWizard`); extract a
-   `TurretYoke` aim stepper (kills the duplicated `Vector3.up` spherical bug) and
-   a `WeaponFireGate`; one `Teams.AreHostile` + `ProjectileGravity.ForMuzzle`
-   predicate. Spans Combat + Network → write an ADR in `docs/decisions/`, get
-   approval before code (architectural change — invariant/ADR discipline).
+4. **Weapon-fork refactor** (#3/#4/#8/#15) — **IN PROGRESS.** ADR
+   [`0003`](../decisions/0003-weapon-fork-refactor.md) Accepted; 5 phases.
+   - ✅ **Phase E** (predicates) commit `3d547c2d`: `Teams.IsFriendlyFire`
+     (fixes EMP-hits-teammates #15), `ProjectileGravity.ForMuzzle` (fixes
+     cannon/mortar chassis-relative gravity on planet arenas).
+   - ⬜ **Phase C** — extract `TurretYoke`, fix the `Vector3.up` spherical-aim
+     bug (#8). Pure code, test-rig-verifiable.
+   - ⬜ **Phase D** — extract `WeaponFireGate`. Pure code, test-rig-verifiable.
+   - ⬜ **Phase A** — `IWeaponStats` + `WeaponStatsDefinition` base. **Needs a
+     live Unity bridge** to verify the SO-asset serialization round-trip
+     (field names must stay identical; capture asset values first).
+   - ⬜ **Phase B** — `Category`+`IClientSilenceable` registry (depends on A;
+     touches `NetworkRobotCombat` server-authority silence). Includes the
+     Phase-6 netcode marker comments (#9/#31). Verify on a live bridge.
 
-5. **"Continual Traces"** — NEW user concept (see memory `concept-continual-traces`):
-   durable code **breadcrumb markers** linking code → decision/finding/rationale,
-   discoverable over time. Design deliberately: marker syntax (e.g. `// TRACE[id]:`),
-   what the id links to (ADRs / 109 findings / session logs), optional
-   indexer/validator (editor menu or hook, like the existing scaffolders).
-   **Confirm the syntax with the user before building** — it's a convention that
-   will spread repo-wide.
+   Suggested order for the remainder: C, D (anytime) → A, B (when the Unity
+   bridge is up). #25 module-fork is out of scope (separate debt).
+
+5. ~~**"Continual Traces"**~~ — **DONE** commit `4076c877`: `// TRACE[id]: note`
+   convention + `ContinualTraces.cs` editor tool (Validate + Rebuild Index →
+   `docs/TRACES.md`) + CLAUDE.md doc + seed traces. Syntax (`TRACE[id]:`) and
+   tooling (editor menu) were confirmed with the user before building.
 
 ## Notes
 
