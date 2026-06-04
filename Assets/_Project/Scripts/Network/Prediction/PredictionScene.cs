@@ -77,6 +77,7 @@ namespace Robogame.Network.Prediction
             if (source == null) return null;
             EnsureScene();
 
+            // TRACE[INV-4]: the prediction mirror is the one sanctioned 2nd Rigidbody for a chassis
             var go = new GameObject("[PredictionMirror]");
             var mirror = go.AddComponent<Rigidbody>();
             CopyMassProperties(source, mirror);

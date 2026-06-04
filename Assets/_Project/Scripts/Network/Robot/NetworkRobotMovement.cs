@@ -261,6 +261,8 @@ namespace Robogame.Network.Robot
             // AddForceAtPosition induces, which GetAccumulatedTorque does NOT
             // surface (so a force/torque transfer would translate the chassis
             // but never turn it). The real body is never stepped here.
+            // TRACE[AUDIT-1]: re-step only the owner chassis in isolation — never global Physics.Simulate
+            // TRACE[ADR-0002]: forces go to the prediction mirror via the subsystem redirect
             float dt = Time.fixedDeltaTime;
             _drive.SetReplayForceTarget(_mirrorRb);
             try

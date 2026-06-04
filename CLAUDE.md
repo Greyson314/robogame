@@ -57,6 +57,31 @@ Located in [`docs/subsystems/`](docs/subsystems/). These are kept up to date but
 
 This convention is itself encoded in [docs/decisions/0001-doc-tiering-and-adrs.md](docs/decisions/0001-doc-tiering-and-adrs.md).
 
+## Continual Traces — code↔decision breadcrumbs
+
+When a line of code exists *because* of a decision, rule, finding, or
+prior session, anchor it with an inline trace so the rationale stays
+discoverable and the link rots loudly:
+
+```csharp
+// TRACE[ADR-0002]: mirror is the sanctioned 2nd Rigidbody
+// TRACE[INV-4]: single Rigidbody per chassis — carve-out applies here
+// TRACE[AUDIT-1]: replay must never global-Simulate the whole scene
+```
+
+Syntax: `// TRACE[id]: note` (inline `//`, not `///`). Id kinds:
+`ADR-NNNN` → `docs/decisions/`, `INV-N` → `docs/invariants.md` § N,
+`AUDIT-N` → finding N in the 109 audit, `LOG-NN` → session log
+`docs/changes/NN-*.md`, `DOC:name[§sec]` → a file under `docs/`.
+
+Tooling (matches the scaffolders): **Robogame → Traces → Validate** reports
+dangling traces in the console; **Robogame → Traces → Rebuild Index**
+regenerates [docs/TRACES.md](docs/TRACES.md) (anchor → code sites). Both
+manual, non-blocking. Implemented in
+`Assets/_Project/Scripts/Tools/Editor/ContinualTraces.cs`. Don't blanket-
+retrofit existing prose refs ("ADR-0002", "invariant #4") — add a trace
+when you touch load-bearing code whose reason isn't obvious from the line.
+
 ## Hard invariants (do not violate without explicit user approval)
 
 The canonical list with full rationale lives in [docs/invariants.md](docs/invariants.md). The short version, for reference:
