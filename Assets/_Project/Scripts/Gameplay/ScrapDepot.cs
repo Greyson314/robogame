@@ -288,6 +288,15 @@ namespace Robogame.Gameplay
         private void TryInstantTransfer(Robot robot)
         {
             if (_match == null) return;
+            // Depot is inert outside the live round. During warmup the
+            // round hasn't started (scoring is gated to InProgress in
+            // MatchController.DepositScrap), so pulling a hauler's load
+            // here would strip their carried scrap and then the drain
+            // below would discard it against the rejecting controller —
+            // a silent loss. Leaving the scrap on the robot keeps warmup
+            // neutral; the deposit lands the moment the player starts the
+            // match and touches the pad again.
+            if (_match.State != MatchState.InProgress) return;
             if (robot.ScrapHeld <= 0) return;
             int banked = robot.DepositScrap();
             if (banked <= 0) return;
@@ -310,6 +319,14 @@ namespace Robogame.Gameplay
         private void TickScoreDrain()
         {
             if (_match == null || _bankedScrap <= 0) return;
+            // Only drain into the team score while the round is live.
+            // DepositScrap rejects non-InProgress deposits, and this body
+            // decrements _bankedScrap before that call — so draining in
+            // warmup/RoundEnded would silently destroy banked scrap.
+            // Holding it instead means any pre-banked scrap scores when
+            // the round begins. (With TryInstantTransfer also gated, the
+            // pool stays empty through warmup; this is belt-and-braces.)
+            if (_match.State != MatchState.InProgress) return;
             _scoreTickTimer += Time.deltaTime;
             if (_scoreTickTimer < _scoreTickInterval) return;
             _scoreTickTimer -= _scoreTickInterval;

@@ -195,6 +195,14 @@ namespace Robogame.Gameplay
             int playerScrap = _match.ScoreForSide(MatchSide.Player);
             int enemyScrap = _match.ScoreForSide(MatchSide.Enemy);
 
+            // Warmup read: scoring is gated to InProgress (deposits don't
+            // count until the round starts — see ScrapDepot). Surface that
+            // on the scoreboard itself so 0-0 during warmup doesn't read as
+            // "the scrap loop is broken": the timer pill says WARMUP and the
+            // score numbers dim to muted. The StartMatchHud's bottom prompt
+            // tells the player which key begins combat.
+            bool warmup = _match.State == MatchState.WarmingUp;
+
             // Row 1: team labels — "YOU" on left, "ENEMY" on right.
             float headerY = y + 6f;
             float headerH = 18f;
@@ -211,19 +219,27 @@ namespace Robogame.Gameplay
             // Player scrap — left half, right-aligned to the centreline so
             // both team numbers visually flank the timer.
             float halfW = _panelWidth * 0.5f;
+            // Dim both score numbers during warmup so they read as "not
+            // live yet"; restore the team accent/danger colours once the
+            // round is in progress.
+            _leftScoreStyle.normal.textColor = warmup ? HudStyles.TextMuted : HudStyles.Accent;
+            _rightScoreStyle.normal.textColor = warmup ? HudStyles.TextMuted : HudStyles.Danger;
             GUI.Label(new Rect(x + padX, scoreY, halfW - padX - 60f, scoreH),
                 playerScrap.ToString(), _leftScoreStyle);
 
             // Timer centred in a fixed-width pill between the two scores.
+            // During warmup the pill reads "WARMUP" instead of the (pinned
+            // at 0:00 under manual-start) countdown.
             float timerSecsRemaining = _match.TimeRemaining;
             bool timerAlert = _match.State == MatchState.InProgress
                               && timerSecsRemaining > 0f
                               && timerSecsRemaining < _timerLowSeconds;
-            Color timerColor = timerAlert ? HudStyles.Danger : HudStyles.TextPrimary;
+            Color timerColor = warmup ? HudStyles.Accent
+                                      : (timerAlert ? HudStyles.Danger : HudStyles.TextPrimary);
             _timerCentreStyle.normal.textColor = timerColor;
             const float timerW = 120f;
             GUI.Label(new Rect(x + halfW - timerW * 0.5f, scoreY, timerW, scoreH),
-                _renderedTimer, _timerCentreStyle);
+                warmup ? "WARMUP" : _renderedTimer, _timerCentreStyle);
 
             // Enemy scrap — right half, left-aligned to the centreline.
             GUI.Label(new Rect(x + halfW + 60f, scoreY, halfW - padX - 60f, scoreH),

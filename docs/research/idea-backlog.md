@@ -82,6 +82,46 @@ Notes: Shipped session 102. Found ~70% already built (CpuCost, cap shape, hot re
 
 ## Proposed
 
+### Scrap Persistence + Block Discovery Pool — proposed (2026-06-04)
+Payoff: in-match scrap converts to persistent salvage at results; salvage buys deterministic *horizontal* block variants (tradeoffs within the existing CPU budget, no crates), closing the scrap loop.
+Reference: Robocraft 2018 tech tree (minus the stat-vertical axis); DRG horizontal overclocks.
+Notes: design-pilot top pick, progression round 1. Requires new persistence/save layer (new ADR). Distinct from Unlock-Drip (spend-salvage vs perform-the-move). Surfaced /ideate progression round, user re-rolled.
+
+### Prestige Skin / Chassis Badge System — proposed (2026-06-04)
+Payoff: per-chassis records (wins/streaks/AI tiers) unlock cosmetic-only paint/decals/movement VFX/opponent-visible badges; visual identity for veteran pilots.
+Reference: Trackmania prestige skins; Rocket League season cosmetics.
+Notes: Zero fairness risk, lightest architecture (renderer-side material overrides). Still needs save layer. Surfaced /ideate progression round, user re-rolled.
+
+### Season Challenges + Garage-Slot Rewards — proposed (2026-06-04)
+Payoff: challenge slate earns cosmetics + extra garage blueprint *slots* (storage, not power); nudges pilots toward chassis variety.
+Reference: Robocraft garage bays (slot-as-reward); Halo Infinite battle pass (cautionary — challenges must be play-more-of-what-you-enjoy, not homework).
+Notes: Slots are cap-equal in-arena. Weekly rotation would partially land the open per-match-modifier question. Needs save layer. Surfaced /ideate progression round, user re-rolled.
+
+### Per-Chassis Mastery (CPU breathing room) — proposed (2026-06-04)
+Payoff: bounded per-chassis CPU cap increase (+25/tier, cap +100) as vertical progression.
+Reference: Robocraft 2014 CPU-tier system (worked only at large population).
+Notes: WEAK on fairness — power-vertical, strains pickup-and-play pillar, needs mastery-bracket matchmaking (no early-launch population). New ADR (alters CPU cap enforcement path). Surfaced /ideate progression round, user re-rolled. Revisit only if population supports brackets.
+
+### Puzzle Garage (PvE unlock ladder) — proposed (2026-06-04)
+Payoff: beat gimmick boss-rooms (built around the VoxelChaserBot) to discover new block *types* — same stats at equal CPU, just previously hidden; horizontal knowledge unlock, gives the PvE bot a purpose.
+Reference: Trailmakers "Stranded in Space" discover-by-objective unlocks.
+Notes: SP-local "rooms cleared" flags, no account layer. ~2-3 sessions. Surfaced /ideate progression re-roll, user pivoted to a bug (none of the re-roll enticed).
+
+### Equalizer Crystal (anti-snowball) — proposed (2026-06-04)
+Payoff: server quietly boosts the losing team's scrap-pickup multiplier; invisible to the leader, resets each round — makes stomps recoverable. The "new players don't get dominated" half of the original ask as a real mechanic.
+Reference: Robocraft Battle Arena equalizer crystal; Heroes of the Storm anti-snowball XP.
+Notes: No persistence. ~1 session. Threshold/multiplier must be designer-only (invariant #1), not a player Tweakable. Surfaced /ideate progression re-roll, user pivoted.
+
+### Blueprint Codex (robot field guide) — proposed (2026-06-04)
+Payoff: diegetic bestiary fills by placing blocks + "autopsy" snapshots of destroyed enemy chassis with annotated callouts; cosmetic nameplate badges. Progression as *knowledge*, most differentiated.
+Reference: Hollow Knight journal (kill-to-fill bestiary), reframed as tactical build-reading.
+Notes: Light SP JSON; autopsy wants a server match-summary event later (ships SP-first). ~2 sessions. Surfaced /ideate progression re-roll, user pivoted.
+
+### Gallery of Horrors (hall of weird wins) — proposed (2026-06-04)
+Payoff: auto-curated read-only gallery of the most mechanically *unusual* winning builds (won at 4% HP / one wheel); inspect-but-rebuild-by-hand = knowledge transfer not power; rewards weird over meta.
+Reference: From the Depths community build-sharing, made diegetic/automatic.
+Notes: Light SP snapshots on the existing blueprint format. ~1-2 sessions. Surfaced /ideate progression re-roll, user pivoted.
+
 ### The Maw (devouring pit hazard) — proposed (2026-06-02)
 Payoff: a living arena pit that strips/consumes chassis blocks, grows hungrier (capped), and pays combo scrap to whoever last shoved something in — a neutral 3rd win-condition objective rewarding physics-shoving.
 Reference: Project P.I.T.T. the Maw. ~2 sessions. Reuses block-destruction + scrap-attribution paths. Surfaced /ideate P.I.T.T. round, user re-rolled.
