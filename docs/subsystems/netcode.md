@@ -323,10 +323,19 @@ We follow the standard model from Glenn Fiedler's *Networked Physics* and Valve'
 ```
 1. Receive snapshot { tick = T, pose, velocity, lastProcessedCommand }
 2. Snap local Rigidbody to (pose, velocity)
-3. Replay every command from lastProcessedCommand+1 → current local tick
+3. Replay every command from lastProcessedCommand+1 → current local tick,
+   re-stepping ONLY this chassis in an isolated prediction PhysicsScene
 4. Result: local Rigidbody is now at the predicted state for current tick,
    consistent with server up to T, with all unacked inputs re-applied
 ```
+
+Step 3 must isolate the re-simulation: a global `Physics.Simulate(dt)`
+per replay tick would advance *every* dynamic body in the live arena, not
+just the owner's, corrupting all other bodies. Replay therefore runs the
+owner chassis as a colliderless **mirror Rigidbody** in a dedicated
+`LocalPhysicsMode.Physics3D` scene and steps only that scene
+(`PredictionScene` + ADR-0002). The mirror is the one sanctioned
+second Rigidbody for a chassis (invariant #4 carve-out).
 
 If predicted vs. reconciled position differs by less than a threshold (~0.05 m, ~5°), we **smooth** the visual transform toward the corrected pose over a few hundred ms instead of snapping. The Rigidbody jumps (correct), but the visible mesh eases (pleasant). Boss Room demonstrates this pattern.
 
@@ -410,6 +419,15 @@ The cost of always doing damage server-side is one extra RTT for the *result of 
 - Use NGO's `NetworkSceneManager`. It handles the synchronized load handshake — clients can't spawn into the arena before the server says "scene loaded."
 - Bootstrap scene stays loaded throughout (additive). Houses `NetworkManager`, `GameStateController`, `SettingsHud`. This is already roughly the structure we have.
 - Per-arena scene loaded additively on top.
+- **Implementing class:** [`NetworkSceneFlow`](../../Assets/_Project/Scripts/Network/Bootstrap/NetworkSceneFlow.cs)
+  is the intended single owner of this sequence — it wraps the synchronized
+  load handshake, owns the `RoundPhase` `NetworkVariable`, and fires
+  `ServerArenaLoaded` / `ServerClientSynced` as the server-side spawn /
+  late-join-replay seams. It has **no C# callers yet** (the concrete
+  per-player spawn loop is wired in the editor on the Bootstrap-scene
+  `NetworkManager`, handoff §2.4 / §6), so it reads as "dead" to a static
+  audit — it is not. Do not delete it; finish wiring it when MP integration
+  resumes.
 
 ### Late join / mid-match join
 
@@ -666,8 +684,16 @@ HUD (Phase 3.5).
   is bound via `BindLive` after Assemble.
 - ✅ `NetworkRobotMovement.ReconcileAndReplay` — snap Rigidbody to
   authoritative state, replay each unacked command via
-  `RobotDrive.ApplyMovement` + `Physics.Simulate(fixedDt)`, capped at
-  64 replay ticks.
+  `RobotDrive.ApplyMovement`, capped at 64 replay ticks. **Originally used
+  a global `Physics.Simulate(fixedDt)` per replay tick** (audit-#1: this
+  double-steps every dynamic body in the scene). **Session 111 / ADR-0002**
+  replaced it with an isolated `PredictionScene` step over a colliderless
+  mirror body: the drive subsystems are redirected onto the mirror
+  (`RobotDrive.SetReplayForceTarget`) so PhysX integrates their forces —
+  off-COM torque included — and the mirror alone is stepped via
+  `PhysicsScene.Simulate(dt)`. (A force/torque *transfer* was tried first
+  and abandoned: `GetAccumulatedTorque` doesn't surface `AddForceAtPosition`
+  torque, so the mirror translated but never turned.)
 - ✅ 25 Hz snapshot rate (every 2 physics ticks); owner sends a
   redundant triple of (current, prev, prev-prev) commands per
   FixedUpdate via `SubmitInputBundleServerRpc`.
@@ -696,6 +722,12 @@ Phase 3.6 lands the simulator HUD.
   a reset between, asserts pose drift under budget. Stepped physics
   (`Physics.simulationMode = SimulationMode.Script`) for the test's
   duration so the auto-FixedUpdate sim doesn't double-tick.
+- ✅ ADR-0002 equivalence guard PlayMode test (session 111):
+  `Assets/_Project/Tests/PlayMode/Network/PredictionMirrorTest.cs` —
+  asserts the isolated mirror-step (force/torque + velocity transfer →
+  `PhysicsScene.Simulate`) matches a global-`Physics.Simulate` baseline
+  to < 1 cm / < 0.5° over 50 ticks, with an off-COM thruster + gravity so
+  both transfer channels and per-scene gravity are exercised.
 - ⏸️ Visual mesh-offset `ReconciliationSmoother` — still conditional.
   Implementing it on the current architecture requires either a
   block-prefab refactor (split collider-on-root from renderer-on-child)

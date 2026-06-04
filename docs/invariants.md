@@ -47,6 +47,15 @@ feature needs a free body, parent it under scene root, not under the
 chassis. Compound colliders on the chassis root are the supported
 pattern. See [subsystems/physics.md § 1](subsystems/physics.md).
 
+**Carve-out (ADR-0002).** The CSP prediction mirror is the one
+sanctioned second Rigidbody for a chassis: a colliderless, renderless
+body in the owner client's `LocalPhysicsMode.Physics3D` prediction scene,
+used only to re-simulate replay in isolation. It carries no gameplay
+authority, is never networked, exists only on the owner client, and is
+destroyed on despawn. Scope is strictly one mirror per prediction scene —
+not a general licence for extra chassis bodies in the main scene. See
+[decisions/0002](decisions/0002-prediction-scene-second-rigidbody.md).
+
 ## 5. Default to zero baseline cost
 
 Every new physics block must have a configuration that adds zero

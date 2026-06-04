@@ -58,6 +58,9 @@ namespace Robogame.Tests.PlayMode.Network
             private void OnEnable() => _drive?.Register(this);
             private void OnDisable() => _drive?.Unregister(this);
 
+            // This test never redirects; no-op satisfies the interface.
+            public void SetForceTarget(Rigidbody body) { }
+
             public void Tick(in DriveControl control)
             {
                 if (_rb == null) return;

@@ -70,6 +70,11 @@ namespace Robogame.Movement
         public bool IsOperational => isActiveAndEnabled;
 
         private Rigidbody _rb;
+        // CSP replay redirect (ADR-0002): when non-null, Tick drives this
+        // prediction-mirror body instead of the chassis. Null in normal play.
+        private Rigidbody _replayBody;
+        public void SetForceTarget(Rigidbody body) => _replayBody = body;
+        private Rigidbody Body => _replayBody != null ? _replayBody : _rb;
         private RobotDrive _drive;
         private float _nextJumpTime;
         private readonly HashSet<WheelBlock> _wheels = new HashSet<WheelBlock>();
@@ -175,7 +180,7 @@ namespace Robogame.Movement
             if (!Mathf.Approximately(control.Move.x, 0f))
             {
                 Vector3 torque = Vector3.up * (control.Move.x * TurnRate);
-                _rb.AddTorque(torque, ForceMode.Acceleration);
+                Body.AddTorque(torque, ForceMode.Acceleration);
             }
 
             // --- Self-right + damp roll/pitch (but NOT yaw). ---
@@ -193,16 +198,16 @@ namespace Robogame.Movement
                 {
                     float angle = Mathf.Asin(Mathf.Clamp(sin, -1f, 1f));
                     Vector3 uprightTorque = (axis / sin) * (angle * UprightStrength);
-                    _rb.AddTorque(uprightTorque, ForceMode.Acceleration);
+                    Body.AddTorque(uprightTorque, ForceMode.Acceleration);
                 }
 
                 if (RollPitchDamping > 0f)
                 {
                     // Strip the world-up component so we don't fight steering.
-                    Vector3 omega = _rb.angularVelocity;
+                    Vector3 omega = Body.angularVelocity;
                     Vector3 yawComponent = Vector3.up * Vector3.Dot(omega, Vector3.up);
                     Vector3 rollPitch = omega - yawComponent;
-                    _rb.AddTorque(-rollPitch * RollPitchDamping, ForceMode.Acceleration);
+                    Body.AddTorque(-rollPitch * RollPitchDamping, ForceMode.Acceleration);
                 }
             }
 
@@ -219,15 +224,15 @@ namespace Robogame.Movement
                 Vector3 fwd = transform.forward;
                 fwd.y = 0f;
                 if (fwd.sqrMagnitude > 0.0001f) fwd.Normalize();
-                _rb.AddForce(fwd * (control.Move.y * Acceleration * carryMul), ForceMode.Acceleration);
+                Body.AddForce(fwd * (control.Move.y * Acceleration * carryMul), ForceMode.Acceleration);
 
-                Vector3 v = _rb.linearVelocity;
+                Vector3 v = Body.linearVelocity;
                 Vector3 horiz = new Vector3(v.x, 0f, v.z);
                 float cappedSpeed = MaxSpeed * carryMul;
                 if (horiz.sqrMagnitude > cappedSpeed * cappedSpeed)
                 {
                     horiz = horiz.normalized * cappedSpeed;
-                    _rb.linearVelocity = new Vector3(horiz.x, v.y, horiz.z);
+                    Body.linearVelocity = new Vector3(horiz.x, v.y, horiz.z);
                 }
             }
 
@@ -242,12 +247,12 @@ namespace Robogame.Movement
                 if (right.sqrMagnitude > 0.0001f)
                 {
                     right.Normalize();
-                    Vector3 v = _rb.linearVelocity;
+                    Vector3 v = Body.linearVelocity;
                     float lateral = Vector3.Dot(new Vector3(v.x, 0f, v.z), right);
                     Vector3 cancel = -right * (lateral * LateralGrip);
                     // Use VelocityChange so it's a clean per-frame nudge
                     // instead of a force that depends on dt + mass.
-                    _rb.AddForce(cancel, ForceMode.VelocityChange);
+                    Body.AddForce(cancel, ForceMode.VelocityChange);
                 }
             }
 
@@ -256,7 +261,7 @@ namespace Robogame.Movement
             //     must land before hopping again. ---
             if (grounded && control.Vertical > 0.5f && Time.time >= _nextJumpTime)
             {
-                _rb.AddForce(Vector3.up * JumpImpulse, ForceMode.Impulse);
+                Body.AddForce(Vector3.up * JumpImpulse, ForceMode.Impulse);
                 _nextJumpTime = Time.time + JumpCooldown;
             }
         }

@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace Robogame.Movement
 {
     /// <summary>
@@ -36,5 +38,15 @@ namespace Robogame.Movement
         /// Apply this subsystem's forces / torques for the current physics step.
         /// </summary>
         void Tick(in DriveControl control);
+
+        /// <summary>
+        /// Redirect where this subsystem applies its forces. A non-null body
+        /// makes <see cref="Tick"/> drive that body instead of the chassis
+        /// Rigidbody; null restores the chassis. Used by CSP reconciliation to
+        /// re-step the owner chassis as an isolated prediction mirror without
+        /// advancing the live arena (ADR-0002). Outside replay this is never
+        /// called, so the override stays null and behaviour is unchanged.
+        /// </summary>
+        void SetForceTarget(Rigidbody body);
     }
 }

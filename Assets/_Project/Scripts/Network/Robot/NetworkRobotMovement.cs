@@ -14,9 +14,9 @@ namespace Robogame.Network.Robot
     /// <see cref="RobotPoseSnapshot"/> the owner snaps its Rigidbody to the
     /// authoritative state at <c>LastProcessedCommandTick</c> and replays
     /// each unacked command through <see cref="RobotDrive.ApplyMovement"/>
-    /// + <see cref="Physics.Simulate"/>, ending the FixedUpdate at the
-    /// predicted-current state. Server still owns authoritative physics and
-    /// broadcasts pose to non-owner remotes via stock
+    /// against an isolated prediction body (ADR-0002), ending the FixedUpdate
+    /// at the predicted-current state. Server still owns authoritative physics
+    /// and broadcasts pose to non-owner remotes via stock
     /// <see cref="NetworkTransform"/> as in Phase 1.
     /// </summary>
     /// <remarks>
@@ -29,13 +29,16 @@ namespace Robogame.Network.Robot
     /// <see cref="ReceiveSnapshotClientRpc"/> targeted to the owner only.
     /// </para>
     /// <para>
-    /// <b>Replay semantics.</b> A FixedUpdate that processes a snapshot does
-    /// N + 1 physics steps (N replay + 1 normal end-of-frame). At 25 Hz
-    /// snapshot rate against a 50 Hz physics tick, N is typically 2 — so
-    /// three <see cref="Physics.Simulate"/> calls per snapshot-FixedUpdate
-    /// on the owner. Replay is capped at <see cref="MaxReplayDepth"/> ticks
-    /// to prevent a frame-blocking storm after a long stall; beyond the cap
-    /// the snap stands and normal sim catches up.
+    /// <b>Replay semantics.</b> A snapshot-FixedUpdate does N isolated
+    /// prediction steps (<c>PredictionScene.PhysicsScene.Simulate</c>, N
+    /// replay) plus the one normal end-of-frame step of the live scene. At
+    /// 25 Hz snapshot rate against a 50 Hz physics tick, N is typically 2.
+    /// The prediction steps advance ONLY the owner's mirror body, never the
+    /// live arena (ADR-0002 — fixes the audit-#1 global double-step). Replay
+    /// is capped at <see cref="MaxReplayDepth"/> ticks to prevent a
+    /// frame-blocking storm after a long stall; beyond the cap the snap
+    /// stands and normal sim catches up. If the mirror is unavailable the
+    /// snap stands rather than falling back to a global step.
     /// </para>
     /// <para>
     /// <b>Input delegation.</b> The owner's <see cref="NetworkInputSource"/>
@@ -80,6 +83,9 @@ namespace Robogame.Network.Robot
         private bool _isOwnerPredictor;
         private int _localTick;
         private ClientCommandBuffer _buffer;
+        // Prediction proxy (ADR-0002): colliderless body in the owner's
+        // isolated PhysicsScene. Replay re-steps THIS, not the live arena.
+        private Rigidbody _mirrorRb;
         private RobotPoseSnapshot _pendingSnap;
         private bool _hasPendingSnap;
         private InputCommand _prevCmd0 = new InputCommand { Tick = -1 };
@@ -104,6 +110,11 @@ namespace Robogame.Network.Robot
             _serverQueue?.Reset();
             _buffer?.Reset();
             _hasPendingSnap = false;
+            if (_mirrorRb != null)
+            {
+                PredictionScene.ReleaseMirrorBody(_mirrorRb);
+                _mirrorRb = null;
+            }
         }
 
         private void OnChassisBuilt(NetworkRobot _)
@@ -127,6 +138,10 @@ namespace Robogame.Network.Robot
                 _buffer = new ClientCommandBuffer();
                 if (_rb != null) _rb.isKinematic = false;
                 if (_netTransform != null) _netTransform.enabled = false;
+                // Spin up the isolated prediction body so replay can re-step
+                // this chassis without advancing the live arena (ADR-0002).
+                if (_isOwnerPredictor && _rb != null)
+                    _mirrorRb = PredictionScene.CreateMirrorBody(_rb);
             }
             else if (!IsServer && !IsOwner)
             {
@@ -222,15 +237,65 @@ namespace Robogame.Network.Robot
             int depth = lastReplay - firstReplay + 1;
             if (depth > MaxReplayDepth) return;
 
+            // ADR-0002: re-step ONLY this chassis, isolated in the owner's
+            // prediction PhysicsScene, instead of a global Physics.Simulate
+            // that would advance every dynamic body in the live arena. If the
+            // mirror is missing the snap simply stands and normal sim catches
+            // up — never fall back to the global double-step.
+            if (_mirrorRb == null || !PredictionScene.IsCreated) return;
+            PhysicsScene predScene = PredictionScene.PhysicsScene;
+
+            // Mass distribution may have shifted since spawn (blocks shed).
+            // The ~25 Hz snapshot cadence means PhysX has long recomputed the
+            // chassis inertia, so this re-sync is always current and cheap.
+            PredictionScene.SyncMassProperties(_rb, _mirrorRb);
+
+            // Seed the mirror from the authoritative state.
+            _mirrorRb.position = snap.Position;
+            _mirrorRb.rotation = snap.Rotation;
+            _mirrorRb.linearVelocity = snap.LinearVelocity;
+            _mirrorRb.angularVelocity = snap.AngularVelocity;
+
+            // Redirect the drive subsystems onto the mirror so PhysX itself
+            // integrates their forces — including the torque an off-COM
+            // AddForceAtPosition induces, which GetAccumulatedTorque does NOT
+            // surface (so a force/torque transfer would translate the chassis
+            // but never turn it). The real body is never stepped here.
             float dt = Time.fixedDeltaTime;
-            for (int tick = firstReplay; tick <= lastReplay; tick++)
+            _drive.SetReplayForceTarget(_mirrorRb);
+            try
             {
-                if (!_buffer.TryGet(tick, out InputCommand cmd)) continue;
-                _netInput.EnterReplay(in cmd);
-                _drive.ApplyMovement(cmd.Move, cmd.Vertical, dt);
-                Physics.Simulate(dt);
+                for (int tick = firstReplay; tick <= lastReplay; tick++)
+                {
+                    if (!_buffer.TryGet(tick, out InputCommand cmd)) continue;
+
+                    // Keep the chassis transform on the evolving predicted pose
+                    // so the subsystems compute force directions / application
+                    // points and grounded raycasts from the right place. Velocity-
+                    // dependent terms read the mirror directly via the redirect,
+                    // so only the transform needs syncing here.
+                    _rb.position = _mirrorRb.position;
+                    _rb.rotation = _mirrorRb.rotation;
+                    Physics.SyncTransforms();
+
+                    _netInput.EnterReplay(in cmd);
+                    _drive.ApplyMovement(cmd.Move, cmd.Vertical, dt);
+                    predScene.Simulate(dt);
+                }
             }
-            _netInput.ExitReplay();
+            finally
+            {
+                _drive.SetReplayForceTarget(null);
+                _netInput.ExitReplay();
+            }
+
+            // Land the real chassis at the predicted-current state. The live
+            // command for _localTick is applied normally later this FixedUpdate.
+            _rb.position = _mirrorRb.position;
+            _rb.rotation = _mirrorRb.rotation;
+            _rb.linearVelocity = _mirrorRb.linearVelocity;
+            _rb.angularVelocity = _mirrorRb.angularVelocity;
+            Physics.SyncTransforms();
         }
 
         [ServerRpc]

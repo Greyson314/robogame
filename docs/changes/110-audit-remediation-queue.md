@@ -24,13 +24,13 @@ Five audit fixes — commit `7c2bf80f`:
    - **#19** BuoyancyController exposes a parallel `List` (`IReadOnlyList`);
      WaterMeshAnimator iterates by index (no per-vertex enumerator boxing).
 
-2. **#1 CRITICAL — CSP replay double-step.** User chose the **independent
-   PhysicsScene** fix (not hand-integration). Planner ran; ADR drafted:
-   [`docs/decisions/0002-prediction-scene-second-rigidbody.md`](../decisions/0002-prediction-scene-second-rigidbody.md)
-   (status **Proposed — awaiting sign-off**). Carves out invariant #4 for a
-   prediction-only mirror Rigidbody. Phased: scene plumbing → replay rewrite →
-   tests/docs. **Do not code until the ADR is Accepted.** Known gaps flagged in
-   the ADR (no arena geometry in mirror; planet-arena gravity; rotor-foil pose).
+2. ~~**#1 CRITICAL — CSP replay double-step.**~~ — **CODE DONE, UNVERIFIED**
+   (session [111](111-prediction-scene-csp.md)). ADR-0002 Accepted; independent
+   PhysicsScene + mirror Rigidbody implemented in `PredictionScene.cs` +
+   `NetworkRobotMovement.ReconcileAndReplay`, equivalence test added. **Not
+   committed** — Unity MCP was revoked all session, so the C# is brace-checked
+   by hand only. Restart the Bridge, compile + run the two PlayMode tests +
+   qa-verifier/perf-checker, then commit.
 
 3. **Doc-drift sweep** (#11/#12/#43/#44/#48/#50): rewrite `physics.md §2` (rope is
    Verlet now, not joint chains; RotorBlock has no joint chain); decide

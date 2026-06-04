@@ -81,6 +81,11 @@ namespace Robogame.Movement
         public bool IsOperational => isActiveAndEnabled;
 
         private Rigidbody _rb;
+        // CSP replay redirect (ADR-0002): when non-null, Tick drives this
+        // prediction-mirror body instead of the chassis. Null in normal play.
+        private Rigidbody _replayBody;
+        public void SetForceTarget(Rigidbody body) => _replayBody = body;
+        private Rigidbody Body => _replayBody != null ? _replayBody : _rb;
         private RobotDrive _drive;
 
         private void OnEnable()
@@ -124,7 +129,7 @@ namespace Robogame.Movement
             if (_rb == null) return;
 
             // Local angular velocity for damping.
-            Vector3 localOmega = transform.InverseTransformDirection(_rb.angularVelocity);
+            Vector3 localOmega = transform.InverseTransformDirection(Body.angularVelocity);
 
             // Inertia-scaled control authority (session 106). The chassis
             // inertia tensor now reflects real wing span/chord, so a wide-winged
@@ -132,7 +137,7 @@ namespace Robogame.Movement
             // authored authority — it rolls slower. At the reference inertia the
             // scale is 1 (authored feel preserved). Damping stays inertia-
             // independent so settling stays crisp. inertiaTensor is (Ixx,Iyy,Izz).
-            Vector3 inertia = _rb.inertiaTensor;
+            Vector3 inertia = Body.inertiaTensor;
             float pitchScale = AuthorityScale(PitchRefInertia, inertia.x);
             float yawScale   = AuthorityScale(YawRefInertia,   inertia.y);
             float rollScale  = AuthorityScale(RollRefInertia,  inertia.z);
@@ -156,7 +161,7 @@ namespace Robogame.Movement
             // Compose in local space then push out to world.
             Vector3 localTorque = new Vector3(pitchAccel, yawAccel, rollAccel);
             Vector3 worldTorque = transform.TransformDirection(localTorque);
-            _rb.AddTorque(worldTorque, ForceMode.Acceleration);
+            Body.AddTorque(worldTorque, ForceMode.Acceleration);
         }
 
         // ref/actual inertia, clamped. ref <= 0 disables scaling (returns 1).

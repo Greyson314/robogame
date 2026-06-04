@@ -242,6 +242,21 @@ namespace Robogame.Movement
             _subs.Remove(s);
         }
 
+        /// <summary>
+        /// Redirect every registered subsystem's force target (CSP replay,
+        /// ADR-0002). A non-null body routes the next <see cref="ApplyMovement"/>
+        /// dispatch onto the prediction mirror instead of the chassis; null
+        /// restores the chassis. The caller must restore (null) before the
+        /// live FixedUpdate step, and keep the chassis transform synced to the
+        /// mirror pose while redirected so subsystems compute force points
+        /// correctly. Idempotent; safe with zero subsystems.
+        /// </summary>
+        public void SetReplayForceTarget(Rigidbody body)
+        {
+            for (int i = 0; i < _subs.Count; i++)
+                _subs[i]?.SetForceTarget(body);
+        }
+
         // -----------------------------------------------------------------
         // Per-physics-step dispatch
         // -----------------------------------------------------------------

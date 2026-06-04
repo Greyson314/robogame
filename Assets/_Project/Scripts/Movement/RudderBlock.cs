@@ -52,6 +52,11 @@ namespace Robogame.Movement
         private float Authority => _bb != null && _bb.ConfigValue > 0f ? _bb.ConfigValue : DefaultAuthority;
 
         private Rigidbody _rb;
+        // CSP replay redirect (ADR-0002): when non-null, Tick drives this
+        // prediction-mirror body instead of the chassis. Null in normal play.
+        private Rigidbody _replayBody;
+        public void SetForceTarget(Rigidbody body) => _replayBody = body;
+        private Rigidbody Body => _replayBody != null ? _replayBody : _rb;
         private RobotDrive _drive;
         private Transform _chassisRoot;
 
@@ -65,7 +70,7 @@ namespace Robogame.Movement
         {
             _rb = GetComponentInParent<Rigidbody>();
             _drive = GetComponentInParent<RobotDrive>();
-            _chassisRoot = _rb != null ? _rb.transform : null;
+            _chassisRoot = _rb != null ? Body.transform : null;
             _drive?.Register(this);
         }
 
@@ -83,11 +88,11 @@ namespace Robogame.Movement
 
             // Forward speed of the rudder location, projected onto the
             // chassis forward axis. Using GetPointVelocity (not just
-            // _rb.velocity) means a yawing chassis already has a swirl
+            // Body.velocity) means a yawing chassis already has a swirl
             // component baked in, and the rudder bites it correctly.
             Vector3 chassisFwd = _chassisRoot.forward;
             Vector3 chassisRight = _chassisRoot.right;
-            float forwardSpeed = Vector3.Dot(_rb.GetPointVelocity(transform.position), chassisFwd);
+            float forwardSpeed = Vector3.Dot(Body.GetPointVelocity(transform.position), chassisFwd);
 
             // Reverse-rudder feel: when going backward the rudder steers
             // the bow the opposite way, just like a real boat. Using the
@@ -95,7 +100,7 @@ namespace Robogame.Movement
             float forceMag = -steer * forwardSpeed * Authority;
             if (Mathf.Approximately(forceMag, 0f)) return;
 
-            _rb.AddForceAtPosition(chassisRight * forceMag, transform.position, ForceMode.Force);
+            Body.AddForceAtPosition(chassisRight * forceMag, transform.position, ForceMode.Force);
         }
 
         // -----------------------------------------------------------------

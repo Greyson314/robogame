@@ -62,6 +62,11 @@ namespace Robogame.Movement
         private float ThrottleResponse => _thrCfg.ThrottleResponse;
 
         private Rigidbody _rb;
+        // CSP replay redirect (ADR-0002): when non-null, Tick drives this
+        // prediction-mirror body instead of the chassis. Null in normal play.
+        private Rigidbody _replayBody;
+        public void SetForceTarget(Rigidbody body) => _replayBody = body;
+        private Rigidbody Body => _replayBody != null ? _replayBody : _rb;
         private RobotDrive _drive;
         private float _throttle;
         private ParticleSystem _plumePs;
@@ -133,7 +138,7 @@ namespace Robogame.Movement
 
             // Push along this thruster's forward axis (which is also the
             // chassis forward, since blocks inherit chassis orientation).
-            _rb.AddForceAtPosition(transform.forward * thrust, transform.position);
+            Body.AddForceAtPosition(transform.forward * thrust, transform.position);
         }
 
         private void UpdatePlumeEmission()

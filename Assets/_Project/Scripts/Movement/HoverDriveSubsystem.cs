@@ -66,6 +66,11 @@ namespace Robogame.Movement
         public bool IsOperational => isActiveAndEnabled;
 
         private Rigidbody _rb;
+        // CSP replay redirect (ADR-0002): when non-null, Tick drives this
+        // prediction-mirror body instead of the chassis. Null in normal play.
+        private Rigidbody _replayBody;
+        public void SetForceTarget(Rigidbody body) => _replayBody = body;
+        private Rigidbody Body => _replayBody != null ? _replayBody : _rb;
         private RobotDrive _drive;
         private BlockGrid _grid;
         private GroundTuningConfig _cfg = new();
@@ -270,7 +275,7 @@ namespace Robogame.Movement
             if (!Mathf.Approximately(control.Move.x, 0f))
             {
                 Vector3 torque = Vector3.up * (control.Move.x * yawRate);
-                _rb.AddTorque(torque, ForceMode.Acceleration);
+                Body.AddTorque(torque, ForceMode.Acceleration);
             }
 
             // --- Forward thrust: chassis-forward, capped at scaled max
@@ -281,15 +286,15 @@ namespace Robogame.Movement
                 Vector3 fwd = transform.forward;
                 fwd.y = 0f;
                 if (fwd.sqrMagnitude > 0.0001f) fwd.Normalize();
-                _rb.AddForce(fwd * (control.Move.y * accel * carryMul), ForceMode.Acceleration);
+                Body.AddForce(fwd * (control.Move.y * accel * carryMul), ForceMode.Acceleration);
 
-                Vector3 v = _rb.linearVelocity;
+                Vector3 v = Body.linearVelocity;
                 Vector3 horiz = new Vector3(v.x, 0f, v.z);
                 float capped = maxSpeed * carryMul;
                 if (horiz.sqrMagnitude > capped * capped)
                 {
                     horiz = horiz.normalized * capped;
-                    _rb.linearVelocity = new Vector3(horiz.x, v.y, horiz.z);
+                    Body.linearVelocity = new Vector3(horiz.x, v.y, horiz.z);
                 }
             }
         }

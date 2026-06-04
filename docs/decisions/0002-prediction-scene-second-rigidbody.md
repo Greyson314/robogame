@@ -1,6 +1,6 @@
 # 0002 — Isolate CSP replay in a prediction PhysicsScene
 
-- **Status.** Proposed
+- **Status.** Accepted
 - **Date.** 2026-06-03
 
 ## Context
@@ -39,10 +39,27 @@ A scene-lifetime `PredictionScene` (owner-client only) creates one
 **mirror Rigidbody** — a colliderless, renderless body whose mass,
 centre of mass, inertia tensor, and damping are copied from the live
 owner chassis Rigidbody. `ReconcileAndReplay` seeds the mirror from the
-authoritative snapshot, replays each command's net force/torque onto the
-mirror with one `predictionPhysicsScene.Simulate(dt)` per tick, then
-writes the mirror's final pose and velocity back onto the real chassis
-Rigidbody. The live arena scene is never stepped during replay.
+authoritative snapshot, then for each replayed command **redirects the
+drive subsystems onto the mirror** (`RobotDrive.SetReplayForceTarget`) and
+calls `predictionPhysicsScene.Simulate(dt)` once, finally writing the
+mirror's pose and velocity back onto the real chassis Rigidbody. The live
+arena scene is never stepped during replay.
+
+**Force delivery — redirect, not transfer.** The first implementation
+attempt read the net `GetAccumulatedForce`/`GetAccumulatedTorque` off the
+real body and re-applied it to the mirror. That fails: Unity's
+`GetAccumulatedTorque` does **not** surface the torque an
+`AddForceAtPosition` induces (only explicit `AddTorque` calls), so the
+mirror translated but never turned — fatal for a game where every chassis
+steers via off-COM forces. The shipped mechanism instead points each
+subsystem's force target at the mirror (a `Body` indirection added to
+`IDriveSubsystem`); PhysX then integrates the force-at-position natively on
+the mirror, torque included. The chassis transform is synced to the
+evolving mirror pose each tick so subsystems compute force points and
+grounded raycasts correctly. Only the five `IDriveSubsystem`s reached by
+`RobotDrive.ApplyMovement` are redirected — block-driven forces that run in
+their own `FixedUpdate` (wheels, hover blades, aero) were never part of
+replay under the old global `Physics.Simulate` either, so parity holds.
 
 This requires a **carve-out to invariant #4 (single Rigidbody per
 chassis)**: the mirror is a second Rigidbody representing the same
@@ -119,7 +136,9 @@ shipped-MP surface.
   [110](../changes/110-audit-remediation-queue.md) follow-up.
 - Replaces the global-`Physics.Simulate` reconciliation described in
   `netcode.md §8`, which must be re-marked as the pre-fix behaviour.
-- Subsystem-force delivery to the mirror uses recorded net force/torque
-  (no subsystem changes); full per-subsystem Rigidbody redirect is the
-  documented upgrade path if weapon-arm replay ever needs isolation from
-  propulsion.
+- Subsystem-force delivery to the mirror uses the per-subsystem redirect
+  (a `Body` indirection on `IDriveSubsystem` + `RobotDrive.SetReplayForceTarget`),
+  not the originally-planned `GetAccumulatedForce/Torque` transfer — the
+  latter cannot carry `AddForceAtPosition` torque (see Decision). The
+  equivalence is pinned by `PredictionMirrorTest` (off-COM thruster, mirror
+  vs global-simulate baseline).
