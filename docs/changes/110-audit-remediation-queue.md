@@ -24,19 +24,19 @@ Five audit fixes — commit `7c2bf80f`:
    - **#19** BuoyancyController exposes a parallel `List` (`IReadOnlyList`);
      WaterMeshAnimator iterates by index (no per-vertex enumerator boxing).
 
-2. ~~**#1 CRITICAL — CSP replay double-step.**~~ — **CODE DONE, UNVERIFIED**
-   (session [111](111-prediction-scene-csp.md)). ADR-0002 Accepted; independent
-   PhysicsScene + mirror Rigidbody implemented in `PredictionScene.cs` +
-   `NetworkRobotMovement.ReconcileAndReplay`, equivalence test added. **Not
-   committed** — Unity MCP was revoked all session, so the C# is brace-checked
-   by hand only. Restart the Bridge, compile + run the two PlayMode tests +
-   qa-verifier/perf-checker, then commit.
+2. ~~**#1 CRITICAL — CSP replay double-step.**~~ — **DONE** commit `02d2b9a5`
+   (session [111](111-prediction-scene-csp.md)). ADR-0002 Accepted; isolated
+   prediction PhysicsScene + colliderless mirror, drive subsystems redirected
+   onto it (`SetForceTarget`). The planned force/torque transfer was abandoned
+   (`GetAccumulatedTorque` drops `AddForceAtPosition` torque) — caught by the new
+   `PredictionMirrorTest`. PlayMode green (113/114). `perf-checker` deferred:
+   the mirror is created only on a networked owner-client (`IsOwner && !IsServer`),
+   never in SP play, so the profileable SP path adds zero physics objects.
 
-3. **Doc-drift sweep** (#11/#12/#43/#44/#48/#50): rewrite `physics.md §2` (rope is
-   Verlet now, not joint chains; RotorBlock has no joint chain); decide
-   `NetworkSceneFlow`'s fate (promote to the single flow owner or delete the dead
-   class); fix the six retired-build-menu error strings and the stale
-   `PHYSICS_PLAN`/§ cross-refs.
+3. ~~**Doc-drift sweep** (#11/#12/#43/#44/#48/#50)~~ — **DONE** commit `ac87cfd`
+   (physics.md §2, build-menu strings, DigZone/DigChunk remarks, cross-refs,
+   terraforming LOD seam) + NetworkSceneFlow status note in netcode.md §10
+   (kept, not deleted — it's intentional infra).
 
 4. **Weapon-fork refactor — PLAN FIRST, get sign-off** (#3/#4/#8/#15/#25). The
    biggest debt: `IWeaponStats`/`abstract WeaponStatsDefinition` shared base; a
