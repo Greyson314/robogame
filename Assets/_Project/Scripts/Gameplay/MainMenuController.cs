@@ -152,11 +152,15 @@ namespace Robogame.Gameplay
             colRT.anchoredPosition = Vector2.zero;
 
             // Title.
-            var title = AddText(column.transform, _title, 110, FontStyle.Bold, TextAnchor.MiddleCenter,
+            var title = AddText(column.transform, _title, 96, FontStyle.Bold, TextAnchor.MiddleCenter,
                 anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
-                offsetMin: new Vector2(0f, -150f), offsetMax: Vector2.zero,
+                offsetMin: new Vector2(0f, -160f), offsetMax: Vector2.zero,
                 color: s_textColor);
             title.rectTransform.pivot = new Vector2(0.5f, 1f);
+            // Never wrap/clip the wordmark — render it full-width on one line
+            // (110pt "ROBOGAME" overflowed the column and clipped to "ROBOGA").
+            title.horizontalOverflow = HorizontalWrapMode.Overflow;
+            title.verticalOverflow = VerticalWrapMode.Overflow;
 
             // Title underline accent.
             var titleUnderline = NewChild("TitleUnderline", column.transform);
@@ -164,8 +168,8 @@ namespace Robogame.Gameplay
             tuRT.anchorMin = new Vector2(0.5f, 1f);
             tuRT.anchorMax = new Vector2(0.5f, 1f);
             tuRT.pivot = new Vector2(0.5f, 1f);
-            tuRT.sizeDelta = new Vector2(220f, 4f);
-            tuRT.anchoredPosition = new Vector2(0f, -158f);
+            tuRT.sizeDelta = new Vector2(360f, 4f);
+            tuRT.anchoredPosition = new Vector2(0f, -190f);
             titleUnderline.AddComponent<Image>().color = s_accentOrange;
 
             // Tagline.
@@ -173,16 +177,16 @@ namespace Robogame.Gameplay
             {
                 var tag = AddText(column.transform, _tagline, 26, FontStyle.Italic, TextAnchor.MiddleCenter,
                     anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
-                    offsetMin: new Vector2(0f, -210f), offsetMax: new Vector2(0f, -170f),
+                    offsetMin: new Vector2(0f, -246f), offsetMax: new Vector2(0f, -206f),
                     color: s_textDim);
                 tag.rectTransform.pivot = new Vector2(0.5f, 1f);
             }
 
             // Button stack.
-            const float btnW = 320f;
+            const float btnW = 360f;
             const float btnH = 64f;
             const float btnGap = 14f;
-            float stackTopY = -260f;
+            float stackTopY = -300f;
             BuildButton(column.transform, "Start",    new Vector2(btnW, btnH),
                 anchoredPos: new Vector2(0f, stackTopY - 0 * (btnH + btnGap)),
                 onClick: HandleStart);
@@ -307,7 +311,7 @@ namespace Robogame.Gameplay
             ColorBlock cols = btn.colors;
             cols.normalColor      = s_buttonBase;
             cols.highlightedColor = s_accentOrange;
-            cols.pressedColor     = new Color(0.7f, 0.4f, 0.05f, 1f);
+            cols.pressedColor     = UguiPalette.AccentPressed;
             cols.selectedColor    = s_buttonBase;
             cols.colorMultiplier  = 1f;
             cols.fadeDuration     = 0.10f;
