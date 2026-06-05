@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Robogame.Block;
+using Robogame.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -325,8 +326,8 @@ namespace Robogame.Gameplay
                 $"MASS  {s.TotalMass:0.0} kg     BLOCKS  {s.BlockCount}";
             bool hot = s.CpuCap == 0 || s.OverBudget || s.CpuUsed >= s.CpuCap;
             _cpuReadout.color = hot
-                ? new Color(0.95f, 0.30f, 0.25f, 1f)
-                : new Color(1f, 1f, 1f, 0.9f);
+                ? UguiPalette.Danger
+                : UguiPalette.Text;
 
             if (_cpuBarFill != null)
             {
@@ -334,8 +335,8 @@ namespace Robogame.Gameplay
                     ? Mathf.Clamp01((float)s.CpuUsed / s.CpuCap)
                     : 1f;
                 _cpuBarFill.color = hot
-                    ? new Color(0.95f, 0.30f, 0.25f, 1f)
-                    : new Color(0.30f, 0.75f, 0.40f, 1f);
+                    ? UguiPalette.Danger
+                    : UguiPalette.Healthy;
             }
         }
 
@@ -390,7 +391,7 @@ namespace Robogame.Gameplay
             _detailText = detailGO.AddComponent<Text>();
             _detailText.alignment = TextAnchor.MiddleCenter;
             _detailText.fontSize = 14;
-            _detailText.color = new Color(1f, 1f, 1f, 0.7f);
+            _detailText.color = UguiPalette.TextDim;
             _detailText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             _detailText.text = string.Empty;
             var drt = detailGO.GetComponent<RectTransform>();
@@ -406,7 +407,7 @@ namespace Robogame.Gameplay
             _cpuReadout = cpuGO.AddComponent<Text>();
             _cpuReadout.alignment = TextAnchor.MiddleCenter;
             _cpuReadout.fontSize = 18;
-            _cpuReadout.color = new Color(1f, 1f, 1f, 0.9f);
+            _cpuReadout.color = UguiPalette.Text;
             _cpuReadout.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             _cpuReadout.text = "CPU  0 / 0\nMASS  0.0 kg     BLOCKS  0";
             _cpuReadout.lineSpacing = 1.0f;
@@ -425,7 +426,7 @@ namespace Robogame.Gameplay
             var barBgGO = new GameObject("CpuBarBg");
             barBgGO.transform.SetParent(_root.transform, worldPositionStays: false);
             var barBg = barBgGO.AddComponent<Image>();
-            barBg.color = new Color(0f, 0f, 0f, 0.55f);
+            barBg.color = UguiPalette.ScrimDim;
             var bgrt = barBgGO.GetComponent<RectTransform>();
             bgrt.anchorMin = new Vector2(0.5f, 0f);
             bgrt.anchorMax = new Vector2(0.5f, 0f);
@@ -436,7 +437,7 @@ namespace Robogame.Gameplay
             var barFillGO = new GameObject("CpuBarFill");
             barFillGO.transform.SetParent(barBgGO.transform, worldPositionStays: false);
             _cpuBarFill = barFillGO.AddComponent<Image>();
-            _cpuBarFill.color = new Color(0.30f, 0.75f, 0.40f, 1f);
+            _cpuBarFill.color = UguiPalette.Healthy;
             _cpuBarFill.type = Image.Type.Filled;
             _cpuBarFill.fillMethod = Image.FillMethod.Horizontal;
             _cpuBarFill.fillOrigin = (int)Image.OriginHorizontal.Left;
@@ -550,7 +551,7 @@ namespace Robogame.Gameplay
                     num.text = (i + 1).ToString();
                     num.fontSize = 16;
                     num.alignment = TextAnchor.UpperLeft;
-                    num.color = new Color(1f, 1f, 1f, 0.75f);
+                    num.color = UguiPalette.TextDim;
                     num.font = font;
                     var numRT = numGO.GetComponent<RectTransform>();
                     numRT.anchorMin = Vector2.zero;
@@ -588,7 +589,7 @@ namespace Robogame.Gameplay
                     badge.fontSize = 11;
                     badge.fontStyle = FontStyle.Bold;
                     badge.alignment = TextAnchor.UpperRight;
-                    badge.color = new Color(0.95f, 0.55f, 0.10f, 1f);
+                    badge.color = UguiPalette.Accent;
                     badge.font = font;
                     var brt = badgeGO.GetComponent<RectTransform>();
                     brt.anchorMin = Vector2.zero;
@@ -638,12 +639,12 @@ namespace Robogame.Gameplay
         }
 
         private static Color SlotColor(bool selected) => selected
-            ? new Color(0.95f, 0.55f, 0.10f, 0.95f)   // hazard orange when active
-            : new Color(0.10f, 0.12f, 0.16f, 0.92f);  // dark panel otherwise
+            ? UguiPalette.Accent      // hazard orange when active
+            : UguiPalette.ButtonIdle; // dark panel otherwise
 
         private static Color TabColor(bool active) => active
-            ? new Color(0.95f, 0.55f, 0.10f, 0.95f)
-            : new Color(0.06f, 0.08f, 0.11f, 0.85f);
+            ? UguiPalette.Accent
+            : UguiPalette.PanelBg;
 
         private void SetVisible(bool visible)
         {
