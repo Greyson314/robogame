@@ -160,25 +160,29 @@ namespace Robogame.Combat
 
         /// <summary>
         /// Multiplier mapping a bomb's combat-splash radius to its
-        /// terrain-crater radius. Combat splash sizes are balanced for
-        /// chassis damage (default ~18m); using the same value as a
-        /// crater radius would erase a small dig zone outright. 0.3×
-        /// is the empirical floor that still produces a visible crater
-        /// while leaving room for repeated bombing to actually tunnel.
+        /// terrain-crater radius. Bombs read as wide-but-shallow scorches:
+        /// 0.5× makes the crater half the blast width (a default ~18m splash
+        /// → ~9m crater; a maxed-size concoction → ~18m) while the depth cap
+        /// below keeps even huge blasts from tunnelling.
         /// </summary>
-        public const float TerrainCraterScale = 0.3f;
+        public const float TerrainCraterScale = 0.5f;
 
         /// <summary>
-        /// Fraction of the crater radius the SphereSubtract centre is
-        /// pushed UP (along -gravity) from the bomb's impact point. The
-        /// sphere then bites the terrain as a shallow dish — a thin cap
-        /// of the sphere ends up below the surface — instead of a deep
-        /// bowl with its full diameter buried. 0.6 leaves ~40% of the
-        /// sphere diameter underground (visible crater depth ≈ 0.4 × R),
-        /// which reads as a real impact crater on hilly ground without
-        /// punching deep pits the player has to climb out of.
+        /// Baseline shallowness for SMALL craters: the SphereSubtract centre is
+        /// pushed UP (along -gravity) so only a thin cap of the sphere dips
+        /// below the surface. 0.8 leaves ~20% of the radius as depth for small
+        /// blasts; <see cref="MaxCraterDepth"/> then hard-caps the absolute
+        /// depth so a big bomb spreads WIDE rather than digging DEEP.
         /// </summary>
-        public const float TerrainCraterUpwardBias = 0.6f;
+        public const float TerrainCraterUpwardBias = 0.8f;
+
+        /// <summary>
+        /// Absolute cap (metres) on how far below the impact point a crater
+        /// carves, independent of blast radius. Keeps even maxed-size bombs to
+        /// a wide, very shallow dish you drive across — not a pit to climb out
+        /// of. Per the user's "wide but very shallow, even for huge bombs."
+        /// </summary>
+        public const float MaxCraterDepth = 1.25f;
 
         // Visual pools (separate per kind because the underlying GO
         // shape differs: trail-only vs mesh vs both).
@@ -477,6 +481,17 @@ namespace Robogame.Combat
         // kinetic hits stay horizontal.
         private const float ExplosiveUpwardBias = 0.4f;
 
+        // Explosive knockback is mass-aware: the weapon's Knockback value is
+        // read as a target delta-v (m/s) per this factor, then turned into an
+        // impulse of mass × Δv so a heavy chassis is shoved as much as a light
+        // one. Without this the raw-impulse path imparted Δv = impulse/mass,
+        // which is imperceptible on a multi-block bot (the symptom this fixes).
+        // KnockbackReceiver still caps the result at MaxImmediateDeltaV, so this
+        // can't launch anything — it just makes the push land. At 0.03: a base
+        // bomb (40) ≈ 1.2 m/s at the blast centre, a maxed concoction (80) ≈
+        // 2.4 m/s, a maxed mortar (110) clamps to the 3 m/s ceiling.
+        private const float ExplosiveKnockbackDeltaVPerUnit = 0.03f;
+
         private static KnockbackReceiver GetOrAddReceiver(Robot robot)
         {
             if (robot == null) return null;
@@ -514,7 +529,9 @@ namespace Robogame.Combat
             float falloff = 1f - (d / radius);             // 1 at centre → 0 at edge
             Vector3 dir = d > 1e-4f ? toBot / d : Vector3.up;
             dir = (dir + Vector3.up * ExplosiveUpwardBias).normalized;
-            GetOrAddReceiver(robot)?.ApplyImmediate(dir * magnitude * falloff);
+            // Mass-aware: target Δv → impulse of mass × Δv (clamped downstream).
+            float targetDeltaV = magnitude * ExplosiveKnockbackDeltaVPerUnit * falloff;
+            GetOrAddReceiver(robot)?.ApplyImmediate(dir * (rb.mass * targetDeltaV));
         }
 
         // -----------------------------------------------------------------
@@ -558,20 +575,21 @@ namespace Robogame.Combat
                     AudioRouter.PlayOneShot(impactCue, pos);
                     // Phase 3c: if the bomb detonated inside a dig zone,
                     // emit a SphereSubtract crater. No-op outside any zone.
-                    // The terrain crater radius is the combat splash
-                    // scaled by `TerrainCraterScale`. The sphere centre
-                    // is then biased upward along -gravity by
-                    // `TerrainCraterUpwardBias × R` so the crater reads
-                    // as a shallow dish rather than a deep bowl — see
-                    // the const's doc comment. -gravity (not world up)
-                    // keeps this correct on spherical arenas; arc
-                    // weapons store the local gravity vector on the
-                    // bomb's spec at fire time.
+                    // The crater radius is the combat splash scaled by
+                    // `TerrainCraterScale` (wide). The carve depth below the
+                    // impact point is the small-blast shallowness
+                    // (R × (1 − bias)) HARD-CAPPED at `MaxCraterDepth`, so a
+                    // huge bomb spreads wide-but-very-shallow rather than
+                    // digging a pit. The sphere centre is placed so its lowest
+                    // point sits exactly `depth` below the impact, along
+                    // -gravity (correct on spherical arenas; arc weapons store
+                    // the local gravity vector on the bomb's spec at fire time).
                     float craterR = spec.SplashRadius * TerrainCraterScale;
                     Vector3 upDir = spec.GravityWorld.sqrMagnitude > 1e-4f
                         ? -spec.GravityWorld.normalized
                         : Vector3.up;
-                    Vector3 craterCentre = pos + upDir * (craterR * TerrainCraterUpwardBias);
+                    float craterDepth = Mathf.Min(craterR * (1f - TerrainCraterUpwardBias), MaxCraterDepth);
+                    Vector3 craterCentre = pos + upDir * (craterR - craterDepth);
                     Voxel.TerrainCratering.OnBombDetonation(craterCentre, craterR);
                     break;
             }
