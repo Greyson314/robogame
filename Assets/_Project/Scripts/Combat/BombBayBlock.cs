@@ -106,6 +106,18 @@ namespace Robogame.Combat
             float startSpeed = def != null ? def.InitialSpeed     : _initialSpeed;
             float knockback  = def != null ? def.KnockbackImpulse : _knockbackImpulse;
 
+            // Player concoction (ADR-0004): scale damage / explosion-size /
+            // knockback by the recipe chosen for this block in the garage.
+            // Resolved from the session registry (server-loaded + clamped); an
+            // empty / unknown id leaves the baseline stats untouched. Scaling
+            // SplashRadius also scales the shockwave VFX + crater downstream.
+            if (_block != null && ConcoctionRegistry.TryGet(_block.ConcoctionId, out Concoction concoction))
+            {
+                damage    *= concoction.DamageMultiplier;
+                radius    *= concoction.SizeMultiplier;
+                knockback *= concoction.KnockbackMultiplier;
+            }
+
             Vector3 dropWorld = DropPoint.position;
             // True world gravity at the drop point. On flat arenas this
             // is Physics.gravity (≈ (0, -9.81, 0)); on planet arenas it

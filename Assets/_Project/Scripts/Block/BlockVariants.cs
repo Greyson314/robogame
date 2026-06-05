@@ -38,6 +38,11 @@ namespace Robogame.Block
             BlockIds.ModuleShield,
             BlockIds.ModuleSmoke,
             BlockIds.ModuleInvis,
+            // Explosive weapons: their "variant config" is the concoction
+            // chooser (a player recipe scaling damage/size/knockback for a CPU
+            // surcharge). See ADR-0004 / ConcoctionRegistry.IsConcoctableBlock.
+            BlockIds.BombBay,
+            BlockIds.Mortar,
         };
 
         /// <summary>

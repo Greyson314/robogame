@@ -83,10 +83,17 @@ namespace Robogame.Block
     /// (the netcode contract, invariant #2) is unaffected — config rides
     /// existing records, it is not part of the sort key.
     /// </para>
+    /// <para>
+    /// v7 schema (current). Adds per-entry <c>concoctionId</c> — the player
+    /// concoction chosen for an explosive weapon (Bomb / Mortar). Absent in
+    /// v1–v6 (JsonUtility leaves it ""), which means "no concoction → baseline
+    /// stats, zero CPU surcharge" — behaviour-identical. Rides an existing
+    /// record, not part of the sort key. See ADR-0004.
+    /// </para>
     /// </remarks>
     public static class BlueprintSerializer
     {
-        public const int CurrentSchemaVersion = 6;
+        public const int CurrentSchemaVersion = 7;
 
         // -----------------------------------------------------------------
         // DTOs (private — JsonUtility needs concrete [Serializable] types)
@@ -133,6 +140,9 @@ namespace Robogame.Block
             // Thruster max thrust / Rudder authority / Rotor RPM.
             // 0 (absent in v1–v3) = use the block's authored default.
             public float blockConfig;
+            // v7 addition. Per-entry player concoction id for explosive
+            // weapons. "" (absent in v1–v6) = no concoction → baseline stats.
+            public string concoctionId;
         }
 
         // -----------------------------------------------------------------
@@ -167,6 +177,7 @@ namespace Robogame.Block
                     dz = dims.z,
                     pitch = src[i].Pitch,
                     blockConfig = src[i].BlockConfig,
+                    concoctionId = src[i].EffectiveConcoctionId,
                 };
             }
 
@@ -253,7 +264,7 @@ namespace Robogame.Block
                 // v1 entries hit Entry.EffectiveUp's zero → +Y fallback;
                 // v2 entries with real (0,0,0) up are invalid by definition.
                 Vector3 dims = new Vector3(e.dx, e.dy, e.dz);
-                copy.Add(new ChassisBlueprint.Entry(e.id, new Vector3Int(e.x, e.y, e.z), up, dims, e.pitch, e.blockConfig));
+                copy.Add(new ChassisBlueprint.Entry(e.id, new Vector3Int(e.x, e.y, e.z), up, dims, e.pitch, e.blockConfig, e.concoctionId));
             }
 
             ChassisBlueprint bp = ScriptableObject.CreateInstance<ChassisBlueprint>();

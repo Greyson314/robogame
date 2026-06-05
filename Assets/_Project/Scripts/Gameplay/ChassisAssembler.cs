@@ -294,7 +294,14 @@ namespace Robogame.Gameplay
                     // thrust / rudder authority / rotor RPM). 0 = use the
                     // block's authored default. Rides the same Entry the
                     // Dims/Pitch above do; not part of the canonical sort.
-                    if (placed != null) placed.ConfigValue = entry.BlockConfig;
+                    if (placed != null)
+                    {
+                        placed.ConfigValue = entry.BlockConfig;
+                        // Per-block concoction id (explosive weapons resolve it
+                        // at fire time). Rides the same Entry; not part of the
+                        // canonical sort. See ADR-0004.
+                        placed.ConcoctionId = entry.EffectiveConcoctionId;
+                    }
                 }
 
                 robot.RecalculateAggregates();

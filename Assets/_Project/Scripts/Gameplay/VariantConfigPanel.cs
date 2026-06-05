@@ -52,7 +52,7 @@ namespace Robogame.Gameplay
         // ----- UGUI -----
         private GameObject _root;
         private Text _titleText;
-        private GameObject _foilSection, _ropeSection, _rotorSection, _hoverSection, _moduleSection;
+        private GameObject _foilSection, _ropeSection, _rotorSection, _hoverSection, _moduleSection, _explosiveSection;
 
         // Foil controls
         private Slider _foilPitchPrimary;
@@ -79,6 +79,15 @@ namespace Robogame.Gameplay
         private Text _modulePowerValue;
         private Text _moduleReadout;
         private ModuleKind _moduleKind;
+        // Explosive controls — a click-to-open concoction chooser (ADR-0004).
+        // Caption button shows the current pick; tapping it reveals a list of
+        // "(none)" + every saved concoction. A live readout shows the CPU
+        // surcharge the chosen recipe adds to this block.
+        private Button _concoctionCaptionButton;
+        private Text _concoctionCaptionText;
+        private GameObject _concoctionList;
+        private Text _concoctionCpuReadout;
+        private bool _concoctionListOpen;
 
         private string _activeBlockId;
         private bool _suppressCallbacks;
@@ -214,7 +223,8 @@ namespace Robogame.Gameplay
             bool rotor = blockId == BlockIds.Rotor;
             bool hover = blockId == BlockIds.HoverBlade;
             bool module = ModuleKinds.IsModuleId(blockId);
-            bool any = foil || rope || rotor || hover || module;
+            bool explosive = ConcoctionRegistry.IsConcoctableBlock(blockId);
+            bool any = foil || rope || rotor || hover || module || explosive;
             SetVisible(any);
             if (!any) return;
 
@@ -226,6 +236,9 @@ namespace Robogame.Gameplay
                 else if (rope) _titleText.text = "VARIANT — ROPE";
                 else if (rotor) _titleText.text = "VARIANT — ROTOR";
                 else if (hover) _titleText.text = "VARIANT — HOVER BLADE";
+                else if (explosive) _titleText.text = blockId == BlockIds.Mortar
+                    ? "VARIANT — MORTAR"
+                    : "VARIANT — BOMB BAY";
                 else _titleText.text = $"MODULE — {ModuleKinds.Label(ModuleKinds.ForBlockId(blockId) ?? ModuleKind.EmpBurst)}";
             }
             _foilSection.SetActive(foil);
@@ -233,6 +246,7 @@ namespace Robogame.Gameplay
             _rotorSection.SetActive(rotor);
             _hoverSection.SetActive(hover);
             _moduleSection.SetActive(module);
+            _explosiveSection.SetActive(explosive);
 
             _suppressCallbacks = true;
             if (foil)
@@ -286,6 +300,11 @@ namespace Robogame.Gameplay
                 _modulePowerSlider.value = power;
                 UpdateValueText(_modulePowerValue, power, "F1");
                 UpdateModuleReadout(power);
+            }
+            else if (explosive)
+            {
+                CloseConcoctionList();
+                RefreshConcoctionCaption();
             }
             _suppressCallbacks = false;
         }
@@ -584,12 +603,175 @@ namespace Robogame.Gameplay
             _rotorSection = BuildRotorSection(panel.transform);
             _hoverSection = BuildHoverSection(panel.transform);
             _moduleSection = BuildModuleSection(panel.transform);
+            _explosiveSection = BuildExplosiveSection(panel.transform);
 
             _foilSection.SetActive(false);
             _ropeSection.SetActive(false);
             _rotorSection.SetActive(false);
             _hoverSection.SetActive(false);
             _moduleSection.SetActive(false);
+            _explosiveSection.SetActive(false);
+        }
+
+        // -----------------------------------------------------------------
+        // Explosive section — concoction chooser (ADR-0004)
+        // -----------------------------------------------------------------
+
+        private GameObject BuildExplosiveSection(Transform parent)
+        {
+            var section = NewChild("Explosive", parent);
+            var rt = section.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.offsetMin = new Vector2(12f, 12f);
+            rt.offsetMax = new Vector2(-12f, -40f);
+
+            AddText(section.transform, "CONCOCTION", new Vector2(0f, -4f), new Vector2(0f, 20f),
+                anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
+                size: 13, style: FontStyle.Bold, anchor: TextAnchor.MiddleLeft, color: s_dim);
+
+            // Caption button — shows current pick, click to open the list.
+            var capGo = NewChild("ConcoctionCaption", section.transform);
+            var capRT = capGo.GetComponent<RectTransform>();
+            capRT.anchorMin = new Vector2(0f, 1f);
+            capRT.anchorMax = new Vector2(1f, 1f);
+            capRT.pivot = new Vector2(0.5f, 1f);
+            capRT.sizeDelta = new Vector2(0f, 32f);
+            capRT.anchoredPosition = new Vector2(0f, -26f);
+            var capImg = capGo.AddComponent<Image>();
+            capImg.color = s_btnIdle;
+            _concoctionCaptionButton = capGo.AddComponent<Button>();
+            _concoctionCaptionButton.targetGraphic = capImg;
+            _concoctionCaptionButton.onClick.AddListener(ToggleConcoctionList);
+            _concoctionCaptionText = AddText(capGo.transform, "(none) ▼", new Vector2(10f, 0f), new Vector2(-10f, 0f),
+                anchorMin: Vector2.zero, anchorMax: Vector2.one,
+                size: 14, style: FontStyle.Bold, anchor: TextAnchor.MiddleLeft, color: Color.white);
+
+            // Live CPU surcharge readout for the current pick on this block.
+            _concoctionCpuReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 20f),
+                anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
+                size: 12, style: FontStyle.Italic, anchor: TextAnchor.MiddleLeft, color: s_dim);
+            var roRT = _concoctionCpuReadout.rectTransform;
+            roRT.pivot = new Vector2(0.5f, 1f);
+            roRT.anchoredPosition = new Vector2(0f, -62f);
+            roRT.sizeDelta = new Vector2(0f, 20f);
+
+            // Option list container (built empty; populated on open).
+            _concoctionList = NewChild("ConcoctionList", section.transform);
+            var listRT = _concoctionList.GetComponent<RectTransform>();
+            listRT.anchorMin = new Vector2(0f, 1f);
+            listRT.anchorMax = new Vector2(1f, 1f);
+            listRT.pivot = new Vector2(0.5f, 1f);
+            listRT.sizeDelta = new Vector2(0f, 0f); // height set per-populate
+            listRT.anchoredPosition = new Vector2(0f, -86f);
+            _concoctionList.AddComponent<Image>().color = new Color(0.04f, 0.05f, 0.07f, 0.96f);
+            _concoctionList.SetActive(false);
+
+            return section;
+        }
+
+        private void ToggleConcoctionList()
+        {
+            if (_concoctionListOpen) { CloseConcoctionList(); return; }
+            PopulateConcoctionList();
+            _concoctionListOpen = true;
+            if (_concoctionList != null) _concoctionList.SetActive(true);
+        }
+
+        private void CloseConcoctionList()
+        {
+            _concoctionListOpen = false;
+            if (_concoctionList != null) _concoctionList.SetActive(false);
+        }
+
+        // Rebuild the option buttons from the live registry: "(none)" + every
+        // saved concoction. Called each open so newly-authored recipes appear.
+        private void PopulateConcoctionList()
+        {
+            if (_concoctionList == null) return;
+            for (int i = _concoctionList.transform.childCount - 1; i >= 0; i--)
+                Destroy(_concoctionList.transform.GetChild(i).gameObject);
+
+            var options = ConcoctionRegistry.GetAll();
+            int rows = options.Count + 1; // +1 for "(none)"
+            const float rowH = 28f;
+            var listRT = _concoctionList.GetComponent<RectTransform>();
+            listRT.sizeDelta = new Vector2(0f, rows * rowH);
+
+            AddConcoctionOption("(none)", string.Empty, 0, rowH);
+            for (int i = 0; i < options.Count; i++)
+                AddConcoctionOption(options[i].DisplayName, options[i].Id, i + 1, rowH);
+        }
+
+        private void AddConcoctionOption(string label, string id, int row, float rowH)
+        {
+            var go = NewChild($"Opt_{row}", _concoctionList.transform);
+            var img = go.AddComponent<Image>();
+            img.color = s_btnIdle;
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+            ColorBlock cols = btn.colors;
+            cols.highlightedColor = s_btnHighlight;
+            cols.pressedColor = s_btnPressed;
+            btn.colors = cols;
+            string captured = id;
+            btn.onClick.AddListener(() => SelectConcoction(captured));
+
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.sizeDelta = new Vector2(-4f, rowH - 2f);
+            rt.anchoredPosition = new Vector2(0f, -row * rowH - 1f);
+
+            AddText(go.transform, label, new Vector2(8f, 0f), new Vector2(-8f, 0f),
+                anchorMin: Vector2.zero, anchorMax: Vector2.one,
+                size: 13, style: FontStyle.Normal, anchor: TextAnchor.MiddleLeft, color: Color.white);
+        }
+
+        private void SelectConcoction(string id)
+        {
+            string blockId = _activeBlockId;
+            if (!string.IsNullOrEmpty(blockId))
+                _session?.SetVariantConcoctionId(blockId, id);
+            CloseConcoctionList();
+            RefreshConcoctionCaption();
+        }
+
+        // Sync the caption + CPU readout to the session's current pick.
+        private void RefreshConcoctionCaption()
+        {
+            string blockId = _activeBlockId;
+            string id = _session != null ? _session.GetVariantConcoctionId(blockId) : string.Empty;
+            string name = "(none)";
+            if (!string.IsNullOrEmpty(id) && ConcoctionRegistry.TryGet(id, out Concoction c))
+                name = string.IsNullOrEmpty(c.DisplayName) ? "Concoction" : c.DisplayName;
+            if (_concoctionCaptionText != null) _concoctionCaptionText.text = name + "  ▼";
+
+            if (_concoctionCpuReadout != null)
+            {
+                if (string.IsNullOrEmpty(id) || !ConcoctionRegistry.TryGet(id, out Concoction cc))
+                {
+                    _concoctionCpuReadout.text = "baseline stats • +0 CPU";
+                }
+                else
+                {
+                    // Absolute surcharge needs the block's base CPU cost.
+                    int baseCpu = ResolveBaseCpu(blockId);
+                    int surcharge = cc.CpuSurcharge(baseCpu);
+                    _concoctionCpuReadout.text =
+                        $"dmg ×{cc.DamageMultiplier:0.0}  size ×{cc.SizeMultiplier:0.0}  kb ×{cc.KnockbackMultiplier:0.0}  •  +{surcharge} CPU";
+                }
+            }
+        }
+
+        // Best-effort base CPU lookup for the readout (the live garage bar is
+        // the authoritative total). Null library → 0 surcharge shown.
+        private static int ResolveBaseCpu(string blockId)
+        {
+            var state = GameStateController.Instance;
+            BlockDefinition def = state != null && state.Library != null ? state.Library.Get(blockId) : null;
+            return def != null ? Mathf.Max(0, def.CpuCost) : 0;
         }
 
         private GameObject BuildHoverSection(Transform parent)

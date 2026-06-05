@@ -35,6 +35,7 @@ namespace Robogame.Gameplay
         private Button _newButton;
         private Button _saveButton;
         private Button _buildButton;
+        private Button _labButton;
         private Button _deleteButton;
         private Button _waterButton;
         private Button _planetButton;
@@ -178,6 +179,7 @@ namespace Robogame.Gameplay
             TintDestructive(_deleteButton);
             _waterButton  = BuildSmallButton(canvasGO.transform, "WaterArenaButton",  "Water Arena ▶", row: 6, HandleWaterClicked);
             _planetButton = BuildSmallButton(canvasGO.transform, "PlanetArenaButton", "Planet Arena ▶", row: 7, HandlePlanetClicked);
+            _labButton    = BuildSmallButton(canvasGO.transform, "LabButton",         "Laboratory",    row: 8, HandleLabClicked);
             _nameField    = BuildNameField(canvasGO.transform, row: 5);
             _buildLabel   = _buildButton != null ? _buildButton.GetComponentInChildren<Text>() : null;
         }
@@ -462,6 +464,7 @@ namespace Robogame.Gameplay
             if (_newButton   != null)    _newButton.gameObject.SetActive(inGarage);
             if (_saveButton  != null)    _saveButton.gameObject.SetActive(inGarage);
             if (_buildButton != null)    _buildButton.gameObject.SetActive(inGarage);
+            if (_labButton != null)      _labButton.gameObject.SetActive(inGarage);
             if (_waterButton != null)    _waterButton.gameObject.SetActive(inGarage);
             if (_planetButton != null)   _planetButton.gameObject.SetActive(inGarage);
             // Delete is only meaningful for user-saved blueprints.
@@ -511,6 +514,12 @@ namespace Robogame.Gameplay
         {
             var garage = FindAnyObjectByType<GarageController>();
             if (garage != null) garage.ToggleBuildMode();
+        }
+
+        private void HandleLabClicked()
+        {
+            var garage = FindAnyObjectByType<GarageController>();
+            if (garage != null) garage.ToggleLab();
         }
 
         private void HandleClick()

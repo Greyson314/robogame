@@ -80,7 +80,23 @@ Notes: Shipped session 102. Found ~70% already built (CpuCost, cap shape, hot re
 
 ## Approved
 
+### Rider Effects (concoction secondary payload) — approved (2026-06-04)
+Payoff: one optional rider per concoction (Burn DoT / Smoke LOS-blocker / EMP stall), each adding flat CPU; turns a recipe into a strategy ("big-knockback + smoke").
+Reference: From the Depths warhead types, minus the engineer-tier complexity.
+Notes: Queued after the core Lab ships (ADR-0004). CPU-balanced, server-computed, blueprint-baked. Likely a new rider enum field on Concoction + serializer bump. ~1-2 sessions.
+
+### Concoction Identity (name + color + kill-feed) — approved (2026-06-04)
+Payoff: name your mix + a WorldPalette color tint on trail/explosion; kill-feed reads "hit by Greyson's OBLITERATOR" — authorship shows up in the world.
+Reference: Crossout named-build culture; existing kill-feed (session 97).
+Notes: Queued after the core Lab. Purely cosmetic (no gameplay stats); name already exists on Concoction, add a palette index. ~1 session.
+
 ## Proposed
+
+### Volatile Mixes (overcharge risk axis) — proposed (2026-06-04)
+Payoff: sliders past 70% mark a concoction "volatile" — small server-rolled chance to misfire (blast contained to the carrier block; slapstick, not bot-killing).
+Reference: Crossout ammo-rack risk; the lab-extension design-pilot round.
+Notes: Most fraught on fairness (random self-damage) + needs server RNG + a light ADR (touches WeaponFireGate). User did not queue it this round; revisit after the Lab has playtest time.
+
 
 ### Scrap Persistence + Block Discovery Pool — proposed (2026-06-04)
 Payoff: in-match scrap converts to persistent salvage at results; salvage buys deterministic *horizontal* block variants (tradeoffs within the existing CPU budget, no crates), closing the scrap loop.

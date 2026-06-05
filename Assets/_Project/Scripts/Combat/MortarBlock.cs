@@ -240,6 +240,17 @@ namespace Robogame.Combat
             // Inherit chassis velocity so a moving bot's shell leads its motion.
             if (_ownerRb != null) velocity += _ownerRb.linearVelocity;
 
+            // Player concoction (ADR-0004): scale the explosive stats by the
+            // recipe chosen for this block. Empty / unknown id → 1× (baseline).
+            // Scaling SplashRadius also scales the shockwave VFX + crater.
+            float dmgMult = 1f, sizeMult = 1f, knockMult = 1f;
+            if (_block != null && ConcoctionRegistry.TryGet(_block.ConcoctionId, out Concoction concoction))
+            {
+                dmgMult = concoction.DamageMultiplier;
+                sizeMult = concoction.SizeMultiplier;
+                knockMult = concoction.KnockbackMultiplier;
+            }
+
             ProjectileSpec spec = new ProjectileSpec
             {
                 Kind = ProjectileKind.MortarShell,
@@ -248,12 +259,12 @@ namespace Robogame.Combat
                 GravityWorld = GravityWorld(),
                 MaxLifetime = ShellLifetime,
                 CastRadius = ResolveShellRadius(),
-                Damage = ResolveDamage(),
+                Damage = ResolveDamage() * dmgMult,
                 SplashRings = null,
-                SplashRadius = ResolveSplashRadius(),       // area splash — explosive
+                SplashRadius = ResolveSplashRadius() * sizeMult,  // area splash — explosive
                 HitMask = _hitMask,
                 Owner = _ownerRobot,
-                Knockback = ResolveKnockback(),
+                Knockback = ResolveKnockback() * knockMult,
                 KnockbackSmoothed = false,                  // explosion — always immediate
                 ShowTrail = false,
                 ShowMesh = true,

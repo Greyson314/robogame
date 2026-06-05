@@ -76,6 +76,9 @@ namespace Robogame.Gameplay
         // Per-block server-authoritative scalar (thruster thrust / rudder
         // authority / rotor RPM). 0 = use the block's historical default.
         private readonly Dictionary<string, float> _configByBlockId = new Dictionary<string, float>();
+        // Per-block concoction id (explosive weapons). "" = no concoction →
+        // baseline stats. Rides the same per-id "next placement" cache. ADR-0004.
+        private readonly Dictionary<string, string> _concoctionByBlockId = new Dictionary<string, string>();
 
         /// <summary>Raised when any per-block variant config changes.</summary>
         public event Action<string> VariantChanged;
@@ -122,11 +125,25 @@ namespace Robogame.Gameplay
             VariantChanged?.Invoke(blockId);
         }
 
+        public string GetVariantConcoctionId(string blockId)
+        {
+            if (string.IsNullOrEmpty(blockId)) return string.Empty;
+            return _concoctionByBlockId.TryGetValue(blockId, out string v) && v != null ? v : string.Empty;
+        }
+
+        public void SetVariantConcoctionId(string blockId, string concoctionId)
+        {
+            if (string.IsNullOrEmpty(blockId)) return;
+            _concoctionByBlockId[blockId] = concoctionId ?? string.Empty;
+            VariantChanged?.Invoke(blockId);
+        }
+
         public void ResetVariantCaches()
         {
             _dimsByBlockId.Clear();
             _pitchByBlockId.Clear();
             _configByBlockId.Clear();
+            _concoctionByBlockId.Clear();
         }
 
         // -----------------------------------------------------------------
@@ -255,6 +272,9 @@ namespace Robogame.Gameplay
             // (0 = block default). Rides the same per-id cache Dims/Pitch
             // do; SyncBlueprint persists it onto the Entry.
             placed.ConfigValue = GetVariantConfig(def.Id);
+            // Per-block concoction (explosive weapons). Rides the same per-id
+            // cache; SyncBlueprint persists it onto the Entry. ADR-0004.
+            placed.ConcoctionId = GetVariantConcoctionId(def.Id);
 
             // Auto-place structural companions a primary block needs to be
             // usable. Rotor → mechanism cube on its spin-axis face. Owned
@@ -472,7 +492,7 @@ namespace Robogame.Gameplay
             {
                 BlockBehaviour b = kvp.Value;
                 if (b == null || b.Definition == null) continue;
-                list.Add(new ChassisBlueprint.Entry(b.Definition.Id, kvp.Key, b.Up, b.Dims, b.PitchDeg, b.ConfigValue));
+                list.Add(new ChassisBlueprint.Entry(b.Definition.Id, kvp.Key, b.Up, b.Dims, b.PitchDeg, b.ConfigValue, b.ConcoctionId));
                 if (b.Definition.Id == BlockIds.Rotor) hasRotor = true;
             }
             Blueprint.SetEntries(list.ToArray());

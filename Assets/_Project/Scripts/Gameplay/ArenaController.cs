@@ -231,6 +231,12 @@ namespace Robogame.Gameplay
             }
             else
             {
+                // Load player concoctions into the runtime registry BEFORE
+                // spawning so CpuBudget.TrimToFit accounts for surcharges and
+                // explosive blocks resolve their recipe at fire time. Server-
+                // authoritative: offline IsServer==true. See ADR-0004.
+                Robogame.Block.ConcoctionRegistry.ReloadFromLibrary();
+
                 Chassis = SpawnPlayerChassis(state);
                 SpawnDummy(state);
                 SpawnArch(state);

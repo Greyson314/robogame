@@ -51,7 +51,9 @@ namespace Robogame.Gameplay
         private BlockEditor _editor;
         private BuildHotbar _hotbar;
         private VariantConfigPanel _variantPanel;
+        private LabController _lab;
         private BuildMirrorMode _mirrorMode;
+        private bool _concoctionLibrarySubscribed;
         private BlockGhostRenderer _ghostRenderer;
         private PlacementFeedbackHud _feedbackHud;
         private CenterOverlay _centerOverlay;
@@ -81,6 +83,11 @@ namespace Robogame.Gameplay
             // ordinarily die together; explicit unsubscribe is for hot-
             // reload safety and component-replacement scenarios.
             if (_buildMode != null) _buildMode.Exited -= HandleBuildModeExited;
+            if (_concoctionLibrarySubscribed)
+            {
+                Robogame.Block.ConcoctionLibrary.Changed -= HandleConcoctionLibraryChanged;
+                _concoctionLibrarySubscribed = false;
+            }
         }
 
         private void HandlePresetChanged(int index)
@@ -274,6 +281,18 @@ namespace Robogame.Gameplay
             _variantPanel.Session = _buildSession;
             _editor.VariantPanel = _variantPanel;
 
+            // Laboratory — author explosive concoctions (ADR-0004). Load the
+            // player's saved recipes into the runtime registry so the CPU bar
+            // and the variant-panel dropdown see them; refresh live on save.
+            Robogame.Block.ConcoctionRegistry.ReloadFromLibrary();
+            if (!_concoctionLibrarySubscribed)
+            {
+                Robogame.Block.ConcoctionLibrary.Changed += HandleConcoctionLibraryChanged;
+                _concoctionLibrarySubscribed = true;
+            }
+            if (_lab == null) _lab = gameObject.AddComponent<LabController>();
+            _lab.BuildMode = _buildMode;
+
             // Mirror-mode toggle — hotkey + HUD banner. The editor
             // consults it for symmetric place / remove and ghost preview.
             if (_mirrorMode == null) _mirrorMode = gameObject.AddComponent<BuildMirrorMode>();
@@ -306,6 +325,18 @@ namespace Robogame.Gameplay
             EnsureBuildModeWired();
             if (_buildMode != null) _buildMode.Toggle();
         }
+
+        /// <summary>Open / close the Laboratory screen. Forwarded by the garage HUD's LAB button.</summary>
+        public void ToggleLab()
+        {
+            EnsureBuildModeWired();
+            if (_lab != null) _lab.Toggle();
+        }
+
+        // Refresh the runtime registry whenever the player saves / deletes a
+        // concoction so the CPU bar + variant dropdown stay in sync mid-session.
+        private void HandleConcoctionLibraryChanged()
+            => Robogame.Block.ConcoctionRegistry.ReloadFromLibrary();
 
         private GameObject SpawnChassis(GameStateController state)
         {

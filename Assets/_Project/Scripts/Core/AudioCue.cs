@@ -59,6 +59,9 @@ namespace Robogame.Core
         ScrapCollect,      // a chassis drives over a scrap pickup — bright pickup chime
         ScrapTick,         // depot ticks one scrap into team score — quiet metronome pulse
 
+        // Laboratory
+        LabSave,           // a concoction is saved in the garage Lab — soft confirmation chime (ADR-0004)
+
         // Weapon ammo / reload
         ReloadStart,       // weapon-pool reload begins — mechanical click / spinner
         ReloadComplete,    // weapon-pool reload finishes — pool refilled

@@ -110,6 +110,16 @@ namespace Robogame.Block
         /// </summary>
         public float ConfigValue { get; set; }
 
+        /// <summary>
+        /// Per-instance player concoction id from the blueprint
+        /// <see cref="ChassisBlueprint.Entry.ConcoctionId"/>. Explosive weapons
+        /// (Bomb / Mortar) resolve it from <see cref="ConcoctionRegistry"/> at
+        /// fire time to scale damage / explosion-size / knockback. Empty = no
+        /// concoction → baseline stats. Set by ChassisAssembler right after
+        /// placement, exactly like <see cref="ConfigValue"/>. See ADR-0004.
+        /// </summary>
+        public string ConcoctionId { get; set; } = string.Empty;
+
         public float HealthFraction =>
             (_definition != null && _definition.MaxHealth > 0f)
                 ? Mathf.Clamp01(_currentHealth / _definition.MaxHealth)

@@ -29,9 +29,27 @@ namespace Robogame.Block
             for (int i = 0; i < entries.Count; i++)
             {
                 BlockDefinition def = lib.Get(entries[i].BlockId);
-                if (def != null) used += Mathf.Max(0, def.CpuCost);
+                if (def != null) used += EffectiveCpuCost(entries[i], def);
             }
             return used;
+        }
+
+        /// <summary>
+        /// A block's CPU cost including its chosen concoction's surcharge. For a
+        /// block with no concoction (every block today except a Bomb/Mortar with
+        /// a chosen recipe) this is just <see cref="BlockDefinition.CpuCost"/> —
+        /// zero feature cost when unused (INV-5). The surcharge is read from the
+        /// session <see cref="ConcoctionRegistry"/>; an empty/unknown id adds
+        /// nothing. Used by both the garage spend bar and spawn-time TrimToFit so
+        /// the player and the server agree on the price. See ADR-0004.
+        /// </summary>
+        public static int EffectiveCpuCost(in ChassisBlueprint.Entry entry, BlockDefinition def)
+        {
+            if (def == null) return 0;
+            int baseCost = Mathf.Max(0, def.CpuCost);
+            string cid = entry.EffectiveConcoctionId;
+            if (cid.Length == 0 || !ConcoctionRegistry.IsConcoctableBlock(entry.BlockId)) return baseCost;
+            return ConcoctionRegistry.TryGet(cid, out Concoction c) ? baseCost + c.CpuSurcharge(baseCost) : baseCost;
         }
 
         public static int Capacity(IReadOnlyList<ChassisBlueprint.Entry> entries, BlockDefinitionLibrary lib)
@@ -100,16 +118,16 @@ namespace Robogame.Block
                 int da = dist.TryGetValue(entries[a].Position, out int va) ? va : int.MaxValue;
                 int db = dist.TryGetValue(entries[b].Position, out int vb) ? vb : int.MaxValue;
                 if (da != db) return db.CompareTo(da); // furthest first
-                int ca = lib.Get(entries[a].BlockId)?.CpuCost ?? 0;
-                int cb = lib.Get(entries[b].BlockId)?.CpuCost ?? 0;
-                return cb.CompareTo(ca); // pricier first
+                int ca = EffectiveCpuCost(entries[a], lib.Get(entries[a].BlockId));
+                int cb = EffectiveCpuCost(entries[b], lib.Get(entries[b].BlockId));
+                return cb.CompareTo(ca); // pricier first (surcharge included)
             });
 
             var dropped = new HashSet<int>();
             for (int k = 0; k < removable.Count && used > cap; k++)
             {
                 int idx = removable[k];
-                used -= Mathf.Max(0, lib.Get(entries[idx].BlockId)?.CpuCost ?? 0);
+                used -= EffectiveCpuCost(entries[idx], lib.Get(entries[idx].BlockId));
                 dropped.Add(idx);
             }
 

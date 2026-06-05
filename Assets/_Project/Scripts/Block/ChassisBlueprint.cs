@@ -83,8 +83,18 @@ namespace Robogame.Block
                      "Thruster./Rudder./Rotor.RPM Tweakables; PHYSICS_PLAN §1.5 / §5.")]
             public float BlockConfig;
 
+            [Tooltip("Per-block player-authored concoction id (Concoction.Id). Explosive weapons " +
+                     "(Bomb / Mortar) resolve it from ConcoctionRegistry at fire time to scale " +
+                     "damage / explosion-size / knockback, and it adds a CPU surcharge. Empty " +
+                     "string (the default, and every pre-v7 save) = no concoction → baseline stats " +
+                     "and zero surcharge. See docs/decisions/0004-concoction-persistence.md.")]
+            public string ConcoctionId;
+
             /// <summary>Returns <see cref="Up"/> with the legacy zero → +Y fallback applied.</summary>
             public Vector3Int EffectiveUp => Up == Vector3Int.zero ? Vector3Int.up : Up;
+
+            /// <summary>Returns <see cref="ConcoctionId"/> with null coalesced to empty string.</summary>
+            public string EffectiveConcoctionId => string.IsNullOrEmpty(ConcoctionId) ? string.Empty : ConcoctionId;
 
             public Entry(string blockId, Vector3Int position)
             {
@@ -94,6 +104,7 @@ namespace Robogame.Block
                 Dims = Vector3.zero;
                 Pitch = 0f;
                 BlockConfig = 0f;
+                ConcoctionId = string.Empty;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up)
@@ -104,6 +115,7 @@ namespace Robogame.Block
                 Dims = Vector3.zero;
                 Pitch = 0f;
                 BlockConfig = 0f;
+                ConcoctionId = string.Empty;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims)
@@ -114,6 +126,7 @@ namespace Robogame.Block
                 Dims = dims;
                 Pitch = 0f;
                 BlockConfig = 0f;
+                ConcoctionId = string.Empty;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims, float pitch)
@@ -124,6 +137,7 @@ namespace Robogame.Block
                 Dims = dims;
                 Pitch = pitch;
                 BlockConfig = 0f;
+                ConcoctionId = string.Empty;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims, float pitch, float blockConfig)
@@ -134,6 +148,18 @@ namespace Robogame.Block
                 Dims = dims;
                 Pitch = pitch;
                 BlockConfig = blockConfig;
+                ConcoctionId = string.Empty;
+            }
+
+            public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims, float pitch, float blockConfig, string concoctionId)
+            {
+                BlockId = blockId;
+                Position = position;
+                Up = up;
+                Dims = dims;
+                Pitch = pitch;
+                BlockConfig = blockConfig;
+                ConcoctionId = string.IsNullOrEmpty(concoctionId) ? string.Empty : concoctionId;
             }
         }
 
