@@ -45,6 +45,13 @@ namespace Robogame.Combat
         // mass — the cap that stops light bots from being launched.
         private const float MaxImmediateDeltaV = 3.0f;
 
+        // Explosions get a higher ceiling than kinetic hits: a bomb is meant
+        // to *throw* a chassis (and to bomb-jump the dropper), where a bullet
+        // only staggers. Still mass-independent, so light and heavy bots are
+        // tossed the same distance and nothing reaches orbit. Public so the
+        // explosive caller (ProjectileWorld) passes it to the ceiling overload.
+        public const float MaxExplosiveDeltaV = 12.0f;
+
         // Ceiling on the accumulated smoothed debt, expressed as the
         // delta-v it would impart. Bounds sustained rapid fire.
         private const float MaxDebtDeltaV = 4.0f;
@@ -58,11 +65,18 @@ namespace Robogame.Combat
             _rb = robot != null ? robot.Rigidbody : GetComponent<Rigidbody>();
         }
 
-        /// <summary>Apply an impulse this physics step — punchy single hits.</summary>
-        public void ApplyImmediate(Vector3 worldImpulse)
+        /// <summary>Apply an impulse this physics step — punchy single hits (kinetic ceiling).</summary>
+        public void ApplyImmediate(Vector3 worldImpulse) => ApplyImmediate(worldImpulse, MaxImmediateDeltaV);
+
+        /// <summary>
+        /// Apply an impulse this physics step, clamped to <paramref name="maxDeltaV"/>.
+        /// Explosions pass <see cref="MaxExplosiveDeltaV"/> so a blast throws harder
+        /// than a bullet without raising the kinetic cap.
+        /// </summary>
+        public void ApplyImmediate(Vector3 worldImpulse, float maxDeltaV)
         {
             if (_rb == null) return;
-            worldImpulse = ClampToDeltaV(worldImpulse, MaxImmediateDeltaV);
+            worldImpulse = ClampToDeltaV(worldImpulse, maxDeltaV);
             _rb.AddForceAtPosition(worldImpulse, _rb.worldCenterOfMass, ForceMode.Impulse);
         }
 

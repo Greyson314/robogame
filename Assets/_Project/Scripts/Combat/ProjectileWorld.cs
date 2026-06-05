@@ -431,13 +431,20 @@ namespace Robogame.Combat
                 Robot robot = c.GetComponentInParent<Robot>();
                 if (robot != null)
                 {
-                    if (robot == spec.Owner) continue;
-                    if (Teams.IsFriendlyFire(spec.Owner, robot)) continue;
                     if (!_splashRobots.Add(robot)) continue;
-                    DamageRobotInRadius(robot, worldPoint, r2, spec.Damage);
+                    // TRACE[LOG-115]: friendly-fire spares damage but NOT knockback (bomb-jump)
+                    // Self + teammates take NO damage, but they DO get knocked:
+                    // a bomb dropped at your own feet should launch you
+                    // (bomb-jumping) and shove a nearby ally, just without the
+                    // friendly damage. Enemies take both.
+                    bool friendly = robot == spec.Owner || Teams.IsFriendlyFire(spec.Owner, robot);
+                    if (!friendly)
+                    {
+                        DamageRobotInRadius(robot, worldPoint, r2, spec.Damage);
+                        hitAny = true;
+                    }
                     if (spec.Knockback > 0f)
                         ApplyExplosiveKnockback(robot, worldPoint, spec.SplashRadius, spec.Knockback);
-                    hitAny = true;
                     continue;
                 }
 
@@ -485,12 +492,12 @@ namespace Robogame.Combat
         // read as a target delta-v (m/s) per this factor, then turned into an
         // impulse of mass × Δv so a heavy chassis is shoved as much as a light
         // one. Without this the raw-impulse path imparted Δv = impulse/mass,
-        // which is imperceptible on a multi-block bot (the symptom this fixes).
-        // KnockbackReceiver still caps the result at MaxImmediateDeltaV, so this
-        // can't launch anything — it just makes the push land. At 0.03: a base
-        // bomb (40) ≈ 1.2 m/s at the blast centre, a maxed concoction (80) ≈
-        // 2.4 m/s, a maxed mortar (110) clamps to the 3 m/s ceiling.
-        private const float ExplosiveKnockbackDeltaVPerUnit = 0.03f;
+        // which is imperceptible on a multi-block bot. The earlier 0.03 fix made
+        // it mass-aware but left it far too weak to feel (~1 m/s); 0.12 gives a
+        // blast real shove. At the blast centre: a base bomb (40) ≈ 4.8 m/s, a
+        // maxed-knockback concoction (80) ≈ 9.6 m/s, a maxed mortar (110) ≈ 13.2
+        // → clamped to the MaxExplosiveDeltaV (12 m/s) ceiling in KnockbackReceiver.
+        private const float ExplosiveKnockbackDeltaVPerUnit = 0.12f;
 
         private static KnockbackReceiver GetOrAddReceiver(Robot robot)
         {
@@ -529,9 +536,10 @@ namespace Robogame.Combat
             float falloff = 1f - (d / radius);             // 1 at centre → 0 at edge
             Vector3 dir = d > 1e-4f ? toBot / d : Vector3.up;
             dir = (dir + Vector3.up * ExplosiveUpwardBias).normalized;
-            // Mass-aware: target Δv → impulse of mass × Δv (clamped downstream).
+            // Mass-aware: target Δv → impulse of mass × Δv (clamped to the
+            // explosive ceiling downstream, not the lower kinetic one).
             float targetDeltaV = magnitude * ExplosiveKnockbackDeltaVPerUnit * falloff;
-            GetOrAddReceiver(robot)?.ApplyImmediate(dir * (rb.mass * targetDeltaV));
+            GetOrAddReceiver(robot)?.ApplyImmediate(dir * (rb.mass * targetDeltaV), KnockbackReceiver.MaxExplosiveDeltaV);
         }
 
         // -----------------------------------------------------------------
