@@ -60,13 +60,15 @@ namespace Robogame.Gameplay
         private GameObject _listContent;
         private bool _suppress;
 
-        private static readonly Color s_accent  = new Color(0.95f, 0.55f, 0.10f, 1f);
-        private static readonly Color s_dim     = new Color(1f, 1f, 1f, 0.6f);
-        private static readonly Color s_backdrop = new Color(0.02f, 0.03f, 0.05f, 0.92f);
-        private static readonly Color s_panelBg = new Color(0.07f, 0.08f, 0.11f, 1f);
-        private static readonly Color s_btnIdle  = new Color(0.18f, 0.22f, 0.28f, 1f);
-        private static readonly Color s_btnHi    = new Color(0.95f, 0.55f, 0.10f, 1f);
-        private static readonly Color s_btnPress = new Color(0.7f, 0.4f, 0.05f, 1f);
+        // Panel chrome flows from the shared UGUI theme so every menu / build
+        // panel reskins from one place. See docs/subsystems/ui-direction.md.
+        private static readonly Color s_accent  = UguiPalette.Accent;
+        private static readonly Color s_dim     = UguiPalette.TextDim;
+        private static readonly Color s_backdrop = UguiPalette.Backdrop;
+        private static readonly Color s_panelBg = UguiPalette.PanelBg;
+        private static readonly Color s_btnIdle  = UguiPalette.ButtonIdle;
+        private static readonly Color s_btnHi    = UguiPalette.Accent;
+        private static readonly Color s_btnPress = UguiPalette.AccentPressed;
 
         private static Font UIFont => Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 

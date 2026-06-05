@@ -306,7 +306,7 @@ Everything in this doc that's procedural / shader / volume.
 - [x] Lighting rig refactored to match this doc's [Lighting Rules](#lighting-rules) — warm sun in garage, raked cool sun in arena, trilight ambient
 - [x] `WorldPalette.cs` expanded to the full 12-token table
 - [x] All existing materials migrated to palette tokens, default shader switched to MK Toon (URP/Lit fallback)
-- [ ] Tone-pass on the existing scaffolder logs / debug HUDs to use palette UI tokens — deferred to a UI-focused session
+- [~] Tone-pass on the HUDs / panels to use palette UI tokens — UI session shipped: IMGUI `HudStyles` + new UGUI `UguiPalette`, most panels migrated. See [ui-direction.md](ui-direction.md) + docs/changes/117. Remaining literals (BuildHotbar, scattered IMGUI) tracked there.
 
 ### Phase 2 — Block shader
 **Path chosen: MK Toon's `Physically Based + Outline` variant for hero blocks**, `Physically Based` for everything else. We don't author a custom shader unless MK Toon hits a wall.

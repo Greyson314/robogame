@@ -1,4 +1,5 @@
 using Robogame.Block;
+using Robogame.Core;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -135,14 +136,14 @@ namespace Robogame.Gameplay
             var btnGO = new GameObject("LaunchButton");
             btnGO.transform.SetParent(canvasGO.transform, worldPositionStays: false);
             var img = btnGO.AddComponent<Image>();
-            img.color = new Color(0.10f, 0.12f, 0.16f, 0.92f);
+            img.color = UguiPalette.ButtonIdle;
             _button = btnGO.AddComponent<Button>();
             _button.targetGraphic = img;
 
             ColorBlock cols = _button.colors;
             cols.normalColor = new Color(1f, 1f, 1f, 1f);
-            cols.highlightedColor = new Color(0.95f, 0.55f, 0.10f, 1f); // hazard orange tint
-            cols.pressedColor = new Color(0.7f, 0.4f, 0.05f, 1f);
+            cols.highlightedColor = UguiPalette.Accent; // hazard orange tint
+            cols.pressedColor = UguiPalette.AccentPressed;
             cols.selectedColor = cols.highlightedColor;
             _button.colors = cols;
 
@@ -194,14 +195,14 @@ namespace Robogame.Gameplay
             var go = new GameObject(objName);
             go.transform.SetParent(canvas, worldPositionStays: false);
             var img = go.AddComponent<Image>();
-            img.color = new Color(0.10f, 0.12f, 0.16f, 0.92f);
+            img.color = UguiPalette.ButtonIdle;
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
 
             ColorBlock cols = btn.colors;
             cols.normalColor = new Color(1f, 1f, 1f, 1f);
-            cols.highlightedColor = new Color(0.95f, 0.55f, 0.10f, 1f);
-            cols.pressedColor = new Color(0.7f, 0.4f, 0.05f, 1f);
+            cols.highlightedColor = UguiPalette.Accent;
+            cols.pressedColor = UguiPalette.AccentPressed;
             cols.selectedColor = cols.highlightedColor;
             btn.colors = cols;
 
@@ -245,7 +246,7 @@ namespace Robogame.Gameplay
             var ddGO = new GameObject("PresetDropdown");
             ddGO.transform.SetParent(canvas, worldPositionStays: false);
             var ddImg = ddGO.AddComponent<Image>();
-            ddImg.color = new Color(0.10f, 0.12f, 0.16f, 0.92f);
+            ddImg.color = UguiPalette.ButtonIdle;
             _presetDropdown = ddGO.AddComponent<Dropdown>();
             _presetDropdown.targetGraphic = ddImg;
 
@@ -339,7 +340,7 @@ namespace Robogame.Gameplay
             var itemChecks = new GameObject("Item Checkmark");
             itemChecks.transform.SetParent(item.transform, worldPositionStays: false);
             var checkImg = itemChecks.AddComponent<Image>();
-            checkImg.color = new Color(0.95f, 0.55f, 0.10f, 1f);
+            checkImg.color = UguiPalette.Accent;
             var checkRT = itemChecks.GetComponent<RectTransform>();
             checkRT.anchorMin = new Vector2(0f, 0.5f);
             checkRT.anchorMax = new Vector2(0f, 0.5f);

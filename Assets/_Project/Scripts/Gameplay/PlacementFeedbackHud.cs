@@ -1,4 +1,5 @@
 using Robogame.Block;
+using Robogame.Core;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -109,7 +110,7 @@ namespace Robogame.Gameplay
             prt.pivot = new Vector2(1f, 0f);
             prt.sizeDelta = new Vector2(520f, 32f);
             prt.anchoredPosition = new Vector2(-12f, 12f);
-            panel.AddComponent<Image>().color = new Color(0.06f, 0.07f, 0.10f, 0.85f);
+            panel.AddComponent<Image>().color = UguiPalette.PanelBg;
 
             _label = AddText(panel.transform);
         }
@@ -134,7 +135,7 @@ namespace Robogame.Gameplay
             t.fontSize = 13;
             t.fontStyle = FontStyle.Bold;
             t.alignment = TextAnchor.MiddleRight;
-            t.color = new Color(1f, 0.5f, 0.4f, 1f);
+            t.color = UguiPalette.Danger; // placement error → unified error red
             return t;
         }
     }

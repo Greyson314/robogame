@@ -1,5 +1,6 @@
 using System;
 using Robogame.Block;
+using Robogame.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -145,8 +146,8 @@ namespace Robogame.Gameplay
                 ? $"MIRROR  {axisLabel}   [M off  /  B axis]"
                 : "MIRROR  off   [M on  /  B axis]";
             _hudText.color = Enabled
-                ? new Color(0.95f, 0.55f, 0.10f, 1f)
-                : new Color(1f, 1f, 1f, 0.6f);
+                ? UguiPalette.Accent
+                : UguiPalette.TextDim;
         }
 
         // -----------------------------------------------------------------
@@ -170,7 +171,7 @@ namespace Robogame.Gameplay
             prt.pivot = new Vector2(0.5f, 1f);
             prt.sizeDelta = new Vector2(360f, 32f);
             prt.anchoredPosition = new Vector2(0f, -12f);
-            panel.AddComponent<Image>().color = new Color(0.06f, 0.07f, 0.10f, 0.85f);
+            panel.AddComponent<Image>().color = UguiPalette.PanelBg;
 
             _hudText = AddText(panel.transform);
         }

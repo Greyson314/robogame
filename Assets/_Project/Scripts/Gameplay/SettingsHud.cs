@@ -36,10 +36,10 @@ namespace Robogame.Gameplay
         private GameObject _root;
         private GameObject _content;
         private bool _open;
-        private static readonly Color s_panelColor   = new Color(0.06f, 0.07f, 0.10f, 0.93f);
-        private static readonly Color s_groupColor   = new Color(0.95f, 0.55f, 0.10f, 1f);
-        private static readonly Color s_textColor    = Color.white;
-        private static readonly Color s_textDimColor = new Color(0.78f, 0.80f, 0.84f, 1f);
+        private static readonly Color s_panelColor   = UguiPalette.PanelBg;
+        private static readonly Color s_groupColor   = UguiPalette.Accent;
+        private static readonly Color s_textColor    = UguiPalette.Text;
+        private static readonly Color s_textDimColor = UguiPalette.TextDim;
 
         private InputField _searchField;
         private string _searchFilter = string.Empty;

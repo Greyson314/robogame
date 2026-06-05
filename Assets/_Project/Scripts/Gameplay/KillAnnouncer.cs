@@ -38,12 +38,12 @@ namespace Robogame.Gameplay
         [SerializeField] private int _bannerFontSize = 56;
 
         // Palette tokens. First three feed off HudStyles for consistency
-        // with the scoreboard / stats overlays; plasma stays local —
-        // it's the rampage-only colour and not used elsewhere.
+        // with the scoreboard / stats overlays; plasma is the rampage-only
+        // accent — the locked Plasma token (reserved for module/energy FX).
         private static readonly Color s_hazard  = HudStyles.Accent;
         private static readonly Color s_caution = HudStyles.Warning;
         private static readonly Color s_alert   = HudStyles.Danger;
-        private static readonly Color s_plasma  = new Color(0.63f, 0.33f, 0.95f, 1f);
+        private static readonly Color s_plasma  = RuntimePalette.Plasma;
 
         private MatchController _match;
         private GUIStyle _style;

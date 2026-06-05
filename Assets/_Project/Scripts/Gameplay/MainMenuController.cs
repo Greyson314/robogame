@@ -1,3 +1,4 @@
+using Robogame.Core;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -44,13 +45,13 @@ namespace Robogame.Gameplay
         // -----------------------------------------------------------------
         // Palette (kept consistent with SettingsHud)
         // -----------------------------------------------------------------
-        private static readonly Color s_bgColor       = new Color(0.04f, 0.05f, 0.08f, 1f);
-        private static readonly Color s_panelColor    = new Color(0.06f, 0.07f, 0.10f, 0.93f);
-        private static readonly Color s_accentOrange  = new Color(0.95f, 0.55f, 0.10f, 1f);
-        private static readonly Color s_accentDim     = new Color(0.85f, 0.50f, 0.10f, 0.55f);
-        private static readonly Color s_textColor     = Color.white;
-        private static readonly Color s_textDim       = new Color(0.78f, 0.80f, 0.84f, 1f);
-        private static readonly Color s_buttonBase    = new Color(0.10f, 0.13f, 0.18f, 1f);
+        private static readonly Color s_bgColor       = new Color(0.04f, 0.05f, 0.08f, 1f); // opaque full-screen menu bg (menu-specific)
+        private static readonly Color s_panelColor    = UguiPalette.PanelBg;
+        private static readonly Color s_accentOrange  = UguiPalette.Accent;
+        private static readonly Color s_accentDim     = new Color(0.85f, 0.50f, 0.10f, 0.55f); // translucent accent underline (one-off)
+        private static readonly Color s_textColor     = UguiPalette.Text;
+        private static readonly Color s_textDim       = UguiPalette.TextDim;
+        private static readonly Color s_buttonBase    = UguiPalette.ButtonIdle;
 
         private CanvasGroup _fadeGroup;
         private float _fadeT;
