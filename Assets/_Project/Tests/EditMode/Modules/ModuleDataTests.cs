@@ -70,6 +70,19 @@ namespace Robogame.Tests.EditMode.Modules
         }
 
         [Test]
+        public void Tuning_Repair_IsInstantaneousHealAtDefaultPower()
+        {
+            // Repair pulses once (no lifetime) and its power IS the per-block
+            // heal amount. Encodes the design: a sustain tool on a real cooldown,
+            // not a channel and not a duration buff.
+            ModuleTuning.Resolved r = ModuleTuning.Resolve(ModuleKind.Repair, 0f);
+            Assert.AreEqual(0f, r.Duration, 1e-4f, "Repair is instantaneous — no effect lifetime.");
+            Assert.AreEqual(ModuleTuning.DefaultPower(ModuleKind.Repair), r.Magnitude, 1e-4f,
+                "power 0 resolves to the default per-block heal amount.");
+            Assert.Greater(r.Cooldown, 0f, "Repair must carry a real cooldown — sustain, not invulnerability.");
+        }
+
+        [Test]
         public void Budget_TrimToFit_DropsModulesBeyondCap_KeepsOthers()
         {
             // 5 modules + a CPU: the 5th module drops, the CPU is untouched.

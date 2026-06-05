@@ -20,6 +20,7 @@ namespace Robogame.Block
             BlockIds.ModuleSmoke => true,
             BlockIds.ModuleInvis => true,
             BlockIds.ModuleMines => true,
+            BlockIds.ModuleRepair => true,
             _ => false,
         };
 
@@ -36,6 +37,7 @@ namespace Robogame.Block
             BlockIds.ModuleSmoke => ModuleKind.Smoke,
             BlockIds.ModuleInvis => ModuleKind.Invisibility,
             BlockIds.ModuleMines => ModuleKind.Mines,
+            BlockIds.ModuleRepair => ModuleKind.Repair,
             _ => null,
         };
 
@@ -49,6 +51,7 @@ namespace Robogame.Block
             ModuleKind.Smoke => BlockIds.ModuleSmoke,
             ModuleKind.Invisibility => BlockIds.ModuleInvis,
             ModuleKind.Mines => BlockIds.ModuleMines,
+            ModuleKind.Repair => BlockIds.ModuleRepair,
             _ => BlockIds.ModuleEmp,
         };
 
@@ -62,6 +65,7 @@ namespace Robogame.Block
             ModuleKind.Smoke => "SMOKE",
             ModuleKind.Invisibility => "CLOAK",
             ModuleKind.Mines => "MINE",
+            ModuleKind.Repair => "REPAIR",
             _ => "MODULE",
         };
     }

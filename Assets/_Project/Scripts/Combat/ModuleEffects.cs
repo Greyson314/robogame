@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Robogame.Block;
 using Robogame.Core;
 using Robogame.Robots;
 using UnityEngine;
@@ -26,6 +27,9 @@ namespace Robogame.Combat
         private static readonly Collider[] s_overlap = new Collider[64];
         private static readonly HashSet<Robot> s_seen = new(16);
 
+        /// <summary>Radius (m) within which a Repair pulse mends the chassis's own blocks.</summary>
+        private const float RepairRadius = 8f;
+
         /// <summary>
         /// Launch the chassis off the spring's mount face. Direction is
         /// <c>-block.up</c> — the chassis-inward normal of the mount, so an
@@ -39,6 +43,31 @@ namespace Robogame.Combat
             if (block == null || rb == null) return;
             Vector3 launchDir = -block.up;
             rb.AddForceAtPosition(launchDir * impulse, block.position, ForceMode.Impulse);
+        }
+
+        /// <summary>
+        /// Mend the owner's own still-alive blocks within <see cref="RepairRadius"/>
+        /// of <paramref name="center"/> by <paramref name="healPerBlock"/> HP each
+        /// (clamped to each block's max). Field self-repair: the repair PAD
+        /// rebuilds DESTROYED blocks at base, this tops up DAMAGED ones mid-fight.
+        /// Owner-only — no enemy or ally effect. Returns total HP restored (so the
+        /// caller can gate VFX on a non-empty pulse). Healing never removes a
+        /// block, so iterating the live grid here is safe (unlike the splash-damage
+        /// path). Server-side mutation like the rest of this class.
+        /// </summary>
+        public static float RepairPulse(Robot owner, Vector3 center, float healPerBlock)
+        {
+            if (owner == null || owner.Grid == null || healPerBlock <= 0f) return 0f;
+            float r2 = RepairRadius * RepairRadius;
+            float total = 0f;
+            foreach (KeyValuePair<Vector3Int, BlockBehaviour> kv in owner.Grid.Blocks)
+            {
+                BlockBehaviour b = kv.Value;
+                if (b == null || !b.IsAlive) continue;
+                if ((b.transform.position - center).sqrMagnitude > r2) continue;
+                total += b.Heal(healPerBlock);
+            }
+            return total;
         }
 
         /// <summary>

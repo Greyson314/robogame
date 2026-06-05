@@ -224,6 +224,16 @@ namespace Robogame.Combat
                     VfxSpawner.Spawn(VfxKind.HitSpark, modulePos, Vector3.up, 0.9f);
                     AudioRouter.PlayOneShot(AudioCue.ModuleActivate, modulePos);
                     break;
+
+                case ModuleKind.Repair:
+                    // Field self-repair: mend the chassis's own damaged blocks
+                    // around the carrier. Magnitude = HP healed per block.
+                    // Reuses the existing repair-pad glow (INV-8) — no new VFX
+                    // recipe needed; the green column reads as "mending here".
+                    ModuleEffects.RepairPulse(_robot, modulePos, t.Magnitude);
+                    VfxSpawner.Spawn(VfxKind.RepairGlow, chassisPos, Quaternion.identity, 0.8f);
+                    AudioRouter.PlayOneShot(AudioCue.ModuleActivate, chassisPos);
+                    break;
             }
 
             slot.CooldownDuration = t.Cooldown;

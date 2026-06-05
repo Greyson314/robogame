@@ -15,6 +15,11 @@ Notes: {optional — why rejected, or what shipped}
 
 ## Shipped
 
+### Nanite Pulse (field self-repair module) — shipped (2026-06-05)
+Payoff: first in-field healing — a module that tops up the chassis's own damaged blocks in an 8 m radius mid-fight, opening a support/sustain build axis (the repair PAD only rebuilds destroyed blocks at base).
+Reference: MOBA heal abilities; Robocraft nano-disruptor/healing builds.
+Notes: Shipped overnight (bridge down, headless-verified). New ModuleKind on the existing module spine; power = HP/block, cooldown scales. See docs/changes/116. Editor finish: dedicated material/VFX + balance pass.
+
 > Seeded 2026-05-28 from session logs 38–100. These are player-facing mechanics already in
 > the game — `/ideate` should build *on* them, not re-pitch them. Infra work (netcode, perf
 > passes, test debt) is intentionally omitted; it isn't the kind of thing this workflow proposes.
@@ -91,6 +96,36 @@ Reference: Crossout named-build culture; existing kill-feed (session 97).
 Notes: Queued after the core Lab. Purely cosmetic (no gameplay stats); name already exists on Concoction, add a palette index. ~1 session.
 
 ## Proposed
+
+> **New-blocks round (2026-06-05)** — overnight cluster. The user asked for new
+> blocks that let players "have fun and express themselves." Nanite Pulse shipped
+> (see Shipped); these are the next batch, ranked by payoff-per-risk. Each is
+> scoped against an *existing* pattern so it's a known cost, not a new system.
+
+### Scatter Cannon (close-range shotgun weapon) — proposed (2026-06-05)
+Payoff: a brawler identity the arsenal lacks — fires a cone of pellets per shot, devastating point-blank, near-useless at range; rewards aggressive face-tank builds.
+Reference: Robocraft "Tesla"/plasma close-range; every shooter's shotgun.
+Notes: LOW risk — pure `ProjectileWorld.Spawn` recipe (loop N SmgPellet specs with spread), new `BombDefinition`-style `ScatterDefinition` for pellet count/spread/falloff. No new system. ~1 session.
+
+### Emissive Decor / Light block (cosmetic) — proposed (2026-06-05)
+Payoff: the single most-requested self-expression axis in voxel builders — a palette-tinted glowing block purely for decoration/identity; zero stats, costs CPU like a cube so it's a real tradeoff.
+Reference: Robocraft cosmetic cubes + LED culture; Trailmakers logic/decor blocks.
+Notes: LOW risk — `Cosmetic` category, procedural emissive material (no mesh asset), `_hasVariantConfig` for a color pick (reuse the Concoction-Identity palette index work). ~1 session.
+
+### Wedge / Slope structural set (cosmetic shape) — proposed (2026-06-05)
+Payoff: the OTHER big expression axis — non-cube shapes (wedge, corner, inverted-corner) let builds read as cars/planes/animals instead of brick stacks. Highest "express themselves" payoff of the batch.
+Reference: Robocraft prism/tetra set; Trailmakers wedges; Lego slopes.
+Notes: MEDIUM — needs procedural prism mesh generation (code, not art assets) + collider; placement rules already handle leaf/face logic. Mesh-gen is the real work. ~2 sessions. Best done WITH the editor up (visual gate).
+
+### Afterburner (overdrive module) — proposed (2026-06-05)
+Payoff: a dramatic burst-mobility button — temporary drive/thrust multiplier for escapes and charges; pairs with the new repair module as the "aggression" half of a module identity.
+Reference: Crossout engine boosters; Trailmakers afterburner.
+Notes: MEDIUM — fits the module spine (kind + tuning + dispatch) BUT the effect lives in `Robogame.Movement` (Combat↛Movement asmdef edge); needs a transient-boost hook on `RobotDrive` reachable from the module layer. New small mechanism, not just a recipe. ~1-2 sessions.
+
+### Ram Spike (melee/collision weapon) — proposed (2026-06-05)
+Payoff: a true melee-build enabler — a front spike that converts the chassis's own momentum into bonus contact damage, making "just drive into them" a valid loadout.
+Reference: Crossout spikes/melee; Robocraft blade culture.
+Notes: MEDIUM — hooks the existing `MomentumImpactHandler` (already computes reduced-mass × v²); the spike block raises its own face's damage coefficient. Leaf block, side/front mount rule. ~1-2 sessions.
 
 ### Volatile Mixes (overcharge risk axis) — proposed (2026-06-04)
 Payoff: sliders past 70% mark a concoction "volatile" — small server-rolled chance to misfire (blast contained to the carrier block; slapstick, not bot-killing).

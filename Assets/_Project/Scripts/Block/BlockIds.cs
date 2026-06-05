@@ -87,5 +87,13 @@ namespace Robogame.Block
         // Active mines are capped per chassis (oldest trims out). Mine TYPES
         // are a later extension — DeployedMine takes its profile as params.
         public const string ModuleMines = "block.module.mines";
+        // Repair (session 116): field self-repair module. Pulses HP back into
+        // the chassis's own still-alive blocks within a radius of the carrier —
+        // the first in-field healing in the game. (The repair PAD rebuilds
+        // DESTROYED blocks at base; this tops up DAMAGED ones mid-fight.) No
+        // offense, no enemy/ally effect; trades a slot + CPU for sustain. The
+        // per-instance power (ConfigValue) sets HP healed per block. See
+        // ModuleEffects.RepairPulse.
+        public const string ModuleRepair = "block.module.repair";
     }
 }

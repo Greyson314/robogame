@@ -4,6 +4,7 @@ using NUnit.Framework;
 using Robogame.Block;
 using Robogame.Combat;
 using Robogame.Input;
+using Robogame.Robots;
 using UnityEngine;
 using UnityEngine.TestTools;
 
@@ -157,6 +158,40 @@ namespace Robogame.Tests.PlayMode.Combat
             Assert.Greater(rb.linearVelocity.y, 1f,
                 $"Underside spring must launch the chassis up; got {rb.linearVelocity}.");
             Assert.IsFalse(sys.Slots[0].IsAvailable, "After launching, the spring is on cooldown.");
+        }
+
+        [UnityTest]
+        public IEnumerator RepairPulse_MendsDamagedOwnBlock_InRangeOnly()
+        {
+            // The Repair module's effect: ModuleEffects.RepairPulse restores HP to
+            // the chassis's own alive blocks within RepairRadius of the pulse
+            // centre, clamped at max, and leaves out-of-range blocks alone (so
+            // module placement matters). Tested directly against a Robot+grid —
+            // the ModuleSystem.Activate arm that calls this is a one-liner; the
+            // logic worth pinning lives here. (id↔kind + tuning are pinned in the
+            // EditMode ModuleDataTests.)
+            _root = new GameObject("RepairChassis");
+            _root.AddComponent<Rigidbody>();
+            BlockGrid grid = _root.AddComponent<BlockGrid>();
+            Robot robot = _root.AddComponent<Robot>(); // Awake caches _rb + _grid
+            yield return null;
+
+            BlockBehaviour block = grid.PlaceBlock(MakeDef(BlockIds.ModuleRepair), Vector3Int.zero, Vector3Int.up);
+            Assume.That(block, Is.Not.Null, "PlaceBlock must seed the chassis.");
+
+            block.TakeDamage(50f); // MakeDef gives 100 max HP → now at 50
+            Assume.That(block.CurrentHealth, Is.EqualTo(50f).Within(1e-3f));
+
+            // Out of range (>8 m) → untouched: proximity gates the pulse.
+            ModuleEffects.RepairPulse(robot, block.transform.position + new Vector3(100f, 0f, 0f), 60f);
+            Assert.AreEqual(50f, block.CurrentHealth, 1e-3f,
+                "A block beyond RepairRadius (8 m) must not be mended — placement matters.");
+
+            // In range → mended, clamped at max.
+            float healed = ModuleEffects.RepairPulse(robot, block.transform.position, 60f);
+            Assert.Greater(healed, 0f, "Pulse must report HP restored.");
+            Assert.Greater(block.CurrentHealth, 50f, "Repair must heal a damaged own block in range.");
+            Assert.LessOrEqual(block.CurrentHealth, 100f, "Heal must clamp at the block's max HP.");
         }
 
         [UnityTest]

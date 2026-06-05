@@ -40,5 +40,8 @@ namespace Robogame.Block
 
         /// <summary>Deploys a proximity mine on the ground that detonates when an enemy bot drives over it.</summary>
         Mines = 6,
+
+        /// <summary>Pulses HP back into the chassis's own still-alive blocks within a radius (field self-repair).</summary>
+        Repair = 7,
     }
 }

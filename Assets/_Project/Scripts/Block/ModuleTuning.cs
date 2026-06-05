@@ -73,6 +73,10 @@ namespace Robogame.Block
             // power = mine centre damage (HP); 8 s cooldown; BaseDuration is
             // the deployed mine's active lifetime (s) before it self-expires.
             ModuleKind.Mines => new Row(70f, 8f, 30f),
+            // power = HP restored to each own block in range; instantaneous.
+            // 60 default mends a cube (100 HP) past half on a 14 s cycle —
+            // sustain, not invulnerability. Cooldown scales with power as usual.
+            ModuleKind.Repair => new Row(60f, 14f, 0f),
             _ => new Row(1f, 10f, 0f),
         };
 
