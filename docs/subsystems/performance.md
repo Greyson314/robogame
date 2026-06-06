@@ -546,6 +546,14 @@ ones with the highest cost-to-quality ratio:
 the single most visible "cool-looking" feature and the single most
 expensive feature at MP scale. See § 5.4.
 
+> **Status: DISABLED** (`m_Active: 0` in `Assets/Settings/PC_Renderer.asset`).
+> The per-object inverted-hull pass adds a draw per outlined block and tanks
+> FPS at this game's block counts. Briefly re-enabled in session 118 (misread
+> as an unfinished TODO) and reverted the same session (commit `6f3a87cb`) —
+> see [docs/changes/118](../changes/118-ui-art-pass-2.md). **Do not re-enable**
+> without a profiled, ~constant-cost alternative (screen-space edge-detect, or a
+> hero-only layer mask per § 5.4). INV-7: profile before re-enabling.
+
 ---
 
 ## 7. Performance budgets (extended)
