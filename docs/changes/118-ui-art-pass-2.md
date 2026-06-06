@@ -4,13 +4,14 @@
 > committed separately. Driven via the Unity MCP bridge (live editor) with
 > ScreenCapture-based visual verification where the bridge stayed up.
 
-## 1 — Hero-block outlines enabled
-`Assets/Settings/PC_Renderer.asset`: the `MKToonPerObjectOutlines` renderer
-feature was present but `m_Active: 0`, so hero blocks (CPU / weapon / thruster) —
-whose materials are correctly the MK `+ Outline` variant (black, size 85) — drew
-no ink line. Flipped to `m_Active: 1` (completes the art-direction Phase-2 item).
-**Needs an arena eyeball**: a black outline reads poorly against the dark garage;
-confirm in the bright arena, and watch for a native-render-pass interaction.
+## 1 — Hero-block outlines: enabled, then REVERTED (perf)
+`Assets/Settings/PC_Renderer.asset`: the `MKToonPerObjectOutlines` feature was
+`m_Active: 0`; I flipped it to `1` thinking it was an unfinished TODO. **It was
+disabled on purpose** — the per-object inverted-hull pass adds a draw per block
+and tanks FPS at this game's block counts. Reverted to `m_Active: 0` in the same
+session. The hero materials keep the `+ Outline` variant for a future *performant*
+outline (screen-space edge-detect, or a hero-only layer). Do not re-enable without
+a profiled cheaper path — see the note in art-direction.md Phase 2.
 
 ## 2 — BuildHotbar colour migration
 All 14 hardcoded literals → `UguiPalette` tokens (tabs, slots, CPU readout/bar,

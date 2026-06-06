@@ -315,7 +315,15 @@ Everything in this doc that's procedural / shader / volume.
 - [x] Hero blocks (CPU, Weapon, Thruster) on the `+ Outline` variant; Structure / Wheel / Aero on the unlit-edge `Physically Based` variant
 - [x] [BlockDefinition.cs](../Assets/_Project/Scripts/Block/BlockDefinition.cs) gained a `Material _material` slot; [BlockGrid.cs](../Assets/_Project/Scripts/Block/BlockGrid.cs) `PlaceBlock` swaps `sharedMaterial` (no per-renderer instances → batching survives at 10k+ blocks)
 - [x] Damage darkening migrated to `MaterialPropertyBlock` writing `_AlbedoColor` (MK Toon) + `_BaseColor` (URP/Lit fallback). No more `Renderer.material` churn.
-- [ ] MK Toon Per Object Outlines renderer feature added to `Assets/Settings/PC_Renderer.asset` (silences the import warning *and* enables the outline pass)
+- [✗] MK Toon Per Object Outlines renderer feature — **intentionally DISABLED**
+  (`m_Active: 0` in `Assets/Settings/PC_Renderer.asset`). The per-object inverted-
+  hull pass adds a draw per block; at this game's block counts (hundreds–thousands
+  of blocks across chassis) it does **significant FPS damage**, so it was reverted.
+  The hero materials keep the `+ Outline` shader variant for when/if a *performant*
+  outline lands. **Do not re-enable this feature** without a profiled cheaper
+  approach (e.g. a screen-space edge-detect post-process, ~constant cost regardless
+  of object count, or restricting outlines to a tiny hero-only layer). INV-7: profile
+  before claiming it's affordable.
 - [ ] Damage 0–1 → MK Toon `_Hue`/`_Saturation`/`_Brightness` for hue-shift cracks (Phase 2.1)
 - [ ] Reserved keyword for hero blocks (CPU, weapon-firing) to enable extra emission band
 
