@@ -1,4 +1,5 @@
 using Robogame.Voxel;
+using UnityEditor;
 using UnityEngine;
 
 namespace Robogame.Tools.Editor
@@ -187,19 +188,61 @@ namespace Robogame.Tools.Editor
             }
         }
 
+        // Stylized low-poly tree prefabs from the Polytope Studio "Lowpoly
+        // Environments" pack (already in the project). Mixed for variety:
+        // a broad fruit tree (~6.9 m) and a tall pine (~9.2 m) at native scale.
+        private static readonly string[] TreePrefabs =
+        {
+            "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/Trees/PT_Fruit_Tree_01_green.prefab",
+            "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/Trees/PT_Pine_Tree_03_green.prefab",
+        };
+
+        // Multiplier on top of the prefabs' already-treelike native scale so
+        // they read as substantial landmarks on the rolling ground.
+        private const float TreeBaseScale = 1.3f;
+
         /// <summary>
-        /// A blocky stylised tree: a slim trunk + two stacked tapered
-        /// canopy boxes. Matches the project's low-poly cel look without
-        /// importing a mesh. Trunk reuses Slate; canopy reuses Grass.
+        /// Instantiate a stylized Polytope tree prefab (mixed fruit/pine),
+        /// scaled up with deterministic per-tree variation + yaw. Colliders
+        /// stripped (decor — robots drive through the scatter). Falls back to
+        /// a blocky primitive tree if the asset pack isn't present.
         /// </summary>
         private static void BuildTree(Transform parent, Vector3 ground, int seed)
+        {
+            string path = TreePrefabs[(int)(Hash(seed * 23) * TreePrefabs.Length) % TreePrefabs.Length];
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (prefab == null) { BuildBlockyTreeFallback(parent, ground, seed); return; }
+
+            GameObject tree = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            tree.name = $"Tree_{seed:D3}";
+            tree.transform.position = ground;
+            float yaw = Hash(seed * 3) * 360f;
+            float s = TreeBaseScale * Mathf.Lerp(0.82f, 1.25f, Hash(seed * 7));
+            tree.transform.SetPositionAndRotation(ground, Quaternion.Euler(0f, yaw, 0f));
+            tree.transform.localScale = Vector3.one * s;
+            SetStaticRecursive(tree);
+            foreach (var c in tree.GetComponentsInChildren<Collider>())
+                Object.DestroyImmediate(c);
+        }
+
+        private static void SetStaticRecursive(GameObject go)
+        {
+            go.isStatic = true;
+            foreach (Transform t in go.transform) SetStaticRecursive(t.gameObject);
+        }
+
+        /// <summary>
+        /// Fallback blocky tree (slim trunk + two tapered canopy boxes) used
+        /// only if the Polytope tree pack is missing on a checkout. Trunk
+        /// reuses Slate; canopy reuses Grass.
+        /// </summary>
+        private static void BuildBlockyTreeFallback(Transform parent, Vector3 ground, int seed)
         {
             GameObject tree = new GameObject($"Tree_{seed:D3}");
             tree.transform.SetParent(parent, worldPositionStays: false);
             tree.transform.position = ground;
-            // Small deterministic yaw + scale so the scatter doesn't read as clones.
             float yaw = Hash(seed * 3) * 360f;
-            float s = Mathf.Lerp(0.8f, 1.35f, Hash(seed * 7));
+            float s = TreeBaseScale * Mathf.Lerp(0.8f, 1.35f, Hash(seed * 7));
             tree.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
 
             float trunkH = 2.4f * s, trunkW = 0.55f * s;
