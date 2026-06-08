@@ -49,6 +49,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PROJECT_DIR}/.claude/hooks/cleanup_orphan_relays.ps1\""
+          },
+          {
+            "type": "command",
             "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PROJECT_DIR}/.claude/hooks/session_start_show_latest_log.ps1\""
           }
         ]
