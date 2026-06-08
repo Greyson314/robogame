@@ -82,5 +82,27 @@ namespace Robogame.Tools.Editor
         [Tooltip("Stable offset into Mathf.PerlinNoise's domain. Change to roll a different hill layout. " +
                  "Two builds with the same offset always produce the same hills.")]
         public Vector2 noiseOffset = new Vector2(137.31f, 91.47f);
+
+        // -----------------------------------------------------------------
+        // Structure — the "Sunken Crossing" arena layout (session 119).
+        // These add big readable shapes on top of the rolling detail above:
+        // two diagonal ridges, a central no-man's-land valley, and a
+        // symmetric pair of base bowls. Geometry (where each sits) is fixed
+        // in HeightmapField; these knobs only scale the heights. All stay
+        // ≤ ~13 m so the diggable surface fits the voxel volume.
+        // -----------------------------------------------------------------
+
+        [Header("Structure (Sunken Crossing layout)")]
+        [Tooltip("Crown height (m) of the two diagonal ridges forming the arena's X. 0 = flat / no ridges.")]
+        [Range(0f, 13f)]
+        public float ridgeAmp = 9.5f;
+
+        [Tooltip("Depth (m) of the shallow east-west valley along z≈0 — the no-man's-land that keeps the depot sightline low. 0 = no valley.")]
+        [Range(0f, 8f)]
+        public float valleyDepth = 2.5f;
+
+        [Tooltip("Rim height (m) of the symmetric base bowls at z≈±90 (the team depots). Floor stays near y=0 so depot pads land flush. 0 = no bowls.")]
+        [Range(0f, 12f)]
+        public float bowlAmp = 6.5f;
     }
 }

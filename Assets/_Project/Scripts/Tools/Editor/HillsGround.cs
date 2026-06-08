@@ -253,6 +253,9 @@ namespace Robogame.Tools.Editor
                 RampOuter     = s.rampOuter,
                 EdgeFlatStart = s.edgeFlatStart,
                 EdgeFlatEnd   = s.edgeFlatEnd,
+                RidgeAmp      = s.ridgeAmp,
+                ValleyDepth   = s.valleyDepth,
+                BowlAmp       = s.bowlAmp,
             };
         }
 

@@ -103,10 +103,118 @@ namespace Robogame.Tests.EditMode.Voxel
                 Assert.AreEqual(s.flatRadius, hp.FlatRadius);
                 Assert.AreEqual(s.edgeFlatEnd, hp.EdgeFlatEnd);
                 Assert.AreEqual(s.noiseOffset, hp.NoiseOffset);
+                // Structural knobs (session 119) must round-trip too, or the
+                // voxel surface and grass mesh would disagree on the ridges /
+                // valley / bowls.
+                Assert.AreEqual(s.ridgeAmp, hp.RidgeAmp);
+                Assert.AreEqual(s.valleyDepth, hp.ValleyDepth);
+                Assert.AreEqual(s.bowlAmp, hp.BowlAmp);
             }
             finally
             {
                 Object.DestroyImmediate(s);
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // Structure — the "Sunken Crossing" layout (session 119). Arena-scale
+        // params so `field` is ≈1 where the ridges / valley / bowls live.
+        // -----------------------------------------------------------------
+
+        private static HeightmapParams Arena() => new HeightmapParams
+        {
+            Enabled = true,
+            NoiseOffset = new Vector2(137.31f, 91.47f),
+            HillFreqLow = 0.018f,
+            HillAmpLow = 5.5f,
+            HillFreqHigh = 0.07f,
+            HillAmpHigh = 1.2f,
+            FlatRadius = 38f,
+            RampOuter = 90f,
+            EdgeFlatStart = 145f,
+            EdgeFlatEnd = 170f,
+            RidgeAmp = 9.5f,
+            ValleyDepth = 2.5f,
+            BowlAmp = 6.5f,
+        };
+
+        [Test]
+        public void StructuralTerms_DefaultZero_MatchLegacyRolling()
+        {
+            // A params with all structural amps 0 must equal the legacy
+            // detail-only height at the same point (the fast-out path), so
+            // every pre-119 consumer is byte-for-byte unaffected.
+            var legacy = Hills();                  // RidgeAmp/ValleyDepth/BowlAmp == 0
+            var structured = legacy; structured.RidgeAmp = 0f; // explicit, same struct
+            for (float x = -90f; x <= 90f; x += 30f)
+            for (float z = -90f; z <= 90f; z += 30f)
+                Assert.AreEqual(HeightmapField.Sample(legacy, x, z),
+                                HeightmapField.Sample(structured, x, z), 0f);
+        }
+
+        [Test]
+        public void SpawnCentre_StaysFlat_EvenWithStructure()
+        {
+            // The flat spawn pad must survive the new terms: inside FlatRadius
+            // the master `field` is 0, which gates ridges, valley AND bowls.
+            var p = Arena();
+            Assert.AreEqual(0f, HeightmapField.Sample(p, 0f, 0f), 1e-4f);
+            Assert.AreEqual(0f, HeightmapField.Sample(p, 10f, 8f), 1e-4f);
+        }
+
+        [Test]
+        public void Ridge_RaisesDiagonalCrown_AboveCentreline()
+        {
+            // The diagonal ridges (lines z = ±x) must lift the crown well
+            // above the on-axis approach at the same distance — that's the
+            // whole "X frames the open centre" idea, and it's what keeps the
+            // depot-to-depot sightline (x = 0) clear.
+            var p = Arena();
+            float crown = HeightmapField.Sample(p, 80f, 80f);   // on z = x
+            float onAxis = HeightmapField.Sample(p, 0f, 113f);  // same radius, x = 0
+            Assert.Greater(crown, onAxis + 5f,
+                "Ridge crown must stand clearly above the on-axis centreline at equal radius.");
+        }
+
+        [Test]
+        public void Valley_LowersCentralLine()
+        {
+            // Enabling the valley must drop the z≈0 midline relative to the
+            // identical params without it (the no-man's-land depression).
+            var withValley = Arena();
+            var noValley = withValley; noValley.ValleyDepth = 0f;
+            float a = HeightmapField.Sample(withValley, 100f, 0f);
+            float b = HeightmapField.Sample(noValley, 100f, 0f);
+            Assert.Less(a, b - 2f, "Valley term must measurably lower the central east-west line.");
+        }
+
+        [Test]
+        public void Bowls_AreMirrorSymmetric_AndFloorNearZero()
+        {
+            // North and south base bowls must be identical (fair sides), and
+            // the bowl floor must sit near y=0 so the depot pads (spawned at
+            // y≈0.2) land flush rather than buried or floating.
+            var p = Arena();
+            float north = HeightmapField.Sample(p, 0f, 92f);
+            float south = HeightmapField.Sample(p, 0f, -92f);
+            Assert.AreEqual(north, south, 1e-3f, "Base bowls must mirror north↔south.");
+            Assert.Less(Mathf.Abs(north), 1.5f, "Bowl floor must sit near y=0 for a flush depot pad.");
+        }
+
+        [Test]
+        public void AllStructure_StaysWithinVoxelCeiling()
+        {
+            // Nothing the heightmap produces may poke out the top of the
+            // single-chunk-tall voxel volume (TERRAFORMING_PLAN §7). The
+            // clamp guarantees ≤ 13.5 m of diggable relief; taller drama is
+            // the non-diggable backdrop range. Scan the whole playfield.
+            var p = Arena();
+            for (float x = -170f; x <= 170f; x += 5f)
+            for (float z = -170f; z <= 170f; z += 5f)
+            {
+                float h = HeightmapField.Sample(p, x, z);
+                Assert.LessOrEqual(h, 13.5f + 1e-3f, $"Surface above voxel ceiling at ({x},{z}).");
+                Assert.GreaterOrEqual(h, -10f - 1e-3f, $"Surface below voxel floor at ({x},{z}).");
             }
         }
     }

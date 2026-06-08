@@ -69,7 +69,17 @@ namespace Robogame.Tools.Editor
         /// blocky art direction).
         /// </para>
         /// </remarks>
-        public static void PopulateTestTerrain()
+        /// <param name="buildMountains">
+        /// When true, the legacy scenic ring of tiered-cube pyramid
+        /// mountains is rebuilt INSIDE the wall ring. Defaults to false:
+        /// session 119 ("Sunken Crossing") replaced them with real diggable
+        /// ridges in the heightmap plus a non-diggable backdrop range
+        /// BEYOND the walls (<see cref="ArenaProps"/>). The old pyramids
+        /// read as static test scenery and sat inside the playfield; the
+        /// method is kept (gated) only so the standalone Test-terrain menu
+        /// can still summon them if ever wanted.
+        /// </param>
+        public static void PopulateTestTerrain(bool buildMountains = false)
         {
             GameObject root = GameObject.Find("Terrain");
             if (root != null) Object.DestroyImmediate(root);
@@ -87,7 +97,7 @@ namespace Robogame.Tools.Editor
             MakeBox(root.transform, new Vector3( arenaHalf, wallH * 0.5f, 0f), new Vector3(wallT, wallH, arenaHalf * 2f), "Wall_E");
             MakeBox(root.transform, new Vector3(-arenaHalf, wallH * 0.5f, 0f), new Vector3(wallT, wallH, arenaHalf * 2f), "Wall_W");
 
-            BuildMountainRing(root.transform);
+            if (buildMountains) BuildMountainRing(root.transform);
         }
 
         /// <summary>

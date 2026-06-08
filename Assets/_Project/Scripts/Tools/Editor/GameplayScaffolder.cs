@@ -1044,6 +1044,15 @@ namespace Robogame.Tools.Editor
                 SerializedProperty archPosProp = so.FindProperty("_archPosition");
                 if (archPosProp != null) archPosProp.vector3Value = new Vector3(-25f, 0.5f, 18f);
 
+                // Repair pad — moved off the old (55,55) corner onto the
+                // player's side of the flat inner combat box (session 119
+                // "Sunken Crossing" terrain). The legacy corner sat exactly
+                // on a diagonal ridge crown (~9 m), which floated the pad;
+                // (40,−25) is inside the flat r<56 m centre so the pad lands
+                // flush. South (−z) is the player's half — repair on your side.
+                SerializedProperty repairPosProp = so.FindProperty("_repairPadPosition");
+                if (repairPosProp != null) repairPosProp.vector3Value = new Vector3(40f, 0.1f, -25f);
+
                 so.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(arena);
                 EditorSceneManager.MarkSceneDirty(arena.gameObject.scene);

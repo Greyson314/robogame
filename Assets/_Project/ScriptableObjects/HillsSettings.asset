@@ -23,3 +23,6 @@ MonoBehaviour:
   edgeFlatStart: 145
   edgeFlatEnd: 170
   noiseOffset: {x: 137.31, y: 91.47}
+  ridgeAmp: 9.5
+  valleyDepth: 2.5
+  bowlAmp: 6.5

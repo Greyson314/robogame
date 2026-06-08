@@ -141,6 +141,15 @@ namespace Robogame.Tools.Editor
             // without leaving the main arena. Surface flush with the
             // hilly ground; perimeter wireframe makes the volume visible.
             BuildArenaDigZone(env.transform);
+
+            // Session 119 "Sunken Crossing" set-dressing: non-diggable
+            // backdrop mountain range beyond the walls, rock columns on the
+            // diagonal ridge crowns, and a light tree scatter on the
+            // mid-slopes. All sample the same heightmap as the diggable
+            // ground so they sit ON the terrain. The legacy in-arena pyramid
+            // ring is retired (SceneScaffolder.PopulateTestTerrain no longer
+            // builds it).
+            ArenaProps.Build(env.transform);
         }
 
         /// <summary>
@@ -214,6 +223,9 @@ namespace Robogame.Tools.Editor
             shp.FindPropertyRelative("RampOuter").floatValue     = hp.RampOuter;
             shp.FindPropertyRelative("EdgeFlatStart").floatValue = hp.EdgeFlatStart;
             shp.FindPropertyRelative("EdgeFlatEnd").floatValue   = hp.EdgeFlatEnd;
+            shp.FindPropertyRelative("RidgeAmp").floatValue      = hp.RidgeAmp;
+            shp.FindPropertyRelative("ValleyDepth").floatValue   = hp.ValleyDepth;
+            shp.FindPropertyRelative("BowlAmp").floatValue       = hp.BowlAmp;
 
             // POI chamber, now seeded UNDER the heightmap surface so the
             // player has to drill DOWN to reach the bot. (77,77) sits in
