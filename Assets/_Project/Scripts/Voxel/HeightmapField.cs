@@ -130,6 +130,12 @@ namespace Robogame.Voxel
 
             // ---- Structure: ridges + valley + bowls ---------------------
 
+            // `detailMask` thins the rolling detail toward the structural
+            // features so neither a ridge crown nor a bowl floor fights the
+            // big readable shape (and so crowns don't stack detail on top of
+            // the ridge and saturate flat against the voxel ceiling).
+            float detailMask = 1f;
+
             // Two diagonal ridges (z = x and z = -x), each a Gaussian across
             // the line, windowed to leave an open centre gap and clear flank
             // corridors near the walls. The X never touches x = 0 or z = 0
@@ -141,7 +147,11 @@ namespace Robogame.Voxel
                 float dNeg = (z + x) * Inv2Sqrt; // signed distance to z = -x
                 float gate = Smoothstep(RidgeInnerR, RidgeInnerR + RidgeInnerW, r)
                            * (1f - Smoothstep(RidgeOuterR - RidgeOuterW, RidgeOuterR, r));
-                ridge = p.RidgeAmp * (Gauss(dPos, RidgeWidth) + Gauss(dNeg, RidgeWidth)) * gate;
+                float shape = Gauss(dPos, RidgeWidth) + Gauss(dNeg, RidgeWidth);
+                ridge = p.RidgeAmp * shape * gate;
+                // Thin detail toward the crown → clean peak, not a clamped
+                // mesa. Keep ~25 % so the crown still has surface texture.
+                detailMask *= 1f - 0.75f * Mathf.Clamp01(shape) * gate;
             }
 
             // Shallow east-west valley along z = 0. Windowed by `field` so it
@@ -155,7 +165,6 @@ namespace Robogame.Voxel
             // BowlFloor so each team's depot pad lands ~flush. Using |z|
             // mirrors the bowl to both sides.
             float bowl = 0f;
-            float detailMask = 1f;
             if (p.BowlAmp != 0f)
             {
                 float bz = Mathf.Abs(z) - BowlZ;
@@ -165,7 +174,7 @@ namespace Robogame.Voxel
                       - dip * GaussSq(d2, BowlDipSigma)) * field;
                 // Suppress rolling detail toward each bowl centre so the
                 // depot ground is predictable (the pad is a flat disc).
-                detailMask = 1f - GaussSq(d2, BowlDipSigma);
+                detailMask *= 1f - GaussSq(d2, BowlDipSigma);
             }
 
             float h = detail * field * detailMask + ridge + valley + bowl;
