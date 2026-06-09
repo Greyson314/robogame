@@ -118,6 +118,14 @@ existing `BlockVisuals` idiom are an acceptable fallback when no pack fits.
 
 ## Log
 
+- **Play-mode validation pass (MCP).** Loaded Bootstrap → Play → main menu
+  (clean, 0 errors) → `SceneManager.LoadScene("Garage")` via `RunCommand` →
+  Garage loaded with **0 errors/warnings**, and a reflection probe confirmed
+  `BuildModeController.IsActive == true` — i.e. the garage opens directly in
+  build mode at runtime (not just in code). Validates the build-mode entry,
+  `DisableCombat`, and Lab/HUD init don't throw on the real startup path.
+  Still wants a human eyeball for the *visual* items (smoke/mine/ADS look).
+
 - **Pattern established + Cat-A item 1 (thruster power override).** Added
   `Dev.Thruster.Power` Tweakable (1.0×, range 0–5×) under the existing
   "Dev (Override Chassis Tuning)" master toggle, a compile-stripped
