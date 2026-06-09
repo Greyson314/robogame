@@ -109,7 +109,13 @@ state contract. Needs a design pass before code.
 
 ### Category B — Visuals, VFX & rendering
 - [ ] Module in-game models not showing in garage
-- [ ] Weapons are red cubes → real models *(model decision)*
+- [x] Weapons are red cubes → real models. **Cannon + Mortar** now use the
+      Fatty turret models (`WeaponStatsDefinition._turretModel` + `WeaponModelRig`;
+      Cannon→FattyCannonG02, Mortar→FattyMortarG02). Fixed the pack's null FBX
+      material slots → URP Palette256. Scene-verified. **SMG + Bomb still
+      pending** a model choice (no clean Fatty match — SMG could take the
+      Missile pod, Bomb the Catapult; `WeaponBlock` shares the same rig so it's
+      a quick extension).
 - [ ] Garage = bubble shield in space
 - [x] Mines barely visible — bigger lighter disc (0.5→0.85), bigger glow dot
       (0.13→0.26), + a tall amber beacon so they read from distance/above.
