@@ -47,6 +47,42 @@ existing `BlockVisuals` idiom are an acceptable fallback when no pack fits.
   Defaulting to (b) if no pack is provided, since it's reversible and
   dependency-free. **Flagging, not blocking** — model items are sequenced last.
 
+## Remaining work — all needs your input (loop paused here)
+
+After 14 shipped fixes + a green Play validation, everything left is gated:
+
+**Decisions / clarifications (quick):**
+- "Bases do 2× damage" — what is "base"? (no such system in code)
+- Healing/Nanite-Pulse module — keep or remove? (note said "maybe")
+- Mortar won't fire — on the same bot, *does the cannon fire?*
+- CPU-delete "explodes" — what action deletes it / what does explode look like?
+  (the CPU is already un-deletable via the normal path)
+
+**Asset-pack decision (unblocks 4 model items):** weapons-as-cubes, module
+models, distinct module visuals, garage bubble. Provide a stylized low-poly
+pack, or approve procedural `BlockVisuals`-idiom meshes as the fallback.
+
+**Feature sign-offs (architectural — proposed below):** block rotation, battery.
+
+### Proposal: block rotation
+`Entry.Up` is the *structural* mount face (`PlacementRules.ResolveHostCell`
+needs support on the block's `-Up`), so it can't double as free rotation.
+Recommended approach — add a new `Entry.Yaw` (0/90/180/270, serialized like
+`Pitch`, default 0 = today's behaviour, fully back-compat):
+1. `ChassisBlueprint.Entry` + `BlueprintSerializer` gain `Yaw`.
+2. `BlockEditor`: an `R` key cycles a pending yaw; ghost preview reflects it;
+   `TryPlace` passes it through.
+3. `ChassisFactory` applies `Yaw` as a local rotation about `Up` when building
+   the block rig — `ThrusterBlock` thrust uses `transform.forward`, so it
+   follows the rig for free.
+- **Open Q:** yaw-about-Up only (covers thrusters/weapons facing) vs. also
+  free 6-face Up re-point? Recommend shipping yaw-about-Up first.
+
+### Proposal: battery mechanic
+New gameplay system (energy pool feeding thrusters/modules/weapons). Wants its
+own ADR — touches movement, combat, modules, HUD, and the MP-authoritative
+state contract. Needs a design pass before code.
+
 ## Checklist
 
 ### Category A — Combat & physics tuning
