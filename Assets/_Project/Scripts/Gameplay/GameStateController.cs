@@ -231,6 +231,40 @@ namespace Robogame.Gameplay
         }
 
         /// <summary>
+        /// Clone <see cref="CurrentBlueprint"/> into a fresh user slot with a
+        /// unique "&lt;name&gt; Copy" display name and persist it, so the roster
+        /// gains a new entry that becomes the working blueprint. Returns the new
+        /// file name (or null if there's nothing to duplicate). Playtest
+        /// (session 120). Nulling <see cref="CurrentUserFileName"/> first forces
+        /// <see cref="SaveCurrentBlueprint"/> to mint a new file rather than
+        /// overwrite the source.
+        /// </summary>
+        public string DuplicateCurrentBlueprint()
+        {
+            if (CurrentBlueprint == null) return null;
+            ChassisBlueprint dup = CloneBlueprint(CurrentBlueprint);
+            dup.DisplayName = UniqueCopyName(CurrentBlueprint.DisplayName);
+            CurrentBlueprint = dup;
+            CurrentPresetIndex = -1;
+            CurrentUserFileName = null;
+            return SaveCurrentBlueprint();
+        }
+
+        // Lowest unused "<base> Copy" / "<base> Copy N" among existing user
+        // blueprints, so duplicating twice doesn't collide on one name.
+        private string UniqueCopyName(string baseName)
+        {
+            if (string.IsNullOrWhiteSpace(baseName)) baseName = "Robot";
+            var taken = new System.Collections.Generic.HashSet<string>();
+            foreach (UserBlueprintLibrary.Record rec in _userBlueprints)
+                if (rec.Blueprint != null && !string.IsNullOrEmpty(rec.Blueprint.DisplayName))
+                    taken.Add(rec.Blueprint.DisplayName);
+            string candidate = baseName + " Copy";
+            for (int n = 2; taken.Contains(candidate); n++) candidate = baseName + " Copy " + n;
+            return candidate;
+        }
+
+        /// <summary>
         /// Persist <see cref="CurrentBlueprint"/> to the user library. If
         /// the current blueprint was loaded from a user file, the existing
         /// file is overwritten; otherwise a new uniquely-named file is

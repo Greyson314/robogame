@@ -94,8 +94,16 @@ existing `BlockVisuals` idiom are an acceptable fallback when no pack fits.
       Cannon/Mortar/BombBay/GrappleMagnet blocks + the `ModuleSystem`.
 - [ ] Remove blink module → forward burst-of-speed module
 - [ ] Maybe remove healing module *(decision)*
-- [ ] Duplicate-robot button (clone into new slot)
-- [ ] Deleting CPU in garage explodes the bot
+- [x] Duplicate-robot button — `GameStateController.DuplicateCurrentBlueprint`
+      (clone → unique "<name> Copy" → new slot → save) + a "Duplicate" button
+      in `SceneTransitionHud` (row 9).
+- [ ] ⚠ Deleting CPU explodes the bot — **DEFERRED, can't repro statically.**
+      The only garage delete path is `BlockEditor.TryRemove` → `BuildSession.
+      TryRemove`, which already rejects `Category == Cpu` ("CPU is sacred"), and
+      `BlockDef_Cpu` IS category 1. So the CPU can't be removed via the normal
+      path. **Question for the user:** what exact action deletes it / what does
+      "explode" look like (VFX? blocks fly apart on launch)? Possibly deleting a
+      *support* block under the CPU, or a stale build. Not blind-patching.
 - [ ] Block rotation (e.g. thrusters)
 
 ### Backlog (not this session)

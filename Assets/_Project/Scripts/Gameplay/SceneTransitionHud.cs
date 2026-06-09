@@ -35,6 +35,7 @@ namespace Robogame.Gameplay
         private Dropdown _presetDropdown;
         private Button _newButton;
         private Button _saveButton;
+        private Button _duplicateButton;
         private Button _buildButton;
         private Button _labButton;
         private Button _deleteButton;
@@ -181,6 +182,7 @@ namespace Robogame.Gameplay
             _waterButton  = BuildSmallButton(canvasGO.transform, "WaterArenaButton",  "Water Arena ▶", row: 6, HandleWaterClicked);
             _planetButton = BuildSmallButton(canvasGO.transform, "PlanetArenaButton", "Planet Arena ▶", row: 7, HandlePlanetClicked);
             _labButton    = BuildSmallButton(canvasGO.transform, "LabButton",         "Laboratory",    row: 8, HandleLabClicked);
+            _duplicateButton = BuildSmallButton(canvasGO.transform, "DuplicateRobotButton", "Duplicate", row: 9, HandleDuplicateClicked);
             _nameField    = BuildNameField(canvasGO.transform, row: 5);
             _buildLabel   = _buildButton != null ? _buildButton.GetComponentInChildren<Text>() : null;
         }
@@ -464,6 +466,7 @@ namespace Robogame.Gameplay
             if (_presetDropdown != null) _presetDropdown.gameObject.SetActive(inGarage);
             if (_newButton   != null)    _newButton.gameObject.SetActive(inGarage);
             if (_saveButton  != null)    _saveButton.gameObject.SetActive(inGarage);
+            if (_duplicateButton != null) _duplicateButton.gameObject.SetActive(inGarage);
             if (_buildButton != null)    _buildButton.gameObject.SetActive(inGarage);
             if (_labButton != null)      _labButton.gameObject.SetActive(inGarage);
             if (_waterButton != null)    _waterButton.gameObject.SetActive(inGarage);
@@ -593,6 +596,19 @@ namespace Robogame.Gameplay
             CommitNameField(state);
             string fileName = state.SaveCurrentBlueprint();
             Debug.Log($"[Robogame] Saved blueprint to '{fileName}'.");
+            _catalogDirty = true;
+        }
+
+        private void HandleDuplicateClicked()
+        {
+            GameStateController state = GameStateController.Instance;
+            if (state == null || state.CurrentBlueprint == null) return;
+            // Commit any pending name edit so the copy is named off the
+            // current text, then clone into a fresh slot. GarageController
+            // respawns from PresetChanged fired inside the save.
+            CommitNameField(state);
+            string fileName = state.DuplicateCurrentBlueprint();
+            Debug.Log($"[Robogame] Duplicated blueprint to '{fileName}'.");
             _catalogDirty = true;
         }
 
