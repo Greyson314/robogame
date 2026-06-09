@@ -123,7 +123,22 @@ namespace Robogame.Gameplay
         {
             _editingId = string.Empty;
             _dmg = _size = _kb = Concoction.DefaultPct;
-            SyncEditorToFields("New Mix");
+            SyncEditorToFields(NextFreeMixName());
+        }
+
+        // Default a fresh recipe to the lowest unused "Mix N" instead of a fixed
+        // "New Mix" (playtest, session 120 — every recipe defaulted to the same
+        // name). The player can still rename in the field before saving.
+        private static string NextFreeMixName()
+        {
+            var taken = new HashSet<string>();
+            foreach (Concoction c in ConcoctionRegistry.GetAll())
+                if (c != null && !string.IsNullOrEmpty(c.DisplayName)) taken.Add(c.DisplayName);
+            for (int n = 1; ; n++)
+            {
+                string candidate = "Mix " + n;
+                if (!taken.Contains(candidate)) return candidate;
+            }
         }
 
         private void LoadIntoEditor(Concoction c)

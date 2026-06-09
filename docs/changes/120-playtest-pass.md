@@ -86,8 +86,12 @@ existing `BlockVisuals` idiom are an acceptable fallback when no pack fits.
 ### Category C — Garage & module UX / systems
 - [x] Garage entry starts in drive mode → build mode (`GarageController.Start`
       calls `_buildMode.Enter()` after wiring; idempotent)
-- [ ] Concoctions nameable; default "Mix N" (next free index), not "new mix"
-- [ ] Modules usable / weapons fireable in garage → should be disabled
+- [x] Concoctions default "Mix N" (next free index) not "New Mix"
+      (`LabController.NextFreeMixName`). Field-editability part: the `_nameField`
+      is a live input that `Save` already reads — verify typing works in Play.
+- [x] Modules usable / weapons fireable in garage → disabled. `DisableWeapons`
+      only killed `ProjectileGun`; now `DisableCombat` also disables
+      Cannon/Mortar/BombBay/GrappleMagnet blocks + the `ModuleSystem`.
 - [ ] Remove blink module → forward burst-of-speed module
 - [ ] Maybe remove healing module *(decision)*
 - [ ] Duplicate-robot button (clone into new slot)

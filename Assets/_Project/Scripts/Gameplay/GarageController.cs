@@ -115,7 +115,7 @@ namespace Robogame.Gameplay
             Chassis = SpawnChassis(state);
             ClampToHoverHeight(Chassis);
             ParkChassis(Chassis);
-            DisableWeapons(Chassis);
+            DisableCombat(Chassis);
             BindFollowCamera(Chassis);
             EnsureBuildModeWired();
         }
@@ -155,7 +155,7 @@ namespace Robogame.Gameplay
             Chassis = SpawnChassis(state);
             ClampToHoverHeight(Chassis);
             ParkChassis(Chassis);
-            DisableWeapons(Chassis);
+            DisableCombat(Chassis);
             BindFollowCamera(Chassis);
             EnsureBuildModeWired();
             // Playtest (session 120): entering the garage — including from a
@@ -198,14 +198,29 @@ namespace Robogame.Gameplay
         /// build-mode previews. Re-enabling later is just
         /// <c>gun.enabled = true</c> if a future feature wants it.
         /// </remarks>
-        private static void DisableWeapons(GameObject chassis)
+        // Silence everything that reads fire/module input while parked in the
+        // garage (playtest, session 120 — cannons, mortars, bombs, the grapple,
+        // and modules were all still live). The SMG fires via ProjectileGun;
+        // the cannon/mortar/bomb/grapple fire from their own behaviours; modules
+        // activate from the single ModuleSystem on the robot. Launch destroys
+        // this chassis and the Arena builds a fresh, unfrozen one, so these are
+        // never re-enabled here.
+        private static void DisableCombat(GameObject chassis)
         {
             if (chassis == null) return;
-            ProjectileGun[] guns = chassis.GetComponentsInChildren<ProjectileGun>(includeInactive: true);
-            foreach (ProjectileGun g in guns)
-            {
-                if (g != null) g.enabled = false;
-            }
+            DisableAll<ProjectileGun>(chassis);
+            DisableAll<CannonBlock>(chassis);
+            DisableAll<MortarBlock>(chassis);
+            DisableAll<BombBayBlock>(chassis);
+            DisableAll<GrappleMagnetBlock>(chassis);
+            DisableAll<ModuleSystem>(chassis);
+        }
+
+        private static void DisableAll<T>(GameObject root) where T : MonoBehaviour
+        {
+            T[] comps = root.GetComponentsInChildren<T>(includeInactive: true);
+            foreach (T c in comps)
+                if (c != null) c.enabled = false;
         }
 
         /// <summary>
