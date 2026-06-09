@@ -90,6 +90,15 @@ namespace Robogame.Gameplay
             BlockCategory.Cosmetic,
         };
 
+        // Block ids removed from the build palette but deliberately kept in the
+        // BlockDefinitionLibrary so existing saved blueprints that still
+        // reference them keep loading. Session 120: the healing / Nanite Pulse
+        // module was cut per playtest.
+        private static readonly HashSet<string> s_hiddenFromPalette = new()
+        {
+            BlockIds.ModuleRepair,
+        };
+
         private static readonly Dictionary<BlockCategory, string> s_categoryLabel = new()
         {
             { BlockCategory.Structure, "Structure" },
@@ -261,6 +270,9 @@ namespace Robogame.Gameplay
             foreach (BlockDefinition def in lib.Definitions)
             {
                 if (def == null) continue;
+                // Cut from the palette but kept in the library so old blueprints
+                // that still reference it keep loading (session 120).
+                if (s_hiddenFromPalette.Contains(def.Id)) continue;
                 if (!_byCategory.TryGetValue(def.Category, out var list))
                 {
                     list = new List<BlockDefinition>();

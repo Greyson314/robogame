@@ -56,8 +56,8 @@ namespace Robogame.Gameplay
         [Tooltip("If true, enemy robots inside the volume take damage-over-time. Set false to disable the grinder hazard while keeping the deposit feature.")]
         [SerializeField] private bool _grinderEnabled = true;
 
-        [Tooltip("HP per second applied to each enemy block in the volume. Distributed via splash damage on the closest block to the depot centre. 50 HP/s ≈ 3–5 s for a small chassis to die. Per SCRAP_LOOP_PLAN § 4.")]
-        [SerializeField, Min(0f)] private float _grinderDamagePerSecond = 50f;
+        [Tooltip("HP per second applied to each enemy block in the volume. Distributed via splash damage on the closest block to the depot centre. 100 HP/s ≈ 1.5–2.5 s for a small chassis to die. Per SCRAP_LOOP_PLAN § 4; doubled in session 120 playtest (the depot is the 'base' and its DOT was too weak).")]
+        [SerializeField, Min(0f)] private float _grinderDamagePerSecond = 100f;
 
         [Tooltip("Seconds between grinder damage applications. Coarser ticks ⇒ fewer splash calls; 0.25 s = 4 Hz which reads as a continuous burn without being expensive.")]
         [SerializeField, Min(0.05f)] private float _grinderDamageInterval = 0.25f;

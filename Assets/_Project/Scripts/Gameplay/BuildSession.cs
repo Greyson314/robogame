@@ -407,6 +407,19 @@ namespace Robogame.Gameplay
             public bool PrimarySucceeded => Primary == PlacementRules.PlacementError.None;
         }
 
+        // CPU is sacred — never removable. Identify it by the CpuBlockMarker
+        // component, which BlockGrid attaches to every Cpu-category block at
+        // placement time. Keying off the marker (not just Definition.Category)
+        // means a null/stale BlockBehaviour.Definition can't bypass the guard:
+        // session 120 playtest, a right-click on the CPU slipped past the
+        // Definition-only check, removed the CPU, and the resulting CPU-loss
+        // cascade tore the whole bot apart. Category is a belt-and-braces
+        // fallback for any CPU block that somehow lacks the marker.
+        private static bool IsCpu(BlockBehaviour b)
+            => b != null
+               && (b.GetComponent<CpuBlockMarker>() != null
+                   || (b.Definition != null && b.Definition.Category == BlockCategory.Cpu));
+
         public RemoveOutcome TryRemove(Vector3Int cell)
         {
             if (Grid == null || !Grid.TryGetBlock(cell, out BlockBehaviour block) || block == null)
@@ -414,7 +427,7 @@ namespace Robogame.Gameplay
 
             // CPU is sacred. Removal-policy rule kept inside the verb so
             // every consumer enforces it; the caller's UI maps it to a buzzer.
-            if (block.Definition != null && block.Definition.Category == BlockCategory.Cpu)
+            if (IsCpu(block))
                 return new RemoveOutcome(PlacementRules.PlacementError.HostFaceRejectsBlockType, PlacementRules.PlacementError.None, false);
 
             // Rotor cascade: removing a rotor co-removes its auto-placed
@@ -441,7 +454,7 @@ namespace Robogame.Gameplay
                 if (mCell != cell && Grid.TryGetBlock(mCell, out BlockBehaviour mBlock) && mBlock != null)
                 {
                     mirrorAttempted = true;
-                    if (mBlock.Definition != null && mBlock.Definition.Category == BlockCategory.Cpu)
+                    if (IsCpu(mBlock))
                     {
                         // CPU-sacred — silently skip the mirror, no buzzer.
                     }
