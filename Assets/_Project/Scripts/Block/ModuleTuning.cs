@@ -56,9 +56,10 @@ namespace Robogame.Block
 
         private static Row RowFor(ModuleKind kind) => kind switch
         {
-            // power = launch impulse (N·s). Default ½ of the session-104
-            // spring (140) per the design brief; 10 s base cooldown.
-            ModuleKind.Spring => new Row(70f, 10f, 0f),
+            // power = launch impulse (N·s). Session 120 playtest: the ½-of-140
+            // brief default read as too weak, so the untuned default is raised
+            // toward the old full-strength spring; 10 s base cooldown.
+            ModuleKind.Spring => new Row(120f, 10f, 0f),
             // power = lockout radius (m); fixed 3 s weapon disable.
             ModuleKind.EmpBurst => new Row(8f, 15f, 3f),
             // power = teleport range (m); instantaneous.

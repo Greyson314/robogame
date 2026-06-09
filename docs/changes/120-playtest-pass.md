@@ -51,11 +51,14 @@ existing `BlockVisuals` idiom are an acceptable fallback when no pack fits.
 
 ### Category A — Combat & physics tuning
 - [x] Thruster power override (dev Tweakable, global ×-multiplier, compile-stripped)
-- [ ] Thrusters feel too weak — raise baseline (separate from the override knob)
-- [ ] Bomb knockback stronger
-- [ ] Mortar not fireable + aim laser missing
-- [ ] Bases deal ≥2× damage to enemies
-- [ ] Increase default spring power
+- [x] Thrusters feel too weak — baseline `DefaultMaxThrust` 620 → 900
+- [x] Bomb knockback stronger — `Bomb_Default` knockback 40 → 80 (Δv ~9.6 m/s, sub-ceiling)
+- [ ] Mortar not fireable + aim laser missing *(bug — needs investigation)*
+- [ ] ⚠ Bases deal ≥2× damage to enemies — **NEEDS CLARIFICATION**: no arena
+      base / turret / objective damage system exists in the codebase. What is
+      "base"? (home base, capture point, defensive turret, ramming?) Flagged,
+      skipped pending answer.
+- [x] Increase default spring power — Spring module `DefaultPower` 70 → 120
 - [ ] Battery mechanic (large — likely its own ADR)
 
 ### Category B — Visuals, VFX & rendering

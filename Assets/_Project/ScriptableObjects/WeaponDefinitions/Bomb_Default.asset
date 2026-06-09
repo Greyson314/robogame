@@ -12,11 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb903452317d9ac4e977da1cf2635fe7, type: 3}
   m_Name: Bomb_Default
   m_EditorClassIdentifier: Robogame.Combat::Robogame.Combat.BombDefinition
-  _dropInterval: 1.2
   _damage: 80
-  _radius: 18
-  _initialSpeed: 2
-  _knockbackImpulse: 40
+  _knockbackImpulse: 80
   _clipSize: 4
   _reloadDuration: 4
   _autoReloadDelay: 0.3
+  _dropInterval: 1.2
+  _radius: 18
+  _initialSpeed: 2
