@@ -132,19 +132,58 @@ namespace Robogame.Tools.Editor
             }
         }
 
+        // Real stones from the Stylized Nature Pack (URP-converted), placed on
+        // the ridge crowns in place of the old procedural cubes.
+        private static readonly string[] StonePrefabs =
+        {
+            "Assets/Stylized Nature Pack/Stones/_Prefabs/Stone_1.prefab",
+            "Assets/Stylized Nature Pack/Stones/_Prefabs/Stone_2.prefab",
+            "Assets/Stylized Nature Pack/Stones/_Prefabs/Stone_3.prefab",
+            "Assets/Stylized Nature Pack/Stones/_Prefabs/Stone_4.prefab",
+            "Assets/Stylized Nature Pack/Stones/_Prefabs/Stone_5.prefab",
+            "Assets/Stylized Nature Pack/Stones/_Prefabs/Stone_6.prefab",
+            "Assets/Stylized Nature Pack/Stones/_Prefabs/Stone_7.prefab",
+        };
+        private const float StoneBaseScale = 3.0f;
+
         private static void BuildRockCluster(Transform parent, Vector3 crown, int idx)
         {
-            int rocksInCluster = 2 + (int)(Hash(idx * 5) * 1.99f); // 2–3
-            for (int k = 0; k < rocksInCluster; k++)
+            int count = 1 + (int)(Hash(idx * 5) * 1.99f); // 1–2 stones per crown
+            for (int k = 0; k < count; k++)
             {
-                float ox = (Hash(idx * 9 + k) - 0.5f) * 6f;
-                float oz = (Hash(idx * 9 + k + 1) - 0.5f) * 6f;
-                float h = Mathf.Lerp(3f, 6.5f, Hash(idx * 11 + k));
-                float w = h * Mathf.Lerp(0.55f, 0.9f, Hash(idx * 17 + k));
-                // Sit the rock base on the crown; pivot is centre so lift h/2.
-                Vector3 pos = crown + new Vector3(ox, h * 0.5f, oz);
-                MakeBox(parent, pos, new Vector3(w, h, w), $"RidgeRock_{idx}_{k}",
+                float ox = (Hash(idx * 9 + k) - 0.5f) * 9f;
+                float oz = (Hash(idx * 9 + k + 1) - 0.5f) * 9f;
+                BuildStone(parent, crown + new Vector3(ox, 0f, oz), idx * 7 + k);
+            }
+        }
+
+        private static void BuildStone(Transform parent, Vector3 ground, int seed)
+        {
+            string path = StonePrefabs[(int)(Hash(seed * 31) * StonePrefabs.Length) % StonePrefabs.Length];
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (prefab == null)
+            {
+                // Fallback to a slate cube if the pack is missing.
+                float fh = Mathf.Lerp(3f, 6f, Hash(seed * 11));
+                MakeBox(parent, ground + new Vector3(0f, fh * 0.5f, 0f),
+                        new Vector3(fh * 0.8f, fh, fh * 0.8f), $"RidgeRock_{seed}",
                         WorldPalette.ArenaWall, stripCollider: false);
+                return;
+            }
+            GameObject stone = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            stone.name = $"Stone_{seed:D2}";
+            float s = StoneBaseScale * Mathf.Lerp(0.7f, 1.5f, Hash(seed * 7));
+            stone.transform.SetPositionAndRotation(
+                ground,
+                Quaternion.Euler((Hash(seed * 5) - 0.5f) * 24f, Hash(seed * 3) * 360f, (Hash(seed * 9) - 0.5f) * 24f));
+            stone.transform.localScale = Vector3.one * s;
+            SetStaticRecursive(stone);
+            // Solid cover: mesh-collide the stone so robots can hide behind it.
+            foreach (var mr in stone.GetComponentsInChildren<MeshRenderer>())
+            {
+                var mf = mr.GetComponent<MeshFilter>();
+                if (mf != null && mf.sharedMesh != null)
+                    mr.gameObject.AddComponent<MeshCollider>().sharedMesh = mf.sharedMesh;
             }
         }
 
