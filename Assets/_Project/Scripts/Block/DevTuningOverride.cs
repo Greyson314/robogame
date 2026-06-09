@@ -83,6 +83,25 @@ namespace Robogame.Block
         }
 
         /// <summary>
+        /// Global thrust multiplier (playtest feel knob). Multiplies every
+        /// thruster's resolved MaxThrust uniformly so per-block balance is
+        /// preserved. Always 1.0 in shipping builds (path compile-stripped),
+        /// so it can be read unconditionally on the physics hot path without
+        /// a branch. 1.0 when the master override toggle is off.
+        /// </summary>
+        public static float ThrusterPowerMultiplier
+        {
+            get
+            {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                return Active ? Tweakables.Get(Tweakables.DevThrusterPower) : 1f;
+#else
+                return 1f;
+#endif
+            }
+        }
+
+        /// <summary>
         /// Hover blade tuning. Three baseline knobs (N=2 spring constant,
         /// damping coefficient, target altitude); the per-instance N²
         /// scaling happens inside <c>HoverBladeBlock</c>. The struct

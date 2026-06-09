@@ -133,7 +133,10 @@ namespace Robogame.Movement
             // — not throttle — keeps the cruise control feel intact: the
             // chassis still wants to fly, it just produces less push per
             // unit of throttle when hauling.
-            float thrust = _throttle * MaxThrust * control.SpeedMultiplier;
+            // TRACE[INV-1]: dev-only global multiplier; compile-stripped to 1.0 in
+            // shipping builds, so it never affects MP-authoritative outcomes.
+            float thrust = _throttle * MaxThrust * control.SpeedMultiplier
+                           * Robogame.Block.DevTuningOverride.ThrusterPowerMultiplier;
             if (thrust <= 0f) return;
 
             // Push along this thruster's forward axis (which is also the

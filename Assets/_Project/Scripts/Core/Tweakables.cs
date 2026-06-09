@@ -190,6 +190,11 @@ namespace Robogame.Core
 
         public const string DevThrusterIdleThrottle    = "Dev.Thruster.IdleThrottle";
         public const string DevThrusterThrottleResponse = "Dev.Thruster.ThrottleResponse";
+        // Global thrust multiplier for live feel iteration (playtest note:
+        // "thrusters feel too weak"). Scales every thruster's resolved
+        // MaxThrust uniformly so the per-block/blueprint balance is
+        // preserved — 1.0 = shipped values. Compile-stripped like the rest.
+        public const string DevThrusterPower           = "Dev.Thruster.Power";
 
         // Hover blade live-tuning overrides — N=2 baseline values; lift /
         // damping scale with N² per-instance in HoverBladeBlock. Same
@@ -431,6 +436,7 @@ namespace Robogame.Core
 
             Register(DevThrusterIdleThrottle,    "Dev (Override Chassis Tuning)", "Thruster: Idle Throttle",    0.4f, 0f, 1f);
             Register(DevThrusterThrottleResponse, "Dev (Override Chassis Tuning)", "Thruster: Throttle Response", 3.5f, 0f, 20f);
+            Register(DevThrusterPower,            "Dev (Override Chassis Tuning)", "Thruster: Power ×",      1.0f, 0f, 5f);
 
             Register(DevHoverSpringK,         "Dev (Override Chassis Tuning)", "Hover: Spring K (N=2)",       800f,  0f, 4000f);
             Register(DevHoverDampingC,        "Dev (Override Chassis Tuning)", "Hover: Damping C (N=2)",       60f,  0f, 400f);
