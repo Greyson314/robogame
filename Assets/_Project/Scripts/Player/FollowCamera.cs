@@ -486,22 +486,33 @@ namespace Robogame.Player
             if (_target == null) { _chassisRenderers = null; return; }
             if (_renderersForTarget == _target && _chassisRenderers != null) return;
 
+            // Hide EVERYTHING the player sees. Union of two sources, deduped:
+            //  (1) the full target hierarchy — this is what catches the
+            //      ChassisInstancedRenderer's per-group child meshes, which draw
+            //      the bulk hull and are NOT parented under any grid block; the
+            //      old grid-only walk missed them, leaving "random" structure
+            //      cubes visible during ADS (session 120 playtest).
+            //  (2) the grid blocks' own renderers — catches adopted foils that
+            //      get reparented under a kinematic rotor hub at scene root,
+            //      i.e. OUTSIDE the target hierarchy.
+            var set = new HashSet<Renderer>();
+            foreach (Renderer r in _target.GetComponentsInChildren<Renderer>(includeInactive: true))
+                if (r != null) set.Add(r);
+
             BlockGrid grid = _target.GetComponentInChildren<BlockGrid>(includeInactive: true);
             if (grid != null)
             {
-                List<Renderer> all = new List<Renderer>(grid.Count * 2);
                 foreach (var kvp in grid.Blocks)
                 {
                     BlockBehaviour b = kvp.Value;
                     if (b == null) continue;
-                    all.AddRange(b.GetComponentsInChildren<Renderer>(includeInactive: true));
+                    foreach (Renderer r in b.GetComponentsInChildren<Renderer>(includeInactive: true))
+                        if (r != null) set.Add(r);
                 }
-                _chassisRenderers = all.ToArray();
             }
-            else
-            {
-                _chassisRenderers = _target.GetComponentsInChildren<Renderer>(includeInactive: true);
-            }
+
+            _chassisRenderers = new Renderer[set.Count];
+            set.CopyTo(_chassisRenderers);
             _renderersForTarget = _target;
         }
 

@@ -83,7 +83,12 @@ existing `BlockVisuals` idiom are an acceptable fallback when no pack fits.
 - [ ] Deeper dirt darker
 - [ ] Distinct visual per module *(model decision)*
 - [ ] Ropes vanish on play→garage return
-- [ ] ADS: whole bot should go invisible (currently inverted/partial)
+- [x] ADS: whole bot now goes invisible. Root cause: the ADS hide walked
+      `grid.Blocks` only, missing the `ChassisInstancedRenderer`'s per-group
+      child meshes (the bulk hull, not parented under any block) → "random"
+      cubes stayed visible. Fix: `EnsureChassisRendererCache` now unions the
+      full target hierarchy (catches instanced group meshes) with grid-block
+      renderers (catches reparented foils), deduped. *Eyeball in Play.*
 
 ### Category C — Garage & module UX / systems
 - [x] Garage entry starts in drive mode → build mode (`GarageController.Start`
