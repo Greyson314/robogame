@@ -600,23 +600,27 @@ namespace Robogame.Core
             // translucent so it reads as smoke, not a wall.
             var main = ps.main;
             main.duration = 0.5f;
-            main.startLifetime = new ParticleSystem.MinMaxCurve(3.5f, 5.5f);
+            // Session 120 playtest: smoke read too opaque, too small, too short.
+            // Longer-lived, larger puffs, thinner alpha so it billows wide and
+            // hangs around instead of popping as a small dense ball.
+            main.startLifetime = new ParticleSystem.MinMaxCurve(5.5f, 8.5f);
             main.startSpeed = new ParticleSystem.MinMaxCurve(0.6f, 2.4f);
-            main.startSize = new ParticleSystem.MinMaxCurve(2.0f, 4.0f);
-            // ~0.55 alpha (down from fully opaque) — the particle color
-            // multiplies the alpha-blended mesh material, so this thins it out.
-            Color smokeDark = RuntimePalette.Slate; smokeDark.a = 0.55f;
-            Color smokeLight = RuntimePalette.SlateLight; smokeLight.a = 0.55f;
+            main.startSize = new ParticleSystem.MinMaxCurve(3.5f, 6.5f);
+            // ~0.32 alpha (thinner than before) — the particle color multiplies
+            // the alpha-blended mesh material, so overlap still obscures while a
+            // single puff reads as smoke, not a wall.
+            Color smokeDark = RuntimePalette.Slate; smokeDark.a = 0.32f;
+            Color smokeLight = RuntimePalette.SlateLight; smokeLight.a = 0.32f;
             main.startColor = new ParticleSystem.MinMaxGradient(smokeDark, smokeLight);
             main.gravityModifier = -0.02f; // very slow rise
-            main.maxParticles = 140;
+            main.maxParticles = 200;
 
             var burst = ps.emission;
-            burst.SetBursts(new[] { new ParticleSystem.Burst(0f, 80) });
+            burst.SetBursts(new[] { new ParticleSystem.Burst(0f, 110) });
 
             var shape = ps.shape;
             shape.shapeType = ParticleSystemShapeType.Sphere;
-            shape.radius = 1.6f;
+            shape.radius = 2.6f;
 
             var col = ps.colorOverLifetime;
             col.enabled = true;

@@ -473,16 +473,18 @@ namespace Robogame.Combat
             Collider dc = disc.GetComponent<Collider>();
             if (dc != null) Destroy(dc);
             disc.transform.SetParent(transform, worldPositionStays: false);
-            disc.transform.localScale = new Vector3(0.5f, 0.04f, 0.5f);
-            Tint(disc.GetComponent<Renderer>(), new Color(0.10f, 0.11f, 0.12f));
+            // Session 120 playtest: mines were almost invisible — bigger,
+            // lighter disc so it reads against dark ground.
+            disc.transform.localScale = new Vector3(0.85f, 0.06f, 0.85f);
+            Tint(disc.GetComponent<Renderer>(), new Color(0.16f, 0.17f, 0.20f));
 
-            // Tiny glow dot on top — the subtle tell.
+            // Glow dot on top — the blinking arming→armed tell, now larger.
             GameObject dot = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             Collider sc = dot.GetComponent<Collider>();
             if (sc != null) Destroy(sc);
             dot.transform.SetParent(transform, worldPositionStays: false);
-            dot.transform.localPosition = new Vector3(0f, 0.06f, 0f);
-            dot.transform.localScale = Vector3.one * 0.13f;
+            dot.transform.localPosition = new Vector3(0f, 0.12f, 0f);
+            dot.transform.localScale = Vector3.one * 0.26f;
             _glow = dot.GetComponent<Renderer>();
             if (_glow != null)
             {
@@ -490,6 +492,24 @@ namespace Robogame.Combat
                 _glow.sharedMaterial = s_glowMaterial;       // colour comes from the per-mine MPB
                 _glow.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 _glow.receiveShadows = false;
+            }
+
+            // Tall amber beacon so the mine reads from a distance and from
+            // above, not just when you're standing on it (playtest, session 120).
+            GameObject beacon = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            Collider bc = beacon.GetComponent<Collider>();
+            if (bc != null) Destroy(bc);
+            beacon.transform.SetParent(transform, worldPositionStays: false);
+            beacon.transform.localPosition = new Vector3(0f, 0.5f, 0f);
+            beacon.transform.localScale = new Vector3(0.06f, 0.45f, 0.06f);
+            Renderer br = beacon.GetComponent<Renderer>();
+            if (br != null)
+            {
+                if (s_glowMaterial == null) s_glowMaterial = RuntimeMaterials.UnlitTransparent(Color.white);
+                br.sharedMaterial = s_glowMaterial;
+                br.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                br.receiveShadows = false;
+                Tint(br, new Color(0.95f, 0.62f, 0.10f));
             }
         }
 

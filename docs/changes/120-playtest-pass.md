@@ -76,8 +76,10 @@ existing `BlockVisuals` idiom are an acceptable fallback when no pack fits.
 - [ ] Module in-game models not showing in garage
 - [ ] Weapons are red cubes → real models *(model decision)*
 - [ ] Garage = bubble shield in space
-- [ ] Mines barely visible
-- [ ] Smoke too opaque / small / short-lived
+- [x] Mines barely visible — bigger lighter disc (0.5→0.85), bigger glow dot
+      (0.13→0.26), + a tall amber beacon so they read from distance/above.
+- [x] Smoke too opaque / small / short-lived — alpha 0.55→0.32, size 2-4→3.5-6.5,
+      lifetime 3.5-5.5→5.5-8.5s, radius 1.6→2.6; module radius 6→9, duration 5→8s.
 - [ ] Deeper dirt darker
 - [ ] Distinct visual per module *(model decision)*
 - [ ] Ropes vanish on play→garage return

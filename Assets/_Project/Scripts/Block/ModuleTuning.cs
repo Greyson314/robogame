@@ -67,8 +67,9 @@ namespace Robogame.Block
             // power = dome radius (m); fixed 10 s lifetime. Default 10 m — a
             // big deployable ground dome (≈4× the original 2.5 m bubble).
             ModuleKind.DiscShield => new Row(10f, 20f, 10f),
-            // power = cloud radius (m); duration scales with power.
-            ModuleKind.Smoke => new Row(6f, 12f, 5f),
+            // power = cloud radius (m); duration scales with power. Session 120
+            // playtest: bigger + longer-lived screen (was 6 m / 5 s).
+            ModuleKind.Smoke => new Row(9f, 12f, 8f),
             // power = cloak duration (s) itself; 16 s base cooldown.
             ModuleKind.Invisibility => new Row(5f, 16f, 0f),
             // power = mine centre damage (HP); 8 s cooldown; BaseDuration is
