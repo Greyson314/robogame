@@ -158,6 +158,10 @@ namespace Robogame.Gameplay
             DisableWeapons(Chassis);
             BindFollowCamera(Chassis);
             EnsureBuildModeWired();
+            // Playtest (session 120): entering the garage — including from a
+            // finished match — should drop the player straight into build mode,
+            // not drive mode. Enter() is idempotent, so this is safe.
+            _buildMode?.Enter();
         }
 
         // -----------------------------------------------------------------

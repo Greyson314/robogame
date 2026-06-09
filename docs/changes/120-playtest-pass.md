@@ -53,7 +53,18 @@ existing `BlockVisuals` idiom are an acceptable fallback when no pack fits.
 - [x] Thruster power override (dev Tweakable, global ×-multiplier, compile-stripped)
 - [x] Thrusters feel too weak — baseline `DefaultMaxThrust` 620 → 900
 - [x] Bomb knockback stronger — `Bomb_Default` knockback 40 → 80 (Δv ~9.6 m/s, sub-ceiling)
-- [ ] Mortar not fireable + aim laser missing *(bug — needs investigation)*
+- [ ] ⚠ Mortar not fireable + aim laser missing — **DEFERRED, needs repro
+      input.** Investigated: the mortar's fire path (`Update` → `_input.FireHeld`
+      → `_gate.TryFire`) and arc-preview path (`show = _input != null`) are
+      functionally *identical* to the working `CannonBlock`; both gate on
+      `_input`. `BlockDef_Mortar` is category 3 (Weapon) and binds the same way
+      as the cannon in `RobotWeaponBinder`. `Awake` (where `_input` resolves)
+      runs only after the chassis hierarchy is active, so assembly order
+      shouldn't null it. No default blueprint contains a mortar, so there's no
+      ready repro. **Discriminating question for the user:** on the same bot
+      where the mortar won't fire, *does the cannon fire?* If no → shared input
+      regression; if yes → mortar-specific runtime state. Not blind-patching.
+      "aim laser" = the mortar's orange arc preview (no laser system exists).
 - [ ] ⚠ Bases deal ≥2× damage to enemies — **NEEDS CLARIFICATION**: no arena
       base / turret / objective damage system exists in the codebase. What is
       "base"? (home base, capture point, defensive turret, ramming?) Flagged,
@@ -73,7 +84,8 @@ existing `BlockVisuals` idiom are an acceptable fallback when no pack fits.
 - [ ] ADS: whole bot should go invisible (currently inverted/partial)
 
 ### Category C — Garage & module UX / systems
-- [ ] Garage entry starts in drive mode → should be build mode
+- [x] Garage entry starts in drive mode → build mode (`GarageController.Start`
+      calls `_buildMode.Enter()` after wiring; idempotent)
 - [ ] Concoctions nameable; default "Mix N" (next free index), not "new mix"
 - [ ] Modules usable / weapons fireable in garage → should be disabled
 - [ ] Remove blink module → forward burst-of-speed module
