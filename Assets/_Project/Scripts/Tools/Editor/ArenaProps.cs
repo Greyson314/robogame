@@ -45,6 +45,47 @@ namespace Robogame.Tools.Editor
             BuildBackdropRange(root.transform);
             BuildRidgeRocks(root.transform, hp);
             BuildTreeScatter(root.transform, hp);
+            BuildAtmosphere(root.transform);
+        }
+
+        // -----------------------------------------------------------------
+        // Atmosphere — Stylized Nature Pack particle systems (URP-converted):
+        // drifting ground-fog wisps + falling leaves + ambient dust, for the
+        // misty meadow mood. Sized up from the demo's tiny-terrain values.
+        // -----------------------------------------------------------------
+
+        private const string FogPrefab    = "Assets/Stylized Nature Pack/Particles/_Prefabs/Ground Fog.prefab";
+        private const string LeavesPrefab = "Assets/Stylized Nature Pack/Particles/_Prefabs/Falling Leaves.prefab";
+        private const string DustPrefab   = "Assets/Stylized Nature Pack/Particles/_Prefabs/Dust.prefab";
+
+        private static void BuildAtmosphere(Transform parent)
+        {
+            GameObject atmo = new GameObject("Atmosphere");
+            atmo.transform.SetParent(parent, worldPositionStays: false);
+
+            // Ground-fog wisps ringed across the playfield, hugging the ground.
+            for (int i = 0; i < 7; i++)
+            {
+                float ang = (i / 7f) * Mathf.PI * 2f + 0.3f;
+                float r = 55f + Hash(i * 13) * 80f;
+                PlaceParticle(atmo.transform, FogPrefab,
+                    new Vector3(Mathf.Cos(ang) * r, 2f, Mathf.Sin(ang) * r),
+                    16f + Hash(i * 7) * 8f, $"GroundFog_{i}");
+            }
+            // Falling leaves drifting down over the whole field (high + wide).
+            PlaceParticle(atmo.transform, LeavesPrefab, new Vector3(0f, 75f, 0f), 14f, "FallingLeaves");
+            // Ambient floating dust mid-field.
+            PlaceParticle(atmo.transform, DustPrefab, new Vector3(0f, 14f, 0f), 12f, "Dust");
+        }
+
+        private static void PlaceParticle(Transform parent, string path, Vector3 pos, float scale, string name)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (prefab == null) return; // pack absent → silently skip
+            GameObject go = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            go.name = name;
+            go.transform.position = pos;
+            go.transform.localScale = Vector3.one * scale;
         }
 
         // -----------------------------------------------------------------
