@@ -323,20 +323,8 @@ namespace Robogame.Tools.Editor
             // of detail-noise tile, both held constant across the change.
             mat.SetFloat("_WorldScale",                    32f);
             mat.SetFloat("_SurfaceNormalExclusionEnabled", 1f);
-            // Lowered 2 → 0.5 so grass keeps growing up the steeper ridge
-            // faces (instead of thinning out); the slope-darken below is what
-            // makes those faces read as dark cliff-like slopes.
-            mat.SetFloat("_SurfaceNormalPower",            0.5f);
+            mat.SetFloat("_SurfaceNormalPower",            2f);
             mat.EnableKeyword("_SurfaceNormalExclusionEnabled");
-
-            // [robogame mod] Slope-based grass darkening — grass gets darker
-            // the steeper the ground it sits on, so cliff faces read as dark
-            // mossy slopes rather than bright meadow. _SlopeDarkenStrength is
-            // the max darkening (0 = off, inert default in the shader);
-            // _SlopeDarkenFloorY is the surface up.y at/below which darkening
-            // is full (cos 40° ≈ 0.766). See docs/PACKAGE_MODIFICATIONS.md.
-            mat.SetFloat("_SlopeDarkenStrength", 0.6f);
-            mat.SetFloat("_SlopeDarkenFloorY",   0.766f);
 
             // Tile warp — Robogame package modification to the Fluff
             // shader (docs/PACKAGE_MODIFICATIONS.md). Reuses the shape +
