@@ -69,7 +69,6 @@ namespace Robogame.Tools.Editor
                     "' missing) — falling back to procedural GroundMaterial. " +
                     "Re-import Fluff from Package Manager to enable shell-based grass.");
                 GroundMaterial.ApplyToGround(ground, tilesPerSide: 30);
-                EnsureCliffSlot(ground);
                 return false;
             }
 
@@ -81,7 +80,6 @@ namespace Robogame.Tools.Editor
                     "to clone (path: " + SourceMatPath + "). Falling back to " +
                     "procedural GroundMaterial.");
                 GroundMaterial.ApplyToGround(ground, tilesPerSide: 30);
-                EnsureCliffSlot(ground);
                 return false;
             }
 
@@ -95,7 +93,6 @@ namespace Robogame.Tools.Editor
             mr.sharedMaterial = mat;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; // grass shader handles shells; no need to cast from the base plane
             mr.receiveShadows = true;
-            EnsureCliffSlot(ground); // steep faces (submesh 1) get rock — no grass on cliffs
 
             EditorUtility.SetDirty(mr);
             return true;
@@ -326,8 +323,20 @@ namespace Robogame.Tools.Editor
             // of detail-noise tile, both held constant across the change.
             mat.SetFloat("_WorldScale",                    32f);
             mat.SetFloat("_SurfaceNormalExclusionEnabled", 1f);
-            mat.SetFloat("_SurfaceNormalPower",            2f);
+            // Lowered 2 → 0.5 so grass keeps growing up the steeper ridge
+            // faces (instead of thinning out); the slope-darken below is what
+            // makes those faces read as dark cliff-like slopes.
+            mat.SetFloat("_SurfaceNormalPower",            0.5f);
             mat.EnableKeyword("_SurfaceNormalExclusionEnabled");
+
+            // [robogame mod] Slope-based grass darkening — grass gets darker
+            // the steeper the ground it sits on, so cliff faces read as dark
+            // mossy slopes rather than bright meadow. _SlopeDarkenStrength is
+            // the max darkening (0 = off, inert default in the shader);
+            // _SlopeDarkenFloorY is the surface up.y at/below which darkening
+            // is full (cos 40° ≈ 0.766). See docs/PACKAGE_MODIFICATIONS.md.
+            mat.SetFloat("_SlopeDarkenStrength", 0.6f);
+            mat.SetFloat("_SlopeDarkenFloorY",   0.766f);
 
             // Tile warp — Robogame package modification to the Fluff
             // shader (docs/PACKAGE_MODIFICATIONS.md). Reuses the shape +
@@ -428,30 +437,5 @@ namespace Robogame.Tools.Editor
             }
             mat.SetTexture(propertyName, tex);
         }
-
-        // -----------------------------------------------------------------
-        // Cliff-face submesh (steep slopes show rock, not grass)
-        // -----------------------------------------------------------------
-
-        /// <summary>
-        /// The hills mesh splits steep cliff faces into submesh 1
-        /// (<see cref="HillsGround"/> bake). Ensure the ground renderer carries
-        /// a rock material in that slot so grass never grows on cliffs. No-op
-        /// for a single-submesh (flat-everywhere) mesh or an already-filled slot.
-        /// </summary>
-        private static void EnsureCliffSlot(GameObject ground)
-        {
-            var mf = ground.GetComponent<MeshFilter>();
-            var mr = ground.GetComponent<MeshRenderer>();
-            if (mf == null || mr == null || mf.sharedMesh == null) return;
-            if (mf.sharedMesh.subMeshCount < 2) return;
-            if (mr.sharedMaterials.Length >= 2) return;
-            mr.sharedMaterials = new[] { mr.sharedMaterial, CliffRockMaterial() };
-            EditorUtility.SetDirty(mr);
-        }
-
-        // Rock material for steep cliff faces — the same slate the backdrop
-        // mountains use, so cliffs and peaks read as one cohesive rock palette.
-        private static Material CliffRockMaterial() => WorldPalette.ArenaWall;
     }
 }

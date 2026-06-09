@@ -160,7 +160,7 @@ namespace Robogame.Tools.Editor
             GameObject trees = new GameObject("Trees");
             trees.transform.SetParent(parent, worldPositionStays: false);
 
-            const int candidates = 230; // denser scatter
+            const int candidates = 24; // few, gigantic landmark trees
             const float rMin = 60f, rMax = 150f;
             int placed = 0;
             for (int i = 0; i < candidates; i++)
@@ -188,21 +188,18 @@ namespace Robogame.Tools.Editor
             }
         }
 
-        // Stylized low-poly leafy tree prefabs from the Polytope Studio
-        // "Lowpoly Environments" pack. Broad-canopy fruit trees only (the
-        // thin bluish pines read poorly here and were dropped); the fruit
-        // variants give subtle colour variety (green / apples / pears / plums).
+        // Single leafy tree — the fruitless green variant (no apples/pears).
+        // Only one non-pine tree model ships with the project; a genuinely
+        // different silhouette would need a new asset pack.
         private static readonly string[] TreePrefabs =
         {
             "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/Trees/PT_Fruit_Tree_01_green.prefab",
-            "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/Trees/PT_Fruit_Tree_01_apples.prefab",
-            "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/Trees/PT_Fruit_Tree_01_pears.prefab",
-            "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/Trees/PT_Fruit_Tree_01_plums.prefab",
         };
 
-        // Multiplier on top of the prefabs' already-treelike native scale
-        // (~6.9 m) so they read as substantial leafy landmarks — ~17 m canopies.
-        private const float TreeBaseScale = 2.5f;
+        // GIGANTIC landmark trees — ~8x the previous size so they tower over
+        // the field, block sightlines, and force navigation around their
+        // trunks (which get colliders, below). Native ~6.9 m × 20 ≈ 138 m.
+        private const float TreeBaseScale = 20f;
 
         /// <summary>
         /// Instantiate a stylized Polytope tree prefab (mixed fruit/pine),
@@ -224,8 +221,22 @@ namespace Robogame.Tools.Editor
             tree.transform.SetPositionAndRotation(ground, Quaternion.Euler(0f, yaw, 0f));
             tree.transform.localScale = Vector3.one * s;
             SetStaticRecursive(tree);
-            foreach (var c in tree.GetComponentsInChildren<Collider>())
-                Object.DestroyImmediate(c);
+            // Gigantic trees are real obstacles: give the woody trunk/branch
+            // mesh a MeshCollider so robots navigate around it; leave the leaf
+            // canopy (the "Foliage" renderer) pass-through so shots/leaves
+            // don't block. Strip any stray prefab colliders first.
+            foreach (var mr in tree.GetComponentsInChildren<MeshRenderer>())
+            {
+                var stray = mr.GetComponent<Collider>();
+                if (stray != null) Object.DestroyImmediate(stray);
+
+                string shaderName = mr.sharedMaterial != null && mr.sharedMaterial.shader != null
+                    ? mr.sharedMaterial.shader.name : string.Empty;
+                bool isFoliage = shaderName.Contains("Foliage");
+                var mf = mr.GetComponent<MeshFilter>();
+                if (!isFoliage && mf != null && mf.sharedMesh != null)
+                    mr.gameObject.AddComponent<MeshCollider>().sharedMesh = mf.sharedMesh;
+            }
         }
 
         private static void SetStaticRecursive(GameObject go)

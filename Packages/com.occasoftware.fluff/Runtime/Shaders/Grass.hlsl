@@ -100,6 +100,12 @@ CBUFFER_START(UnityPerMaterial)
     // docs/PACKAGE_MODIFICATIONS.md.
     float _TileWarpStrength;
 
+    // [robogame mod] Slope-based grass darkening. _SlopeDarkenStrength = max
+    // darken amount (0 = inert default); _SlopeDarkenFloorY = surface up.y
+    // at/below which darkening is full. See docs/PACKAGE_MODIFICATIONS.md.
+    float _SlopeDarkenStrength;
+    float _SlopeDarkenFloorY;
+
 
     // RENDER SETTINGS
     int _SurfaceNormalExclusionEnabled;
@@ -546,6 +552,11 @@ float3 Fragment(Geoms IN) : SV_Target
     
     IN.normalWS = normalize(IN.normalWS);
 
+    // [robogame mod] Capture surface slope (up.y) now, before normalWS gets
+    // blended with the grass vector at the lighting stage — used for the
+    // slope-darken applied to albedo below.
+    float robogameSurfaceUpY = IN.normalWS.y;
+
     // [robogame mod] Dig-mask clip. Discard grass over columns the player
     // has dug more than _DigMaskClipDepth below the original heightmap so
     // the decoupled grass layer matches the carved voxel surface. Early
@@ -739,6 +750,12 @@ float3 Fragment(Geoms IN) : SV_Target
     groundColor = SAMPLE_TEXTURE2D(_GroundTex, sampler_GroundTex, warpedUV).rgb;
     tint = lerp(float3(1,1,1), _GrassTintColor, interactivityColors.b);
     albedo = lerp(_BaseColor * groundColor, _TopColor * grassColor, sqrtHeight) * tint;
+
+    // [robogame mod] Darken grass on steeper slopes so cliff faces read as
+    // dark mossy slopes rather than bright meadow. Inert when
+    // _SlopeDarkenStrength == 0. See docs/PACKAGE_MODIFICATIONS.md.
+    float robogameSlopeSteep = 1.0 - smoothstep(_SlopeDarkenFloorY, 1.0, robogameSurfaceUpY);
+    albedo *= lerp(1.0, 1.0 - _SlopeDarkenStrength, robogameSlopeSteep);
     
     
     // Wind Color

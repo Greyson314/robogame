@@ -14,6 +14,60 @@
 
 ---
 
+## com.occasoftware.fluff (v2.1.0) — Slope-based grass darkening
+
+### What
+
+Two material floats (`_SlopeDarkenStrength`, `_SlopeDarkenFloorY`) + a
+fragment edit that multiplies grass albedo by a darkening factor based on
+the **surface slope**. Grass gets darker the steeper the ground it sits
+on, so steep ridge faces read as dark, mossy cliff-like slopes rather than
+bright meadow — without splitting the mesh or swapping to a rock material.
+
+### Why
+
+The arena's "Sunken Crossing" ridges have steep faces the player should
+read as cliffs. An earlier approach split the ground mesh into a grass +
+rock submesh; the user preferred keeping it all grass but darkening the
+steep parts. The surface normal is already in the fragment, so this is a
+one-line albedo multiply.
+
+### Files & how to re-apply after a Fluff upgrade
+
+1. **[`Runtime/Shaders/Grass.hlsl`](../Packages/com.occasoftware.fluff/Runtime/Shaders/Grass.hlsl)**
+   - In the `UnityPerMaterial` CBUFFER (near `_TileWarpStrength`):
+     ```hlsl
+     float _SlopeDarkenStrength;
+     float _SlopeDarkenFloorY;
+     ```
+   - In `Fragment(...)`, right after `IN.normalWS = normalize(IN.normalWS);`,
+     capture the surface slope before it's blended for lighting:
+     ```hlsl
+     float robogameSurfaceUpY = IN.normalWS.y;
+     ```
+   - Right after the `albedo = lerp(...) * tint;` line:
+     ```hlsl
+     float robogameSlopeSteep = 1.0 - smoothstep(_SlopeDarkenFloorY, 1.0, robogameSurfaceUpY);
+     albedo *= lerp(1.0, 1.0 - _SlopeDarkenStrength, robogameSlopeSteep);
+     ```
+2. No `Grass.shader` change — uniforms are set on `Mat_ArenaFluff` by
+   `FluffGround` (`_SlopeDarkenStrength = 0.6`, `_SlopeDarkenFloorY = 0.766`
+   ≈ cos 40°). Defaults are 0 → inert in any scene that doesn't set them.
+
+### Cost
+
+- **One `smoothstep` + a `lerp` multiply** per grass fragment. No extra
+  texture sample, no vertex/geometry change, no URP variant change.
+
+### Tuning
+
+- `_SlopeDarkenStrength` (0 = off, 0.6 default) — max darkening; 1.0 = the
+  steepest grass goes near-black.
+- `_SlopeDarkenFloorY` (0.766 ≈ cos 40°) — surface up.y at/below which the
+  darkening is full; raise toward 1 to start darkening on gentler slopes.
+
+---
+
 ## com.occasoftware.fluff (v2.1.0) — Top-down dig-mask grass clip
 
 ### What

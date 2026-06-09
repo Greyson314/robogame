@@ -82,7 +82,7 @@ namespace Robogame.Voxel
         // -----------------------------------------------------------------
 
         // Diagonal ridges run along the lines z = x and z = -x.
-        private const float RidgeWidth   = 14f;   // Gaussian half-width across a ridge line (m) — narrow → steep cliff-like faces
+        private const float RidgeWidth   = 11f;   // Gaussian half-width across a ridge line (m) — narrower → steeper cliff faces (amplitude is capped by the diggable voxel ceiling, so steepness comes from width)
         private const float RidgeInnerR  = 56f;   // ridges fade IN beyond this radius (open centre gap + flat mid-field combat box keeps spawned targets grounded)
         private const float RidgeInnerW  = 20f;   // feather of the inner fade
         private const float RidgeOuterR  = 150f;  // ridges fade OUT by here (clear flank corridors at the walls)

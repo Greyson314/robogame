@@ -188,7 +188,7 @@ Material:
     - _Surface: 0
     - _SurfaceNormalExclusion: 1
     - _SurfaceNormalExclusionEnabled: 1
-    - _SurfaceNormalPower: 2
+    - _SurfaceNormalPower: 0.5
     - _TextureSamplingMethod: 1
     - _TileWarpStrength: 0.5
     - _WindAmplitude: 0.1
