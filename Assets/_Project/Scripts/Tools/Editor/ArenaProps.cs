@@ -196,10 +196,10 @@ namespace Robogame.Tools.Editor
             "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/Trees/PT_Fruit_Tree_01_green.prefab",
         };
 
-        // GIGANTIC landmark trees — ~8x the previous size so they tower over
-        // the field, block sightlines, and force navigation around their
-        // trunks (which get colliders, below). Native ~6.9 m × 20 ≈ 138 m.
-        private const float TreeBaseScale = 20f;
+        // GIGANTIC landmark trees — tower over the field, block sightlines,
+        // and force navigation around their trunks (which get colliders,
+        // below). Native ~6.9 m × 17 ≈ 117 m (dialed back 15% from 20).
+        private const float TreeBaseScale = 17f;
 
         /// <summary>
         /// Instantiate a stylized Polytope tree prefab (mixed fruit/pine),

@@ -88,15 +88,19 @@ namespace Robogame.Tools.Editor
             // "how do we reset a scene?" answer in exactly one place.
             GameObject env = ResetEnvRoot();
 
-            // Arena: bright, raked sun, cool ambient. Numbers from docs/subsystems/art-direction.md.
-            Vector3 arenaSunEuler = new Vector3(50f, -30f, 0f);
+            // Arena style pass: match the Stylized Nature Pack demo's misty
+            // golden-hour mood — a low, warm sun + dim cool ambient + teal
+            // distance fog (set after the skybox below). Numbers cribbed from
+            // the demo's RenderSettings, scaled to the arena.
+            Vector3 arenaSunEuler = new Vector3(26f, -73f, 0f); // low golden-hour angle
             EnsureCameraAndLight(
                 WorldPalette.ArenaClear,
                 lightEuler: arenaSunEuler,
-                lightColor: new Color(1f, 0.973f, 0.878f, 1f), // #FFF8E0
-                lightIntensity: 1.3f,
+                lightColor: new Color(1f, 0.604f, 0.39f, 1f), // #FF9A63 warm sun
+                lightIntensity: 1.9f,
                 useSkybox: true);
-            ConfigureAmbient(skyTop: WorldPalette.SkyDay, equator: new Color(0.353f, 0.431f, 0.502f), ground: WorldPalette.Grass * 0.6f);
+            // Dim, slightly cool ambient so the warm sun + fog carry the mood.
+            ConfigureAmbient(skyTop: new Color(0.20f, 0.28f, 0.36f), equator: new Color(0.18f, 0.20f, 0.18f), ground: new Color(0.12f, 0.13f, 0.08f));
             EnsureSceneVolume(PostProcessingBuilder.ArenaProfilePath);
 
             // Polyverse Skies arena skybox — builder falls back to a
@@ -108,6 +112,17 @@ namespace Robogame.Tools.Editor
             Material sky = SkyboxBuilder.BuildArenaSkybox(arenaSunDir);
             RenderSettings.skybox = sky;
             DynamicGI.UpdateEnvironment();
+
+            // Teal-green distance fog (Stylized Nature Pack demo mood), scaled
+            // to the arena: clear within the playfield, fading the far field +
+            // backdrop into mist. The demo used 24–64 m on a tiny terrain; ours
+            // is ~340 m + backdrop, so the range is pushed out to keep gameplay
+            // readable while still hazing the horizon.
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Linear;
+            RenderSettings.fogColor = new Color(0.186f, 0.632f, 0.429f, 1f);
+            RenderSettings.fogStartDistance = 70f;
+            RenderSettings.fogEndDistance = 320f;
 
             // Ground: subdivided 220m mesh with gentle Perlin hills
             // (HillsGround). Central spawn zone is flat so the obstacle
