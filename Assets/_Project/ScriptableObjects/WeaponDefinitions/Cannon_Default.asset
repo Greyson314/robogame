@@ -12,13 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 78a41886620bdf04f9897ab6184ac460, type: 3}
   m_Name: Cannon_Default
   m_EditorClassIdentifier: Robogame.Combat::Robogame.Combat.CannonDefinition
-  _fireInterval: 0.85
-  _muzzleSpeed: 80
   _damage: 60
-  _ballRadius: 0.28
-  _recoilImpulse: 28
   _knockbackImpulse: 18
-  _ballMass: 5
   _clipSize: 6
   _reloadDuration: 3
   _autoReloadDelay: 0.3
+  _turretModel: {fileID: 1875090778556656, guid: 7191a0df8b6695d449a0f18a361bc311, type: 3}
+  _turretModelScale: 0.35
+  _turretModelOffset: {x: 0, y: -0.45, z: 0}
+  _fireInterval: 0.85
+  _muzzleSpeed: 80
+  _ballRadius: 0.28
+  _recoilImpulse: 28
+  _ballMass: 5

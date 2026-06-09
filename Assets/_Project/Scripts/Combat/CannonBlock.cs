@@ -90,14 +90,30 @@ namespace Robogame.Combat
 
         private void Awake()
         {
+            // _block must resolve before EnsureRig so the rig can read the
+            // CannonDefinition's optional turret model.
+            _block = GetComponent<BlockBehaviour>();
             EnsureRig();
             if (_mount == null) _mount = GetComponentInParent<WeaponMount>();
             _input = GetComponentInParent<IInputSource>();
             _ownerRobot = GetComponentInParent<Robot>();
             _ownerRb = _ownerRobot != null ? _ownerRobot.GetComponent<Rigidbody>() : null;
-            _block = GetComponent<BlockBehaviour>();
             _ammo = GetComponentInParent<WeaponAmmoState>();
             _blockId = _block != null && _block.Definition != null ? _block.Definition.Id : null;
+        }
+
+        // Stylized turret model (Fatty pack) when the definition supplies one;
+        // returns false to fall through to the procedural barrel below.
+        private bool TryBuildTurretModel()
+        {
+            CannonDefinition def = ResolveDef();
+            if (def == null || def.TurretModel == null) return false;
+            if (!WeaponModelRig.TryBuild(this, def.TurretModel, def.TurretModelScale,
+                    def.TurretModelOffset, out Transform yoke, out Transform muzzle))
+                return false;
+            _yoke = yoke;
+            _muzzle = muzzle;
+            return true;
         }
 
         // -----------------------------------------------------------------
@@ -215,6 +231,10 @@ namespace Robogame.Combat
 
         private void EnsureRig()
         {
+            // Prefer the authored turret model; fall back to the procedural
+            // barrel when the definition has no model assigned.
+            if (TryBuildTurretModel()) return;
+
             // Yoke pivot. Build the cannon's chunky barrel + a brass
             // muzzle-tip ring on first creation. Idempotent on
             // subsequent calls (asset reimport, scene reload).

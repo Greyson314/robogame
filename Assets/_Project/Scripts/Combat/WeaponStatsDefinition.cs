@@ -36,6 +36,18 @@ namespace Robogame.Combat
         [Tooltip("Grace window after firing the last round before the auto-reload kicks in.")]
         [SerializeField, Min(0f)] protected float _autoReloadDelay = 0.3f;
 
+        [Header("Visual model (session 120 — stylized turret pack)")]
+        [Tooltip("Optional turret model prefab. When set, the weapon block instantiates it instead " +
+                 "of its procedural primitive barrel: a child named 'Turret' becomes the pitch yoke and " +
+                 "a child named 'ShootPoint' becomes the muzzle. Null → fall back to the procedural rig.")]
+        [SerializeField] private GameObject _turretModel;
+
+        [Tooltip("Uniform scale applied to the turret model so it fits a ~1 m block cell.")]
+        [SerializeField, Min(0.01f)] private float _turretModelScale = 0.35f;
+
+        [Tooltip("Local position offset for the turret model relative to the block cell centre.")]
+        [SerializeField] private Vector3 _turretModelOffset = new Vector3(0f, -0.45f, 0f);
+
         /// <summary>Seconds between shots while fire is held. Each weapon kind
         /// maps its own authored field — SMG a fire-rate, cannon/mortar a fire-
         /// interval, bomb a drop-interval — onto this canonical seconds value.</summary>
@@ -43,6 +55,9 @@ namespace Robogame.Combat
 
         public float Damage => _damage;
         public float KnockbackImpulse => _knockbackImpulse;
+        public GameObject TurretModel => _turretModel;
+        public float TurretModelScale => _turretModelScale;
+        public Vector3 TurretModelOffset => _turretModelOffset;
         public int ClipSize => _clipSize;
         public float ReloadDuration => _reloadDuration;
         public float AutoReloadDelay => _autoReloadDelay;
