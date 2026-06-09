@@ -226,6 +226,8 @@ namespace Robogame.Voxel
         private static readonly int s_digMaskWorldInvId  = Shader.PropertyToID("_DigMaskWorldInvSize");
         private static readonly int s_digMaskEnabledId   = Shader.PropertyToID("_DigMaskEnabled");
         private static readonly int s_digMaskClipDepthId = Shader.PropertyToID("_DigMaskClipDepth");
+        // Surface top Y (world) so DigZoneEarth darkens dirt with depth.
+        private static readonly int s_digSurfaceYId      = Shader.PropertyToID("_DigSurfaceY");
 
         // Profiler markers — search "Robogame.Dig" in the Profiler's CPU
         // module (Timeline or Hierarchy) to apportion the dig cost.
@@ -296,6 +298,10 @@ namespace Robogame.Voxel
                 Shader.SetGlobalTexture(s_digMaskId, _digMask);
                 Shader.SetGlobalFloat(s_digMaskEnabledId, 1f);
             }
+            // Publish this zone's surface top so DigZoneEarth fades excavated
+            // dirt darker with depth (session 120 playtest). Global, so no
+            // shared-material mutation; a single arena ground zone is the case.
+            Shader.SetGlobalFloat(s_digSurfaceYId, WorldBounds.max.y);
         }
 
         private void OnDisable()

@@ -80,9 +80,18 @@ existing `BlockVisuals` idiom are an acceptable fallback when no pack fits.
       (0.13→0.26), + a tall amber beacon so they read from distance/above.
 - [x] Smoke too opaque / small / short-lived — alpha 0.55→0.32, size 2-4→3.5-6.5,
       lifetime 3.5-5.5→5.5-8.5s, radius 1.6→2.6; module radius 6→9, duration 5→8s.
-- [ ] Deeper dirt darker
+- [x] Deeper dirt darker — `DigZoneEarth` shader fades albedo toward
+      `(1-_DepthDarkness)` over `_DepthFadeMeters` below a `_DigSurfaceY` global
+      that `DigZone.OnEnable` publishes from `WorldBounds.max.y`. *Eyeball depth
+      ramp in Play (dig down and look).*
 - [ ] Distinct visual per module *(model decision)*
-- [ ] Ropes vanish on play→garage return
+- [ ] ⚠ Ropes vanish on play→garage return — **DEFERRED to live repro.** The
+      static (garage) visual path (`BuildStaticVisual`) and the `Update`
+      kinematic-poll rebuild both read correct under static analysis — the
+      static cylinder *should* render. Failure is timing-dependent; won't
+      blind-patch subtle transition code and risk the working first-entry case.
+      **Next step:** repro via `Blueprint_StressRopeTower` — garage→arena→garage
+      in Play, inspect whether `_segmentContainer` exists + host mesh is hidden.
 - [x] ADS: whole bot now goes invisible. Root cause: the ADS hide walked
       `grid.Blocks` only, missing the `ChassisInstancedRenderer`'s per-group
       child meshes (the bulk hull, not parented under any block) → "random"

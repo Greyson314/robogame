@@ -14,6 +14,8 @@ Shader "Robogame/DigZoneEarth"
         _BaseColor ("Tint", Color)             = (1,1,1,1)
         _MapScale  ("Metres per tile", Float)  = 3.0
         _BlendSharpness ("Triplanar Sharpness", Range(1,8)) = 4.0
+        _DepthDarkness   ("Deep Darkening (0-1)", Range(0,1)) = 0.55
+        _DepthFadeMeters ("Darken Over (m)", Float) = 14.0
     }
 
     SubShader
@@ -42,7 +44,14 @@ Shader "Robogame/DigZoneEarth"
                 float4 _BaseColor;
                 float  _MapScale;
                 float  _BlendSharpness;
+                float  _DepthDarkness;
+                float  _DepthFadeMeters;
             CBUFFER_END
+
+            // Global, published by DigZone.OnEnable — world Y of the terrain
+            // surface top. 0 when no dig zone is active (shader then just
+            // never darkens above y=0).
+            float _DigSurfaceY;
 
             struct Attributes
             {
@@ -90,6 +99,12 @@ Shader "Robogame/DigZoneEarth"
             {
                 float3 nWS = normalize(IN.normalWS);
                 float3 albedo = SampleTriplanar(IN.positionWS, nWS) * _BaseColor.rgb;
+
+                // Deeper dirt reads darker: fade toward (1 - _DepthDarkness) of
+                // the surface albedo across _DepthFadeMeters below the surface.
+                float depthBelow = max(0.0, _DigSurfaceY - IN.positionWS.y);
+                float darken = saturate(depthBelow / max(_DepthFadeMeters, 0.001)) * _DepthDarkness;
+                albedo *= (1.0 - darken);
 
                 float4 shadowCoord = TransformWorldToShadowCoord(IN.positionWS);
                 Light mainLight = GetMainLight(shadowCoord);
