@@ -89,7 +89,7 @@ namespace Robogame.Tools.Editor
             // is 1 m diameter. Mass scales with envelope volume — both
             // bumped roughly proportional, preserving the 3.3× hook→mace
             // mass ratio that drives the kinetic-energy differential.
-            CreateOrUpdate("BlockDef_Hook",       BlockIds.Hook,       "Rope Hook",      BlockCategory.Weapon,    maxHealth: 120f, mass: 1.5f, cpuCost: 18, tint: w);
+            CreateOrUpdate("BlockDef_Hook",       BlockIds.Hook,       "Rope Hook",      BlockCategory.Weapon,    maxHealth: 120f, mass: 0.5f, cpuCost: 18, tint: w);
             CreateOrUpdate("BlockDef_Mace",       BlockIds.Mace,       "Rope Mace",      BlockCategory.Weapon,    maxHealth: 180f, mass: 5.0f, cpuCost: 28, tint: w);
             // Magnet (session 59): heavier than hook, lighter than
             // mace. Mid-cost CPU budget. Damage is small (DamagePerKj 0.8

@@ -54,7 +54,7 @@ namespace Robogame.Movement
         // which the Tweakable always overrode). Idle/response are chassis-wide
         // feel (Option A) and come from the blueprint's ThrusterTuning.
         // physics.md §1 / §5.
-        private const float DefaultMaxThrust = 310f;
+        private const float DefaultMaxThrust = 620f;
         private BlockBehaviour _bb;
         private ThrusterTuningConfig _thrCfg = new();
         public float MaxThrust         => _bb != null && _bb.ConfigValue > 0f ? _bb.ConfigValue : DefaultMaxThrust;

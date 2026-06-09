@@ -44,48 +44,8 @@ namespace Robogame.Tools.Editor
 
             BuildBackdropRange(root.transform);
             BuildRidgeRocks(root.transform, hp);
-            BuildPebbleScatter(root.transform, hp);
             BuildTreeScatter(root.transform, hp);
             BuildAtmosphere(root.transform);
-        }
-
-        // -----------------------------------------------------------------
-        // Pebble scatter — small Stylized Nature Pack pebbles as ground detail
-        // across the mid-field (decor, no colliders).
-        // -----------------------------------------------------------------
-
-        private static readonly string[] PebblePrefabs =
-        {
-            "Assets/Stylized Nature Pack/Stones/_Prefabs/Pebble_1.prefab",
-            "Assets/Stylized Nature Pack/Stones/_Prefabs/Pebble_2.prefab",
-        };
-
-        private static void BuildPebbleScatter(Transform parent, HeightmapParams hp)
-        {
-            GameObject pebbles = new GameObject("Pebbles");
-            pebbles.transform.SetParent(parent, worldPositionStays: false);
-
-            const int count = 40;
-            for (int i = 0; i < count; i++)
-            {
-                float t = (i + 0.5f) / count;
-                float r = Mathf.Lerp(58f, 160f, Mathf.Sqrt(t));
-                float ang = i * GoldenAngle;
-                float x = Mathf.Cos(ang) * r, z = Mathf.Sin(ang) * r;
-                // Keep clear of the team bowls.
-                if (Vector2.Distance(new Vector2(x, z), new Vector2(0f, 92f)) < 26f) continue;
-                if (Vector2.Distance(new Vector2(x, z), new Vector2(0f, -92f)) < 26f) continue;
-                float y = HeightmapField.Sample(hp, x, z);
-
-                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PebblePrefabs[i % PebblePrefabs.Length]);
-                if (prefab == null) continue;
-                GameObject pb = (GameObject)PrefabUtility.InstantiatePrefab(prefab, pebbles.transform);
-                pb.name = $"Pebble_{i:D2}";
-                float s = 4f * Mathf.Lerp(0.6f, 1.6f, Hash(i * 7));
-                pb.transform.SetPositionAndRotation(new Vector3(x, y, z), Quaternion.Euler(0f, Hash(i * 3) * 360f, 0f));
-                pb.transform.localScale = Vector3.one * s;
-                SetStaticRecursive(pb);
-            }
         }
 
         // -----------------------------------------------------------------
