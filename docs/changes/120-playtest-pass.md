@@ -108,7 +108,11 @@ existing `BlockVisuals` idiom are an acceptable fallback when no pack fits.
 - [x] Modules usable / weapons fireable in garage → disabled. `DisableWeapons`
       only killed `ProjectileGun`; now `DisableCombat` also disables
       Cannon/Mortar/BombBay/GrappleMagnet blocks + the `ModuleSystem`.
-- [ ] Remove blink module → forward burst-of-speed module
+- [x] Remove blink → forward burst-of-speed module. Repurposed the slot
+      (block id `block.module.blink` kept for blueprint compat): `ModuleKind`
+      `Blink`→`SpeedBurst`, `ModuleEffects.SpeedBurst` applies a mass-independent
+      forward `VelocityChange` Δv, tuning power = Δv (14 m/s, 6 s cd), HUD label
+      "BOOST", display name "Speed Burst", exhaust flash out the back.
 - [ ] Maybe remove healing module *(decision)*
 - [x] Duplicate-robot button — `GameStateController.DuplicateCurrentBlueprint`
       (clone → unique "<name> Copy" → new slot → save) + a "Duplicate" button

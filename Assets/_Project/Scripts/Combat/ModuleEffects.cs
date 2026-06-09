@@ -98,30 +98,18 @@ namespace Robogame.Combat
         }
 
         /// <summary>
-        /// Teleport the chassis along <paramref name="dir"/> by up to
-        /// <paramref name="range"/> metres, stopping short of any solid
-        /// surface so the chassis never blinks inside terrain. Returns the
-        /// arrival position (for the destination VFX).
+        /// Forward burst of speed (afterburner): an instant velocity kick of
+        /// <paramref name="deltaV"/> m/s along <paramref name="dir"/>. Replaces
+        /// the old Blink teleport (session 120 — "blink is cringe"). Uses
+        /// VelocityChange so the kick is mass-independent — a heavy and a light
+        /// bot get the same lurch forward. Adds to current velocity, so chaining
+        /// it while already moving stacks speed (intended "boost" feel).
         /// </summary>
-        public static Vector3 Blink(Rigidbody rb, Vector3 dir, float range)
+        public static void SpeedBurst(Rigidbody rb, Vector3 dir, float deltaV)
         {
-            Vector3 from = rb.position;
+            if (rb == null) return;
             Vector3 d = dir.sqrMagnitude > 1e-6f ? dir.normalized : Vector3.forward;
-            float dist = range;
-            // Clamp to the first solid surface ahead, leaving a small skin so
-            // we don't end up flush inside a wall. Ignore the owner's own
-            // colliders by sphere-casting from slightly ahead of the hull.
-            if (Physics.SphereCast(from + d * 1.5f, 0.75f, d, out RaycastHit hit, range, ~0, QueryTriggerInteraction.Ignore))
-            {
-                Robot self = rb.GetComponent<Robot>();
-                bool hitSelf = self != null && hit.collider.GetComponentInParent<Robot>() == self;
-                if (!hitSelf) dist = Mathf.Max(0f, hit.distance + 1.5f - 1.0f);
-            }
-            Vector3 to = from + d * dist;
-            rb.position = to;
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-            return to;
+            rb.AddForce(d * deltaV, ForceMode.VelocityChange);
         }
 
         /// <summary>

@@ -23,8 +23,10 @@ namespace Robogame.Block
         /// <summary>Burst that briefly disables enemy weapon blocks in a radius.</summary>
         EmpBurst = 0,
 
-        /// <summary>Instant short-range teleport along the chassis facing.</summary>
-        Blink = 1,
+        /// <summary>Forward burst of speed along the chassis facing — an instant
+        /// velocity kick (afterburner), replacing the old Blink teleport. The
+        /// block id stays <c>block.module.blink</c> for blueprint compatibility.</summary>
+        SpeedBurst = 1,
 
         /// <summary>Transient bubble that blocks incoming projectiles for a few seconds.</summary>
         DiscShield = 2,

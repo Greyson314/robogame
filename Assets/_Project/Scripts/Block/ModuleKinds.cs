@@ -32,7 +32,7 @@ namespace Robogame.Block
         {
             BlockIds.Spring => ModuleKind.Spring,
             BlockIds.ModuleEmp => ModuleKind.EmpBurst,
-            BlockIds.ModuleBlink => ModuleKind.Blink,
+            BlockIds.ModuleBlink => ModuleKind.SpeedBurst,
             BlockIds.ModuleShield => ModuleKind.DiscShield,
             BlockIds.ModuleSmoke => ModuleKind.Smoke,
             BlockIds.ModuleInvis => ModuleKind.Invisibility,
@@ -46,7 +46,7 @@ namespace Robogame.Block
         {
             ModuleKind.Spring => BlockIds.Spring,
             ModuleKind.EmpBurst => BlockIds.ModuleEmp,
-            ModuleKind.Blink => BlockIds.ModuleBlink,
+            ModuleKind.SpeedBurst => BlockIds.ModuleBlink,
             ModuleKind.DiscShield => BlockIds.ModuleShield,
             ModuleKind.Smoke => BlockIds.ModuleSmoke,
             ModuleKind.Invisibility => BlockIds.ModuleInvis,
@@ -60,7 +60,7 @@ namespace Robogame.Block
         {
             ModuleKind.Spring => "SPRING",
             ModuleKind.EmpBurst => "EMP",
-            ModuleKind.Blink => "BLINK",
+            ModuleKind.SpeedBurst => "BOOST",
             ModuleKind.DiscShield => "SHIELD",
             ModuleKind.Smoke => "SMOKE",
             ModuleKind.Invisibility => "CLOAK",

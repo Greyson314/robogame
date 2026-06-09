@@ -62,8 +62,10 @@ namespace Robogame.Block
             ModuleKind.Spring => new Row(120f, 10f, 0f),
             // power = lockout radius (m); fixed 3 s weapon disable.
             ModuleKind.EmpBurst => new Row(8f, 15f, 3f),
-            // power = teleport range (m); instantaneous.
-            ModuleKind.Blink => new Row(12f, 10f, 0f),
+            // power = forward burst Δv (m/s); instantaneous afterburner kick.
+            // Session 120: replaced the Blink teleport. 6 s base cooldown so it
+            // reads as a repeatable boost, not a once-a-fight panic button.
+            ModuleKind.SpeedBurst => new Row(14f, 6f, 0f),
             // power = dome radius (m); fixed 10 s lifetime. Default 10 m — a
             // big deployable ground dome (≈4× the original 2.5 m bubble).
             ModuleKind.DiscShield => new Row(10f, 20f, 10f),

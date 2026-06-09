@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: BlockDef_ModuleBlink
   m_EditorClassIdentifier: Robogame.Block::Robogame.Block.BlockDefinition
   _id: block.module.blink
-  _displayName: Blink
+  _displayName: Speed Burst
   _category: 4
   _maxHealth: 90
   _mass: 2

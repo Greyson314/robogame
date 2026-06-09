@@ -187,11 +187,13 @@ namespace Robogame.Combat
                     AudioRouter.PlayOneShot(AudioCue.ModuleActivate, chassisPos);
                     break;
 
-                case ModuleKind.Blink:
+                case ModuleKind.SpeedBurst:
                     if (_rb != null)
                     {
-                        Vector3 arrival = ModuleEffects.Blink(_rb, transform.forward, t.Magnitude);
-                        VfxSpawner.Spawn(VfxKind.BlinkArrive, arrival, Quaternion.identity);
+                        // Forward velocity kick (afterburner). Magnitude = Δv (m/s).
+                        ModuleEffects.SpeedBurst(_rb, transform.forward, t.Magnitude);
+                        // Exhaust pop out the back — flash points along -forward.
+                        VfxSpawner.Spawn(VfxKind.MuzzleFlash, chassisPos, -transform.forward, scale: 2.0f);
                         AudioRouter.PlayOneShot(AudioCue.ModuleActivate, chassisPos);
                     }
                     break;
