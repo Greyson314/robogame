@@ -89,8 +89,9 @@ state contract. Needs a design pass before code.
 - [x] Thruster power override (dev Tweakable, global ×-multiplier, compile-stripped)
 - [x] Thrusters feel too weak — baseline `DefaultMaxThrust` 620 → 900
 - [x] Bomb knockback stronger — `Bomb_Default` knockback 40 → 80 (Δv ~9.6 m/s, sub-ceiling)
-- [ ] ⚠ Mortar not fireable + aim laser missing — **DEFERRED, needs repro
-      input.** Investigated: the mortar's fire path (`Update` → `_input.FireHeld`
+- [x] Mortar not fireable — user reports it fires now; likely a transient
+      runtime state (no code change identified). Closed pending recurrence.
+- [ ] ~~(superseded — see line above)~~ original investigation: Investigated: the mortar's fire path (`Update` → `_input.FireHeld`
       → `_gate.TryFire`) and arc-preview path (`show = _input != null`) are
       functionally *identical* to the working `CannonBlock`; both gate on
       `_input`. `BlockDef_Mortar` is category 3 (Weapon) and binds the same way
@@ -101,10 +102,8 @@ state contract. Needs a design pass before code.
       where the mortar won't fire, *does the cannon fire?* If no → shared input
       regression; if yes → mortar-specific runtime state. Not blind-patching.
       "aim laser" = the mortar's orange arc preview (no laser system exists).
-- [ ] ⚠ Bases deal ≥2× damage to enemies — **NEEDS CLARIFICATION**: no arena
-      base / turret / objective damage system exists in the codebase. What is
-      "base"? (home base, capture point, defensive turret, ramming?) Flagged,
-      skipped pending answer.
+- [x] Bases deal ≥2× damage — "base" = the **scrap depot** (`ScrapDepot`); its
+      grinder DOT 50 → 100 HP/s.
 - [x] Increase default spring power — Spring module `DefaultPower` 70 → 120
 - [ ] Battery mechanic (large — likely its own ADR)
 
@@ -149,18 +148,20 @@ state contract. Needs a design pass before code.
       `Blink`→`SpeedBurst`, `ModuleEffects.SpeedBurst` applies a mass-independent
       forward `VelocityChange` Δv, tuning power = Δv (14 m/s, 6 s cd), HUD label
       "BOOST", display name "Speed Burst", exhaust flash out the back.
-- [ ] Maybe remove healing module *(decision)*
+- [x] Remove healing module — dropped from the build palette (`BuildHotbar.
+      s_hiddenFromPalette`); def kept in the library so old blueprints still load.
 - [x] Duplicate-robot button — `GameStateController.DuplicateCurrentBlueprint`
       (clone → unique "<name> Copy" → new slot → save) + a "Duplicate" button
       in `SceneTransitionHud` (row 9).
-- [ ] ⚠ Deleting CPU explodes the bot — **DEFERRED, can't repro statically.**
-      The only garage delete path is `BlockEditor.TryRemove` → `BuildSession.
-      TryRemove`, which already rejects `Category == Cpu` ("CPU is sacred"), and
-      `BlockDef_Cpu` IS category 1. So the CPU can't be removed via the normal
-      path. **Question for the user:** what exact action deletes it / what does
-      "explode" look like (VFX? blocks fly apart on launch)? Possibly deleting a
-      *support* block under the CPU, or a stale build. Not blind-patching.
-- [ ] Block rotation (e.g. thrusters)
+- [x] Right-click CPU delete explodes bot — **FIXED.** Root cause: the guard
+      keyed off `Definition.Category`, and a null/stale `Definition` bypassed
+      it → CPU removed → `Destroyed` cascade tore the bot apart. `BuildSession`
+      now guards via the `CpuBlockMarker` component (Definition-independent),
+      both primary + mirror paths. Verified via headless rig (0 failures).
+- [ ] 🔧 Block rotation in garage (point a thruster up) — **APPROVED, blocked
+      on bridge.** Pure-code `Entry.Yaw` plan ready (see Proposal above), but
+      "thruster points up" is a directional/visual requirement — needs Play
+      verification of the orientation math, so waiting on the MCP bridge.
 
 ### Backlog (not this session)
 - Planet arena diggable + terrain noise (user marked "for future")
