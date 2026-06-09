@@ -95,7 +95,7 @@ namespace Robogame.Tools.Editor
         [Header("Structure (Sunken Crossing layout)")]
         [Tooltip("Crown height (m) of the two diagonal ridges forming the arena's X. 0 = flat / no ridges.")]
         [Range(0f, 13f)]
-        public float ridgeAmp = 12.5f;
+        public float ridgeAmp = 13f;
 
         [Tooltip("Depth (m) of the shallow east-west valley along z≈0 — the no-man's-land that keeps the depot sightline low. 0 = no valley.")]
         [Range(0f, 8f)]

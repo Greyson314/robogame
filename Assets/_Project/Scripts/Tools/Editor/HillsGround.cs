@@ -206,9 +206,16 @@ namespace Robogame.Tools.Editor
             }
 
             // Two triangles per quad, wound CCW so the surface faces +Y.
+            // Each triangle is classified by its face slope into one of two
+            // submeshes: gentle ground → submesh 0 (Fluff grass), steep cliff
+            // faces → submesh 1 (bare rock). FluffGround assigns a rock
+            // material to submesh 1, so grass simply never grows on cliffs.
+            // CliffNormalY = cos(cliff angle); a face whose up-component is
+            // below it counts as a cliff.
+            const float CliffNormalY = 0.84f; // steeper than ~33° → cliff/rock
             int qCount = (res - 1) * (res - 1);
-            var tris   = new int[qCount * 6];
-            int t      = 0;
+            var grass = new System.Collections.Generic.List<int>(qCount * 6);
+            var rock  = new System.Collections.Generic.List<int>(qCount);
             for (int z = 0; z < res - 1; z++)
             for (int x = 0; x < res - 1; x++)
             {
@@ -216,18 +223,38 @@ namespace Robogame.Tools.Editor
                 int i10 = i00 + 1;
                 int i01 = i00 + res;
                 int i11 = i01 + 1;
-                tris[t++] = i00; tris[t++] = i01; tris[t++] = i11;
-                tris[t++] = i00; tris[t++] = i11; tris[t++] = i10;
+                ClassifyTri(verts, i00, i01, i11, CliffNormalY, grass, rock);
+                ClassifyTri(verts, i00, i11, i10, CliffNormalY, grass, rock);
             }
 
             mesh.Clear();
-            mesh.vertices  = verts;
-            mesh.uv        = uvs;
-            mesh.normals   = normals;
-            mesh.triangles = tris;
+            mesh.vertices     = verts;
+            mesh.uv           = uvs;
+            mesh.normals      = normals;
+            mesh.subMeshCount = 2;
+            mesh.SetTriangles(grass, 0);
+            mesh.SetTriangles(rock,  1);
             mesh.RecalculateNormals();
             mesh.RecalculateTangents();
             mesh.RecalculateBounds();
+        }
+
+        /// <summary>
+        /// Append triangle (a,b,c) to the grass or rock index list by face
+        /// slope. |normal.y| near 1 = flat (grass); below
+        /// <paramref name="cliffNormalY"/> = steep (rock). Abs handles either
+        /// winding.
+        /// </summary>
+        private static void ClassifyTri(Vector3[] v, int a, int b, int c,
+                                        float cliffNormalY,
+                                        System.Collections.Generic.List<int> grass,
+                                        System.Collections.Generic.List<int> rock)
+        {
+            Vector3 n = Vector3.Cross(v[b] - v[a], v[c] - v[a]);
+            float mag = n.magnitude;
+            float ny = mag > 1e-9f ? Mathf.Abs(n.y) / mag : 1f;
+            var dst = ny < cliffNormalY ? rock : grass;
+            dst.Add(a); dst.Add(b); dst.Add(c);
         }
 
         /// <summary>

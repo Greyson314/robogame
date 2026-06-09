@@ -160,7 +160,7 @@ namespace Robogame.Tools.Editor
             GameObject trees = new GameObject("Trees");
             trees.transform.SetParent(parent, worldPositionStays: false);
 
-            const int candidates = 130;
+            const int candidates = 230; // denser scatter
             const float rMin = 60f, rMax = 150f;
             int placed = 0;
             for (int i = 0; i < candidates; i++)
@@ -188,18 +188,21 @@ namespace Robogame.Tools.Editor
             }
         }
 
-        // Stylized low-poly tree prefabs from the Polytope Studio "Lowpoly
-        // Environments" pack (already in the project). Mixed for variety:
-        // a broad fruit tree (~6.9 m) and a tall pine (~9.2 m) at native scale.
+        // Stylized low-poly leafy tree prefabs from the Polytope Studio
+        // "Lowpoly Environments" pack. Broad-canopy fruit trees only (the
+        // thin bluish pines read poorly here and were dropped); the fruit
+        // variants give subtle colour variety (green / apples / pears / plums).
         private static readonly string[] TreePrefabs =
         {
             "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/Trees/PT_Fruit_Tree_01_green.prefab",
-            "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/Trees/PT_Pine_Tree_03_green.prefab",
+            "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/Trees/PT_Fruit_Tree_01_apples.prefab",
+            "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/Trees/PT_Fruit_Tree_01_pears.prefab",
+            "Assets/Polytope Studio/Lowpoly_Environments/Prefabs/Trees/PT_Fruit_Tree_01_plums.prefab",
         };
 
-        // Multiplier on top of the prefabs' already-treelike native scale so
-        // they read as substantial landmarks on the rolling ground.
-        private const float TreeBaseScale = 1.3f;
+        // Multiplier on top of the prefabs' already-treelike native scale
+        // (~6.9 m) so they read as substantial leafy landmarks — ~17 m canopies.
+        private const float TreeBaseScale = 2.5f;
 
         /// <summary>
         /// Instantiate a stylized Polytope tree prefab (mixed fruit/pine),

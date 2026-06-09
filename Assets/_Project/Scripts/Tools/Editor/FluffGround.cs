@@ -69,6 +69,7 @@ namespace Robogame.Tools.Editor
                     "' missing) — falling back to procedural GroundMaterial. " +
                     "Re-import Fluff from Package Manager to enable shell-based grass.");
                 GroundMaterial.ApplyToGround(ground, tilesPerSide: 30);
+                EnsureCliffSlot(ground);
                 return false;
             }
 
@@ -80,6 +81,7 @@ namespace Robogame.Tools.Editor
                     "to clone (path: " + SourceMatPath + "). Falling back to " +
                     "procedural GroundMaterial.");
                 GroundMaterial.ApplyToGround(ground, tilesPerSide: 30);
+                EnsureCliffSlot(ground);
                 return false;
             }
 
@@ -93,6 +95,7 @@ namespace Robogame.Tools.Editor
             mr.sharedMaterial = mat;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; // grass shader handles shells; no need to cast from the base plane
             mr.receiveShadows = true;
+            EnsureCliffSlot(ground); // steep faces (submesh 1) get rock — no grass on cliffs
 
             EditorUtility.SetDirty(mr);
             return true;
@@ -425,5 +428,30 @@ namespace Robogame.Tools.Editor
             }
             mat.SetTexture(propertyName, tex);
         }
+
+        // -----------------------------------------------------------------
+        // Cliff-face submesh (steep slopes show rock, not grass)
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// The hills mesh splits steep cliff faces into submesh 1
+        /// (<see cref="HillsGround"/> bake). Ensure the ground renderer carries
+        /// a rock material in that slot so grass never grows on cliffs. No-op
+        /// for a single-submesh (flat-everywhere) mesh or an already-filled slot.
+        /// </summary>
+        private static void EnsureCliffSlot(GameObject ground)
+        {
+            var mf = ground.GetComponent<MeshFilter>();
+            var mr = ground.GetComponent<MeshRenderer>();
+            if (mf == null || mr == null || mf.sharedMesh == null) return;
+            if (mf.sharedMesh.subMeshCount < 2) return;
+            if (mr.sharedMaterials.Length >= 2) return;
+            mr.sharedMaterials = new[] { mr.sharedMaterial, CliffRockMaterial() };
+            EditorUtility.SetDirty(mr);
+        }
+
+        // Rock material for steep cliff faces — the same slate the backdrop
+        // mountains use, so cliffs and peaks read as one cohesive rock palette.
+        private static Material CliffRockMaterial() => WorldPalette.ArenaWall;
     }
 }
