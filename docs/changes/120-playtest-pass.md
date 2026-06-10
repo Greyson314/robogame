@@ -119,7 +119,12 @@ state contract. Needs a design pass before code.
       the catapult arm+cup mesh, extracted; cup is fused to the arm in-source).
       All four weapons now render stylized models. `WeaponModelRig.BuildStatic`
       handles the non-aiming bomb bay.
-- [ ] Garage = bubble shield in space
+- [x] Garage = bubble shield in space — Polyverse Skies space skybox
+      (`Skybox_GarageSpace`: dark sky, stars, moon, no sun/clouds), walls hidden
+      + floor shrunk to a floating platform, and a `Robogame/ShieldBubble`
+      fresnel-membrane dome (`Mat_ShieldBubble`) over it. Rim glows from outside
+      orbit angles; tints the view from inside. All material props exposed for
+      tuning; could add a hex/energy pattern later for a stronger read.
 - [x] Mines barely visible — bigger lighter disc (0.5→0.85), bigger glow dot
       (0.13→0.26), + a tall amber beacon so they read from distance/above.
 - [x] Smoke too opaque / small / short-lived — alpha 0.55→0.32, size 2-4→3.5-6.5,
