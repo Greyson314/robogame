@@ -207,7 +207,9 @@ namespace Robogame.Movement
             _aabbCenterShiftChassis = shiftChassis;
             // Block-local equivalent (the disc/plume children are parented
             // to this transform whose localRotation = OrientationFromUp).
-            Quaternion blockToChassis = BlockGrid.OrientationFromUp(_block != null ? _block.Up : Vector3Int.up);
+            Quaternion blockToChassis = BlockGrid.OrientationFromUp(
+                _block != null ? _block.Up : Vector3Int.up,
+                _block != null ? _block.Yaw : 0);
             _aabbCenterShiftBlockLocal = Quaternion.Inverse(blockToChassis) * shiftChassis;
 
             ResizeRig();

@@ -125,7 +125,7 @@ namespace Robogame.Block
         /// (foils: AoA offset; rotors: collective). Pass 0 for the
         /// block's authored default.
         /// </summary>
-        public BlockBehaviour PlaceBlock(BlockDefinition definition, Vector3Int gridPos, Vector3Int up, Vector3 dims, float pitchDeg)
+        public BlockBehaviour PlaceBlock(BlockDefinition definition, Vector3Int gridPos, Vector3Int up, Vector3 dims, float pitchDeg, int yawDeg = 0)
         {
             if (definition == null)
             {
@@ -152,7 +152,7 @@ namespace Robogame.Block
 
             go.name = $"Block_{definition.Id}_{gridPos.x}_{gridPos.y}_{gridPos.z}";
             go.transform.localPosition = GridToLocal(gridPos);
-            go.transform.localRotation = OrientationFromUp(up);
+            go.transform.localRotation = OrientationFromUp(up, yawDeg);
             go.transform.localScale = Vector3.one * _cellSize;
 
             // Phase 2 cel-shading swap: blocks without a custom prefab read
@@ -168,7 +168,7 @@ namespace Robogame.Block
 
             BlockBehaviour block = go.GetComponent<BlockBehaviour>();
             if (block == null) block = go.AddComponent<BlockBehaviour>();
-            block.Initialize(definition, gridPos, dims, up, pitchDeg);
+            block.Initialize(definition, gridPos, dims, up, pitchDeg, yawDeg);
 
             // CPU is the instakill cell — give it an unmistakable beacon so
             // the player (and future AI targeters) can spot it at a glance.
@@ -219,6 +219,19 @@ namespace Robogame.Block
             Vector3 right = Vector3.Cross(u, fwdSeed).normalized;
             Vector3 fwd   = Vector3.Cross(right, u).normalized;
             return Quaternion.LookRotation(fwd, u);
+        }
+
+        /// <summary>
+        /// <see cref="OrientationFromUp(Vector3Int)"/> plus a player-chosen yaw
+        /// about the block's mount (Up) axis. The yaw spins the block's forward
+        /// around Up, so e.g. a side-mounted thruster can be turned to thrust
+        /// straight up. Pre-multiplied (in the block's local frame) so it
+        /// composes cleanly on top of the Up orientation. Session 120.
+        /// </summary>
+        public static Quaternion OrientationFromUp(Vector3Int up, int yawDeg)
+        {
+            Quaternion baseRot = OrientationFromUp(up);
+            return yawDeg == 0 ? baseRot : baseRot * Quaternion.AngleAxis(yawDeg, Vector3.up);
         }
 
         /// <summary>

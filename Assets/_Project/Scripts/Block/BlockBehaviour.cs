@@ -22,6 +22,7 @@ namespace Robogame.Block
         [SerializeField] private float _currentHealth;
         [SerializeField] private Vector3 _dims;
         [SerializeField] private float _pitchDeg;
+        [SerializeField] private int _yaw;
 
         [Tooltip("Brightness at 0 HP, relative to the block's authored colour.")]
         [SerializeField, Range(0f, 1f)] private float _minDamageBrightness = 0.2f;
@@ -82,6 +83,10 @@ namespace Robogame.Block
         /// </summary>
         public float PitchDeg => _pitchDeg;
 
+        /// <summary>Player-chosen rotation (deg) about the mount/Up axis — see
+        /// <see cref="ChassisBlueprint.Entry.Yaw"/>. 0 for legacy/unrotated blocks.</summary>
+        public int Yaw => _yaw;
+
         /// <summary>
         /// Replace this block's pitch at runtime. Used by the rotor
         /// adopt-pass (writes its collective onto blade foils) and by
@@ -134,13 +139,14 @@ namespace Robogame.Block
         private MaterialPropertyBlock _mpb;
 
         /// <summary>Internal initializer called by <see cref="BlockGrid"/> at placement time.</summary>
-        internal void Initialize(BlockDefinition definition, Vector3Int gridPosition, Vector3 dims = default, Vector3Int up = default, float pitchDeg = 0f)
+        internal void Initialize(BlockDefinition definition, Vector3Int gridPosition, Vector3 dims = default, Vector3Int up = default, float pitchDeg = 0f, int yaw = 0)
         {
             _definition = definition;
             _gridPosition = gridPosition;
             _dims = dims;
             _up = up == Vector3Int.zero ? Vector3Int.up : up;
             _pitchDeg = pitchDeg;
+            _yaw = yaw;
             _currentHealth = definition != null ? definition.MaxHealth : 1f;
             CacheRenderers();
             UpdateDamageVisual();

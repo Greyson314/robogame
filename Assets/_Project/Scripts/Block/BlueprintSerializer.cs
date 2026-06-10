@@ -93,7 +93,7 @@ namespace Robogame.Block
     /// </remarks>
     public static class BlueprintSerializer
     {
-        public const int CurrentSchemaVersion = 7;
+        public const int CurrentSchemaVersion = 8;
 
         // -----------------------------------------------------------------
         // DTOs (private — JsonUtility needs concrete [Serializable] types)
@@ -143,6 +143,9 @@ namespace Robogame.Block
             // v7 addition. Per-entry player concoction id for explosive
             // weapons. "" (absent in v1–v6) = no concoction → baseline stats.
             public string concoctionId;
+            // v8 addition. Per-entry yaw (deg about the mount/Up axis):
+            // 0/90/180/270. 0 (absent in v1–v7) = no rotation.
+            public int yaw;
         }
 
         // -----------------------------------------------------------------
@@ -178,6 +181,7 @@ namespace Robogame.Block
                     pitch = src[i].Pitch,
                     blockConfig = src[i].BlockConfig,
                     concoctionId = src[i].EffectiveConcoctionId,
+                    yaw = src[i].EffectiveYaw,
                 };
             }
 
@@ -264,7 +268,9 @@ namespace Robogame.Block
                 // v1 entries hit Entry.EffectiveUp's zero → +Y fallback;
                 // v2 entries with real (0,0,0) up are invalid by definition.
                 Vector3 dims = new Vector3(e.dx, e.dy, e.dz);
-                copy.Add(new ChassisBlueprint.Entry(e.id, new Vector3Int(e.x, e.y, e.z), up, dims, e.pitch, e.blockConfig, e.concoctionId));
+                var entry = new ChassisBlueprint.Entry(e.id, new Vector3Int(e.x, e.y, e.z), up, dims, e.pitch, e.blockConfig, e.concoctionId);
+                entry.Yaw = e.yaw;
+                copy.Add(entry);
             }
 
             ChassisBlueprint bp = ScriptableObject.CreateInstance<ChassisBlueprint>();

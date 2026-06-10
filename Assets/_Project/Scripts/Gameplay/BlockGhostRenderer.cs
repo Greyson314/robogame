@@ -16,6 +16,7 @@ namespace Robogame.Gameplay
         public readonly float PitchDeg;
         public readonly Vector3Int Cell;
         public readonly Vector3Int Up;
+        public readonly int Yaw;
         public readonly bool Valid;
 
         public readonly bool ShowMirror;
@@ -34,6 +35,7 @@ namespace Robogame.Gameplay
             float pitchDeg,
             Vector3Int cell,
             Vector3Int up,
+            int yaw,
             bool valid,
             bool showMirror,
             Vector3Int mirrorCell,
@@ -49,6 +51,7 @@ namespace Robogame.Gameplay
             PitchDeg = pitchDeg;
             Cell = cell;
             Up = up;
+            Yaw = yaw;
             Valid = valid;
             ShowMirror = showMirror;
             MirrorCell = mirrorCell;
@@ -120,7 +123,7 @@ namespace Robogame.Gameplay
             }
 
             EnsurePrimaryShape(req);
-            PoseGhost(_ghost, req.Cell, req.Up, req.Grid, req.ChassisRoot);
+            PoseGhost(_ghost, req.Cell, req.Up, req.Yaw, req.Grid, req.ChassisRoot);
             if (req.Valid != _showingValid)
             {
                 BlockGhostFactory.ApplyMaterial(_ghost, req.Valid ? _matValid : _matInvalid);
@@ -130,7 +133,7 @@ namespace Robogame.Gameplay
             if (req.ShowMirror)
             {
                 EnsureMirrorShape(req);
-                PoseGhost(_mirrorGhost, req.MirrorCell, req.MirrorUp, req.Grid, req.ChassisRoot);
+                PoseGhost(_mirrorGhost, req.MirrorCell, req.MirrorUp, req.Yaw, req.Grid, req.ChassisRoot);
                 if (req.MirrorValid != _mirrorShowingValid)
                 {
                     BlockGhostFactory.ApplyMaterial(_mirrorGhost, req.MirrorValid ? _matValid : _matInvalid);
@@ -203,16 +206,16 @@ namespace Robogame.Gameplay
             _mirrorShowingValid = true;
         }
 
-        private static void PoseGhost(GameObject ghost, Vector3Int cell, Vector3Int up, BlockGrid grid, Transform chassisRoot)
+        private static void PoseGhost(GameObject ghost, Vector3Int cell, Vector3Int up, int yawDeg, BlockGrid grid, Transform chassisRoot)
         {
             if (ghost == null) return;
             ghost.SetActive(true);
             ghost.transform.position = grid.GridToWorld(cell);
-            // Apply the per-cell rotation the placed block would get,
-            // then the chassis world rotation. Without this, the ghost
-            // stays axis-aligned and a foil/rotor preview wouldn't
-            // reflect the mount face.
-            ghost.transform.rotation = chassisRoot.rotation * BlockGrid.OrientationFromUp(up);
+            // Apply the per-cell rotation the placed block would get (Up +
+            // player yaw), then the chassis world rotation. Without this, the
+            // ghost stays axis-aligned and a foil/rotor/yawed preview wouldn't
+            // reflect what the click handler will place.
+            ghost.transform.rotation = chassisRoot.rotation * BlockGrid.OrientationFromUp(up, yawDeg);
             // The ghost factory authored shapes at unit-cell scale, so
             // multiply by the grid's cell size with a tiny inflation
             // to avoid z-fighting with adjacent solid blocks.

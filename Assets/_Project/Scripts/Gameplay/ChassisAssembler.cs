@@ -289,7 +289,7 @@ namespace Robogame.Gameplay
                         continue;
                     }
                     BlockBehaviour placed = grid.PlaceBlock(
-                        def, entry.Position, entry.EffectiveUp, entry.Dims, entry.Pitch);
+                        def, entry.Position, entry.EffectiveUp, entry.Dims, entry.Pitch, entry.EffectiveYaw);
                     // Per-block server-authoritative scalar (thruster
                     // thrust / rudder authority / rotor RPM). 0 = use the
                     // block's authored default. Rides the same Entry the

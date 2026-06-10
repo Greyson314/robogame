@@ -504,6 +504,7 @@ namespace Robogame.Gameplay
                 pitchDeg: targetLocalPitch,
                 cell: targetCell,
                 up: targetUp,
+                yaw: _session != null ? _session.PlaceYaw : 0,
                 valid: _validPlacement,
                 showMirror: showMirror,
                 mirrorCell: mCell,
@@ -535,6 +536,17 @@ namespace Robogame.Gameplay
 
         private void HandleClicks()
         {
+            // Rotate the pending placement about the mount axis (R), in 90° steps.
+            // Works without a hover target so the player can pre-rotate. Skipped
+            // while a UI text field is focused so it doesn't eat keystrokes.
+            Keyboard kb = Keyboard.current;
+            bool typing = EventSystem.current != null && EventSystem.current.currentSelectedGameObject != null;
+            if (kb != null && kb.rKey.wasPressedThisFrame && _session != null && !typing)
+            {
+                _session.CyclePlaceYaw();
+                DriveGhostRenderer(); // reflect the new yaw immediately
+            }
+
             Mouse mouse = Mouse.current;
             if (mouse == null || !_hasTarget) return;
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;

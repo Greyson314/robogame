@@ -73,6 +73,12 @@ namespace Robogame.Block
                      "  • All other blocks: ignored.")]
             public float Pitch;
 
+            [Tooltip("Player-chosen rotation about the block's mount (Up) axis, in degrees " +
+                     "(0/90/180/270). Lets a thruster/weapon face a direction the mount face alone " +
+                     "can't give. 0 = no rotation; every pre-v8 save defaults here. Applied on top of " +
+                     "the Up orientation at placement (BlockGrid.OrientationFromUp).")]
+            public int Yaw;
+
             [Tooltip("Per-block server-authoritative scalar config. Interpretation depends on the block kind:\n" +
                      "  • ThrusterBlock: max thrust (N).\n" +
                      "  • RudderBlock: yaw authority.\n" +
@@ -96,6 +102,9 @@ namespace Robogame.Block
             /// <summary>Returns <see cref="ConcoctionId"/> with null coalesced to empty string.</summary>
             public string EffectiveConcoctionId => string.IsNullOrEmpty(ConcoctionId) ? string.Empty : ConcoctionId;
 
+            /// <summary>Yaw normalized to one of 0/90/180/270 degrees.</summary>
+            public int EffectiveYaw => ((Yaw % 360) + 360) % 360 / 90 * 90;
+
             public Entry(string blockId, Vector3Int position)
             {
                 BlockId = blockId;
@@ -105,6 +114,7 @@ namespace Robogame.Block
                 Pitch = 0f;
                 BlockConfig = 0f;
                 ConcoctionId = string.Empty;
+                Yaw = 0;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up)
@@ -116,6 +126,7 @@ namespace Robogame.Block
                 Pitch = 0f;
                 BlockConfig = 0f;
                 ConcoctionId = string.Empty;
+                Yaw = 0;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims)
@@ -127,6 +138,7 @@ namespace Robogame.Block
                 Pitch = 0f;
                 BlockConfig = 0f;
                 ConcoctionId = string.Empty;
+                Yaw = 0;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims, float pitch)
@@ -138,6 +150,7 @@ namespace Robogame.Block
                 Pitch = pitch;
                 BlockConfig = 0f;
                 ConcoctionId = string.Empty;
+                Yaw = 0;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims, float pitch, float blockConfig)
@@ -149,6 +162,7 @@ namespace Robogame.Block
                 Pitch = pitch;
                 BlockConfig = blockConfig;
                 ConcoctionId = string.Empty;
+                Yaw = 0;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims, float pitch, float blockConfig, string concoctionId)
@@ -160,6 +174,7 @@ namespace Robogame.Block
                 Pitch = pitch;
                 BlockConfig = blockConfig;
                 ConcoctionId = string.IsNullOrEmpty(concoctionId) ? string.Empty : concoctionId;
+                Yaw = 0;
             }
         }
 

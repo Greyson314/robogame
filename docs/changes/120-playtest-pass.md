@@ -167,10 +167,15 @@ state contract. Needs a design pass before code.
       it → CPU removed → `Destroyed` cascade tore the bot apart. `BuildSession`
       now guards via the `CpuBlockMarker` component (Definition-independent),
       both primary + mirror paths. Verified via headless rig (0 failures).
-- [ ] 🔧 Block rotation in garage (point a thruster up) — **APPROVED, blocked
-      on bridge.** Pure-code `Entry.Yaw` plan ready (see Proposal above), but
-      "thruster points up" is a directional/visual requirement — needs Play
-      verification of the orientation math, so waiting on the MCP bridge.
+- [x] Block rotation in garage (point a thruster up) — **DONE.** New back-compat
+      `Entry.Yaw` (0/90/180/270) applied once at `BlockGrid.OrientationFromUp(up,
+      yaw)`, so every consumer (thruster thrust, weapon aim, visuals) inherits
+      it. `R` cycles the pending yaw in `BlockEditor` with live ghost preview;
+      `BuildSession.PlaceYaw` carries it; persists through JSON (schema v8) + the
+      netcode blob (v2). Verified: side-mounted thruster yaws to thrust vertical;
+      yaw round-trips both serializers. In-match rotation noted for later.
+      *Limitation:* multi-cell footprints (aero foils) don't rotate under yaw —
+      occupancy stays Up-only; 1-cell blocks (thrusters/weapons) unaffected.
 
 ### Backlog (not this session)
 - Planet arena diggable + terrain noise (user marked "for future")

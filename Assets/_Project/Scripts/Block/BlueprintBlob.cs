@@ -49,7 +49,7 @@ namespace Robogame.Block
         /// <summary>Wire format version. Bump whenever the byte layout or a
         /// tuning-config field set changes — <see cref="TryDecode"/> rejects
         /// a newer blob rather than silently misreading it.</summary>
-        public const byte CurrentBlobVersion = 1;
+        public const byte CurrentBlobVersion = 2;
 
         // Header: version(1) + kind(1) + flags(1) + entryCount(u16) + tableCount(u16).
         private const int HeaderSize = 7;
@@ -58,8 +58,8 @@ namespace Robogame.Block
         private const int ConfigFloatCount = 13;
         private const int ConfigBytes = ConfigFloatCount * 4;
 
-        // Per entry: tableIdx(u16) + pos(short*3) + up(short*3) + dims(float*3) + pitch(float) + blockConfig(float).
-        private const int EntrySize = 2 + 6 + 6 + 12 + 4 + 4; // = 30
+        // Per entry: tableIdx(u16) + pos(short*3) + up(short*3) + dims(float*3) + pitch(float) + blockConfig(float) + yaw(short, v2).
+        private const int EntrySize = 2 + 6 + 6 + 12 + 4 + 4 + 2; // = 32
 
         private const byte FlagRotorsGenerateLift = 0x01;
         private const int MaxIdByteLength = 255;   // string-table length prefix is one byte
@@ -142,6 +142,7 @@ namespace Robogame.Block
                 WriteFloat(buffer, ref o, e.Dims.z);
                 WriteFloat(buffer, ref o, e.Pitch);
                 WriteFloat(buffer, ref o, e.BlockConfig);
+                WriteShort(buffer, ref o, (short)e.EffectiveYaw); // v2
             }
 
             return buffer;
@@ -245,6 +246,7 @@ namespace Robogame.Block
                 float dz = ReadFloat(buffer, ref o);
                 float pitch = ReadFloat(buffer, ref o);
                 float blockConfig = ReadFloat(buffer, ref o);
+                int yaw = ReadShort(buffer, ref o); // v2
                 decoded[i] = new ChassisBlueprint.Entry(
                     table[idIdx],
                     new Vector3Int(px, py, pz),
@@ -252,6 +254,7 @@ namespace Robogame.Block
                     new Vector3(dx, dy, dz),
                     pitch,
                     blockConfig);
+                decoded[i].Yaw = yaw;
             }
 
             ChassisBlueprint bp = ScriptableObject.CreateInstance<ChassisBlueprint>();

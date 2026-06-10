@@ -172,6 +172,13 @@ namespace Robogame.Gameplay
 
         public void ToggleMirror() => SetMirrorEnabled(!MirrorEnabled);
 
+        // Player-chosen yaw (deg about the mount/Up axis) for the NEXT placement.
+        // Set by the build editor's rotate key; normalized to 0/90/180/270.
+        // Session 120 block rotation.
+        public int PlaceYaw { get; private set; }
+        public void SetPlaceYaw(int yawDeg) => PlaceYaw = ((yawDeg % 360) + 360) % 360 / 90 * 90;
+        public void CyclePlaceYaw(int steps = 1) => SetPlaceYaw(PlaceYaw + steps * 90);
+
         // -----------------------------------------------------------------
         // Placement / removal verbs
         // -----------------------------------------------------------------
@@ -265,7 +272,7 @@ namespace Robogame.Gameplay
             if (primary != PlacementRules.PlacementError.None)
                 return new PlaceOutcome(primary, PlacementRules.PlacementError.None, false);
 
-            BlockBehaviour placed = Grid.PlaceBlock(def, cell, up, dims, localPitch);
+            BlockBehaviour placed = Grid.PlaceBlock(def, cell, up, dims, localPitch, PlaceYaw);
             if (placed == null)
                 return new PlaceOutcome(PlacementRules.PlacementError.WouldOverlapNeighbour, PlacementRules.PlacementError.None, false);
             // Per-block server-authoritative scalar from the variant cache
@@ -304,7 +311,7 @@ namespace Robogame.Gameplay
                     mirrorErr = PlacementRules.EvaluatePlacement(Grid, in mirrorCandidate, _cpuReachableValid ? _cpuReachable : null);
                     if (mirrorErr == PlacementRules.PlacementError.None)
                     {
-                        BlockBehaviour mPlaced = Grid.PlaceBlock(def, mCell, mUp, dims, mLocalPitch);
+                        BlockBehaviour mPlaced = Grid.PlaceBlock(def, mCell, mUp, dims, mLocalPitch, PlaceYaw);
                         if (mPlaced != null) mPlaced.ConfigValue = GetVariantConfig(def.Id);
                         AutoPlaceCompanionsOf(def, mCell, mUp);
                     }
@@ -505,7 +512,9 @@ namespace Robogame.Gameplay
             {
                 BlockBehaviour b = kvp.Value;
                 if (b == null || b.Definition == null) continue;
-                list.Add(new ChassisBlueprint.Entry(b.Definition.Id, kvp.Key, b.Up, b.Dims, b.PitchDeg, b.ConfigValue, b.ConcoctionId));
+                var entry = new ChassisBlueprint.Entry(b.Definition.Id, kvp.Key, b.Up, b.Dims, b.PitchDeg, b.ConfigValue, b.ConcoctionId);
+                entry.Yaw = b.Yaw;
+                list.Add(entry);
                 if (b.Definition.Id == BlockIds.Rotor) hasRotor = true;
             }
             Blueprint.SetEntries(list.ToArray());
