@@ -192,6 +192,19 @@ namespace Robogame.Gameplay
                 DynamicGI.UpdateEnvironment();
             }
 
+            // No atmosphere out here — kill the distance fog that greys out the
+            // platform edge + horizon, so the dark night sky reads cleanly.
+            RenderSettings.fog = false;
+
+            // The walled bay cleared the camera to solid black (no sky needed
+            // when enclosed). Now that it's open, switch every camera to draw
+            // the skybox — otherwise RenderSettings.skybox never shows and the
+            // additive bubble reads as a solid glowing ball over black. Use
+            // FindObjectsByType (not Camera.allCameras, which is empty this
+            // early in Start before any camera has rendered a frame).
+            foreach (Camera cam in FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (cam != null) cam.clearFlags = CameraClearFlags.Skybox;
+
             GameObject env = GameObject.Find("Environment");
             if (env == null) return;
             Transform envT = env.transform;
