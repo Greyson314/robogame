@@ -115,7 +115,10 @@ state contract. Needs a design pass before code.
       material slots → URP Palette256. Scene-verified. **SMG + Bomb still
       pending** a model choice (no clean Fatty match — SMG could take the
       Missile pod, Bomb the Catapult; `WeaponBlock` shares the same rig so it's
-      a quick extension).
+      a quick extension). **DONE:** SMG→FattyMissileG02, Bomb→FattyBombCup (just
+      the catapult arm+cup mesh, extracted; cup is fused to the arm in-source).
+      All four weapons now render stylized models. `WeaponModelRig.BuildStatic`
+      handles the non-aiming bomb bay.
 - [ ] Garage = bubble shield in space
 - [x] Mines barely visible — bigger lighter disc (0.5→0.85), bigger glow dot
       (0.13→0.26), + a tall amber beacon so they read from distance/above.
