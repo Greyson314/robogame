@@ -80,10 +80,23 @@ namespace Robogame.Gameplay
             if (sky != null)
             {
                 Material instance = new Material(sky) { name = sky.name + " (Garage)" };
+                // Session 122: swap in a generated white starfield. The
+                // material's Polyverse "Stars" cubemap is channel-packed —
+                // R/G/B are independent star layers for the pack's own
+                // shader — so the built-in Skybox/Cubemap shader renders it
+                // as red/green/blue star-shaped sprites.
+                if (instance.HasProperty("_Tex"))
+                {
+                    Cubemap stars = BuildStarCubemap();
+                    ambience.Owned.Add(stars);
+                    instance.SetTexture("_Tex", stars);
+                }
                 // Session 121 feedback: the sky read too dark — push the stars
                 // up from code so the values survive material-asset reverts.
+                // Tint is neutral grey (the identity value for Skybox/Cubemap);
+                // star color stays pure white from the generated texture.
                 if (instance.HasProperty("_Exposure")) instance.SetFloat("_Exposure", 1.25f);
-                if (instance.HasProperty("_Tint")) instance.SetColor("_Tint", new Color(0.32f, 0.35f, 0.45f));
+                if (instance.HasProperty("_Tint")) instance.SetColor("_Tint", new Color(0.5f, 0.5f, 0.5f));
                 RenderSettings.skybox = instance;
                 ambience.SkyboxMaterial = instance;
                 ambience.Owned.Add(instance);
@@ -110,6 +123,53 @@ namespace Robogame.Gameplay
             // early in Start before any camera has rendered a frame).
             foreach (Camera cam in Object.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None))
                 if (cam != null) cam.clearFlags = CameraClearFlags.Skybox;
+        }
+
+        /// <summary>
+        /// Procedural starfield cubemap: white / grey point stars (1–3 px
+        /// squares, mostly dim singles with a few brighter 2×2s and rare
+        /// 3×3s) over near-black night blue. Deterministic seed — same sky
+        /// every visit. One-time build on garage load; the ambience owns and
+        /// destroys it.
+        /// </summary>
+        private static Cubemap BuildStarCubemap()
+        {
+            const int size = 512;
+            const int starsPerFace = 650;
+            var night = new Color(0.010f, 0.014f, 0.028f, 1f);
+
+            var cube = new Cubemap(size, TextureFormat.RGBA32, mipChain: false)
+            {
+                name = "GarageStarsCube",
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+            };
+
+            var rng = new System.Random(31415);
+            var pixels = new Color[size * size];
+            for (int f = 0; f < 6; f++)
+            {
+                for (int i = 0; i < pixels.Length; i++) pixels[i] = night;
+
+                for (int s = 0; s < starsPerFace; s++)
+                {
+                    int x = 1 + rng.Next(size - 3);
+                    int y = 1 + rng.Next(size - 3);
+                    double tier = rng.NextDouble();
+                    int span = tier > 0.985 ? 3 : tier > 0.90 ? 2 : 1;
+                    // Shades of white only — value varies, hue never does.
+                    float v = span == 3 ? 1f
+                        : span == 2 ? Mathf.Lerp(0.55f, 0.9f, (float)rng.NextDouble())
+                        : Mathf.Lerp(0.25f, 0.7f, (float)rng.NextDouble());
+                    var c = new Color(v, v, v, 1f);
+                    for (int dy = 0; dy < span; dy++)
+                        for (int dx = 0; dx < span; dx++)
+                            pixels[(y + dy) * size + (x + dx)] = c;
+                }
+                cube.SetPixels(pixels, (CubemapFace)f);
+            }
+            cube.Apply(updateMipmaps: false, makeNoLongerReadable: true);
+            return cube;
         }
 
         // -----------------------------------------------------------------
