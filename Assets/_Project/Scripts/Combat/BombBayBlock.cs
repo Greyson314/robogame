@@ -81,6 +81,12 @@ namespace Robogame.Combat
 
             DropPoint = BlockVisuals.GetOrCreateChild(transform, "DropPoint");
             DropPoint.localPosition = _dropLocalOffset;
+
+            // Optional stylized model (the catapult arm + cup) — static, since a
+            // bomb bay drops rather than aims. Hides the host cube when present.
+            BombDefinition def = ResolveDef();
+            if (def != null && def.TurretModel != null)
+                WeaponModelRig.BuildStatic(this, def.TurretModel, def.TurretModelScale, def.TurretModelOffset);
         }
 
         private BombDefinition ResolveDef()

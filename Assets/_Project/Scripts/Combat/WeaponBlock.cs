@@ -41,13 +41,33 @@ namespace Robogame.Combat
 
         public Transform Muzzle => _muzzle;
 
+        private Robogame.Block.BlockBehaviour _block;
+
         private void Awake()
         {
+            // _block must resolve before EnsureRig so the rig can read the
+            // WeaponDefinition's optional turret model.
+            _block = GetComponent<Robogame.Block.BlockBehaviour>();
             EnsureRig();
             if (_mount == null) _mount = GetComponentInParent<WeaponMount>();
             if (_gun == null) _gun = GetComponent<ProjectileGun>();
             if (_gun == null) _gun = gameObject.AddComponent<ProjectileGun>();
             _gun.SetMuzzle(_muzzle);
+        }
+
+        // Stylized turret model (Fatty pack) when the definition supplies one;
+        // returns false to fall through to the procedural barrel below.
+        private bool TryBuildTurretModel()
+        {
+            WeaponDefinition def = _block != null && _block.Definition != null
+                ? _block.Definition.GetComponentData<WeaponDefinition>() : null;
+            if (def == null || def.TurretModel == null) return false;
+            if (!WeaponModelRig.TryBuild(this, def.TurretModel, def.TurretModelScale,
+                    def.TurretModelOffset, out Transform yoke, out Transform muzzle))
+                return false;
+            _yoke = yoke;
+            _muzzle = muzzle;
+            return true;
         }
 
         private void LateUpdate()
@@ -70,6 +90,10 @@ namespace Robogame.Combat
 
         private void EnsureRig()
         {
+            // Prefer the authored turret model; fall back to the procedural
+            // barrel when the definition has no model assigned.
+            if (TryBuildTurretModel()) return;
+
             // Yoke pivot. New yokes need a barrel + initial offset.
             bool yokeIsNew = transform.Find("Yoke") == null;
             _yoke = BlockVisuals.GetOrCreateChild(transform, "Yoke");

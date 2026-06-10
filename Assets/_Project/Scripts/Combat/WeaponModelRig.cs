@@ -49,6 +49,27 @@ namespace Robogame.Combat
             return true;
         }
 
+        /// <summary>
+        /// Static variant for non-aiming weapons (the bomb bay): instantiate the
+        /// model, hide the host cube, no yaw/pitch wiring. Returns the instance.
+        /// </summary>
+        public static GameObject BuildStatic(MonoBehaviour host, GameObject model, float scale, Vector3 offset)
+        {
+            if (host == null || model == null) return null;
+            Transform t = host.transform;
+            BlockVisuals.HideHostMesh(host.gameObject);
+
+            Transform existing = t.Find("TurretModel");
+            GameObject inst = existing != null
+                ? existing.gameObject
+                : Object.Instantiate(model, t);
+            inst.name = "TurretModel";
+            inst.transform.localPosition = offset;
+            inst.transform.localRotation = Quaternion.identity;
+            inst.transform.localScale = Vector3.one * Mathf.Max(0.01f, scale);
+            return inst;
+        }
+
         private static Transform FindByName(Transform root, string name)
         {
             if (root.name == name) return root;

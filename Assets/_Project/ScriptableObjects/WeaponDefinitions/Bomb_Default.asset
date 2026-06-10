@@ -17,6 +17,9 @@ MonoBehaviour:
   _clipSize: 4
   _reloadDuration: 4
   _autoReloadDelay: 0.3
+  _turretModel: {fileID: 4835766454416729389, guid: 296853567397b2a45b3e428fbc8be96a, type: 3}
+  _turretModelScale: 0.45
+  _turretModelOffset: {x: 0, y: -0.45, z: 0}
   _dropInterval: 1.2
   _radius: 18
   _initialSpeed: 2
