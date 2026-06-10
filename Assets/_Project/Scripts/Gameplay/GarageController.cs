@@ -2,6 +2,7 @@ using Robogame.Block;
 using Robogame.Combat;
 using Robogame.Player;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Robogame.Gameplay
 {
@@ -122,6 +123,11 @@ namespace Robogame.Gameplay
 
         private void Start()
         {
+            // Apply the "bubble shield in space" look from code so it can't be
+            // lost to a scene-file revert (the .unity kept reverting to the
+            // plain walled bay). Idempotent + runs on every garage load.
+            ApplyGarageDecor();
+
             GameStateController state = GameStateController.Instance;
             if (state == null)
             {
@@ -162,6 +168,82 @@ namespace Robogame.Gameplay
             // finished match — should drop the player straight into build mode,
             // not drive mode. Enter() is idempotent, so this is safe.
             _buildMode?.Enter();
+        }
+
+        // -----------------------------------------------------------------
+        // "Bubble shield in space" decor (code-applied; see Start)
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Turn the plain walled garage bay into a circular platform floating in
+        /// a Polyverse night sky inside a translucent shield bubble — applied at
+        /// runtime so it survives scene-file reverts. Idempotent: re-running
+        /// hides the walls again and reuses the platform/bubble if present.
+        /// Materials load from Resources/Garage so no serialized scene refs are
+        /// needed (those reverted too).
+        /// </summary>
+        private void ApplyGarageDecor()
+        {
+            // Night-sky skybox.
+            Material sky = Resources.Load<Material>("Garage/Skybox_GarageSpace");
+            if (sky != null)
+            {
+                RenderSettings.skybox = sky;
+                DynamicGI.UpdateEnvironment();
+            }
+
+            GameObject env = GameObject.Find("Environment");
+            if (env == null) return;
+            Transform envT = env.transform;
+
+            // Hide the bay walls / stripes and the square floor (grab its
+            // material first for the round platform).
+            Material floorMat = null;
+            foreach (Transform c in envT)
+            {
+                if (c.name.StartsWith("Wall_") || c.name.StartsWith("Stripe_"))
+                    c.gameObject.SetActive(false);
+                else if (c.name == "Floor")
+                {
+                    Renderer fr = c.GetComponent<Renderer>();
+                    if (fr != null) floorMat = fr.sharedMaterial;
+                    c.gameObject.SetActive(false);
+                }
+            }
+
+            Transform podium = envT.Find("Podium");
+            Vector3 center = podium != null ? podium.position : Vector3.zero;
+
+            // Large circular platform that fills the bubble.
+            if (envT.Find("Platform") == null)
+            {
+                GameObject platform = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                platform.name = "Platform";
+                Collider pc = platform.GetComponent<Collider>();
+                if (pc != null) Destroy(pc);
+                platform.transform.SetParent(envT, false);
+                platform.transform.localPosition = new Vector3(center.x, -0.3f, center.z);
+                platform.transform.localScale = new Vector3(150f, 0.3f, 150f); // r~75 disc
+                MeshRenderer pmr = platform.GetComponent<MeshRenderer>();
+                if (floorMat != null) pmr.sharedMaterial = floorMat;
+                pmr.shadowCastingMode = ShadowCastingMode.Off;
+            }
+
+            // Translucent shield dome.
+            if (envT.Find("ShieldBubble") == null)
+            {
+                Material bubbleMat = Resources.Load<Material>("Garage/Mat_ShieldBubble");
+                GameObject bubble = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                bubble.name = "ShieldBubble";
+                Collider bc = bubble.GetComponent<Collider>();
+                if (bc != null) Destroy(bc);
+                bubble.transform.SetParent(envT, false);
+                bubble.transform.localPosition = new Vector3(center.x, 3f, center.z);
+                bubble.transform.localScale = Vector3.one * 170f; // r~85
+                MeshRenderer bmr = bubble.GetComponent<MeshRenderer>();
+                if (bubbleMat != null) bmr.sharedMaterial = bubbleMat;
+                bmr.shadowCastingMode = ShadowCastingMode.Off;
+            }
         }
 
         // -----------------------------------------------------------------
