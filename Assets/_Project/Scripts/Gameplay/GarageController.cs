@@ -196,6 +196,12 @@ namespace Robogame.Gameplay
             // platform edge + horizon, so the dark night sky reads cleanly.
             RenderSettings.fog = false;
 
+            // A touch of night: dim, slightly-blue flat ambient so the scene
+            // reads dark instead of skybox-washed grey. The directional light
+            // still keys the bot brightly enough to build by.
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = new Color(0.13f, 0.15f, 0.20f);
+
             // The walled bay cleared the camera to solid black (no sky needed
             // when enclosed). Now that it's open, switch every camera to draw
             // the skybox — otherwise RenderSettings.skybox never shows and the

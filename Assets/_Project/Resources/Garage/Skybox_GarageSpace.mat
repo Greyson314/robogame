@@ -8,22 +8,22 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Skybox_GarageSpace
-  m_Shader: {fileID: 4800000, guid: 6fc9318f5193c094c98c0d450cd61e3b, type: 3}
+  m_Shader: {fileID: 103, guid: 0000000000000000f000000000000000, type: 0}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords:
+  m_ValidKeywords: []
+  m_InvalidKeywords:
   - _BACKGROUNDMODE_COLORS
+  - _BUILTINFOG_ON
+  - _CLOUDS_ON
   - _ENABLEBUILTINFOG_ON
   - _ENABLECLOUDSROTATION_ON
   - _ENABLEMOON_ON
-  - _ENABLESTARSTWINKLING_ON
-  - _ENABLESTARS_ON
-  m_InvalidKeywords:
-  - _BUILTINFOG_ON
-  - _CLOUDS_ON
   - _ENABLEPATTERN_ON
   - _ENABLESKYPATTERNOVERLAY_ON
   - _ENABLESTARSSUNMASK_ON
+  - _ENABLESTARSTWINKLING_ON
+  - _ENABLESTARS_ON
   - _ENABLESUNMASK_ON
   - _ENABLESUNMOONMASK_ON
   - _ENABLESUNMOON_ON
@@ -142,7 +142,7 @@ Material:
         m_Scale: {x: 0, y: 0}
         m_Offset: {x: 1, y: 1}
     - _Tex:
-        m_Texture: {fileID: 2800000, guid: 623f215c9cf5dc04aa628d4dd7b6bd73, type: 3}
+        m_Texture: {fileID: 8900000, guid: 2410ceb2200b01a4cad9ef3c253b8a5a, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _Texture:
@@ -241,7 +241,7 @@ Material:
     - _EqHeight: 0.419
     - _EquatorHeight: 0
     - _EquatorSmoothness: 0.01
-    - _Exposure: 0
+    - _Exposure: 0.6
     - _Fade: 0
     - _Float0: -1
     - _Float1: 0.836
@@ -296,7 +296,7 @@ Material:
     - _StarsMaskPower: 1
     - _StarsRotation: 360
     - _StarsRotationSpeed: 0.5
-    - _StarsSize: 0.18
+    - _StarsSize: 0.22
     - _StarsSunMask: 0
     - _SunCat: 1
     - _SunDirectionMode: 0
@@ -337,20 +337,20 @@ Material:
     - _Color2: {r: 0.059472326, g: 0.25068596, b: 0.8088235, a: 0}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _Eq: {r: 1, g: 0.6769777, b: 0.330882, a: 0}
-    - _EquatorColor: {r: 0, g: 0, b: 0, a: 1}
+    - _EquatorColor: {r: 0.015, g: 0.022, b: 0.055, a: 1}
     - _Ground: {r: 0.4779411, g: 0.43111518, b: 0.23545504, a: 0}
-    - _GroundColor: {r: 0.46323532, g: 0.46323532, b: 0.46323532, a: 1}
+    - _GroundColor: {r: 0.015, g: 0.022, b: 0.055, a: 1}
     - _MoonColor: {r: 0.6, g: 0.7, b: 0.95, a: 1}
     - _MoonDirection: {r: 1, g: 0, b: 0, a: 0}
     - _Sky: {r: 0.6691177, g: 0.29519898, b: 0.29519898, a: 0}
-    - _SkyColor: {r: 0.02, g: 0.035, b: 0.09, a: 1}
+    - _SkyColor: {r: 0.015, g: 0.022, b: 0.055, a: 1}
     - _SkyboxRotationAxis: {r: 0, g: 1, b: 0, a: 0}
     - _Skycol: {r: 0.27941146, g: 0.64219046, b: 1, a: 0}
     - _StarsColor: {r: 0.85, g: 0.9, b: 1, a: 1}
     - _StarsRotationAxis: {r: 0, g: 1, b: 0, a: 0}
     - _SunColor: {r: 1, g: 0.9172414, b: 0.64705884, a: 1}
     - _SunDirection: {r: 0, g: 0, b: 1, a: 0}
-    - _Tint: {r: 1, g: 1, b: 1, a: 0}
+    - _Tint: {r: 0.18, g: 0.2, b: 0.28, a: 1}
     - _Vector1: {r: 0, g: 1, b: 1, a: 0}
     - _water: {r: 0.5, g: 0.5, b: 0.5, a: 1}
   m_BuildTextureStacks: []
