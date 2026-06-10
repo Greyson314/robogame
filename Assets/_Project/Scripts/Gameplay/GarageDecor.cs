@@ -126,17 +126,16 @@ namespace Robogame.Gameplay
         }
 
         /// <summary>
-        /// Procedural starfield cubemap: white / grey point stars (1–3 px
-        /// squares, mostly dim singles with a few brighter 2×2s and rare
-        /// 3×3s) over near-black night blue. Deterministic seed — same sky
-        /// every visit. One-time build on garage load; the ambience owns and
-        /// destroys it.
+        /// Procedural starfield cubemap: white / grey point stars (mostly
+        /// 1 px singles, a few brighter 2×2s) over pure black. Deterministic
+        /// seed — same sky every visit. One-time build on garage load; the
+        /// ambience owns and destroys it.
         /// </summary>
         private static Cubemap BuildStarCubemap()
         {
             const int size = 512;
             const int starsPerFace = 650;
-            var night = new Color(0.010f, 0.014f, 0.028f, 1f);
+            var night = new Color(0f, 0f, 0f, 1f);
 
             var cube = new Cubemap(size, TextureFormat.RGBA32, mipChain: false)
             {
@@ -155,11 +154,10 @@ namespace Robogame.Gameplay
                 {
                     int x = 1 + rng.Next(size - 3);
                     int y = 1 + rng.Next(size - 3);
-                    double tier = rng.NextDouble();
-                    int span = tier > 0.985 ? 3 : tier > 0.90 ? 2 : 1;
+                    // Session 122 tune: smaller stars — no 3×3s, 2×2s rarer.
+                    int span = rng.NextDouble() > 0.94 ? 2 : 1;
                     // Shades of white only — value varies, hue never does.
-                    float v = span == 3 ? 1f
-                        : span == 2 ? Mathf.Lerp(0.55f, 0.9f, (float)rng.NextDouble())
+                    float v = span == 2 ? Mathf.Lerp(0.5f, 0.85f, (float)rng.NextDouble())
                         : Mathf.Lerp(0.25f, 0.7f, (float)rng.NextDouble());
                     var c = new Color(v, v, v, 1f);
                     for (int dy = 0; dy < span; dy++)
