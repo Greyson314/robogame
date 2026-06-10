@@ -2,7 +2,6 @@ using Robogame.Block;
 using Robogame.Combat;
 using Robogame.Player;
 using UnityEngine;
-using UnityEngine.Rendering;
 
 namespace Robogame.Gameplay
 {
@@ -164,10 +163,9 @@ namespace Robogame.Gameplay
             DisableCombat(Chassis);
             BindFollowCamera(Chassis);
             EnsureBuildModeWired();
-            // Playtest (session 120): entering the garage — including from a
-            // finished match — should drop the player straight into build mode,
-            // not drive mode. Enter() is idempotent, so this is safe.
-            _buildMode?.Enter();
+            // Session 121 (reverses the session-120 call): entering the garage
+            // starts in drive mode (follow camera, build UI hidden); the player
+            // opts into build mode via the HUD toggle / hotkey.
         }
 
         // -----------------------------------------------------------------
@@ -175,95 +173,13 @@ namespace Robogame.Gameplay
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Turn the plain walled garage bay into a circular platform floating in
-        /// a Polyverse night sky inside a translucent shield bubble — applied at
-        /// runtime so it survives scene-file reverts. Idempotent: re-running
-        /// hides the walls again and reuses the platform/bubble if present.
-        /// Materials load from Resources/Garage so no serialized scene refs are
-        /// needed (those reverted too).
+        /// Turn the plain walled garage bay into the floating shield-bubble
+        /// platform — applied at runtime so it survives scene-file reverts.
+        /// The build lives in <see cref="GarageDecor"/>; the animated bits
+        /// (star drift, beacon blink, asteroid tumble) in
+        /// <see cref="GarageAmbience"/>. Session 121 liveliness pass.
         /// </summary>
-        private void ApplyGarageDecor()
-        {
-            // Night-sky skybox.
-            Material sky = Resources.Load<Material>("Garage/Skybox_GarageSpace");
-            if (sky != null)
-            {
-                RenderSettings.skybox = sky;
-                DynamicGI.UpdateEnvironment();
-            }
-
-            // No atmosphere out here — kill the distance fog that greys out the
-            // platform edge + horizon, so the dark night sky reads cleanly.
-            RenderSettings.fog = false;
-
-            // A touch of night: dim, slightly-blue flat ambient so the scene
-            // reads dark instead of skybox-washed grey. The directional light
-            // still keys the bot brightly enough to build by.
-            RenderSettings.ambientMode = AmbientMode.Flat;
-            RenderSettings.ambientLight = new Color(0.13f, 0.15f, 0.20f);
-
-            // The walled bay cleared the camera to solid black (no sky needed
-            // when enclosed). Now that it's open, switch every camera to draw
-            // the skybox — otherwise RenderSettings.skybox never shows and the
-            // additive bubble reads as a solid glowing ball over black. Use
-            // FindObjectsByType (not Camera.allCameras, which is empty this
-            // early in Start before any camera has rendered a frame).
-            foreach (Camera cam in FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-                if (cam != null) cam.clearFlags = CameraClearFlags.Skybox;
-
-            GameObject env = GameObject.Find("Environment");
-            if (env == null) return;
-            Transform envT = env.transform;
-
-            // Hide the bay walls / stripes and the square floor (grab its
-            // material first for the round platform).
-            Material floorMat = null;
-            foreach (Transform c in envT)
-            {
-                if (c.name.StartsWith("Wall_") || c.name.StartsWith("Stripe_"))
-                    c.gameObject.SetActive(false);
-                else if (c.name == "Floor")
-                {
-                    Renderer fr = c.GetComponent<Renderer>();
-                    if (fr != null) floorMat = fr.sharedMaterial;
-                    c.gameObject.SetActive(false);
-                }
-            }
-
-            Transform podium = envT.Find("Podium");
-            Vector3 center = podium != null ? podium.position : Vector3.zero;
-
-            // Large circular platform that fills the bubble.
-            if (envT.Find("Platform") == null)
-            {
-                GameObject platform = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                platform.name = "Platform";
-                Collider pc = platform.GetComponent<Collider>();
-                if (pc != null) Destroy(pc);
-                platform.transform.SetParent(envT, false);
-                platform.transform.localPosition = new Vector3(center.x, -0.3f, center.z);
-                platform.transform.localScale = new Vector3(150f, 0.3f, 150f); // r~75 disc
-                MeshRenderer pmr = platform.GetComponent<MeshRenderer>();
-                if (floorMat != null) pmr.sharedMaterial = floorMat;
-                pmr.shadowCastingMode = ShadowCastingMode.Off;
-            }
-
-            // Translucent shield dome.
-            if (envT.Find("ShieldBubble") == null)
-            {
-                Material bubbleMat = Resources.Load<Material>("Garage/Mat_ShieldBubble");
-                GameObject bubble = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                bubble.name = "ShieldBubble";
-                Collider bc = bubble.GetComponent<Collider>();
-                if (bc != null) Destroy(bc);
-                bubble.transform.SetParent(envT, false);
-                bubble.transform.localPosition = new Vector3(center.x, 3f, center.z);
-                bubble.transform.localScale = Vector3.one * 170f; // r~85
-                MeshRenderer bmr = bubble.GetComponent<MeshRenderer>();
-                if (bubbleMat != null) bmr.sharedMaterial = bubbleMat;
-                bmr.shadowCastingMode = ShadowCastingMode.Off;
-            }
-        }
+        private void ApplyGarageDecor() => GarageDecor.Apply();
 
         // -----------------------------------------------------------------
         // Build mode wiring
