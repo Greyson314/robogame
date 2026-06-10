@@ -285,19 +285,19 @@ Material:
     - _StarFlikerSpeed: 0.05
     - _Stars: 1
     - _StarsAmount: 3
-    - _StarsBottomMask: 1
+    - _StarsBottomMask: 0
     - _StarsCat: 1
     - _StarsFlikerContrast: 1
-    - _StarsHeightMask: 0.2
+    - _StarsHeightMask: 0
     - _StarsHeigntMask: 1
     - _StarsHorizonMask: 1
     - _StarsIntensity: 1
-    - _StarsLayer: 3
+    - _StarsLayer: 0.5
     - _StarsMaskPower: 1
     - _StarsRotation: 360
     - _StarsRotationSpeed: 0.5
-    - _StarsSize: 0.5
-    - _StarsSunMask: 0.03
+    - _StarsSize: 0.18
+    - _StarsSunMask: 0
     - _SunCat: 1
     - _SunDirectionMode: 0
     - _SunIntensity: 1
@@ -343,10 +343,10 @@ Material:
     - _MoonColor: {r: 0.6, g: 0.7, b: 0.95, a: 1}
     - _MoonDirection: {r: 1, g: 0, b: 0, a: 0}
     - _Sky: {r: 0.6691177, g: 0.29519898, b: 0.29519898, a: 0}
-    - _SkyColor: {r: 0.015, g: 0.02, b: 0.05, a: 1}
+    - _SkyColor: {r: 0.02, g: 0.035, b: 0.09, a: 1}
     - _SkyboxRotationAxis: {r: 0, g: 1, b: 0, a: 0}
     - _Skycol: {r: 0.27941146, g: 0.64219046, b: 1, a: 0}
-    - _StarsColor: {r: 0.8, g: 0.85, b: 1, a: 1}
+    - _StarsColor: {r: 0.85, g: 0.9, b: 1, a: 1}
     - _StarsRotationAxis: {r: 0, g: 1, b: 0, a: 0}
     - _SunColor: {r: 1, g: 0.9172414, b: 0.64705884, a: 1}
     - _SunDirection: {r: 0, g: 0, b: 1, a: 0}

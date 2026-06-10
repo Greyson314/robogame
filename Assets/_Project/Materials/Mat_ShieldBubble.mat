@@ -25,11 +25,11 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _BaseAlpha: 0.22
+    - _BaseAlpha: 0.04
     - _Pulse: 0.6
     - _PulseAmount: 0.15
-    - _RimIntensity: 2.2
-    - _RimPower: 2
+    - _RimIntensity: 1.4
+    - _RimPower: 3.5
     m_Colors:
     - _Color: {r: 0.35, g: 0.8, b: 1, a: 1}
   m_BuildTextureStacks: []
