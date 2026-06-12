@@ -90,10 +90,16 @@ namespace Robogame.Block
     /// stats, zero CPU surcharge" — behaviour-identical. Rides an existing
     /// record, not part of the sort key. See ADR-0004.
     /// </para>
+    /// <para>
+    /// v9 schema (current). Adds per-entry <c>teeter</c> — foil chord-axis
+    /// tilt in degrees (dihedral / coning), visual-only in v1. Absent in
+    /// v1–v8 (JsonUtility leaves it 0) = flat, behaviour-identical. Rides
+    /// an existing record, not part of the sort key.
+    /// </para>
     /// </remarks>
     public static class BlueprintSerializer
     {
-        public const int CurrentSchemaVersion = 8;
+        public const int CurrentSchemaVersion = 9;
 
         // -----------------------------------------------------------------
         // DTOs (private — JsonUtility needs concrete [Serializable] types)
@@ -146,6 +152,9 @@ namespace Robogame.Block
             // v8 addition. Per-entry yaw (deg about the mount/Up axis):
             // 0/90/180/270. 0 (absent in v1–v7) = no rotation.
             public int yaw;
+            // v9 addition. Per-entry foil teeter tilt (deg, chord-axis,
+            // local-frame). 0 (absent in v1–v8) = flat.
+            public float teeter;
         }
 
         // -----------------------------------------------------------------
@@ -182,6 +191,7 @@ namespace Robogame.Block
                     blockConfig = src[i].BlockConfig,
                     concoctionId = src[i].EffectiveConcoctionId,
                     yaw = src[i].EffectiveYaw,
+                    teeter = src[i].Teeter,
                 };
             }
 
@@ -270,6 +280,7 @@ namespace Robogame.Block
                 Vector3 dims = new Vector3(e.dx, e.dy, e.dz);
                 var entry = new ChassisBlueprint.Entry(e.id, new Vector3Int(e.x, e.y, e.z), up, dims, e.pitch, e.blockConfig, e.concoctionId);
                 entry.Yaw = e.yaw;
+                entry.Teeter = e.teeter;
                 copy.Add(entry);
             }
 

@@ -58,6 +58,8 @@ namespace Robogame.Gameplay
         // Foil controls
         private Slider _foilPitchPrimary;
         private Text _foilPitchValue;
+        private Slider _foilTeeterSlider;
+        private Text _foilTeeterValue;
         private Text _foilReadout;
         private GameObject _foilAdvanced;
         private Text _foilAdvancedToggleText;
@@ -69,6 +71,8 @@ namespace Robogame.Gameplay
         // Rotor controls
         private Slider _rotorCollectiveSlider;
         private Text _rotorCollectiveValue;
+        private Slider _rotorRpmSlider;
+        private Text _rotorRpmValue;
         private Text _rotorReadout;
         // Hover blade controls
         private Slider _hoverSizeSlider;
@@ -155,6 +159,14 @@ namespace Robogame.Gameplay
             => _session != null ? _session.GetVariantPitch(blockId) : 0f;
 
         /// <summary>
+        /// Read the cached "next placement" teeter tilt for
+        /// <paramref name="blockId"/> in degrees (world-intent, like pitch).
+        /// 0 means flat.
+        /// </summary>
+        public float GetTeeterForBlock(string blockId)
+            => _session != null ? _session.GetVariantTeeter(blockId) : 0f;
+
+        /// <summary>
         /// Read the cached "next placement" scalar config for
         /// <paramref name="blockId"/> (module power, etc). 0 means "use the
         /// block default".
@@ -216,6 +228,15 @@ namespace Robogame.Gameplay
             _activeBlockId = null;
         }
 
+        /// <summary>
+        /// Re-sync the panel's sliders/readouts from the session caches for
+        /// <paramref name="blockId"/>. Public entry point for the
+        /// middle-click eyedropper, which rewrites the caches without
+        /// necessarily changing the hotbar selection (re-picking the
+        /// already-selected type fires no SelectedBlockChanged).
+        /// </summary>
+        public void RefreshForBlock(string blockId) => HandleSelectedBlockChanged(blockId);
+
         private void HandleSelectedBlockChanged(string blockId)
         {
             _activeBlockId = blockId;
@@ -254,6 +275,7 @@ namespace Robogame.Gameplay
             {
                 Vector3 cached = GetDimsForBlock(blockId);
                 float pitch = GetPitchForBlock(blockId);
+                float teeter = GetTeeterForBlock(blockId);
                 float span      = cached.x > 0f ? cached.x : AeroSurfaceBlock.DefaultSpan;
                 float thickness = cached.y > 0f ? cached.y : AeroSurfaceBlock.DefaultThickness;
                 float chord     = cached.z > 0f ? cached.z : AeroSurfaceBlock.DefaultChord;
@@ -261,10 +283,12 @@ namespace Robogame.Gameplay
                 _foilThicknessSlider.value = thickness;
                 _foilChordSlider.value     = chord;
                 _foilPitchPrimary.value    = pitch;
+                _foilTeeterSlider.value    = teeter;
                 UpdateValueText(_foilSpanValue,      span,      "F2");
                 UpdateValueText(_foilThicknessValue, thickness, "F2");
                 UpdateValueText(_foilChordValue,     chord,     "F2");
                 UpdateFoilPitchValue(pitch);
+                UpdateValueText(_foilTeeterValue, teeter, "F0");
                 UpdateFoilReadout();
             }
             else if (rope)
@@ -279,6 +303,12 @@ namespace Robogame.Gameplay
                 float pitch = GetPitchForBlock(blockId);
                 _rotorCollectiveSlider.value = pitch;
                 UpdateValueText(_rotorCollectiveValue, pitch, "F0");
+                // Config cache 0 = "use default" — display the default RPM
+                // without writing the cache, so an untouched rotor keeps
+                // the 0 sentinel in its blueprint entry.
+                float rpm = RotorDefaults.ResolveRpm(GetConfigForBlock(blockId));
+                _rotorRpmSlider.value = rpm;
+                UpdateValueText(_rotorRpmValue, rpm, "F0");
                 UpdateRotorReadout();
             }
             else if (hover)
@@ -353,6 +383,19 @@ namespace Robogame.Gameplay
             UpdateFoilReadout();
         }
 
+        private void OnFoilTeeterChanged(float v)
+        {
+            if (_suppressCallbacks) return;
+            float snapped = SnapInt(v);
+            string id = _activeBlockId;
+            if (string.IsNullOrEmpty(id)) return;
+            _suppressCallbacks = true;
+            _foilTeeterSlider.value = snapped;
+            _suppressCallbacks = false;
+            _session?.SetVariantTeeter(id, snapped);
+            UpdateValueText(_foilTeeterValue, snapped, "F0");
+        }
+
         private void OnRopeSegmentCountChanged(float v)
         {
             if (_suppressCallbacks) return;
@@ -379,6 +422,20 @@ namespace Robogame.Gameplay
             _suppressCallbacks = false;
             _session?.SetVariantPitch(id, snapped);
             UpdateValueText(_rotorCollectiveValue, snapped, "F0");
+            UpdateRotorReadout();
+        }
+
+        private void OnRotorRpmChanged(float v)
+        {
+            if (_suppressCallbacks) return;
+            float snapped = Mathf.Round(v / 10f) * 10f; // 10 RPM steps
+            string id = _activeBlockId;
+            if (string.IsNullOrEmpty(id)) return;
+            _suppressCallbacks = true;
+            _rotorRpmSlider.value = snapped;
+            _suppressCallbacks = false;
+            _session?.SetVariantConfig(id, snapped);
+            UpdateValueText(_rotorRpmValue, snapped, "F0");
             UpdateRotorReadout();
         }
 
@@ -447,14 +504,13 @@ namespace Robogame.Gameplay
         // player can see the consequence of their tuning before they
         // place anything. Reference values:
         //   - Free-wing cruise: 30 m/s (typical plane forward speed).
-        //   - Rotor blade: ω×r at 240 RPM and 1 m radius — matches the
-        //     shipped helicopter's blade config. Disc lift assumes 4 default
-        //     blades; player-built rotors with bigger blades will lift more
-        //     than the readout suggests (it's a conservative estimate, not
-        //     a per-build calculation — that needs the live chassis).
+        //   - Rotor blade: ω×r at the DIALED RPM and 1 m radius. Disc
+        //     lift assumes 4 default blades; player-built rotors with
+        //     bigger blades will lift more than the readout suggests
+        //     (it's a conservative estimate, not a per-build calculation
+        //     — that needs the live chassis).
 
         private const float CruiseSpeedMs       = 30f;
-        private const float RotorRpmNominal     = 240f;
         private const float RotorRadiusNominal  = 1f;
         private const int   RotorBladeCount     = 4;
         private const float LiftCoefDefault     = 0.95f;   // matches AeroSurfaceBlock._liftCoef
@@ -505,7 +561,9 @@ namespace Robogame.Gameplay
             // Mirror that for the readout so the player sees the actual
             // post-place value.
             float effectiveCollective = collective > 0f ? collective : 8f;
-            float omega = RotorRpmNominal * Mathf.PI * 2f / 60f;
+            float rpmCfg = GetConfigForBlock(_activeBlockId);
+            float rpm = RotorDefaults.ResolveRpm(rpmCfg);
+            float omega = rpm * Mathf.PI * 2f / 60f;
             float tipSpeed = omega * RotorRadiusNominal;
             float perBlade = EstimateFoilLift(
                 AeroSurfaceBlock.DefaultSpan,
@@ -513,8 +571,17 @@ namespace Robogame.Gameplay
                 effectiveCollective,
                 tipSpeed);
             float total = perBlade * RotorBladeCount;
+            // Live CPU price at this RPM — the consequence the player is
+            // trading lift against. Same pricing core the spend bar and
+            // spawn-time TrimToFit use (RotorDefaults.CpuCostFor).
+            BlockDefinition rotorDef = GameStateController.Instance != null && GameStateController.Instance.Library != null
+                ? GameStateController.Instance.Library.Get(BlockIds.Rotor)
+                : null;
+            string cpuPart = rotorDef != null
+                ? $"  •  CPU {RotorDefaults.CpuCostFor(rotorDef.CpuCost, rpmCfg)}"
+                : string.Empty;
             _rotorReadout.text =
-                $"≈ {total:F0} N disc ({RotorBladeCount} default blades, {RotorRpmNominal:F0} RPM)";
+                $"≈ {total:F0} N disc ({RotorBladeCount} blades @ {rpm:F0} RPM){cpuPart}";
         }
 
         // -----------------------------------------------------------------
@@ -530,13 +597,16 @@ namespace Robogame.Gameplay
             ("Vert Fin",    2.00f, 0.08f, 0.90f,  0f),
         };
 
-        // Rotor presets — per FOIL_ROTATION_PLAN §3.4. v1 only writes
-        // collective; per-rotor RPM / direction are deferred.
-        private static readonly (string label, float collective)[] s_rotorPresets =
+        // Rotor presets — per FOIL_ROTATION_PLAN §3.4. Collective + RPM
+        // (per-rotor RPM landed with the RPM slider; direction is still
+        // deferred). RPM choices straddle the 240 default so the CPU
+        // price spread is visible: Heavy Lift pays ~2.25× sticker,
+        // Light pays ~0.4×.
+        private static readonly (string label, float collective, float rpm)[] s_rotorPresets =
         {
-            ("Heavy Lift", 12f),
-            ("Standard",    8f),
-            ("Light",       5f),
+            ("Heavy Lift", 12f, 360f),
+            ("Standard",    8f, 240f),
+            ("Light",       5f, 150f),
         };
 
         private void ApplyFoilPreset(float span, float thickness, float chord, float pitchDeg)
@@ -545,14 +615,18 @@ namespace Robogame.Gameplay
             if (string.IsNullOrEmpty(id) || _session == null) return;
             _session.SetVariantDims(id, new Vector3(span, thickness, chord));
             _session.SetVariantPitch(id, pitchDeg);
+            // Presets are full role snapshots — reset teeter so "Plane
+            // Wing" after a teetered experiment really is a flat wing.
+            _session.SetVariantTeeter(id, 0f);
             HandleSelectedBlockChanged(id); // re-syncs sliders
         }
 
-        private void ApplyRotorPreset(float collective)
+        private void ApplyRotorPreset(float collective, float rpm)
         {
             string id = _activeBlockId;
             if (string.IsNullOrEmpty(id) || _session == null) return;
             _session.SetVariantPitch(id, collective);
+            _session.SetVariantConfig(id, rpm);
             HandleSelectedBlockChanged(id);
         }
 
@@ -912,20 +986,26 @@ namespace Robogame.Gameplay
                 anchorMin: Vector2.zero, anchorMax: Vector2.one,
                 size: 12, style: FontStyle.Bold, anchor: TextAnchor.MiddleCenter, color: s_dim);
 
-            // Advanced container — pitch slider lives here. Built inactive;
-            // expander toggle shows it.
+            // Advanced container — pitch + teeter sliders live here. Built
+            // inactive; expander toggle shows it.
             _foilAdvanced = NewChild("Advanced", section.transform);
             var art = _foilAdvanced.GetComponent<RectTransform>();
             art.anchorMin = new Vector2(0f, 1f);
             art.anchorMax = new Vector2(1f, 1f);
             art.pivot = new Vector2(0.5f, 1f);
-            art.sizeDelta = new Vector2(0f, 56f);
+            art.sizeDelta = new Vector2(0f, 112f);
             art.anchoredPosition = new Vector2(0f, toggleY - 28f - 4f);
 
             _foilPitchPrimary = BuildLabeledSlider(_foilAdvanced.transform, "Pitch", slot: 0,
                 min: -18f, max: 18f, def: 0f,
                 onChanged: OnFoilPitchChanged, out _foilPitchValue);
             UpdateFoilPitchValue(0f);
+
+            // Teeter — chord-axis tilt (tip up/down). Visual-only in v1, so
+            // a wider range than pitch is safe: no stall consequence.
+            _foilTeeterSlider = BuildLabeledSlider(_foilAdvanced.transform, "Teeter", slot: 1,
+                min: -45f, max: 45f, def: 0f,
+                onChanged: OnFoilTeeterChanged, out _foilTeeterValue);
 
             _foilAdvanced.SetActive(false);
             _foilAdvancedExpanded = false;
@@ -964,12 +1044,16 @@ namespace Robogame.Gameplay
                 min: 0f, max: 18f, def: 0f,
                 onChanged: OnRotorCollectiveChanged, out _rotorCollectiveValue);
 
+            _rotorRpmSlider = BuildLabeledSlider(section.transform, "RPM", slot: 2,
+                min: RotorDefaults.MinRpm, max: RotorDefaults.MaxRpm, def: RotorDefaults.DefaultRpm,
+                onChanged: OnRotorRpmChanged, out _rotorRpmValue);
+
             _rotorReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
                 anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
                 size: 12, style: FontStyle.Italic, anchor: TextAnchor.MiddleCenter, color: s_dim);
             var rrt = _rotorReadout.rectTransform;
             rrt.pivot = new Vector2(0.5f, 1f);
-            rrt.anchoredPosition = new Vector2(0f, -56f * 2f - 4f);
+            rrt.anchoredPosition = new Vector2(0f, -56f * 3f - 4f);
             rrt.sizeDelta = new Vector2(0f, 22f);
 
             return section;
@@ -1003,7 +1087,7 @@ namespace Robogame.Gameplay
             for (int i = 0; i < s_rotorPresets.Length; i++)
             {
                 var p = s_rotorPresets[i];
-                AddPresetButton(row.transform, p.label, i, () => ApplyRotorPreset(p.collective));
+                AddPresetButton(row.transform, p.label, i, () => ApplyRotorPreset(p.collective, p.rpm));
             }
         }
 

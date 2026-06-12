@@ -47,6 +47,13 @@ namespace Robogame.Block
         /// mount-up gets reflected) have the data they need.
         /// </summary>
         float TransformPitch(in ChassisBlueprint.Entry source);
+
+        /// <summary>
+        /// Rewrite the entry's teeter tilt in degrees (chord-axis, foils
+        /// only — session 123). Shares pitch's reflection parity: both are
+        /// angles whose sign convention is keyed to the mount frame.
+        /// </summary>
+        float TransformTeeter(in ChassisBlueprint.Entry source);
     }
 
     /// <summary>
@@ -61,11 +68,22 @@ namespace Robogame.Block
         /// field of <paramref name="source"/>, returning a new Entry.
         /// </summary>
         public static ChassisBlueprint.Entry Apply(IBlueprintEntryTransform t, in ChassisBlueprint.Entry source)
-            => new ChassisBlueprint.Entry(
+        {
+            var entry = new ChassisBlueprint.Entry(
                 t.TransformBlockId(in source),
                 t.TransformPosition(in source),
                 t.TransformUp(in source),
                 t.TransformDims(in source),
                 t.TransformPitch(in source));
+            entry.Teeter = t.TransformTeeter(in source);
+            // KNOWN GAP (pre-existing, predates Teeter): BlockConfig,
+            // ConcoctionId, and Yaw are NOT routed through the interface —
+            // they default to 0/""/0 on the transformed entry, so a
+            // mirrored preset thruster loses its tuned thrust and a yawed
+            // block loses its yaw. Copying them here blind would be wrong
+            // for Yaw (a reflected yaw isn't the source yaw). Tracked in
+            // session log 123.
+            return entry;
+        }
     }
 }

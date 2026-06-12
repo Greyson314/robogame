@@ -26,13 +26,18 @@ namespace Robogame.Gameplay
         private static readonly int RimIntensityId = Shader.PropertyToID("_RimIntensity");
 
         public Material SkyboxMaterial;
-        public float SkyDegPerSec = 0.25f;
+        // Stars stay still — even slow skybox drift reads as the whole
+        // world rotating and made building physically uncomfortable
+        // (motion sickness). Motion in the garage sky comes from the
+        // asteroid field orbit + cluster tumble instead, which parallax
+        // reads as "objects moving" rather than "camera moving".
+        public float SkyDegPerSec = 0f;
 
         public Transform HoloRing;
         public float HoloDegPerSec = 9f;
 
         public Transform AsteroidPivot;
-        public float AsteroidOrbitDegPerSec = 0.15f;
+        public float AsteroidOrbitDegPerSec = 0.4f;
         public Transform[] AsteroidClusters;
         public Vector3[] ClusterTumbleAxes;
         public float[] ClusterTumbleDegPerSec;

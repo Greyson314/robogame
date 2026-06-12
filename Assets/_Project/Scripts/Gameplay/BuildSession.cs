@@ -73,6 +73,9 @@ namespace Robogame.Gameplay
         // component decides what those are at place time.
         private readonly Dictionary<string, Vector3> _dimsByBlockId = new Dictionary<string, Vector3>();
         private readonly Dictionary<string, float> _pitchByBlockId = new Dictionary<string, float>();
+        // Per-block foil teeter tilt (deg, world-intent in the cache —
+        // normalized to local-frame per side at placement, like pitch).
+        private readonly Dictionary<string, float> _teeterByBlockId = new Dictionary<string, float>();
         // Per-block server-authoritative scalar (thruster thrust / rudder
         // authority / rotor RPM). 0 = use the block's historical default.
         private readonly Dictionary<string, float> _configByBlockId = new Dictionary<string, float>();
@@ -111,6 +114,20 @@ namespace Robogame.Gameplay
             VariantChanged?.Invoke(blockId);
         }
 
+        public float GetVariantTeeter(string blockId)
+        {
+            if (string.IsNullOrEmpty(blockId)) return 0f;
+            _teeterByBlockId.TryGetValue(blockId, out float v);
+            return v;
+        }
+
+        public void SetVariantTeeter(string blockId, float teeterDeg)
+        {
+            if (string.IsNullOrEmpty(blockId)) return;
+            _teeterByBlockId[blockId] = teeterDeg;
+            VariantChanged?.Invoke(blockId);
+        }
+
         public float GetVariantConfig(string blockId)
         {
             if (string.IsNullOrEmpty(blockId)) return 0f;
@@ -142,6 +159,7 @@ namespace Robogame.Gameplay
         {
             _dimsByBlockId.Clear();
             _pitchByBlockId.Clear();
+            _teeterByBlockId.Clear();
             _configByBlockId.Clear();
             _concoctionByBlockId.Clear();
         }
@@ -243,10 +261,10 @@ namespace Robogame.Gameplay
         /// has already written its slider state into the session cache, so the
         /// editor doesn't have to pass dims/pitch explicitly. Scripted callers
         /// (tests, editor scaffolders) should use the explicit overload
-        /// <see cref="TryPlace(BlockDefinition,Vector3Int,Vector3Int,Vector3,float)"/>.
+        /// <see cref="TryPlace(BlockDefinition,Vector3Int,Vector3Int,Vector3,float,float)"/>.
         /// </summary>
         public PlaceOutcome TryPlace(BlockDefinition def, Vector3Int cell, Vector3Int up)
-            => TryPlace(def, cell, up, GetVariantDims(def?.Id), GetVariantPitch(def?.Id));
+            => TryPlace(def, cell, up, GetVariantDims(def?.Id), GetVariantPitch(def?.Id), GetVariantTeeter(def?.Id));
 
         /// <summary>
         /// Atomic place with explicit per-instance dims + world-intent pitch.
@@ -256,7 +274,7 @@ namespace Robogame.Gameplay
         /// the project (editor UI, tests, scripted scaffolders) flows here.
         /// </summary>
         public PlaceOutcome TryPlace(BlockDefinition def, Vector3Int cell, Vector3Int up,
-            Vector3 dims, float worldPitch)
+            Vector3 dims, float worldPitch, float worldTeeter = 0f)
         {
             if (Grid == null || def == null)
                 return new PlaceOutcome(PlacementRules.PlacementError.HostMissing, PlacementRules.PlacementError.None, false);
@@ -264,7 +282,10 @@ namespace Robogame.Gameplay
             // World-intent pitch (positive = tilt tip toward sky on every
             // face) is normalized to the block's local frame for both the
             // rule check and the placed instance. See BlockOrientation.
+            // Teeter is the chord-axis rotation the same per-side sign rule
+            // was originally derived for, so it shares the normalization.
             float localPitch = BlockOrientation.NormalizePitchForUp(def, worldPitch, up);
+            float localTeeter = BlockOrientation.NormalizePitchForUp(def, worldTeeter, up);
             var candidate = new PlacementRules.Candidate(def, cell, up, dims, localPitch);
 
             RefreshCpuReachable();
@@ -282,6 +303,10 @@ namespace Robogame.Gameplay
             // Per-block concoction (explosive weapons). Rides the same per-id
             // cache; SyncBlueprint persists it onto the Entry. ADR-0004.
             placed.ConcoctionId = GetVariantConcoctionId(def.Id);
+            // Foil teeter tilt, post-place like ConfigValue. SetTeeter (not
+            // a bare field write) so the foil's TeeterChanged subscriber
+            // refreshes the wing mesh immediately.
+            placed.SetTeeter(localTeeter);
 
             // Auto-place structural companions a primary block needs to be
             // usable. Rotor → mechanism cube on its spin-axis face. Owned
@@ -300,9 +325,10 @@ namespace Robogame.Gameplay
             {
                 Vector3Int mCell = BlockMirror.MirrorCell(cell, MirrorAxis);
                 Vector3Int mUp   = BlockMirror.MirrorUp(up, MirrorAxis);
-                // Each side normalizes the same world-intent pitch
+                // Each side normalizes the same world-intent pitch/teeter
                 // for its own up — no separate mirror-axis sign rule.
                 float mLocalPitch = BlockOrientation.NormalizePitchForUp(def, worldPitch, mUp);
+                float mLocalTeeter = BlockOrientation.NormalizePitchForUp(def, worldTeeter, mUp);
                 if (mCell != cell)
                 {
                     mirrorAttempted = true;
@@ -312,7 +338,11 @@ namespace Robogame.Gameplay
                     if (mirrorErr == PlacementRules.PlacementError.None)
                     {
                         BlockBehaviour mPlaced = Grid.PlaceBlock(def, mCell, mUp, dims, mLocalPitch, PlaceYaw);
-                        if (mPlaced != null) mPlaced.ConfigValue = GetVariantConfig(def.Id);
+                        if (mPlaced != null)
+                        {
+                            mPlaced.ConfigValue = GetVariantConfig(def.Id);
+                            mPlaced.SetTeeter(mLocalTeeter);
+                        }
                         AutoPlaceCompanionsOf(def, mCell, mUp);
                     }
                 }
@@ -514,6 +544,7 @@ namespace Robogame.Gameplay
                 if (b == null || b.Definition == null) continue;
                 var entry = new ChassisBlueprint.Entry(b.Definition.Id, kvp.Key, b.Up, b.Dims, b.PitchDeg, b.ConfigValue, b.ConcoctionId);
                 entry.Yaw = b.Yaw;
+                entry.Teeter = b.TeeterDeg;
                 list.Add(entry);
                 if (b.Definition.Id == BlockIds.Rotor) hasRotor = true;
             }

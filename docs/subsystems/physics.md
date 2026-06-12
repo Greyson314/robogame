@@ -262,7 +262,7 @@ If any answer is "yes," the value goes on the blueprint, not in
 | `Combat.RopeDamagePerKj`, `Combat.RopeMinSpeed`, `Combat.RopeHitCooldown` | **MP debt.** Drive contact damage from `Hook` / `Mace` tip blocks (§ 3). Currently per-machine; server picks canonical values once netcode lands. |
 | `Aero.WingSpan`, `Aero.WingChord`, `Aero.WingThickness` | **Cosmetic / visual.** Drive `_wingMesh.localScale` only — `AeroSurfaceBlock.FixedUpdate` does NOT read them. If any future PR couples them to lift / drag / hit area, they MUST move to per-block blueprint config first. |
 | `Rope.*` | **Cosmetic / quality.** Rope blocks today don't deal damage at the segment level (only the adopted Hook / Mace tip does). The rope chain itself is just a hanging string. Stays in Tweakables. |
-| `Rotor.RPM` | **Cosmetic / quality** today; must move when rotors drive damage. The visual-only rotor (no foils adopted) is fine forever. |
+| `Rotor.RPM` | **Retired** — migrated to per-rotor blueprint config (`Entry.BlockConfig`, build-mode RPM slider, default 240 via `RotorDefaults`). RPM also drives the rotor's CPU price quadratically (`CpuBudget.EffectiveCpuCost`). Session 123. |
 | `Impact.*` | Same single-player debt. Server picks the canonical values when MP lands. |
 | `Stress.*` | Dev-only. Never observed by other players because stress targets are local-only entities. Stays. |
 

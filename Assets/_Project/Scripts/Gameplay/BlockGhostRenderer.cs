@@ -14,6 +14,7 @@ namespace Robogame.Gameplay
         public readonly BlockDefinition Definition;
         public readonly Vector3 Dims;
         public readonly float PitchDeg;
+        public readonly float TeeterDeg;
         public readonly Vector3Int Cell;
         public readonly Vector3Int Up;
         public readonly int Yaw;
@@ -23,6 +24,7 @@ namespace Robogame.Gameplay
         public readonly Vector3Int MirrorCell;
         public readonly Vector3Int MirrorUp;
         public readonly float MirrorPitchDeg;
+        public readonly float MirrorTeeterDeg;
         public readonly bool MirrorValid;
 
         public readonly Transform ChassisRoot;
@@ -33,6 +35,7 @@ namespace Robogame.Gameplay
             BlockDefinition definition,
             Vector3 dims,
             float pitchDeg,
+            float teeterDeg,
             Vector3Int cell,
             Vector3Int up,
             int yaw,
@@ -41,6 +44,7 @@ namespace Robogame.Gameplay
             Vector3Int mirrorCell,
             Vector3Int mirrorUp,
             float mirrorPitchDeg,
+            float mirrorTeeterDeg,
             bool mirrorValid,
             Transform chassisRoot,
             BlockGrid grid)
@@ -49,6 +53,7 @@ namespace Robogame.Gameplay
             Definition = definition;
             Dims = dims;
             PitchDeg = pitchDeg;
+            TeeterDeg = teeterDeg;
             Cell = cell;
             Up = up;
             Yaw = yaw;
@@ -57,6 +62,7 @@ namespace Robogame.Gameplay
             MirrorCell = mirrorCell;
             MirrorUp = mirrorUp;
             MirrorPitchDeg = mirrorPitchDeg;
+            MirrorTeeterDeg = mirrorTeeterDeg;
             MirrorValid = mirrorValid;
             ChassisRoot = chassisRoot;
             Grid = grid;
@@ -89,6 +95,7 @@ namespace Robogame.Gameplay
         private Vector3Int _builtForCell;
         private Vector3Int _builtForUp;
         private float _builtForPitch;
+        private float _builtForTeeter;
         private bool _showingValid = true;
 
         private GameObject _mirrorGhost;
@@ -98,6 +105,7 @@ namespace Robogame.Gameplay
         private Vector3Int _mirrorBuiltForCell;
         private Vector3Int _mirrorBuiltForUp;
         private float _mirrorBuiltForPitch;
+        private float _mirrorBuiltForTeeter;
         private bool _mirrorShowingValid = true;
 
         private void OnDisable()
@@ -159,20 +167,22 @@ namespace Robogame.Gameplay
                 && _builtForDims == req.Dims
                 && _builtForCell == req.Cell
                 && _builtForUp == req.Up
-                && Mathf.Approximately(_builtForPitch, req.PitchDeg))
+                && Mathf.Approximately(_builtForPitch, req.PitchDeg)
+                && Mathf.Approximately(_builtForTeeter, req.TeeterDeg))
             {
                 _ghost.SetActive(true);
                 return;
             }
 
             if (_ghost != null) Object.Destroy(_ghost);
-            _ghost = BlockGhostFactory.Build(req.Definition, _matValid, req.Dims, req.Cell, req.Up, req.PitchDeg);
+            _ghost = BlockGhostFactory.Build(req.Definition, _matValid, req.Dims, req.Cell, req.Up, req.PitchDeg, req.TeeterDeg);
             _ghost.transform.SetParent(transform, worldPositionStays: false);
             _builtForId = id;
             _builtForDims = req.Dims;
             _builtForCell = req.Cell;
             _builtForUp = req.Up;
             _builtForPitch = req.PitchDeg;
+            _builtForTeeter = req.TeeterDeg;
             // Force material swap on the next validity check — fresh
             // ghost was authored with _matValid, so showingValid starts
             // true.
@@ -188,14 +198,15 @@ namespace Robogame.Gameplay
                 && _mirrorBuiltForDims == req.Dims
                 && _mirrorBuiltForCell == req.MirrorCell
                 && _mirrorBuiltForUp == req.MirrorUp
-                && Mathf.Approximately(_mirrorBuiltForPitch, req.MirrorPitchDeg))
+                && Mathf.Approximately(_mirrorBuiltForPitch, req.MirrorPitchDeg)
+                && Mathf.Approximately(_mirrorBuiltForTeeter, req.MirrorTeeterDeg))
             {
                 _mirrorGhost.SetActive(true);
                 return;
             }
 
             if (_mirrorGhost != null) Object.Destroy(_mirrorGhost);
-            _mirrorGhost = BlockGhostFactory.Build(req.Definition, _matValid, req.Dims, req.MirrorCell, req.MirrorUp, req.MirrorPitchDeg);
+            _mirrorGhost = BlockGhostFactory.Build(req.Definition, _matValid, req.Dims, req.MirrorCell, req.MirrorUp, req.MirrorPitchDeg, req.MirrorTeeterDeg);
             _mirrorGhost.transform.SetParent(transform, worldPositionStays: false);
             _mirrorBuilt = true;
             _mirrorBuiltForId = id;
@@ -203,6 +214,7 @@ namespace Robogame.Gameplay
             _mirrorBuiltForCell = req.MirrorCell;
             _mirrorBuiltForUp = req.MirrorUp;
             _mirrorBuiltForPitch = req.MirrorPitchDeg;
+            _mirrorBuiltForTeeter = req.MirrorTeeterDeg;
             _mirrorShowingValid = true;
         }
 

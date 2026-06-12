@@ -66,8 +66,9 @@ namespace Robogame.Block
 
             [Tooltip("Per-block pitch / incidence in degrees. Interpretation depends on the block kind:\n" +
                      "  • AeroSurfaceBlock (Aero / AeroFin): geometric angle of attack offset. " +
-                     "Adds to the airflow-derived AoA in the lift formula. Visual mesh tilts " +
-                     "by this amount around the chord axis. ±18° soft limit before stall warning.\n" +
+                     "Adds to the airflow-derived AoA in the lift formula. Visual mesh feathers " +
+                     "by this amount around the span axis (chord-axis teeter is the separate " +
+                     "Teeter field). ±18° soft limit before stall warning.\n" +
                      "  • RotorBlock: collective pitch baked into adopted blades at adopt time. " +
                      "0 = use rotor's authored default.\n" +
                      "  • All other blocks: ignored.")]
@@ -78,6 +79,12 @@ namespace Robogame.Block
                      "can't give. 0 = no rotation; every pre-v8 save defaults here. Applied on top of " +
                      "the Up orientation at placement (BlockGrid.OrientationFromUp).")]
             public int Yaw;
+
+            [Tooltip("Per-block teeter tilt in degrees (foils only): chord-axis rotation that " +
+                     "swings the tip up/down like a teeter-totter — dihedral on a plane wing, " +
+                     "coning on a rotor blade. Visual-only in v1 (no lift contribution). " +
+                     "Stored local-frame, like Pitch. 0 = flat; every pre-v9 save defaults here.")]
+            public float Teeter;
 
             [Tooltip("Per-block server-authoritative scalar config. Interpretation depends on the block kind:\n" +
                      "  • ThrusterBlock: max thrust (N).\n" +
@@ -115,6 +122,7 @@ namespace Robogame.Block
                 BlockConfig = 0f;
                 ConcoctionId = string.Empty;
                 Yaw = 0;
+                Teeter = 0f;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up)
@@ -127,6 +135,7 @@ namespace Robogame.Block
                 BlockConfig = 0f;
                 ConcoctionId = string.Empty;
                 Yaw = 0;
+                Teeter = 0f;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims)
@@ -139,6 +148,7 @@ namespace Robogame.Block
                 BlockConfig = 0f;
                 ConcoctionId = string.Empty;
                 Yaw = 0;
+                Teeter = 0f;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims, float pitch)
@@ -151,6 +161,7 @@ namespace Robogame.Block
                 BlockConfig = 0f;
                 ConcoctionId = string.Empty;
                 Yaw = 0;
+                Teeter = 0f;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims, float pitch, float blockConfig)
@@ -163,6 +174,7 @@ namespace Robogame.Block
                 BlockConfig = blockConfig;
                 ConcoctionId = string.Empty;
                 Yaw = 0;
+                Teeter = 0f;
             }
 
             public Entry(string blockId, Vector3Int position, Vector3Int up, Vector3 dims, float pitch, float blockConfig, string concoctionId)
@@ -175,6 +187,7 @@ namespace Robogame.Block
                 BlockConfig = blockConfig;
                 ConcoctionId = string.IsNullOrEmpty(concoctionId) ? string.Empty : concoctionId;
                 Yaw = 0;
+                Teeter = 0f;
             }
         }
 

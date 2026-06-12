@@ -301,6 +301,9 @@ namespace Robogame.Gameplay
                         // at fire time). Rides the same Entry; not part of the
                         // canonical sort. See ADR-0004.
                         placed.ConcoctionId = entry.EffectiveConcoctionId;
+                        // Foil teeter tilt (visual). SetTeeter so the foil's
+                        // TeeterChanged subscriber re-poses the wing mesh.
+                        placed.SetTeeter(entry.Teeter);
                     }
                 }
 

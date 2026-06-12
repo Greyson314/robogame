@@ -40,7 +40,7 @@ namespace Robogame.Gameplay
         /// </summary>
         public static GameObject Build(BlockDefinition def, Material initialMat,
             Vector3 dims = default, Vector3Int targetCell = default, Vector3Int up = default,
-            float pitchDeg = 0f)
+            float pitchDeg = 0f, float teeterDeg = 0f)
         {
             var root = new GameObject("BlockGhost");
             // Parent will set position/rotation; root scale stays 1 so the
@@ -57,7 +57,7 @@ namespace Robogame.Gameplay
                     break;
                 case BlockIds.Aero:
                 case BlockIds.AeroFin:
-                    BuildWing(root.transform, dims: dims, cellPos: targetCell, pitchDeg: pitchDeg);
+                    BuildWing(root.transform, dims: dims, cellPos: targetCell, pitchDeg: pitchDeg, teeterDeg: teeterDeg);
                     break;
                 case BlockIds.Rudder:
                     BuildRudder(root.transform);
@@ -145,19 +145,20 @@ namespace Robogame.Gameplay
                 Quaternion.Euler(90f, 0f, 0f), new Vector3(0.5f, 0.4f, 0.5f));
         }
 
-        private static void BuildWing(Transform parent, Vector3 dims, Vector3Int cellPos, float pitchDeg)
+        private static void BuildWing(Transform parent, Vector3 dims, Vector3Int cellPos, float pitchDeg, float teeterDeg)
         {
             // Single source of truth — the same helpers the placed
             // AeroSurfaceBlock uses for its mesh. Build-mode placement
             // is never rotor-adopted at hover time, so rotorMode=false.
-            // Pitch rotates the visual around foil-local +Z (chord axis),
-            // matching AeroSurfaceBlock.ApplyOrientationToVisual so the
-            // ghost mirrors what the placed block will look like.
+            // ComputeWingPose applies pitch (span-axis feathering) +
+            // teeter (chord-axis tilt) with the rotation anchored at the
+            // attachment face, matching AeroSurfaceBlock.ApplyOrientationToVisual
+            // so the ghost mirrors what the placed block will look like.
             AeroSurfaceBlock.ResolveDims(dims, out float span, out float thickness, out float chord);
             Vector3 size = AeroSurfaceBlock.ComputeFoilMeshScale(span, thickness, chord, rotorMode: false);
-            Vector3 shift = AeroSurfaceBlock.ComputeWingShift(cellPos, span, rotorMode: false);
-            Quaternion pitchRot = Quaternion.AngleAxis(pitchDeg, Vector3.forward);
-            Spawn(parent, PrimitiveType.Cube, shift, pitchRot, size);
+            AeroSurfaceBlock.ComputeWingPose(cellPos, span, pitchDeg, teeterDeg, rotorMode: false,
+                out Vector3 pos, out Quaternion rot);
+            Spawn(parent, PrimitiveType.Cube, pos, rot, size);
         }
 
         private static void BuildWeapon(Transform parent)

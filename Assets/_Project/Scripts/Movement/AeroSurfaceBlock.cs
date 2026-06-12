@@ -166,6 +166,7 @@ namespace Robogame.Movement
             {
                 _block.DimsChanged += OnDimsChanged;
                 _block.PitchChanged += OnPitchChanged;
+                _block.TeeterChanged += OnTeeterChanged;
             }
             RecomputePitch();
             ApplyOrientationToVisual();
@@ -186,6 +187,7 @@ namespace Robogame.Movement
             {
                 _block.DimsChanged -= OnDimsChanged;
                 _block.PitchChanged -= OnPitchChanged;
+                _block.TeeterChanged -= OnTeeterChanged;
             }
         }
 
@@ -198,6 +200,14 @@ namespace Robogame.Movement
         private void OnPitchChanged(BlockBehaviour _)
         {
             RecomputePitch();
+            ApplyOrientationToVisual();
+        }
+
+        // Teeter is visual-only in v1 — no physics cache to refresh, just
+        // the wing mesh pose. Lift contribution (dihedral) is deferred;
+        // see session log 123 known-unknowns.
+        private void OnTeeterChanged(BlockBehaviour _)
+        {
             ApplyOrientationToVisual();
         }
 
@@ -498,15 +508,64 @@ namespace Robogame.Movement
         }
 
         /// <summary>
+        /// Local pose (position + rotation) of the wing mesh inside its
+        /// cell for the given tilts, with the rotation ANCHORED at the
+        /// foil's attachment point (the cell face where it meets its
+        /// host / the rotor hub) so no tilt angle can visually detach
+        /// the root from the mount. Single source of truth shared with
+        /// the build-mode ghost factory — preview and placed mesh can't
+        /// drift.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>Pitch (feathering)</b> rotates about the SPAN axis — the
+        /// rotation that actually changes a surface's incidence, matching
+        /// what the lift formula has always done with <c>_pitchRad</c>
+        /// (pitch physics and pitch visual were on different axes before
+        /// session 123). Span is foil-local +Y for regular foils and ±X
+        /// for rotor blades, with signs chosen so positive pitch tilts
+        /// the leading edge toward the lift direction (+X for a regular
+        /// foil's vertical-fin frame; the spin axis +Y for a blade,
+        /// hence the −θ: Unity's +θ about +X maps Z→−Y).
+        /// </para>
+        /// <para>
+        /// <b>Teeter</b> rotates about the chord axis (+Z) — the old
+        /// pitch visual, now its own per-block channel (dihedral /
+        /// coning). Visual-only in v1.
+        /// </para>
+        /// <para>
+        /// <b>Anchor</b> — root face center, invariant in span:
+        /// (0, −0.5, 0) for regular foils (mount face), (+0.5, 0, 0)
+        /// for rotor blades (hub-adjacent face, outward = −X per
+        /// <see cref="ComputeWingShift"/>). Rotating about it:
+        /// pos = anchor + R·(shift − anchor).
+        /// </para>
+        /// </remarks>
+        public static void ComputeWingPose(
+            Vector3Int cellPos, float span, float pitchDeg, float teeterDeg, bool rotorMode,
+            out Vector3 localPos, out Quaternion localRot)
+        {
+            Vector3 shift = ComputeWingShift(cellPos, span, rotorMode);
+            Quaternion feather = rotorMode
+                ? Quaternion.AngleAxis(-pitchDeg, Vector3.right)
+                : Quaternion.AngleAxis(pitchDeg, Vector3.up);
+            Quaternion teeter = Quaternion.AngleAxis(teeterDeg, Vector3.forward);
+            localRot = teeter * feather;
+            Vector3 anchor = rotorMode
+                ? shift + new Vector3(span * 0.5f, 0f, 0f)
+                : shift + new Vector3(0f, -span * 0.5f, 0f);
+            localPos = anchor + localRot * (shift - anchor);
+        }
+
+        /// <summary>
         /// Build the wing mesh's transform from the foil's per-instance
-        /// dims + pitch. Reads <c>bb.Dims</c> and <c>bb.PitchDeg</c> with
-        /// default fallbacks; uses <see cref="ComputeFoilMeshScale"/> +
-        /// <see cref="ComputeWingShift"/> so the placed-block geometry
-        /// matches the build-mode ghost. Pitch is applied as a localRotation
-        /// around foil-local +Z (the chord axis) so the wing's leading edge
-        /// tilts up/down by <c>PitchDeg</c>; this is purely visual — the
-        /// lift formula reads pitch directly from <see cref="_pitchRad"/>
-        /// rather than transform.rotation.
+        /// dims + pitch + teeter. Reads <c>bb.Dims</c> / <c>bb.PitchDeg</c> /
+        /// <c>bb.TeeterDeg</c> with default fallbacks; uses
+        /// <see cref="ComputeFoilMeshScale"/> + <see cref="ComputeWingPose"/>
+        /// so the placed-block geometry matches the build-mode ghost. The
+        /// tilts are purely visual — the lift formula reads pitch directly
+        /// from <see cref="_pitchRad"/> rather than transform.rotation, and
+        /// teeter has no lift contribution in v1.
         /// </summary>
         private void ApplyOrientationToVisual()
         {
@@ -516,9 +575,12 @@ namespace Robogame.Movement
             ResolveDims(dims, out float span, out float thickness, out float chord);
             _wingMesh.localScale = ComputeFoilMeshScale(span, thickness, chord, _rotorMode);
             Vector3Int gridPos = bb != null ? bb.GridPosition : Vector3Int.zero;
-            _wingMesh.localPosition = ComputeWingShift(gridPos, span, _rotorMode);
-            float pitchDeg = bb != null ? bb.PitchDeg : 0f;
-            _wingMesh.localRotation = Quaternion.AngleAxis(pitchDeg, Vector3.forward);
+            float pitchDeg  = bb != null ? bb.PitchDeg  : 0f;
+            float teeterDeg = bb != null ? bb.TeeterDeg : 0f;
+            ComputeWingPose(gridPos, span, pitchDeg, teeterDeg, _rotorMode,
+                out Vector3 pos, out Quaternion rot);
+            _wingMesh.localPosition = pos;
+            _wingMesh.localRotation = rot;
         }
     }
 }

@@ -89,6 +89,36 @@ namespace Robogame.Tests.EditMode.Blueprints
                 "Mirror of a zero-up entry must materialise +Y on the other side.");
         }
 
+        [Test]
+        public void MirrorTransform_Teeter_SharesPitchParity()
+        {
+            // Teeter (chord-axis tilt, session 123) uses the same
+            // mount-frame sign convention as pitch: if it didn't negate
+            // when up flips, a mirrored dihedral wing pair would form a
+            // Z instead of a V.
+            var t = new MirrorTransform(MirrorAxis.X);
+            ChassisBlueprint.Entry source = new ChassisBlueprint.Entry(
+                BlockIds.Aero,
+                position: new Vector3Int(2, 1, 3),
+                up: new Vector3Int(1, 0, 0),
+                dims: new Vector3(4f, 0.08f, 0.9f),
+                pitch: 5f);
+            source.Teeter = 10f;
+
+            ChassisBlueprint.Entry mirrored = BlueprintEntryTransform.Apply(t, source);
+
+            Assert.AreEqual(-10f, mirrored.Teeter, 1e-4f,
+                "Side-mount teeter must negate under X-mirror, same parity as pitch.");
+
+            // Top mount: up doesn't flip → teeter preserved.
+            ChassisBlueprint.Entry topSource = new ChassisBlueprint.Entry(
+                BlockIds.Aero, new Vector3Int(2, 1, 0), new Vector3Int(0, 1, 0), Vector3.zero, 4f);
+            topSource.Teeter = 7f;
+            ChassisBlueprint.Entry topMirrored = BlueprintEntryTransform.Apply(t, topSource);
+            Assert.AreEqual(7f, topMirrored.Teeter, 1e-4f,
+                "Top-mount teeter is preserved under X-mirror — up doesn't flip.");
+        }
+
         // -----------------------------------------------------------------
         // BlockMirror.MirrorPitch
         // -----------------------------------------------------------------

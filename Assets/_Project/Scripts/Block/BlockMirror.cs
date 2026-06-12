@@ -117,5 +117,8 @@ namespace Robogame.Block
         // mirror — read it directly from the source entry rather than
         // capturing state across calls.
         public float TransformPitch(in ChassisBlueprint.Entry source) => BlockMirror.MirrorPitch(source.Pitch, source.EffectiveUp, Axis);
+        // Teeter is a chord-axis angle with the same mount-frame sign
+        // convention as pitch, so it shares MirrorPitch's parity rule.
+        public float TransformTeeter(in ChassisBlueprint.Entry source) => BlockMirror.MirrorPitch(source.Teeter, source.EffectiveUp, Axis);
     }
 }

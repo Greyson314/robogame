@@ -335,9 +335,9 @@ namespace Robogame.Movement
             // base volume from the cue library.
             float volScale = Mathf.Clamp01(rpm / 200f);
             _audioLoop.SetBaseVolume(_audioBaseVolume * volScale);
-            // Pitch: 0.5 at rest, 1.6 at the 600 RPM tweakable cap.
+            // Pitch: 0.5 at rest, 1.6 at the RPM slider cap.
             // Tracks RPM linearly which is good enough for arcade.
-            float pitch = Mathf.Lerp(0.5f, 1.6f, rpm / 600f);
+            float pitch = Mathf.Lerp(0.5f, 1.6f, rpm / RotorDefaults.MaxRpm);
             _audioLoop.SetPitch(pitch);
         }
 
@@ -421,18 +421,15 @@ namespace Robogame.Movement
         private BlockBehaviour _bb;
 
         // RpmOverride (stress tower) wins. Otherwise per-rotor RPM from the
-        // blueprint Entry (BlockBehaviour.ConfigValue); 0 = use this
-        // historical default (old Rotor.RPM Tweakable shipped at 60). So a
-        // slow main rotor and a fast tail rotor can coexist on one chassis.
-        // physics.md §1 / §5.
-        private const float DefaultRpm = 60f;
+        // blueprint Entry (BlockBehaviour.ConfigValue); 0 = use the
+        // RotorDefaults.DefaultRpm fallback. So a slow main rotor and a
+        // fast tail rotor can coexist on one chassis. physics.md §1 / §5.
         private float LiveRpm
         {
             get
             {
                 if (RpmOverride >= 0f) return RpmOverride;
-                float cfg = _bb != null ? _bb.ConfigValue : 0f;
-                return cfg > 0f ? cfg : DefaultRpm;
+                return RotorDefaults.ResolveRpm(_bb != null ? _bb.ConfigValue : 0f);
             }
         }
 

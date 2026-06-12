@@ -22,6 +22,7 @@ namespace Robogame.Block
         [SerializeField] private float _currentHealth;
         [SerializeField] private Vector3 _dims;
         [SerializeField] private float _pitchDeg;
+        [SerializeField] private float _teeterDeg;
         [SerializeField] private int _yaw;
 
         [Tooltip("Brightness at 0 HP, relative to the block's authored colour.")]
@@ -102,6 +103,33 @@ namespace Robogame.Block
 
         /// <summary>Fired after <see cref="SetPitch"/> mutates <see cref="PitchDeg"/>.</summary>
         public event Action<BlockBehaviour> PitchChanged;
+
+        /// <summary>
+        /// Per-instance teeter tilt in degrees — the chord-axis rotation
+        /// that swings a foil's tip up/down like a teeter-totter (dihedral
+        /// on a plane wing, coning on a rotor blade). Visual-only in v1:
+        /// it does NOT feed the lift formula (deferred — see session log
+        /// 123 known-unknowns). Foils only; other blocks ignore it.
+        /// Like pitch, the stored value is local-frame; world-intent
+        /// normalization happens at placement (BlockOrientation).
+        /// </summary>
+        public float TeeterDeg => _teeterDeg;
+
+        /// <summary>
+        /// Replace this block's teeter at runtime. Set right after
+        /// placement (BuildSession / ChassisAssembler / RepairPad), the
+        /// same post-place pattern <see cref="ConfigValue"/> uses, and by
+        /// the build-mode teeter slider's live propagation.
+        /// </summary>
+        public void SetTeeter(float teeterDeg)
+        {
+            if (Mathf.Approximately(_teeterDeg, teeterDeg)) return;
+            _teeterDeg = teeterDeg;
+            TeeterChanged?.Invoke(this);
+        }
+
+        /// <summary>Fired after <see cref="SetTeeter"/> mutates <see cref="TeeterDeg"/>.</summary>
+        public event Action<BlockBehaviour> TeeterChanged;
 
         /// <summary>
         /// Per-instance server-authoritative scalar config from the

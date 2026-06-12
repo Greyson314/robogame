@@ -386,6 +386,12 @@ namespace Robogame.Gameplay
                     BlockBehaviour placed = grid.PlaceBlock(def, entry.Position, entry.EffectiveUp, entry.Dims, entry.Pitch, entry.EffectiveYaw);
                     if (placed != null)
                     {
+                        // Restore the per-instance fields that ride the entry
+                        // outside PlaceBlock's signature — same post-place
+                        // pattern ChassisAssembler uses.
+                        placed.ConfigValue = entry.BlockConfig;
+                        placed.ConcoctionId = entry.EffectiveConcoctionId;
+                        placed.SetTeeter(entry.Teeter);
                         VfxSpawner.Spawn(VfxKind.BlockRespawn, placed.transform.position, Quaternion.identity, 1f);
                         AudioRouter.PlayOneShot(AudioCue.RepairBlockRespawn, placed.transform.position);
                     }

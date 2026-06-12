@@ -325,6 +325,34 @@ namespace Robogame.Gameplay
             ApplySelectionVisuals();
         }
 
+        /// <summary>
+        /// Select the hotbar slot holding <paramref name="blockId"/>,
+        /// switching category tabs when needed. Returns false when the id
+        /// isn't in any hotbar category (e.g. the auto-placed rotor
+        /// mechanism cube) so the caller can decline the pick. Entry point
+        /// for the middle-click eyedropper in <see cref="BlockEditor"/>.
+        /// </summary>
+        public bool SelectByBlockId(string blockId)
+        {
+            if (string.IsNullOrEmpty(blockId)) return false;
+            for (int c = 0; c < _activeCategories.Count; c++)
+            {
+                if (!_byCategory.TryGetValue(_activeCategories[c], out var defs)) continue;
+                for (int s = 0; s < defs.Count; s++)
+                {
+                    if (defs[s] == null || defs[s].Id != blockId) continue;
+                    _activeCategoryIndex = c;
+                    RebuildSlots();
+                    // After RebuildSlots so the slot write survives any
+                    // index reset the rebuild applies.
+                    _selectedSlotIndex = s;
+                    ApplySelectionVisuals();
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private void RefreshCpuReadout()
         {
             if (_cpuReadout == null || _editor == null) return;

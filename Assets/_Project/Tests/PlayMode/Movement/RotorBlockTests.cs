@@ -240,6 +240,13 @@ namespace Robogame.Tests.PlayMode.Movement
             _grid.RebuildFromChildren();
             // Now flip the lift flag and enable to trigger BuildLiftRig.
             rotor.GeneratesLift = false; // ensure we start from false
+            // Freeze the spin for this test: the position assertion below
+            // measures REPARENT displacement (worldPositionStays), and a
+            // spinning hub legitimately sweeps the blades by ω·dt·r during
+            // the WaitForFixedUpdate (~0.5 m at the 240 RPM default).
+            // RpmOverride = 0 isolates the teleport-bug signal from
+            // ordinary orbital motion regardless of the default RPM.
+            rotor.RpmOverride = 0f;
             rotorBb.gameObject.SetActive(true);
             rotor.GeneratesLift = true;
 

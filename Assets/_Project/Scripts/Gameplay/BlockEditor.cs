@@ -71,15 +71,29 @@ namespace Robogame.Gameplay
         private void PropagateVariantToLiveBlocks(string blockId)
         {
             if (_grid == null || _session == null || string.IsNullOrEmpty(blockId)) return;
-            float pitch = _session.GetVariantPitch(blockId);
+            float worldPitch = _session.GetVariantPitch(blockId);
+            float worldTeeter = _session.GetVariantTeeter(blockId);
             Vector3 dims = _session.GetVariantDims(blockId);
+            float config = _session.GetVariantConfig(blockId);
             foreach (var kvp in _grid.Blocks)
             {
                 BlockBehaviour block = kvp.Value;
                 if (block == null || block.Definition == null) continue;
                 if (block.Definition.Id != blockId) continue;
-                block.SetPitch(pitch);
+                // The cache holds WORLD-INTENT angles; placed blocks store
+                // local-frame. Normalize per block's own mount-up — the
+                // same conversion placement does. (Previously the raw
+                // world value was pushed, silently flipping the sign on
+                // lateral-mounted foils relative to what placement wrote.)
+                block.SetPitch(BlockOrientation.NormalizePitchForUp(block.Definition, worldPitch, block.Up));
+                block.SetTeeter(BlockOrientation.NormalizePitchForUp(block.Definition, worldTeeter, block.Up));
                 block.SetDims(dims);
+                // ConfigValue (rotor RPM / thruster max thrust / module
+                // power) is read live by its consumer each tick or at
+                // fire time — a plain field write is enough, no Changed
+                // event. 0 means "use authored default", same convention
+                // the pitch/dims paths follow.
+                block.ConfigValue = config;
             }
         }
 
@@ -156,7 +170,10 @@ namespace Robogame.Gameplay
             {
                 BlockBehaviour b = kvp.Value;
                 if (b == null || b.Definition == null) continue;
-                used += Mathf.Max(0, b.Definition.CpuCost);
+                // Per-instance effective cost (rotor RPM scaling +
+                // concoction surcharge), same pricing core TrimToFit
+                // charges at spawn — the bar must not under-promise.
+                used += Block.CpuBudget.EffectiveCpuCost(b);
                 if (b.Definition.Category == BlockCategory.Cpu) cpus++;
             }
             return new CpuUsage(used, cpus * Block.CpuBudget.BudgetPerCpuBlock);
@@ -177,7 +194,7 @@ namespace Robogame.Gameplay
             {
                 BlockBehaviour b = kvp.Value;
                 if (b == null || b.Definition == null) continue;
-                used += Mathf.Max(0, b.Definition.CpuCost);
+                used += Block.CpuBudget.EffectiveCpuCost(b);
                 if (b.Definition.Category == BlockCategory.Cpu) cpus++;
                 mass += b.Definition.Mass;
                 count++;
@@ -466,19 +483,21 @@ namespace Robogame.Gameplay
             string targetId = def != null ? def.Id : BlockIds.Cube;
             Vector3 targetDims = _variantPanel != null ? _variantPanel.GetDimsForBlock(targetId) : Vector3.zero;
             float worldPitch = _variantPanel != null ? _variantPanel.GetPitchForBlock(targetId) : 0f;
+            float worldTeeter = _variantPanel != null ? _variantPanel.GetTeeterForBlock(targetId) : 0f;
             Vector3Int targetCell = _hasTarget ? _targetPlaceCell : Vector3Int.zero;
             // Read the cached unit mount-up populated by UpdateTarget so
             // the ghost orients the same way the click handler will place.
             Vector3Int targetUp = _hasTarget ? _targetPlaceUp : Vector3Int.up;
             if (targetUp == Vector3Int.zero) targetUp = Vector3Int.up;
-            // Ghost factory expects local-frame pitch (same as the placed
-            // block uses). World-intent → local conversion happens here
-            // so the ghost matches what the player will actually place.
+            // Ghost factory expects local-frame pitch/teeter (same as the
+            // placed block uses). World-intent → local conversion happens
+            // here so the ghost matches what the player will actually place.
             float targetLocalPitch = BlockOrientation.NormalizePitchForUp(def, worldPitch, targetUp);
+            float targetLocalTeeter = BlockOrientation.NormalizePitchForUp(def, worldTeeter, targetUp);
 
             bool showMirror = false;
             Vector3Int mCell = default, mUp = default;
-            float mLocalPitch = 0f;
+            float mLocalPitch = 0f, mLocalTeeter = 0f;
             bool mValid = false;
             if (_hasTarget && _mirrorMode != null && _mirrorMode.Enabled)
             {
@@ -487,9 +506,10 @@ namespace Robogame.Gameplay
                 {
                     mCell = BlockMirror.MirrorCell(targetCell, axis);
                     mUp = BlockMirror.MirrorUp(targetUp, axis);
-                    // Same world-intent → local-pitch conversion as the
+                    // Same world-intent → local conversion as the
                     // primary side, just with the mirrored up.
                     mLocalPitch = BlockOrientation.NormalizePitchForUp(def, worldPitch, mUp);
+                    mLocalTeeter = BlockOrientation.NormalizePitchForUp(def, worldTeeter, mUp);
                     mValid = IsValidPlacement(mCell, mUp);
                     showMirror = true;
                 }
@@ -502,6 +522,7 @@ namespace Robogame.Gameplay
                 definition: def,
                 dims: targetDims,
                 pitchDeg: targetLocalPitch,
+                teeterDeg: targetLocalTeeter,
                 cell: targetCell,
                 up: targetUp,
                 yaw: _session != null ? _session.PlaceYaw : 0,
@@ -510,6 +531,7 @@ namespace Robogame.Gameplay
                 mirrorCell: mCell,
                 mirrorUp: mUp,
                 mirrorPitchDeg: mLocalPitch,
+                mirrorTeeterDeg: mLocalTeeter,
                 mirrorValid: mValid,
                 chassisRoot: _buildMode != null ? _buildMode.Chassis : null,
                 grid: _grid);
@@ -551,8 +573,72 @@ namespace Robogame.Gameplay
             if (mouse == null || !_hasTarget) return;
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
 
-            if (mouse.leftButton.wasPressedThisFrame)  TryPlace();
-            if (mouse.rightButton.wasPressedThisFrame) TryRemove();
+            if (mouse.leftButton.wasPressedThisFrame)   TryPlace();
+            if (mouse.rightButton.wasPressedThisFrame)  TryRemove();
+            // Middle button is shared with OrbitCamera's drag-pan, so the
+            // picker fires on RELEASE and only when the cursor barely
+            // moved — a middle-drag pans, a middle-click picks.
+            if (mouse.middleButton.wasPressedThisFrame)
+            {
+                _middlePressPos = mouse.position.ReadValue();
+                _middlePressActive = true;
+            }
+            if (mouse.middleButton.wasReleasedThisFrame && _middlePressActive)
+            {
+                _middlePressActive = false;
+                const float clickSlopPixels = 5f;
+                if ((mouse.position.ReadValue() - _middlePressPos).sqrMagnitude
+                    <= clickSlopPixels * clickSlopPixels)
+                {
+                    TryPickBlock();
+                }
+            }
+        }
+
+        // Middle-click vs middle-drag discrimination state (see HandleClicks).
+        private Vector2 _middlePressPos;
+        private bool _middlePressActive;
+
+        /// <summary>
+        /// Middle-click eyedropper: select the targeted block's type in the
+        /// hotbar and load that instance's per-block settings (dims, pitch,
+        /// scalar config) into the session variant caches, so the next
+        /// placement replicates the picked block.
+        /// </summary>
+        private void TryPickBlock()
+        {
+            if (_session == null || _grid == null) return;
+            if (!_grid.Blocks.TryGetValue(_targetHitCell, out BlockBehaviour b) || b == null) return;
+            BlockDefinition def = b.Definition;
+            if (def == null) return;
+
+            // Hotbar first — if the type isn't player-placeable (e.g. an
+            // auto-placed mechanism cube) decline the whole pick rather
+            // than half-applying cache writes for an unselectable id.
+            if (_hotbar == null || !_hotbar.SelectByBlockId(def.Id))
+            {
+                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
+                return;
+            }
+
+            // Stored pitch is local-frame; the panel + placement pipeline
+            // speak world-intent. The conversion is involutive (a sign
+            // flip keyed on mount-up), so the same function inverts it.
+            // Rotors bypass the scheme (pitch = collective, stored as-is)
+            // — NormalizePitchForUp's def overload handles both.
+            float worldPitch = BlockOrientation.NormalizePitchForUp(def, b.PitchDeg, b.Up);
+            float worldTeeter = BlockOrientation.NormalizePitchForUp(def, b.TeeterDeg, b.Up);
+            _session.SetVariantDims(def.Id, b.Dims);
+            _session.SetVariantPitch(def.Id, worldPitch);
+            _session.SetVariantTeeter(def.Id, worldTeeter);
+            _session.SetVariantConfig(def.Id, b.ConfigValue);
+
+            // SelectByBlockId only fires SelectedBlockChanged when the id
+            // actually changed; re-picking the already-selected type still
+            // needs the panel to re-read the freshly written caches.
+            if (_variantPanel != null) _variantPanel.RefreshForBlock(def.Id);
+
+            Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.UiClick);
         }
 
         private void TryPlace()
@@ -581,6 +667,7 @@ namespace Robogame.Gameplay
             // pitch to local-frame internally per side.
             Vector3 dims = _variantPanel != null ? _variantPanel.GetDimsForBlock(id) : Vector3.zero;
             float worldPitch = _variantPanel != null ? _variantPanel.GetPitchForBlock(id) : 0f;
+            float worldTeeter = _variantPanel != null ? _variantPanel.GetTeeterForBlock(id) : 0f;
 
             // Push mirror state onto the session so its TryPlace handles
             // the mirrored side too — single source of truth for the rule
@@ -591,7 +678,7 @@ namespace Robogame.Gameplay
 
             // Use the cached unit mount-up — same value the ghost preview
             // and placement-rule evaluator saw, so ghost-valid = click-valid.
-            BuildSession.PlaceOutcome outcome = _session.TryPlace(def, _targetPlaceCell, _targetPlaceUp, dims, worldPitch);
+            BuildSession.PlaceOutcome outcome = _session.TryPlace(def, _targetPlaceCell, _targetPlaceUp, dims, worldPitch, worldTeeter);
             if (outcome.PrimarySucceeded)
             {
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.BlockPlace);

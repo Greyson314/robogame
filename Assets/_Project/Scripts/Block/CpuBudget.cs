@@ -35,21 +35,40 @@ namespace Robogame.Block
         }
 
         /// <summary>
-        /// A block's CPU cost including its chosen concoction's surcharge. For a
-        /// block with no concoction (every block today except a Bomb/Mortar with
-        /// a chosen recipe) this is just <see cref="BlockDefinition.CpuCost"/> —
-        /// zero feature cost when unused (INV-5). The surcharge is read from the
-        /// session <see cref="ConcoctionRegistry"/>; an empty/unknown id adds
-        /// nothing. Used by both the garage spend bar and spawn-time TrimToFit so
-        /// the player and the server agree on the price. See ADR-0004.
+        /// A block's CPU cost including per-instance surcharges: the chosen
+        /// concoction's surcharge (ADR-0004) and the rotor RPM scaling
+        /// (lift goes with tip-speed², so price does too — see
+        /// <see cref="RotorDefaults.CpuCostFor"/>). For a plain block this
+        /// is just <see cref="BlockDefinition.CpuCost"/> — zero feature
+        /// cost when unused (INV-5). Used by both the garage spend bar and
+        /// spawn-time TrimToFit so the player and the server agree on the
+        /// price.
         /// </summary>
         public static int EffectiveCpuCost(in ChassisBlueprint.Entry entry, BlockDefinition def)
         {
             if (def == null) return 0;
-            int baseCost = Mathf.Max(0, def.CpuCost);
-            string cid = entry.EffectiveConcoctionId;
-            if (cid.Length == 0 || !ConcoctionRegistry.IsConcoctableBlock(entry.BlockId)) return baseCost;
-            return ConcoctionRegistry.TryGet(cid, out Concoction c) ? baseCost + c.CpuSurcharge(baseCost) : baseCost;
+            return EffectiveCpuCostCore(entry.BlockId, def.CpuCost, entry.BlockConfig, entry.EffectiveConcoctionId);
+        }
+
+        /// <summary>
+        /// Live-grid twin of the blueprint-entry overload, for the garage
+        /// HUD paths that iterate placed <see cref="BlockBehaviour"/>s
+        /// instead of entries. Same pricing core, so the spend bar can't
+        /// disagree with what TrimToFit will charge at spawn.
+        /// </summary>
+        public static int EffectiveCpuCost(BlockBehaviour block)
+        {
+            if (block == null || block.Definition == null) return 0;
+            string cid = string.IsNullOrEmpty(block.ConcoctionId) ? string.Empty : block.ConcoctionId;
+            return EffectiveCpuCostCore(block.Definition.Id, block.Definition.CpuCost, block.ConfigValue, cid);
+        }
+
+        private static int EffectiveCpuCostCore(string blockId, int defCpuCost, float blockConfig, string concoctionId)
+        {
+            int baseCost = Mathf.Max(0, defCpuCost);
+            if (blockId == BlockIds.Rotor) return RotorDefaults.CpuCostFor(baseCost, blockConfig);
+            if (concoctionId.Length == 0 || !ConcoctionRegistry.IsConcoctableBlock(blockId)) return baseCost;
+            return ConcoctionRegistry.TryGet(concoctionId, out Concoction c) ? baseCost + c.CpuSurcharge(baseCost) : baseCost;
         }
 
         public static int Capacity(IReadOnlyList<ChassisBlueprint.Entry> entries, BlockDefinitionLibrary lib)
