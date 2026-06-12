@@ -144,6 +144,14 @@ namespace Robogame.Gameplay
                 if (ss < 10) _scratch.Append('0');
                 _scratch.Append(ss);
                 _renderedTimer = _scratch.ToString();
+
+                // Final-seconds countdown tick — one per displayed second,
+                // riding the same change-gate as the string rebuild so it
+                // can't double-fire. Round clock only (not warmup).
+                if (_match.State == MatchState.InProgress && secs is > 0 and <= 10)
+                {
+                    Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.RoundClockTick);
+                }
             }
 
             int pk = _match.KillsForSide(MatchSide.Player);

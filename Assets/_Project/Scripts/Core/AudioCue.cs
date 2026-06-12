@@ -94,5 +94,12 @@ namespace Robogame.Core
         // Voxel terrain AI
         BotDetected,       // a VoxelChaserBot acquires a fresh A* path to its target — quiet "I see you" tone
         BotStep,           // a VoxelChaserBot advances a waypoint — soft mechanical footfall
+
+        // -------------------------------------------------------------
+        // Append-only past this line. AudioCueLibrary.asset serialises
+        // Entry.Cue by enum int value — inserting mid-enum silently
+        // remaps every authored row below the insertion point.
+        // -------------------------------------------------------------
+        RoundClockTick,    // one tick per displayed second during the final-10s round countdown — short dry click, urgency without alarm
     }
 }

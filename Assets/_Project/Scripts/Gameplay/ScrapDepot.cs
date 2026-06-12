@@ -156,11 +156,19 @@ namespace Robogame.Gameplay
         // reset clears it across domain reloads.
         private static readonly List<ScrapDepot> s_allDepots = new();
 
+        /// <summary>
+        /// Raised once per instant transfer (any depot): which robot banked
+        /// scrap and how much. Drives the per-combatant SCRAP column on the
+        /// Tab scoreboard via ArenaController's stats tracker.
+        /// </summary>
+        public static event System.Action<Robot, int> ScrapDeposited;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
         {
             s_allDepots.Clear();
             s_robotsInsideAnyDepot.Clear();
+            ScrapDeposited = null;
         }
 
         /// <summary>
@@ -301,6 +309,9 @@ namespace Robogame.Gameplay
             int banked = robot.DepositScrap();
             if (banked <= 0) return;
             _bankedScrap += banked;
+            // Per-combatant stat hook: who hauled it, how much. Consumed by
+            // ArenaController's MatchStatsTracker for the Tab scoreboard.
+            ScrapDeposited?.Invoke(robot, banked);
             // Cosmetic feedback — fires once per chunk transferred (the
             // staged-into-score ticks don't repeat the VFX; they'd be
             // tinnitus at 1/sec).

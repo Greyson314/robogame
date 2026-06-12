@@ -51,10 +51,32 @@ namespace Robogame.Gameplay
         /// <summary>True while the prompt is visible.</summary>
         public bool IsVisible => _match != null && _match.State == MatchState.WarmingUp;
 
+        // FIGHT! banner state — armed by MatchStarted, drawn for a beat
+        // with the same attack/hold/decay envelope as KillAnnouncer.
+        private const float FightBannerSeconds = 1.4f;
+        private float _fightBannerExpireAt = float.NegativeInfinity;
+        private GUIStyle _fightStyle;
+        private static readonly GUIContent s_fightContent = new("FIGHT!");
+
         /// <summary>Bind to a controller. Idempotent.</summary>
         public void BindMatch(MatchController match)
         {
+            if (_match != null) _match.MatchStarted -= HandleMatchStarted;
             _match = match;
+            if (_match != null) _match.MatchStarted += HandleMatchStarted;
+        }
+
+        private void OnDisable()
+        {
+            if (_match != null) _match.MatchStarted -= HandleMatchStarted;
+        }
+
+        private void HandleMatchStarted()
+        {
+            // Visual counterpart to the MatchStart audio stinger (played by
+            // ArenaController) — without it the prompt just vanishes and
+            // the round start has no moment.
+            _fightBannerExpireAt = Time.unscaledTime + FightBannerSeconds;
         }
 
         /// <summary>
@@ -84,6 +106,7 @@ namespace Robogame.Gameplay
 
         private void OnGUI()
         {
+            DrawFightBanner();
             if (!IsVisible) return;
             EnsureStyles();
 
@@ -115,6 +138,31 @@ namespace Robogame.Gameplay
             // MiddleCenter anchor) so the centre-of-pill stays the
             // centre-of-text even if CalcSize rounds.
             GUI.Label(new Rect(x, y, w, h), _renderedRich, _labelStyle);
+        }
+
+        private void DrawFightBanner()
+        {
+            float now = Time.unscaledTime;
+            if (now >= _fightBannerExpireAt) return;
+
+            _fightStyle ??= HudStyles.Bold(64, Color.white, TextAnchor.MiddleCenter);
+
+            // Same 15 % attack / 70 % hold / 15 % decay envelope as
+            // KillAnnouncer, and the same screen anchor — the two can't
+            // overlap (no kills can land before the round starts).
+            float t = 1f - (_fightBannerExpireAt - now) / FightBannerSeconds;
+            float alpha = t < 0.15f ? Mathf.Clamp01(t / 0.15f)
+                        : t > 0.85f ? Mathf.Clamp01((1f - t) / 0.15f)
+                                    : 1f;
+
+            Color saved = GUI.color;
+            Color c = HudStyles.Accent;
+            c.a *= alpha;
+            GUI.color = c;
+            Vector2 size = _fightStyle.CalcSize(s_fightContent);
+            GUI.Label(new Rect((Screen.width - size.x) * 0.5f, Screen.height * 0.20f, size.x, size.y),
+                s_fightContent, _fightStyle);
+            GUI.color = saved;
         }
 
         private void EnsureStyles()

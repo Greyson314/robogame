@@ -184,6 +184,18 @@ namespace Robogame.Gameplay
 
         private MatchController _match;
         // Track every chassis we've registered with the match so a single
+        // Per-combatant K/D/DMG/scrap rows for the Tab scoreboard. Rows are
+        // keyed by stable display name inside the tracker (so a respawned
+        // bot keeps its stat line); this dictionary maps the LIVE Robot
+        // instance to its row for O(1) damage/death routing.
+        private MatchStatsTracker _stats;
+        private readonly Dictionary<Robot, CombatantStats> _statRows = new();
+        private const string PlayerStatsName = "YOU";
+        private KillFeedHud _killFeed;
+
+        /// <summary>Per-combatant stats for the current round. Null in sandbox mode (no MatchConfig).</summary>
+        public MatchStatsTracker Stats => _stats;
+
         // Destroyed event routes to the right side. Using a Dictionary keyed
         // on the Robot lets the lookup be O(1) on the destruction callback.
         private readonly Dictionary<Robot, MatchSide> _registeredChassis = new();
@@ -249,7 +261,7 @@ namespace Robogame.Gameplay
                 // explicitly is one less Update-frame of empty state.)
                 CreateMatch();
                 BindFollowCamera(Chassis);
-                RegisterChassis(Chassis, MatchSide.Player);
+                RegisterChassis(Chassis, MatchSide.Player, PlayerStatsName);
                 SpawnMatchBots(state);
                 SpawnFriendlyTank(state);
 
@@ -265,6 +277,12 @@ namespace Robogame.Gameplay
                 ApplyAirDummyState(state);
             }
             Tweakables.Changed += OnTweakablesChanged;
+
+            // Per-combatant stat feeds. Static events (single fan-in for
+            // every damage source / depot); both reset on domain reload via
+            // their owners' SubsystemRegistration hooks.
+            Robogame.Combat.DamageAttribution.Reported += HandleDamageReported;
+            ScrapDepot.ScrapDeposited += HandleScrapDeposited;
         }
 
         // §10: the local player's networked robot is built — give it the
@@ -276,12 +294,14 @@ namespace Robogame.Gameplay
             if (robot == null) return;
             Chassis = robot;
             BindFollowCamera(robot);
-            RegisterChassis(robot, MatchSide.Player);
+            RegisterChassis(robot, MatchSide.Player, PlayerStatsName);
         }
 
         private void OnDestroy()
         {
             Tweakables.Changed -= OnTweakablesChanged;
+            Robogame.Combat.DamageAttribution.Reported -= HandleDamageReported;
+            ScrapDepot.ScrapDeposited -= HandleScrapDeposited;
             NetworkPlayerBridge.LocalOwnerRobotReady -= HandleNetworkedOwnerReady;
             if (_match != null)
             {
@@ -294,6 +314,7 @@ namespace Robogame.Gameplay
             // GameObject alive across scene loads.
             _registeredChassis.Clear();
             _matchBots.Clear();
+            _statRows.Clear();
         }
 
         // -----------------------------------------------------------------
@@ -614,6 +635,7 @@ namespace Robogame.Gameplay
             _match = new MatchController(_matchConfig);
             _match.MatchEnded += HandleMatchEnded;
             _match.MatchStarted += HandleMatchStarted;
+            _stats = new MatchStatsTracker();
 
             // Cursor stays locked through warmup so the player can free-fly
             // / drive while the bots patrol passively. The StartMatchHud
@@ -683,7 +705,7 @@ namespace Robogame.Gameplay
         // Chassis registration
         // -----------------------------------------------------------------
 
-        private void RegisterChassis(GameObject go, MatchSide side)
+        private void RegisterChassis(GameObject go, MatchSide side, string statsName = null)
         {
             if (go == null) return;
             Robot r = go.GetComponent<Robot>();
@@ -695,6 +717,16 @@ namespace Robogame.Gameplay
             if (_registeredChassis.ContainsKey(r)) return;
             _registeredChassis[r] = side;
             r.Destroyed += HandleRobotDestroyed;
+
+            // Per-combatant scoreboard row. The stable statsName (not the
+            // GUID-suffixed GameObject name) keys the row, so a respawned
+            // bot re-binds to its accumulated K/D/DMG line.
+            if (_stats != null)
+            {
+                CombatantStats row = _stats.GetOrCreate(
+                    statsName ?? go.name, side, isPlayer: statsName == PlayerStatsName);
+                _statRows[r] = row;
+            }
 
             // Mirror the MatchSide into the Robot-tier TeamId so damage
             // filters (ProjectileWorld friendly-fire) and team-aware
@@ -726,6 +758,26 @@ namespace Robogame.Gameplay
             return _registeredChassis.TryGetValue(robot, out MatchSide s) ? s : MatchSide.None;
         }
 
+        // ------- per-combatant stat feeds ---------------------------------
+
+        private void HandleDamageReported(Robot attacker, Robot victim, float amount)
+        {
+            // Stats are match-scoped: warmup potshots don't count, same as
+            // MatchController.RegisterKill's InProgress gate.
+            if (_stats == null || _match == null || _match.State != MatchState.InProgress) return;
+            if (victim == null || !_statRows.TryGetValue(victim, out CombatantStats victimRow)) return;
+            CombatantStats attackerRow = null;
+            if (attacker != null) _statRows.TryGetValue(attacker, out attackerRow);
+            _stats.RecordDamage(attackerRow, victimRow, amount, Time.time);
+        }
+
+        private void HandleScrapDeposited(Robot robot, int amount)
+        {
+            if (_stats == null || robot == null) return;
+            if (_statRows.TryGetValue(robot, out CombatantStats row))
+                _stats.RecordScrapDeposit(row, amount);
+        }
+
         private void HandleRobotDestroyed(Robot victim)
         {
             // Kill attribution, scoring, player-life and respawn scheduling
@@ -748,6 +800,26 @@ namespace Robogame.Gameplay
             {
                 _match.RegisterKill(killerSide, victimSide);
             }
+
+            // Per-combatant bookkeeping: death always lands on the victim's
+            // row; the kill credits the last opposing damager within the
+            // tracker's credit window (uncredited for wall/grinder deaths
+            // long after combat — the side-level RegisterKill above keeps
+            // its simpler other-side inference for the streak banner).
+            if (_stats != null && _match != null && _match.State == MatchState.InProgress
+                && _statRows.TryGetValue(victim, out CombatantStats victimRow))
+            {
+                CombatantStats credited = _stats.RecordDeath(victimRow, Time.time);
+
+                // Named kill-feed entry (feed is in named mode whenever
+                // _stats exists — see BindFollowCamera).
+                if (_killFeed != null)
+                {
+                    if (credited != null) _killFeed.PushKill(credited.DisplayName, victimRow.DisplayName, credited.Side);
+                    else _killFeed.PushDeath(victimRow.DisplayName);
+                }
+            }
+            _statRows.Remove(victim);
 
             if (victimSide == MatchSide.Player)
             {
@@ -830,7 +902,7 @@ namespace Robogame.Gameplay
             RespawnPlayer();
             // Re-register the new player chassis so subsequent kills route
             // through MatchController correctly.
-            RegisterChassis(Chassis, MatchSide.Player);
+            RegisterChassis(Chassis, MatchSide.Player, PlayerStatsName);
         }
 
         private IEnumerator RespawnBotAfterDelay(GameObject staleBotGo, float delay)
@@ -870,9 +942,22 @@ namespace Robogame.Gameplay
             if (fresh != null)
             {
                 _matchBots[botIndex] = fresh;
-                RegisterChassis(fresh, MatchSide.Enemy);
+                // Same slot-derived name as the original spawn, so the
+                // respawned bot re-binds to its accumulated stat row.
+                string statsName = botIndex < groundCount
+                    ? BotStatsName(air: false, botIndex)
+                    : BotStatsName(air: true, botIndex - groundCount);
+                RegisterChassis(fresh, MatchSide.Enemy, statsName);
             }
         }
+
+        /// <summary>
+        /// Stable scoreboard name for a config-slot bot. Slot-indexed (not
+        /// GameObject-named — those carry per-spawn GUID suffixes) so the
+        /// name survives respawns.
+        /// </summary>
+        private static string BotStatsName(bool air, int slotIndex)
+            => air ? $"AIR BOT {slotIndex + 1}" : $"BOT {slotIndex + 1}";
 
         // -----------------------------------------------------------------
         // Scrap depots (one per team)
@@ -911,7 +996,7 @@ namespace Robogame.Gameplay
                 {
                     GameObject go = SpawnGroundBot(state, _matchConfig.GroundBots[i]);
                     _matchBots.Add(go);
-                    if (go != null) RegisterChassis(go, MatchSide.Enemy);
+                    if (go != null) RegisterChassis(go, MatchSide.Enemy, BotStatsName(air: false, i));
                 }
             }
 
@@ -921,7 +1006,7 @@ namespace Robogame.Gameplay
                 {
                     GameObject go = SpawnAirBot(state, _matchConfig.AirBots[i]);
                     _matchBots.Add(go);
-                    if (go != null) RegisterChassis(go, MatchSide.Enemy);
+                    if (go != null) RegisterChassis(go, MatchSide.Enemy, BotStatsName(air: true, i));
                 }
             }
         }
@@ -1126,7 +1211,7 @@ namespace Robogame.Gameplay
             // gated by the existing Tweakable for spawn / fire convenience,
             // but its damage outcomes feed the same per-side score the
             // MatchConfig-driven bots do.
-            RegisterChassis(_tankDummyGo, MatchSide.Enemy);
+            RegisterChassis(_tankDummyGo, MatchSide.Enemy, "DUMMY TANK");
             Debug.Log($"[Robogame] Tank dummy spawned at {_tankDummySpawn} " +
                       $"(blueprint='{bp.name}', patrol r={_tankDummyPatrolRadius}m).",
                       _tankDummyGo);
@@ -1221,7 +1306,7 @@ namespace Robogame.Gameplay
             // Register with the match on the PLAYER side so a kill against
             // it counts for the enemy team's scoring and the IFF filter
             // stops the player from accidentally damaging it.
-            RegisterChassis(_friendlyTankGo, MatchSide.Player);
+            RegisterChassis(_friendlyTankGo, MatchSide.Player, "ALLY");
             Debug.Log($"[Robogame] Friendly tank spawned at {_friendlyTankSpawn} " +
                       $"(blueprint='{bp.name}').", _friendlyTankGo);
         }
@@ -1279,7 +1364,7 @@ namespace Robogame.Gameplay
             _airDummyGo.SetActive(true);
 
             ApplyAirDummyFire();
-            RegisterChassis(_airDummyGo, MatchSide.Enemy);
+            RegisterChassis(_airDummyGo, MatchSide.Enemy, "DUMMY AIR");
             Debug.Log($"[Robogame] Air dummy spawned at {_airDummySpawn} " +
                       $"(blueprint='{bp.name}', cruise r={_airDummyCruiseRadius}m alt={_airDummyCruiseAltitude}m).",
                       _airDummyGo);
@@ -1388,18 +1473,21 @@ namespace Robogame.Gameplay
             if (_match != null) announcer.BindMatch(_match);
 
             // Persistent kill feed — counterpart to the announcer
-            // banner. Shows the recent-kill log on the right side of
-            // the screen. Both fire from MatchController.KillRegistered
-            // so they stay in sync without any cross-component plumbing.
-            KillFeedHud killFeed = mainCam.GetComponent<KillFeedHud>();
-            if (killFeed == null) killFeed = mainCam.gameObject.AddComponent<KillFeedHud>();
-            if (_match != null) killFeed.BindMatch(_match);
+            // banner. With a stats tracker the feed runs in named mode
+            // (entries pushed from HandleRobotDestroyed with real
+            // combatant names); without one it falls back to side-level
+            // KillRegistered subscription.
+            _killFeed = mainCam.GetComponent<KillFeedHud>();
+            if (_killFeed == null) _killFeed = mainCam.gameObject.AddComponent<KillFeedHud>();
+            if (_stats != null) _killFeed.BindNamedFeed();
+            else if (_match != null) _killFeed.BindMatch(_match);
 
             // Tab-held scoreboard overlay. Renders nothing until the
-            // player holds Tab; reads MatchController state directly.
+            // player holds Tab; per-combatant rows come from the stats
+            // tracker, team aggregates from MatchController.
             ScoreboardOverlay scoreboard = mainCam.GetComponent<ScoreboardOverlay>();
             if (scoreboard == null) scoreboard = mainCam.gameObject.AddComponent<ScoreboardOverlay>();
-            if (_match != null) scoreboard.BindMatch(_match);
+            if (_match != null) scoreboard.Bind(_match, _stats);
 
             // World-space chassis nameplates — one central overlay walks
             // the cached Robot list every OnGUI event and renders a name

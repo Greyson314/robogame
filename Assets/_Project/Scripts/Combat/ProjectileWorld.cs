@@ -375,6 +375,7 @@ namespace Robogame.Combat
             // ally. See docs/changes/58-scrap-loop-v1.md § 2.
             if (Teams.IsFriendlyFire(spec.Owner, targetRobot)) return;
             target.TakeDamage(spec.Damage);
+            DamageAttribution.Report(spec.Owner, targetRobot, spec.Damage);
             if (spec.Knockback > 0f)
                 ApplyKineticKnockback(targetRobot, travelDir, spec.Knockback, spec.KnockbackSmoothed);
             HitLanded?.Invoke(spec.Owner, hit.point);
@@ -393,6 +394,7 @@ namespace Robogame.Combat
                 {
                     if (Teams.IsFriendlyFire(spec.Owner, targetRobot)) return;
                     targetRobot.Grid.ApplySplashDamage(block.GridPosition, spec.SplashRings);
+                    DamageAttribution.Report(spec.Owner, targetRobot, spec.SplashRings[0]);
                     if (spec.Knockback > 0f)
                         ApplyKineticKnockback(targetRobot, travelDir, spec.Knockback, spec.KnockbackSmoothed);
                     HitLanded?.Invoke(spec.Owner, hit.point);
@@ -410,6 +412,7 @@ namespace Robogame.Combat
             if (owner != null && owner == spec.Owner) return;
             if (Teams.IsFriendlyFire(spec.Owner, owner)) return;
             dmg.TakeDamage(spec.SplashRings[0]);
+            DamageAttribution.Report(spec.Owner, owner, spec.SplashRings[0]);
             HitLanded?.Invoke(spec.Owner, hit.point);
         }
 
@@ -441,6 +444,7 @@ namespace Robogame.Combat
                     if (!friendly)
                     {
                         DamageRobotInRadius(robot, worldPoint, r2, spec.Damage);
+                        DamageAttribution.Report(spec.Owner, robot, spec.Damage);
                         hitAny = true;
                     }
                     if (spec.Knockback > 0f)

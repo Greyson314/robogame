@@ -84,15 +84,40 @@ namespace Robogame.Gameplay
             _entries.Clear();
         }
 
+        /// <summary>
+        /// Switch to named-entry mode: the feed stops listening to
+        /// <see cref="MatchController.KillRegistered"/> (side-level only)
+        /// and instead renders whatever <see cref="PushKill"/> /
+        /// <see cref="PushDeath"/> hand it. ArenaController uses this when
+        /// a per-combatant stats tracker exists, so rows read
+        /// "YOU → BOT 2" instead of "YOU → ENEMY". The side-subscription
+        /// path stays for sandbox arenas with no tracker.
+        /// </summary>
+        public void BindNamedFeed()
+        {
+            if (_match != null) _match.KillRegistered -= HandleKill;
+            _match = null;
+            _entries.Clear();
+        }
+
+        /// <summary>Named kill entry — colour keyed to the killer's side.</summary>
+        public void PushKill(string killerName, string victimName, MatchSide killerSide)
+            => Push($"{killerName}  →  {victimName}", ColorFor(killerSide));
+
+        /// <summary>Named unattributed death ("BOT 2 †") — environment / stale damage.</summary>
+        public void PushDeath(string victimName)
+            => Push($"{victimName}  †", HudStyles.TextMuted);
+
         private void OnDisable()
         {
             if (_match != null) _match.KillRegistered -= HandleKill;
         }
 
         private void HandleKill(MatchSide killer, MatchSide victim)
+            => Push(FormatEntry(killer, victim), ColorFor(killer));
+
+        private void Push(string text, Color color)
         {
-            string text = FormatEntry(killer, victim);
-            Color color = ColorFor(killer);
             if (_entries.Count >= _maxEntries) _entries.RemoveAt(0);
             _entries.Add(new Entry
             {

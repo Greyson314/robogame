@@ -162,6 +162,10 @@ namespace Robogame.Combat
             // a handler (plane vs plane, plane vs dummy). The other side's
             // handler will run independently and bill its own bookkeeping.
             ApplyDamageAtContact(_robot, contact.thisCollider, contact.point, s_ringScratch);
+            // Attribution: this handler bills its OWN chassis's damage, so
+            // the other robot (when there is one — wall slams have none) is
+            // the attacker. Nominal amount = headline ring-0 damage.
+            DamageAttribution.Report(otherRobot, _robot, s_ringScratch[0]);
 
             // Ram-spark VFX scaled by impact energy. Hard scrapes (low kJ)
             // get a small flash; serious crashes get a fragment puff.
