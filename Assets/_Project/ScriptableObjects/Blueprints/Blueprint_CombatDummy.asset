@@ -42,6 +42,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -50,6 +51,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -58,6 +60,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -66,6 +69,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -74,6 +78,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -82,6 +87,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -90,6 +96,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -98,6 +105,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -106,6 +114,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -114,6 +123,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -122,6 +132,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -130,6 +141,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -138,6 +150,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -146,6 +159,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -154,6 +168,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -162,6 +177,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -170,6 +186,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -178,6 +195,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -186,6 +204,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -194,6 +213,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -202,6 +222,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -210,6 +231,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -218,6 +240,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -226,6 +249,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -234,6 +258,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -242,6 +267,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -250,6 +276,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -258,6 +285,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -266,6 +294,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -274,6 +303,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -282,6 +312,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -290,6 +321,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -298,6 +330,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -306,6 +339,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -314,6 +348,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -322,6 +357,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -330,6 +366,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -338,6 +375,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -346,6 +384,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -354,6 +393,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -362,6 +402,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -370,6 +411,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -378,6 +420,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -386,6 +429,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -394,6 +438,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -402,6 +447,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -410,6 +456,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -418,6 +465,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -426,6 +474,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -434,6 +483,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -442,6 +492,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -450,6 +501,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -458,6 +510,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -466,6 +519,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -474,6 +528,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -482,6 +537,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -490,6 +546,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -498,6 +555,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -506,6 +564,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -514,6 +573,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -522,6 +582,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -530,6 +591,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -538,6 +600,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -546,6 +609,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -554,6 +618,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -562,6 +627,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -570,6 +636,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -578,6 +645,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -586,6 +654,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -594,6 +663,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -602,6 +672,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -610,6 +681,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -618,6 +690,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -626,6 +699,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -634,6 +708,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -642,6 +717,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -650,6 +726,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -658,6 +735,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -666,6 +744,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -674,6 +753,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -682,6 +762,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -690,6 +771,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -698,6 +780,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -706,6 +789,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -714,6 +798,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -722,6 +807,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -730,6 +816,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -738,6 +825,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -746,6 +834,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -754,6 +843,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.cpu.standard
@@ -762,6 +852,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -770,6 +861,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -778,6 +870,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -786,6 +879,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -794,6 +888,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -802,6 +897,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -810,6 +906,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -818,6 +915,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -826,6 +924,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -834,6 +933,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -842,6 +942,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -850,6 +951,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -858,6 +960,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -866,6 +969,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -874,6 +978,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -882,6 +987,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -890,6 +996,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -898,6 +1005,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -906,6 +1014,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -914,6 +1023,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -922,6 +1032,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -930,6 +1041,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -938,6 +1050,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -946,6 +1059,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -954,6 +1068,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -962,6 +1077,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -970,6 +1086,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -978,6 +1095,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -986,6 +1104,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -994,6 +1113,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1002,6 +1122,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1010,6 +1131,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1018,6 +1140,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1026,6 +1149,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1034,6 +1158,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1042,6 +1167,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1050,6 +1176,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1058,6 +1185,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1066,6 +1194,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1074,6 +1203,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1082,6 +1212,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1090,6 +1221,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1098,6 +1230,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1106,6 +1239,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1114,6 +1248,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1122,6 +1257,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1130,6 +1266,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1138,6 +1275,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1146,6 +1284,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1154,6 +1293,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1162,6 +1302,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1170,6 +1311,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1178,6 +1320,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1186,6 +1329,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1194,6 +1338,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1202,6 +1347,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1210,6 +1356,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1218,6 +1365,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1226,6 +1374,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1234,6 +1383,7 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
   - BlockId: block.structure.cube
@@ -1242,5 +1392,6 @@ MonoBehaviour:
     Dims: {x: 0, y: 0, z: 0}
     Pitch: 0
     Yaw: 0
+    Teeter: 0
     BlockConfig: 0
     ConcoctionId: 

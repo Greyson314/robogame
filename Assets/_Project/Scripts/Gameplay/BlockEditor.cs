@@ -125,6 +125,26 @@ namespace Robogame.Gameplay
             // toggles for non-rendering reasons.
         }
 
+        private BuildEditMode _editMode;
+        public BuildEditMode EditMode
+        {
+            get => _editMode;
+            set
+            {
+                if (_editMode != null) _editMode.Changed -= HandleEditModeChanged;
+                _editMode = value;
+                if (_editMode != null) _editMode.Changed += HandleEditModeChanged;
+            }
+        }
+
+        // Turning the Edit-Block toggle OFF drops any bound instance + its
+        // highlight, returning to plain placement. Turning it on does nothing
+        // until the player clicks a block.
+        private void HandleEditModeChanged(bool enabled)
+        {
+            if (!enabled) ClearInstanceEdit();
+        }
+
         [Tooltip("Layer mask used by the targeting raycast. Default: everything.")]
         [SerializeField] private LayerMask _raycastMask = ~0;
 
@@ -265,6 +285,7 @@ namespace Robogame.Gameplay
         {
             Unsubscribe();
             if (_session != null) _session.VariantChanged -= PropagateVariantToLiveBlocks;
+            if (_editMode != null) _editMode.Changed -= HandleEditModeChanged;
             if (_ghostRenderer != null) _ghostRenderer.Clear();
             if (_feedbackHud != null) _feedbackHud.Hide();
         }
@@ -577,28 +598,13 @@ namespace Robogame.Gameplay
                 DriveGhostRenderer(); // reflect the new yaw immediately
             }
 
-            // Manually switching hotbar block type leaves instance-edit
-            // (re-picking the SAME type to re-bind another instance keeps it —
-            // the id matches, so no exit). Esc is deliberately NOT an exit
-            // here: it's already owned by the settings panel + free-cam
-            // cursor release, so a middle-click on empty space / the same
-            // block is the exit instead (handled below). Cheap id compare.
-            if (_session != null && _session.EditingInstance != null && _hotbar != null
-                && _session.EditingInstance.Definition != null
-                && _hotbar.SelectedBlockId != _session.EditingInstance.Definition.Id)
-            {
-                ClearInstanceEdit();
-            }
-
             Mouse mouse = Mouse.current;
             if (mouse == null) return;
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
 
             // Middle button is shared with OrbitCamera's drag-pan, so the
-            // picker resolves on RELEASE and only when the cursor barely
-            // moved — a middle-drag pans, a middle-click picks. Tracked
-            // BEFORE the no-target gate so a middle-click on empty space can
-            // exit instance-edit.
+            // eyedropper resolves on RELEASE and only when the cursor barely
+            // moved — a middle-drag pans, a middle-click picks.
             if (mouse.middleButton.wasPressedThisFrame)
             {
                 _middlePressPos = mouse.position.ReadValue();
@@ -610,15 +616,21 @@ namespace Robogame.Gameplay
                 const float clickSlopPixels = 5f;
                 bool wasClick = (mouse.position.ReadValue() - _middlePressPos).sqrMagnitude
                     <= clickSlopPixels * clickSlopPixels;
-                if (wasClick)
-                {
-                    if (_hasTarget) TryPickBlock();
-                    // Click on empty space exits instance-edit.
-                    else if (_session != null && _session.EditingInstance != null) ClearInstanceEdit();
-                }
+                if (wasClick && _hasTarget) TryPickBlock();
             }
 
             if (!_hasTarget) return;
+
+            // EDIT mode (the explicit toggle button): a left-click binds the
+            // pointed block to the variant panel for in-place editing instead
+            // of placing. Place / remove are suppressed so a tweak-click can't
+            // accidentally drop or delete a block.
+            if (_editMode != null && _editMode.Enabled)
+            {
+                if (mouse.leftButton.wasPressedThisFrame) TryBindInstanceForEdit();
+                return;
+            }
+
             if (mouse.leftButton.wasPressedThisFrame)   TryPlace();
             if (mouse.rightButton.wasPressedThisFrame)  TryRemove();
         }
@@ -630,8 +642,9 @@ namespace Robogame.Gameplay
         /// <summary>
         /// Middle-click eyedropper: select the targeted block's type in the
         /// hotbar and load that instance's per-block settings (dims, pitch,
-        /// scalar config) into the session variant caches, so the next
-        /// placement replicates the picked block.
+        /// teeter, scalar config) into the session variant caches, so the
+        /// NEXT placement replicates the picked block. Does not bind the
+        /// block for editing — that's the explicit Edit-mode flow below.
         /// </summary>
         private void TryPickBlock()
         {
@@ -639,15 +652,6 @@ namespace Robogame.Gameplay
             if (!_grid.Blocks.TryGetValue(_targetHitCell, out BlockBehaviour b) || b == null) return;
             BlockDefinition def = b.Definition;
             if (def == null) return;
-
-            // Re-picking the block you're already editing toggles edit-mode
-            // off — a discoverable exit that doesn't need a dedicated key.
-            if (ReferenceEquals(_session.EditingInstance, b))
-            {
-                ClearInstanceEdit();
-                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.UiClick);
-                return;
-            }
 
             // Hotbar first — if the type isn't player-placeable (e.g. an
             // auto-placed mechanism cube) decline the whole pick rather
@@ -658,32 +662,56 @@ namespace Robogame.Gameplay
                 return;
             }
 
-            // Bind THIS instance for editing BEFORE writing the caches:
-            // SetVariant* fires VariantChanged → PropagateVariantToLiveBlocks,
-            // which (with an instance bound) targets only this block. Setting
-            // it after would propagate the picked block's values onto every
-            // other block of the same type. Session 125.
+            LoadBlockSettingsIntoCache(def, b);
+            if (_variantPanel != null) _variantPanel.RefreshForBlock(def.Id);
+            Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.UiClick);
+        }
+
+        /// <summary>
+        /// Edit-mode left-click: bind the targeted block as the single
+        /// instance the variant sliders drive (live, no delete / orphaning).
+        /// Only blocks that actually have tunable variants bind; others flash
+        /// invalid so the player isn't left with an "EDITING" panel that has
+        /// no sliders.
+        /// </summary>
+        private void TryBindInstanceForEdit()
+        {
+            if (_session == null || _grid == null) return;
+            if (!_grid.Blocks.TryGetValue(_targetHitCell, out BlockBehaviour b) || b == null) return;
+            BlockDefinition def = b.Definition;
+            if (def == null) return;
+
+            if (!VariantConfigPanel.IsVariableBlock(def.Id))
+            {
+                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
+                return;
+            }
+
+            // Bind BEFORE writing the caches: SetVariant* fires VariantChanged
+            // → PropagateVariantToLiveBlocks, which (with an instance bound)
+            // targets only this block. Setting it after would propagate the
+            // bound block's values onto every other block of the same type.
             _session.SetEditingInstance(b);
             HighlightInstance(b);
+            LoadBlockSettingsIntoCache(def, b);
+            if (_variantPanel != null) _variantPanel.RefreshForBlock(def.Id);
+            Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.UiClick);
+        }
 
-            // Stored pitch is local-frame; the panel + placement pipeline
-            // speak world-intent. The conversion is involutive (a sign
-            // flip keyed on mount-up), so the same function inverts it.
-            // Rotors bypass the scheme (pitch = collective, stored as-is)
-            // — NormalizePitchForUp's def overload handles both.
+        // Copy a placed block's per-instance settings into the per-id variant
+        // cache so the panel's sliders show them. Stored pitch / teeter are
+        // local-frame; the panel + placement pipeline speak world-intent, and
+        // NormalizePitchForUp is involutive so the same call inverts it.
+        // Rotors bypass the scheme (pitch = collective, stored as-is) — the
+        // def overload handles both.
+        private void LoadBlockSettingsIntoCache(BlockDefinition def, BlockBehaviour b)
+        {
             float worldPitch = BlockOrientation.NormalizePitchForUp(def, b.PitchDeg, b.Up);
             float worldTeeter = BlockOrientation.NormalizePitchForUp(def, b.TeeterDeg, b.Up);
             _session.SetVariantDims(def.Id, b.Dims);
             _session.SetVariantPitch(def.Id, worldPitch);
             _session.SetVariantTeeter(def.Id, worldTeeter);
             _session.SetVariantConfig(def.Id, b.ConfigValue);
-
-            // SelectByBlockId only fires SelectedBlockChanged when the id
-            // actually changed; re-picking the already-selected type still
-            // needs the panel to re-read the freshly written caches.
-            if (_variantPanel != null) _variantPanel.RefreshForBlock(def.Id);
-
-            Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.UiClick);
         }
 
         // -----------------------------------------------------------------

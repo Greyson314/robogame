@@ -53,6 +53,7 @@ namespace Robogame.Gameplay
         private VariantConfigPanel _variantPanel;
         private LabController _lab;
         private BuildMirrorMode _mirrorMode;
+        private BuildEditMode _editMode;
         private bool _concoctionLibrarySubscribed;
         private BlockGhostRenderer _ghostRenderer;
         private PlacementFeedbackHud _feedbackHud;
@@ -341,6 +342,14 @@ namespace Robogame.Gameplay
             _mirrorMode.BuildMode = _buildMode;
             _mirrorMode.Session = _buildSession;
             _editor.MirrorMode = _mirrorMode;
+
+            // Edit-Block toggle (button + E hotkey). When on, a left-click
+            // binds the pointed block to the variant panel for in-place
+            // retuning instead of placing. Replaces the session-125
+            // middle-click instance-edit.
+            if (_editMode == null) _editMode = gameObject.AddComponent<BuildEditMode>();
+            _editMode.BuildMode = _buildMode;
+            _editor.EditMode = _editMode;
 
             // Ghost preview + placement-error feedback are split out of
             // the editor so the editor's MonoBehaviour stays a thin
