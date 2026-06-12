@@ -119,6 +119,94 @@ namespace Robogame.Tests.EditMode.Blueprints
                 "Top-mount teeter is preserved under X-mirror — up doesn't flip.");
         }
 
+        [Test]
+        public void MirrorTransform_CarriesBlockConfigAndConcoction_StraightAcross()
+        {
+            // BlockConfig (thrust/RPM) and ConcoctionId are orientation-free:
+            // a mirrored thruster keeps its tuned thrust, a mirrored bomb its
+            // concoction. This is the regression the session-124 Apply fix
+            // closes — the 5-arg ctor used to default both to 0/"".
+            var t = new MirrorTransform(MirrorAxis.X);
+            ChassisBlueprint.Entry source = new ChassisBlueprint.Entry(
+                BlockIds.Thruster, new Vector3Int(2, 1, 0), new Vector3Int(1, 0, 0));
+            source.BlockConfig = 4200f;
+            source.ConcoctionId = "concoction.test";
+
+            ChassisBlueprint.Entry mirrored = BlueprintEntryTransform.Apply(t, source);
+
+            Assert.AreEqual(4200f, mirrored.BlockConfig, 1e-4f,
+                "Mirrored block must keep its server-authoritative config (thrust/RPM).");
+            Assert.AreEqual("concoction.test", mirrored.ConcoctionId,
+                "Mirrored block must keep its authored concoction.");
+        }
+
+        [Test]
+        public void MirrorTransform_CarriesYaw_ThroughApply()
+        {
+            // Yaw used to be dropped by Apply's 5-arg ctor (defaulted 0).
+            var t = new MirrorTransform(MirrorAxis.X);
+            ChassisBlueprint.Entry source = new ChassisBlueprint.Entry(
+                BlockIds.Thruster, new Vector3Int(2, 1, 0), new Vector3Int(1, 0, 0));
+            source.Yaw = 90;
+
+            ChassisBlueprint.Entry mirrored = BlueprintEntryTransform.Apply(t, source);
+
+            // up=+X is non-polar; X-mirror adds no base offset → yaw' = -90 ≡ 270.
+            Assert.AreEqual(270, mirrored.Yaw,
+                "Side-mount yaw must reflect, not copy, through Apply.");
+        }
+
+        // -----------------------------------------------------------------
+        // BlockMirror.MirrorYaw — geometric reflection rule (session 124).
+        // yaw' = baseOffset - yaw, where baseOffset is 180° iff the mirror
+        // flips OrientationFromUp's deterministic forward-seed axis (+Z for
+        // ordinary mounts, +X for polar ±Z mounts), else 0°.
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void MirrorYaw_NonPolarUp_X_NegatesYaw()
+        {
+            // up=±X or ±Y under X-mirror: seed is +Z, which X-mirror leaves
+            // intact → baseOffset 0 → yaw' = -yaw.
+            Assert.AreEqual(270, BlockMirror.MirrorYaw(90, new Vector3Int(1, 0, 0), MirrorAxis.X),
+                "Side-mount (up=+X) yaw negates under X-mirror.");
+            Assert.AreEqual(270, BlockMirror.MirrorYaw(90, new Vector3Int(0, 1, 0), MirrorAxis.X),
+                "Top-mount (up=+Y) yaw negates under X-mirror.");
+            Assert.AreEqual(90, BlockMirror.MirrorYaw(270, new Vector3Int(0, 1, 0), MirrorAxis.X));
+            Assert.AreEqual(180, BlockMirror.MirrorYaw(180, new Vector3Int(1, 0, 0), MirrorAxis.X),
+                "180° is its own negation.");
+            Assert.AreEqual(0, BlockMirror.MirrorYaw(0, new Vector3Int(1, 0, 0), MirrorAxis.X));
+        }
+
+        [Test]
+        public void MirrorYaw_PolarUp_X_AddsBaseOffset()
+        {
+            // up=±Z under X-mirror: seed is +X, which X-mirror flips →
+            // baseOffset 180 → yaw' = 180 - yaw.
+            Assert.AreEqual(180, BlockMirror.MirrorYaw(0, new Vector3Int(0, 0, 1), MirrorAxis.X));
+            Assert.AreEqual(90, BlockMirror.MirrorYaw(90, new Vector3Int(0, 0, 1), MirrorAxis.X),
+                "Polar mount yaw=90 maps to 90 under X-mirror (180-90).");
+            Assert.AreEqual(270, BlockMirror.MirrorYaw(270, new Vector3Int(0, 0, -1), MirrorAxis.X));
+        }
+
+        [Test]
+        public void MirrorYaw_NonPolarUp_Z_AddsBaseOffset()
+        {
+            // up=±X or ±Y under Z-mirror: seed is +Z, which Z-mirror flips →
+            // baseOffset 180 → yaw' = 180 - yaw.
+            Assert.AreEqual(90, BlockMirror.MirrorYaw(90, new Vector3Int(1, 0, 0), MirrorAxis.Z));
+            Assert.AreEqual(180, BlockMirror.MirrorYaw(0, new Vector3Int(0, 1, 0), MirrorAxis.Z));
+        }
+
+        [Test]
+        public void MirrorYaw_PolarUp_Z_NegatesYaw()
+        {
+            // up=±Z under Z-mirror: seed is +X, which Z-mirror leaves intact
+            // → baseOffset 0 → yaw' = -yaw.
+            Assert.AreEqual(270, BlockMirror.MirrorYaw(90, new Vector3Int(0, 0, 1), MirrorAxis.Z));
+            Assert.AreEqual(180, BlockMirror.MirrorYaw(180, new Vector3Int(0, 0, 1), MirrorAxis.Z));
+        }
+
         // -----------------------------------------------------------------
         // BlockMirror.MirrorPitch
         // -----------------------------------------------------------------

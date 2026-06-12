@@ -92,6 +92,52 @@ namespace Robogame.Block
         /// </remarks>
         public static float MirrorPitch(float pitchDeg, Vector3Int sourceUp, MirrorAxis axis)
             => MirrorUp(sourceUp, axis) == sourceUp ? pitchDeg : -pitchDeg;
+
+        /// <summary>
+        /// Reflect a per-block yaw (rotation about the mount-up axis, in
+        /// degrees) under <paramref name="axis"/>, given the source entry's
+        /// <paramref name="sourceUp"/>. Returns a value normalised to
+        /// 0/90/180/270.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Yaw is NOT pitch's parity rule. Pitch/teeter are angles about a
+        /// mount axis that the mirror itself reflects, so they negate iff
+        /// the up flips. Yaw is a rotation <i>about</i> up, layered on top of
+        /// <see cref="BlockGrid.OrientationFromUp"/>, so its reflection has
+        /// two parts:
+        /// </para>
+        /// <para>
+        /// 1. A reflection negates a rotation about any axis (an improper
+        /// transform M satisfies M·R(n,θ)·M⁻¹ = R(M·n, −θ)). So the raw
+        /// reflected yaw is −yaw about the mirrored up.
+        /// </para>
+        /// <para>
+        /// 2. Yaw is measured relative to the deterministic base forward
+        /// <c>OrientationFromUp</c> picks for the mirrored up — and that
+        /// base forward is the mirrored up's seed (chassis +Z, or +X when
+        /// up∥Z) projected perpendicular to up. When the mirror flips that
+        /// seed axis, the reconstructed base forward points the opposite
+        /// way, adding a 180° offset. The seed axis is +Z for ordinary
+        /// mounts and +X for polar (±Z) mounts; an X-mirror flips +X, a
+        /// Z-mirror flips +Z. So the offset is 180° exactly when
+        /// (axis=X and up=±Z) or (axis=Z and up≠±Z), else 0°.
+        /// </para>
+        /// <para>
+        /// Combined: yaw' = baseOffset − yaw, normalised. Pinned by tests in
+        /// <c>BlueprintEntryTransformTests</c>.
+        /// </para>
+        /// </remarks>
+        public static int MirrorYaw(int yawDeg, Vector3Int sourceUp, MirrorAxis axis)
+        {
+            // Polar = mount-up parallel to chassis Z; OrientationFromUp uses
+            // the +X seed there instead of +Z (its |dot(up,+Z)|>=0.99 branch).
+            bool upIsPolar = sourceUp.x == 0 && sourceUp.y == 0 && sourceUp.z != 0;
+            bool seedAxisFlips = axis == MirrorAxis.X ? upIsPolar : !upIsPolar;
+            int baseOffset = seedAxisFlips ? 180 : 0;
+            int raw = baseOffset - yawDeg;
+            return ((raw % 360) + 360) % 360;
+        }
     }
 
     /// <summary>
@@ -120,5 +166,11 @@ namespace Robogame.Block
         // Teeter is a chord-axis angle with the same mount-frame sign
         // convention as pitch, so it shares MirrorPitch's parity rule.
         public float TransformTeeter(in ChassisBlueprint.Entry source) => BlockMirror.MirrorPitch(source.Teeter, source.EffectiveUp, Axis);
+        // BlockConfig (thrust / RPM / authority) and ConcoctionId carry no
+        // orientation — they copy straight across the mirror.
+        public float TransformBlockConfig(in ChassisBlueprint.Entry source) => source.BlockConfig;
+        public string TransformConcoctionId(in ChassisBlueprint.Entry source) => source.EffectiveConcoctionId;
+        // Yaw is a rotation about up, not a mount-axis angle — its own rule.
+        public int TransformYaw(in ChassisBlueprint.Entry source) => BlockMirror.MirrorYaw(source.EffectiveYaw, source.EffectiveUp, Axis);
     }
 }

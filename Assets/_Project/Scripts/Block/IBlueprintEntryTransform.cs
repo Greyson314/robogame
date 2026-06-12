@@ -54,6 +54,29 @@ namespace Robogame.Block
         /// angles whose sign convention is keyed to the mount frame.
         /// </summary>
         float TransformTeeter(in ChassisBlueprint.Entry source);
+
+        /// <summary>
+        /// Rewrite the entry's server-authoritative scalar config (thrust /
+        /// RPM / yaw-authority). Magnitude-only — it carries no orientation,
+        /// so a reflecting transform copies it straight across.
+        /// </summary>
+        float TransformBlockConfig(in ChassisBlueprint.Entry source);
+
+        /// <summary>
+        /// Rewrite the entry's authored concoction id. A string tag, not a
+        /// geometric quantity — a reflecting transform copies it straight
+        /// across.
+        /// </summary>
+        string TransformConcoctionId(in ChassisBlueprint.Entry source);
+
+        /// <summary>
+        /// Rewrite the entry's yaw about the mount-up axis (0/90/180/270).
+        /// Unlike pitch/teeter, yaw is a rotation about up rather than an
+        /// angle keyed to a reflected mount axis, so it gets its own
+        /// reflection rule (see <see cref="BlockMirror.MirrorYaw"/>) — a
+        /// reflected yaw is not the source yaw.
+        /// </summary>
+        int TransformYaw(in ChassisBlueprint.Entry source);
     }
 
     /// <summary>
@@ -76,13 +99,14 @@ namespace Robogame.Block
                 t.TransformDims(in source),
                 t.TransformPitch(in source));
             entry.Teeter = t.TransformTeeter(in source);
-            // KNOWN GAP (pre-existing, predates Teeter): BlockConfig,
-            // ConcoctionId, and Yaw are NOT routed through the interface —
-            // they default to 0/""/0 on the transformed entry, so a
-            // mirrored preset thruster loses its tuned thrust and a yawed
-            // block loses its yaw. Copying them here blind would be wrong
-            // for Yaw (a reflected yaw isn't the source yaw). Tracked in
-            // session log 123.
+            // The 5-arg ctor leaves BlockConfig/ConcoctionId/Yaw at their
+            // defaults; route them through the interface so a transform can
+            // never silently drop them (the gap closed in session 124 —
+            // they had drifted across schema v4/v7/v8). Yaw carries a real
+            // reflection rule; the other two are orientation-free copies.
+            entry.BlockConfig = t.TransformBlockConfig(in source);
+            entry.ConcoctionId = t.TransformConcoctionId(in source);
+            entry.Yaw = t.TransformYaw(in source);
             return entry;
         }
     }
