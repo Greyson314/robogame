@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 78a41886620bdf04f9897ab6184ac460, type: 3}
   m_Name: Cannon_Default
   m_EditorClassIdentifier: Robogame.Combat::Robogame.Combat.CannonDefinition
-  _damage: 60
-  _knockbackImpulse: 18
+  _damage: 110
+  _knockbackImpulse: 40
   _clipSize: 6
   _reloadDuration: 3
   _autoReloadDelay: 0.3

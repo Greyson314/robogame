@@ -269,7 +269,12 @@ namespace Robogame.Combat
             if (_pools.TryGetValue(id, out Pool p))
             {
                 p.Instances = Mathf.Max(0, p.Instances - 1);
-                p.Max = p.Instances * p.ClipPerInstance;
+                // Subtract THIS block's effective clip (per-instance ammo
+                // multipliers mean instances aren't interchangeable).
+                int removedClip = block.Definition.ComponentData is IWeaponStats stats
+                    ? PerInstanceClip(id, stats.ClipSize, block.ConfigValue)
+                    : p.ClipPerInstance;
+                p.Max = Mathf.Max(0, p.Max - removedClip);
                 p.Current = Mathf.Min(p.Current, p.Max);
                 if (p.Instances <= 0) _pools.Remove(id);
                 else _pools[id] = p;
@@ -291,9 +296,15 @@ namespace Robogame.Combat
         private void RecomputePoolsFromGrid()
         {
             if (_grid == null) return;
-            // Count instances per weapon block id.
+            // Count instances per weapon block id, and accumulate each
+            // instance's effective clip (ammo-configurable turrets scale
+            // their contribution by the per-instance multiplier —
+            // WeaponAmmoDefaults; non-configurable weapons contribute the
+            // authored ClipSize unchanged because ConfigValue 0 = 1×).
             Dictionary<string, int> counts = _instanceCountScratch;
+            Dictionary<string, int> capacities = _capacityScratch;
             counts.Clear();
+            capacities.Clear();
             foreach (var kvp in _grid.Blocks)
             {
                 BlockBehaviour b = kvp.Value;
@@ -301,6 +312,10 @@ namespace Robogame.Combat
                 if (!IsWeaponBlock(b)) continue;
                 string id = b.Definition.Id;
                 counts[id] = counts.TryGetValue(id, out int n) ? n + 1 : 1;
+                int clip = b.Definition.ComponentData is IWeaponStats stats
+                    ? PerInstanceClip(id, stats.ClipSize, b.ConfigValue)
+                    : 0;
+                capacities[id] = capacities.TryGetValue(id, out int c) ? c + clip : clip;
             }
             // Build / update pools.
             // 1. Drop pools whose weapon type no longer has any instances.
@@ -318,7 +333,12 @@ namespace Robogame.Combat
                 BlockDefinition def = ResolveDefinition(id);
                 if (def == null) continue;
                 (int clipSize, float reloadDur, float autoDelay) = ResolveAmmoConfig(def);
-                int newMax = clipSize * instances;
+                // Capacity = Σ per-instance effective clips (falls back to
+                // clipSize × instances when the capacity pass found nothing,
+                // which only happens for defs without IWeaponStats — defensive).
+                int newMax = capacities.TryGetValue(id, out int summed) && summed > 0
+                    ? summed
+                    : clipSize * instances;
                 if (_pools.TryGetValue(id, out Pool existing))
                 {
                     existing.Instances = instances;
@@ -351,7 +371,19 @@ namespace Robogame.Combat
         }
 
         private static readonly Dictionary<string, int> _instanceCountScratch = new();
+        private static readonly Dictionary<string, int> _capacityScratch = new();
         private static readonly List<string> _removeScratch = new();
+
+        /// <summary>
+        /// One instance's effective clip contribution: ammo-configurable
+        /// turrets scale by their dialed multiplier; everything else
+        /// contributes the authored clip (ResolveMultiplier(0) == 1×, so
+        /// this is a single code path).
+        /// </summary>
+        private static int PerInstanceClip(string blockId, int baseClip, float configValue)
+            => Robogame.Block.WeaponAmmoDefaults.IsAmmoConfigurable(blockId)
+                ? Robogame.Block.WeaponAmmoDefaults.ClipFor(baseClip, configValue)
+                : baseClip;
 
         private BlockDefinition ResolveDefinition(string id)
         {

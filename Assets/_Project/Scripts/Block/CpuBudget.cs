@@ -67,6 +67,10 @@ namespace Robogame.Block
         {
             int baseCost = Mathf.Max(0, defCpuCost);
             if (blockId == BlockIds.Rotor) return RotorDefaults.CpuCostFor(baseCost, blockConfig);
+            // Ammo-configurable turrets (SMG / Cannon): config scales the
+            // clip and the price together — see WeaponAmmoDefaults.
+            if (WeaponAmmoDefaults.IsAmmoConfigurable(blockId))
+                return WeaponAmmoDefaults.CpuCostFor(baseCost, blockConfig);
             if (concoctionId.Length == 0 || !ConcoctionRegistry.IsConcoctableBlock(blockId)) return baseCost;
             return ConcoctionRegistry.TryGet(concoctionId, out Concoction c) ? baseCost + c.CpuSurcharge(baseCost) : baseCost;
         }

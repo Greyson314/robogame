@@ -476,6 +476,12 @@ namespace Robogame.Robots
                 float areaRatio = (float)(n * n) / (def * def);
                 return baseMass * Mathf.Clamp(areaRatio, 0.25f, 6f);
             }
+            // Ammo-configurable turrets: "more ammo = more weight" — the
+            // ammo fraction of the block's mass scales with the dialed
+            // multiplier (WeaponAmmoDefaults). Default config = 1× = sticker
+            // mass, so untouched chassis are byte-identical.
+            if (WeaponAmmoDefaults.IsAmmoConfigurable(id))
+                return baseMass * WeaponAmmoDefaults.MassScaleFor(b.ConfigValue);
             return baseMass;
         }
 

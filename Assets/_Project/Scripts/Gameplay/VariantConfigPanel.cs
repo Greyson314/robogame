@@ -53,7 +53,7 @@ namespace Robogame.Gameplay
         // ----- UGUI -----
         private GameObject _root;
         private Text _titleText;
-        private GameObject _foilSection, _ropeSection, _rotorSection, _hoverSection, _moduleSection, _explosiveSection;
+        private GameObject _foilSection, _ropeSection, _rotorSection, _hoverSection, _moduleSection, _explosiveSection, _weaponSection;
 
         // Foil controls
         private Slider _foilPitchPrimary;
@@ -93,6 +93,12 @@ namespace Robogame.Gameplay
         private GameObject _concoctionList;
         private Text _concoctionCpuReadout;
         private bool _concoctionListOpen;
+        // Ammo-configurable turret controls (SMG / Cannon) — one "Ammo"
+        // multiplier slider (writes ConfigValue) with a live clip + CPU +
+        // mass readout. See WeaponAmmoDefaults.
+        private Slider _weaponAmmoSlider;
+        private Text _weaponAmmoValue;
+        private Text _weaponReadout;
 
         private string _activeBlockId;
         private bool _suppressCallbacks;
@@ -246,7 +252,8 @@ namespace Robogame.Gameplay
             bool hover = blockId == BlockIds.HoverBlade;
             bool module = ModuleKinds.IsModuleId(blockId);
             bool explosive = ConcoctionRegistry.IsConcoctableBlock(blockId);
-            bool any = foil || rope || rotor || hover || module || explosive;
+            bool weaponAmmo = WeaponAmmoDefaults.IsAmmoConfigurable(blockId);
+            bool any = foil || rope || rotor || hover || module || explosive || weaponAmmo;
             SetVisible(any);
             if (!any) return;
 
@@ -269,6 +276,9 @@ namespace Robogame.Gameplay
                 else if (explosive) _titleText.text = blockId == BlockIds.Mortar
                     ? $"{lead} — MORTAR"
                     : $"{lead} — BOMB BAY";
+                else if (weaponAmmo) _titleText.text = blockId == BlockIds.Cannon
+                    ? $"{lead} — CANNON"
+                    : $"{lead} — SMG";
                 else _titleText.text = $"{(editing ? "EDITING" : "MODULE")} — {ModuleKinds.Label(ModuleKinds.ForBlockId(blockId) ?? ModuleKind.EmpBurst)}";
             }
             _foilSection.SetActive(foil);
@@ -277,6 +287,7 @@ namespace Robogame.Gameplay
             _hoverSection.SetActive(hover);
             _moduleSection.SetActive(module);
             _explosiveSection.SetActive(explosive);
+            _weaponSection.SetActive(weaponAmmo);
 
             _suppressCallbacks = true;
             if (foil)
@@ -344,6 +355,16 @@ namespace Robogame.Gameplay
             {
                 CloseConcoctionList();
                 RefreshConcoctionCaption();
+            }
+            else if (weaponAmmo)
+            {
+                // Config cache 0 = "use default" — display 1.0× without
+                // writing the cache (rotor-RPM pattern), so an untouched
+                // turret keeps the 0 sentinel in its blueprint entry.
+                float mult = WeaponAmmoDefaults.ResolveMultiplier(GetConfigForBlock(blockId));
+                _weaponAmmoSlider.value = mult;
+                UpdateValueText(_weaponAmmoValue, mult, "F2");
+                UpdateWeaponReadout(mult);
             }
             _suppressCallbacks = false;
         }
@@ -687,6 +708,7 @@ namespace Robogame.Gameplay
             _hoverSection = BuildHoverSection(panel.transform);
             _moduleSection = BuildModuleSection(panel.transform);
             _explosiveSection = BuildExplosiveSection(panel.transform);
+            _weaponSection = BuildWeaponSection(panel.transform);
 
             _foilSection.SetActive(false);
             _ropeSection.SetActive(false);
@@ -694,6 +716,7 @@ namespace Robogame.Gameplay
             _hoverSection.SetActive(false);
             _moduleSection.SetActive(false);
             _explosiveSection.SetActive(false);
+            _weaponSection.SetActive(false);
         }
 
         // -----------------------------------------------------------------
@@ -911,6 +934,66 @@ namespace Robogame.Gameplay
             rrt.sizeDelta = new Vector2(0f, 22f);
 
             return section;
+        }
+
+        private GameObject BuildWeaponSection(Transform parent)
+        {
+            var section = NewChild("Weapon", parent);
+            var rt = section.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.offsetMin = new Vector2(12f, 12f);
+            rt.offsetMax = new Vector2(-12f, -40f);
+
+            // Single "Ammo" multiplier slider; writing it caches ConfigValue,
+            // which rides the blueprint and trades CPU + mass for clip size.
+            _weaponAmmoSlider = BuildLabeledSlider(section.transform, "Ammo ×", slot: 0,
+                min: WeaponAmmoDefaults.MinMultiplier, max: WeaponAmmoDefaults.MaxMultiplier,
+                def: WeaponAmmoDefaults.DefaultMultiplier,
+                onChanged: OnWeaponAmmoChanged, out _weaponAmmoValue);
+
+            _weaponReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
+                anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
+                size: 12, style: FontStyle.Italic, anchor: TextAnchor.MiddleCenter, color: s_dim);
+            var rrt = _weaponReadout.rectTransform;
+            rrt.pivot = new Vector2(0.5f, 1f);
+            rrt.anchoredPosition = new Vector2(0f, -56f - 4f);
+            rrt.sizeDelta = new Vector2(0f, 22f);
+
+            return section;
+        }
+
+        private void OnWeaponAmmoChanged(float v)
+        {
+            if (_suppressCallbacks) return;
+            float snapped = Mathf.Round(v * 4f) / 4f; // 0.25× steps
+            string id = _activeBlockId;
+            if (string.IsNullOrEmpty(id)) return;
+            _suppressCallbacks = true;
+            _weaponAmmoSlider.value = snapped;
+            _suppressCallbacks = false;
+            _session?.SetVariantConfig(id, snapped);
+            UpdateValueText(_weaponAmmoValue, snapped, "F2");
+            UpdateWeaponReadout(snapped);
+        }
+
+        private void UpdateWeaponReadout(float mult)
+        {
+            if (_weaponReadout == null) return;
+            string id = _activeBlockId;
+            BlockDefinition def = GameStateController.Instance != null && GameStateController.Instance.Library != null
+                ? GameStateController.Instance.Library.Get(id)
+                : null;
+            // Live consequences at this multiplier — same pricing/mass cores
+            // the spend bar, spawn-time TrimToFit and Robot aggregates use.
+            int clip = def != null && def.ComponentData is Robogame.Combat.IWeaponStats stats
+                ? WeaponAmmoDefaults.ClipFor(stats.ClipSize, mult)
+                : 0;
+            int cpu = def != null ? WeaponAmmoDefaults.CpuCostFor(def.CpuCost, mult) : 0;
+            float massScale = WeaponAmmoDefaults.MassScaleFor(mult);
+            _weaponReadout.text = clip > 0
+                ? $"{clip} rds/gun  •  CPU {cpu}  •  {massScale:F2}× mass"
+                : $"CPU {cpu}  •  {massScale:F2}× mass";
         }
 
         private void OnModulePowerChanged(float v)

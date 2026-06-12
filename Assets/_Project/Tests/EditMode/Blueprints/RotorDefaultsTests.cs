@@ -244,25 +244,30 @@ namespace Robogame.Tests.EditMode.Blueprints
         [Test]
         public void EffectiveCpuCost_NonRotorBlock_IsUnaffectedByBlockConfig()
         {
-            // Blocks that are not BlockIds.Rotor must not be routed through
-            // RotorDefaults regardless of BlockConfig value.  If this breaks,
-            // setting a RPM-style config on a weapon or thruster would
-            // accidentally multiply its CPU cost.
-            BlockDefinition weaponDef = _lib.Get(BlockIds.Weapon);
-            Assume.That(weaponDef, Is.Not.Null, "Weapon block definition must exist.");
-            Assume.That(weaponDef.CpuCost, Is.GreaterThan(0));
+            // Blocks with no config-priced role must not be routed through
+            // RotorDefaults (or any other pricing curve) regardless of
+            // BlockConfig value. If this breaks, a stray config value on a
+            // config-neutral block would accidentally multiply its CPU cost.
+            // Probe with Thruster: config-CARRYING (thrust scalar) but
+            // config-price-NEUTRAL. The previous probe (Weapon/SMG) became
+            // deliberately config-priced when per-instance ammo capacity
+            // landed (session 127) — that pricing is covered by
+            // WeaponAmmoDefaultsTests.
+            BlockDefinition thrusterDef = _lib.Get(BlockIds.Thruster);
+            Assume.That(thrusterDef, Is.Not.Null, "Thruster block definition must exist.");
+            Assume.That(thrusterDef.CpuCost, Is.GreaterThan(0));
 
-            var baseEntry = new ChassisBlueprint.Entry(BlockIds.Weapon, new Vector3Int(0, 0, 1));
+            var baseEntry = new ChassisBlueprint.Entry(BlockIds.Thruster, new Vector3Int(0, 0, 1));
             // BlockConfig starts at 0 from the two-arg constructor.
 
-            var highConfigEntry = new ChassisBlueprint.Entry(BlockIds.Weapon, new Vector3Int(0, 0, 2));
+            var highConfigEntry = new ChassisBlueprint.Entry(BlockIds.Thruster, new Vector3Int(0, 0, 2));
             highConfigEntry.BlockConfig = 600f;
 
-            int costBase       = CpuBudget.EffectiveCpuCost(baseEntry,      weaponDef);
-            int costHighConfig = CpuBudget.EffectiveCpuCost(highConfigEntry, weaponDef);
+            int costBase       = CpuBudget.EffectiveCpuCost(baseEntry,       thrusterDef);
+            int costHighConfig = CpuBudget.EffectiveCpuCost(highConfigEntry, thrusterDef);
 
             Assert.AreEqual(costBase, costHighConfig,
-                "Non-rotor block CPU cost must be invariant to BlockConfig (rotor RPM scaling must not leak).");
+                "Config-price-neutral block CPU cost must be invariant to BlockConfig (pricing curves must not leak).");
         }
 
         // -----------------------------------------------------------------

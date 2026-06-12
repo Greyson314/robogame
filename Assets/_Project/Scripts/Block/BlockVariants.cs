@@ -43,6 +43,11 @@ namespace Robogame.Block
             // surcharge). See ADR-0004 / ConcoctionRegistry.IsConcoctableBlock.
             BlockIds.BombBay,
             BlockIds.Mortar,
+            // Ammo-configurable turrets: their "variant config" is the ammo
+            // multiplier slider (ConfigValue), trading CPU + mass for clip
+            // size. See WeaponAmmoDefaults.
+            BlockIds.Weapon,
+            BlockIds.Cannon,
         };
 
         /// <summary>
