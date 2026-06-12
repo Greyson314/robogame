@@ -61,6 +61,27 @@ namespace Robogame.Gameplay
         /// <summary>Raised after <see cref="SetSelectedBlock"/> mutates the selection.</summary>
         public event Action<string> SelectedBlockChanged;
 
+        /// <summary>
+        /// The single placed block currently bound for per-instance editing
+        /// (set by the middle-click picker), or null in normal placement
+        /// mode. When set, a variant-slider change applies to THIS block
+        /// only instead of propagating to every block of its type — so the
+        /// player can retune one rotor's RPM without touching the others,
+        /// and without deleting/orphaning it. Session 125. Unity's null
+        /// check covers the block being destroyed while bound.
+        /// </summary>
+        public BlockBehaviour EditingInstance { get; private set; }
+
+        /// <summary>Raised when <see cref="EditingInstance"/> is set or cleared (highlight + title react).</summary>
+        public event Action<BlockBehaviour> EditingInstanceChanged;
+
+        public void SetEditingInstance(BlockBehaviour block)
+        {
+            if (ReferenceEquals(EditingInstance, block)) return;
+            EditingInstance = block;
+            EditingInstanceChanged?.Invoke(block);
+        }
+
         public void SetSelectedBlock(string blockId)
         {
             if (SelectedBlockId == blockId) return;

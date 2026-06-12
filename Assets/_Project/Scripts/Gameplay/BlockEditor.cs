@@ -75,11 +75,18 @@ namespace Robogame.Gameplay
             float worldTeeter = _session.GetVariantTeeter(blockId);
             Vector3 dims = _session.GetVariantDims(blockId);
             float config = _session.GetVariantConfig(blockId);
+            // Instance-edit (session 125): when a block is bound for
+            // per-instance editing, a slider change targets only THAT block,
+            // not every block of its type. In normal placement mode
+            // (EditingInstance == null) the change still propagates to all
+            // matching blocks (the session-96 live-mid-edit feature).
+            BlockBehaviour only = _session.EditingInstance;
             foreach (var kvp in _grid.Blocks)
             {
                 BlockBehaviour block = kvp.Value;
                 if (block == null || block.Definition == null) continue;
                 if (block.Definition.Id != blockId) continue;
+                if (only != null && block != only) continue;
                 // The cache holds WORLD-INTENT angles; placed blocks store
                 // local-frame. Normalize per block's own mount-up — the
                 // same conversion placement does. (Previously the raw
@@ -298,6 +305,7 @@ namespace Robogame.Gameplay
         private void HandleExited()
         {
             _grid = null;
+            ClearInstanceEdit();
             if (_ghostRenderer != null) _ghostRenderer.Clear();
             if (_feedbackHud != null) _feedbackHud.Hide();
         }
@@ -569,15 +577,28 @@ namespace Robogame.Gameplay
                 DriveGhostRenderer(); // reflect the new yaw immediately
             }
 
+            // Manually switching hotbar block type leaves instance-edit
+            // (re-picking the SAME type to re-bind another instance keeps it —
+            // the id matches, so no exit). Esc is deliberately NOT an exit
+            // here: it's already owned by the settings panel + free-cam
+            // cursor release, so a middle-click on empty space / the same
+            // block is the exit instead (handled below). Cheap id compare.
+            if (_session != null && _session.EditingInstance != null && _hotbar != null
+                && _session.EditingInstance.Definition != null
+                && _hotbar.SelectedBlockId != _session.EditingInstance.Definition.Id)
+            {
+                ClearInstanceEdit();
+            }
+
             Mouse mouse = Mouse.current;
-            if (mouse == null || !_hasTarget) return;
+            if (mouse == null) return;
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
 
-            if (mouse.leftButton.wasPressedThisFrame)   TryPlace();
-            if (mouse.rightButton.wasPressedThisFrame)  TryRemove();
             // Middle button is shared with OrbitCamera's drag-pan, so the
-            // picker fires on RELEASE and only when the cursor barely
-            // moved — a middle-drag pans, a middle-click picks.
+            // picker resolves on RELEASE and only when the cursor barely
+            // moved — a middle-drag pans, a middle-click picks. Tracked
+            // BEFORE the no-target gate so a middle-click on empty space can
+            // exit instance-edit.
             if (mouse.middleButton.wasPressedThisFrame)
             {
                 _middlePressPos = mouse.position.ReadValue();
@@ -587,12 +608,19 @@ namespace Robogame.Gameplay
             {
                 _middlePressActive = false;
                 const float clickSlopPixels = 5f;
-                if ((mouse.position.ReadValue() - _middlePressPos).sqrMagnitude
-                    <= clickSlopPixels * clickSlopPixels)
+                bool wasClick = (mouse.position.ReadValue() - _middlePressPos).sqrMagnitude
+                    <= clickSlopPixels * clickSlopPixels;
+                if (wasClick)
                 {
-                    TryPickBlock();
+                    if (_hasTarget) TryPickBlock();
+                    // Click on empty space exits instance-edit.
+                    else if (_session != null && _session.EditingInstance != null) ClearInstanceEdit();
                 }
             }
+
+            if (!_hasTarget) return;
+            if (mouse.leftButton.wasPressedThisFrame)   TryPlace();
+            if (mouse.rightButton.wasPressedThisFrame)  TryRemove();
         }
 
         // Middle-click vs middle-drag discrimination state (see HandleClicks).
@@ -612,6 +640,15 @@ namespace Robogame.Gameplay
             BlockDefinition def = b.Definition;
             if (def == null) return;
 
+            // Re-picking the block you're already editing toggles edit-mode
+            // off — a discoverable exit that doesn't need a dedicated key.
+            if (ReferenceEquals(_session.EditingInstance, b))
+            {
+                ClearInstanceEdit();
+                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.UiClick);
+                return;
+            }
+
             // Hotbar first — if the type isn't player-placeable (e.g. an
             // auto-placed mechanism cube) decline the whole pick rather
             // than half-applying cache writes for an unselectable id.
@@ -620,6 +657,14 @@ namespace Robogame.Gameplay
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
                 return;
             }
+
+            // Bind THIS instance for editing BEFORE writing the caches:
+            // SetVariant* fires VariantChanged → PropagateVariantToLiveBlocks,
+            // which (with an instance bound) targets only this block. Setting
+            // it after would propagate the picked block's values onto every
+            // other block of the same type. Session 125.
+            _session.SetEditingInstance(b);
+            HighlightInstance(b);
 
             // Stored pitch is local-frame; the panel + placement pipeline
             // speak world-intent. The conversion is involutive (a sign
@@ -639,6 +684,61 @@ namespace Robogame.Gameplay
             if (_variantPanel != null) _variantPanel.RefreshForBlock(def.Id);
 
             Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.UiClick);
+        }
+
+        // -----------------------------------------------------------------
+        // Instance-edit highlight (session 125)
+        // -----------------------------------------------------------------
+
+        private GameObject _instanceHighlight;
+        private static Material s_highlightMat;
+
+        // Drop the per-instance edit binding and its highlight, then refresh
+        // the panel title back to normal-placement wording. Safe to call when
+        // nothing is bound.
+        private void ClearInstanceEdit()
+        {
+            if (_session != null) _session.SetEditingInstance(null);
+            if (_instanceHighlight != null)
+            {
+                Destroy(_instanceHighlight);
+                _instanceHighlight = null;
+            }
+            if (_variantPanel != null && _hotbar != null)
+                _variantPanel.RefreshForBlock(_hotbar.SelectedBlockId);
+        }
+
+        // Translucent box around the edited block so the player can see which
+        // instance their sliders are driving. A bounding cube (not a shape
+        // match) is enough to answer "which one"; parented to the block so it
+        // tracks any reparent (rotor-adopted foils) and dies with the block.
+        private void HighlightInstance(BlockBehaviour block)
+        {
+            if (_instanceHighlight != null) { Destroy(_instanceHighlight); _instanceHighlight = null; }
+            if (block == null) return;
+
+            if (s_highlightMat == null)
+                s_highlightMat = Robogame.Core.RuntimeMaterials.UnlitTransparent(new Color(1f, 0.62f, 0.10f, 0.22f));
+
+            _instanceHighlight = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            _instanceHighlight.name = "InstanceEditHighlight";
+            Collider col = _instanceHighlight.GetComponent<Collider>();
+            if (col != null) Destroy(col);
+            var mr = _instanceHighlight.GetComponent<MeshRenderer>();
+            if (mr != null)
+            {
+                mr.sharedMaterial = s_highlightMat;
+                mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                mr.receiveShadows = false;
+            }
+            Transform t = _instanceHighlight.transform;
+            t.SetParent(block.transform, worldPositionStays: false);
+            t.localPosition = Vector3.zero;
+            t.localRotation = Quaternion.identity;
+            // Slightly larger than a cell so it reads as a shell around the
+            // block rather than z-fighting its faces.
+            float cell = _grid != null ? _grid.CellSize : 1f;
+            t.localScale = Vector3.one * (cell * 1.12f);
         }
 
         private void TryPlace()
@@ -681,6 +781,11 @@ namespace Robogame.Gameplay
             BuildSession.PlaceOutcome outcome = _session.TryPlace(def, _targetPlaceCell, _targetPlaceUp, dims, worldPitch, worldTeeter);
             if (outcome.PrimarySucceeded)
             {
+                // Placing a fresh block leaves instance-edit — the player is
+                // back to authoring, and a slider drag should resume
+                // propagating to all (or to the next pick), not the
+                // just-deselected instance.
+                if (_session.EditingInstance != null) ClearInstanceEdit();
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.BlockPlace);
             }
             else

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Robogame.Block;
 using Robogame.Core;
+using Robogame.Input;
 using UnityEngine;
 
 namespace Robogame.Movement
@@ -71,6 +72,22 @@ namespace Robogame.Movement
         [Header("Lift mode (opt-in)")]
         [Tooltip("Default collective pitch applied to every adopted aerofoil, degrees. Per-instance overrides come from the rotor's blueprint Entry.PitchDeg (non-zero overrides this default). Real helicopters use ~6–8° at hover.")]
         [SerializeField, Range(0f, 20f)] private float _collectivePitchDeg = 8f;
+
+        [Header("Throttle")]
+        [Tooltip("How fast the throttle moves across its full 0→1 range per second of held input. 0.6 ≈ ~1.7 s lock-to-lock.")]
+        [SerializeField, Min(0.05f)] private float _throttleRampPerSec = 0.6f;
+
+        // Live throttle in [0,1]; effective RPM = throttle × max-RPM (the
+        // per-rotor ConfigValue, formerly the flat RPM). Holding the climb
+        // input ramps it up and it HOLDS when released (a trim throttle,
+        // not a momentary trigger) so a heli can hover hands-off. Defaults
+        // to 1 so a freshly-spawned chassis — and AI dummies that don't
+        // drive the vertical/forward axis — spin at full max-RPM exactly
+        // as before the throttle existed. Session 125.
+        private float _throttle01 = 1f;
+        // Input source on the chassis (player or AI). Resolved alongside
+        // the chassis Rigidbody; invalidated by the same parent-change path.
+        private IInputSource _inputSource;
 
         /// <summary>
         /// Collective pitch actually applied at adopt time. Reads the
@@ -210,6 +227,7 @@ namespace Robogame.Movement
             // OnTransformParentChanged if a future reparent (e.g. debris
             // detach) moves the rotor under a different chassis.
             _chassisRbCached = GetComponentInParent<Rigidbody>();
+            _inputSource = GetComponentInParent<IInputSource>();
             _chassisRbCacheValid = true;
             // When the rotor's own pitch (collective) is mutated through
             // BlockBehaviour.SetPitch — by BlockEditor's variant-change
@@ -429,7 +447,11 @@ namespace Robogame.Movement
             get
             {
                 if (RpmOverride >= 0f) return RpmOverride;
-                return RotorDefaults.ResolveRpm(_bb != null ? _bb.ConfigValue : 0f);
+                // ConfigValue is now the MAX RPM ceiling; live throttle
+                // scales it. throttle defaults to 1 so untouched rotors
+                // (and AI that never trims) spin at max as before.
+                float maxRpm = RotorDefaults.ResolveRpm(_bb != null ? _bb.ConfigValue : 0f);
+                return maxRpm * _throttle01;
             }
         }
 
@@ -720,6 +742,46 @@ namespace Robogame.Movement
                     aero);
 #endif
             }
+
+            UniformizeBladeTeeter();
+        }
+
+        // Make every adopted blade cone in ONE direction relative to the
+        // disc. Each blade's stored TeeterDeg was normalized to its ORIGINAL
+        // mount face (the 4 lateral faces of the mechanism cube normalize to
+        // different signs), so left alone the blades cone inconsistently —
+        // the symptom the player hit. After adoption every blade's local
+        // frame is rebuilt from the spin tangent, so a single teeter value
+        // applied to all of them tilts every tip the same way out of the
+        // disc plane (a cone). We take the largest-magnitude teeter the
+        // player dialed in so their intended angle is preserved.
+        //
+        // This is the rotor analogue of the collective-pitch override above
+        // (SetPitch(EffectiveCollectivePitchDeg)): per-blade tuning yields to
+        // a rotor-frame collective. Free (non-rotor) wings deliberately keep
+        // mirror parity instead — a mirrored wing pair forms a dihedral V,
+        // NOT a same-direction tilt; the two cases can't share one rule.
+        // Garage caveat: in build mode the chassis is kinematic so blades are
+        // never adopted (BuildLiftRig early-returns), so the garage preview
+        // still shows per-face teeter; the uniform cone appears at arena spawn.
+        private void UniformizeBladeTeeter()
+        {
+            float coning = 0f;
+            for (int i = 0; i < _adoptedFoils.Count; i++)
+            {
+                AeroSurfaceBlock a = _adoptedFoils[i].Aero;
+                if (a == null) continue;
+                BlockBehaviour bb = a.GetComponent<BlockBehaviour>();
+                if (bb != null && Mathf.Abs(bb.TeeterDeg) > Mathf.Abs(coning)) coning = bb.TeeterDeg;
+            }
+            if (Mathf.Approximately(coning, 0f)) return;
+            for (int i = 0; i < _adoptedFoils.Count; i++)
+            {
+                AeroSurfaceBlock a = _adoptedFoils[i].Aero;
+                if (a == null) continue;
+                BlockBehaviour bb = a.GetComponent<BlockBehaviour>();
+                if (bb != null) bb.SetTeeter(coning);
+            }
         }
 
         private void AdoptRope(RopeBlock rope)
@@ -822,6 +884,7 @@ namespace Robogame.Movement
             if (!_chassisRbCacheValid)
             {
                 _chassisRbCached = GetComponentInParent<Rigidbody>();
+                _inputSource = GetComponentInParent<IInputSource>();
                 _chassisRbCacheValid = true;
             }
             Rigidbody chassis = _chassisRbCached;
@@ -843,6 +906,25 @@ namespace Robogame.Movement
             }
 
             float dt = Time.fixedDeltaTime;
+
+            // Throttle: a vertical-axis rotor (heli main rotor) trims on the
+            // vertical input (space up / descend-key down); a forward-axis
+            // rotor (pusher/puller prop) trims on forward/back (W/S). The
+            // input only *moves* the throttle while held — it holds its
+            // value on release so the pilot isn't mashing space to hover.
+            // Sideways-axis rotors take no throttle input and hold. The
+            // stress-tower override pins absolute RPM, so it skips throttle.
+            if (RpmOverride < 0f && _inputSource != null)
+            {
+                Vector3 axis = _spinAxisLocal.sqrMagnitude > 1e-6f
+                    ? _spinAxisLocal.normalized : Vector3.up;
+                float axisInput = 0f;
+                if (Mathf.Abs(axis.y) > 0.7f)      axisInput = _inputSource.Vertical;
+                else if (Mathf.Abs(axis.z) > 0.7f) axisInput = _inputSource.Move.y;
+                if (axisInput != 0f)
+                    _throttle01 = Mathf.Clamp01(_throttle01 + axisInput * _throttleRampPerSec * dt);
+            }
+
             float omega = LiveRpm * (Mathf.PI * 2f / 60f); // rad/s
             _angleRad += omega * dt;
             // Wrap so the float doesn't drift to billions over long sessions.

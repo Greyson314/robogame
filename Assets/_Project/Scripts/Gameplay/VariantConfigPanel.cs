@@ -252,16 +252,24 @@ namespace Robogame.Gameplay
 
             if (_titleText != null)
             {
+                // "EDITING" prefix + accent colour when a placed instance is
+                // bound (middle-click picker), so the player knows the sliders
+                // drive that one block, not the next-placement defaults.
+                bool editing = _session != null && _session.EditingInstance != null;
+                string lead = editing ? "EDITING" : "VARIANT";
+                // Title is normally accent-orange; flip to white while
+                // instance-editing so the mode change reads at a glance.
+                _titleText.color = editing ? Color.white : s_accent;
                 if (foil) _titleText.text = blockId == BlockIds.AeroFin
-                    ? "VARIANT — TAIL FIN"
-                    : "VARIANT — AERO WING";
-                else if (rope) _titleText.text = "VARIANT — ROPE";
-                else if (rotor) _titleText.text = "VARIANT — ROTOR";
-                else if (hover) _titleText.text = "VARIANT — HOVER BLADE";
+                    ? $"{lead} — TAIL FIN"
+                    : $"{lead} — AERO WING";
+                else if (rope) _titleText.text = $"{lead} — ROPE";
+                else if (rotor) _titleText.text = $"{lead} — ROTOR";
+                else if (hover) _titleText.text = $"{lead} — HOVER BLADE";
                 else if (explosive) _titleText.text = blockId == BlockIds.Mortar
-                    ? "VARIANT — MORTAR"
-                    : "VARIANT — BOMB BAY";
-                else _titleText.text = $"MODULE — {ModuleKinds.Label(ModuleKinds.ForBlockId(blockId) ?? ModuleKind.EmpBurst)}";
+                    ? $"{lead} — MORTAR"
+                    : $"{lead} — BOMB BAY";
+                else _titleText.text = $"{(editing ? "EDITING" : "MODULE")} — {ModuleKinds.Label(ModuleKinds.ForBlockId(blockId) ?? ModuleKind.EmpBurst)}";
             }
             _foilSection.SetActive(foil);
             _ropeSection.SetActive(rope);
@@ -1044,7 +1052,7 @@ namespace Robogame.Gameplay
                 min: 0f, max: 18f, def: 0f,
                 onChanged: OnRotorCollectiveChanged, out _rotorCollectiveValue);
 
-            _rotorRpmSlider = BuildLabeledSlider(section.transform, "RPM", slot: 2,
+            _rotorRpmSlider = BuildLabeledSlider(section.transform, "Max RPM", slot: 2,
                 min: RotorDefaults.MinRpm, max: RotorDefaults.MaxRpm, def: RotorDefaults.DefaultRpm,
                 onChanged: OnRotorRpmChanged, out _rotorRpmValue);
 

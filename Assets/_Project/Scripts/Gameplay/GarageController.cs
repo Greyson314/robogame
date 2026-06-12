@@ -163,9 +163,15 @@ namespace Robogame.Gameplay
             DisableCombat(Chassis);
             BindFollowCamera(Chassis);
             EnsureBuildModeWired();
-            // Session 121 (reverses the session-120 call): entering the garage
-            // starts in drive mode (follow camera, build UI hidden); the player
-            // opts into build mode via the HUD toggle / hotkey.
+            // Session 121 (reverses the session-120 call): a FRESH garage
+            // entry (boot / main menu) starts in drive mode — follow camera,
+            // build UI hidden — and the player opts into build mode via the
+            // HUD toggle / hotkey. RETURNING from a match instead opens
+            // straight into build mode, since the player came back to tweak
+            // their bot (session 125). The origin flag is set by
+            // GameStateController.EnterGarage before the scene load.
+            if (state.ReturningFromArena && _buildMode != null)
+                _buildMode.Enter();
         }
 
         // -----------------------------------------------------------------

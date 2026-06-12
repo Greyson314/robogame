@@ -67,6 +67,19 @@ namespace Robogame.Gameplay
         public ChassisBlueprint CurrentBlueprint { get; private set; }
         public GameState State { get; private set; } = GameState.Bootstrap;
 
+        /// <summary>
+        /// True when the most recent <see cref="EnterGarage"/> transition
+        /// came from an arena (the player finished / fled a match), as
+        /// opposed to a fresh boot or main-menu entry. The garage reads
+        /// this once on load to decide whether to open straight into build
+        /// mode (returning) or drive mode (fresh). Captured at the moment
+        /// EnterGarage is called, before the scene load flips State.
+        /// </summary>
+        public bool ReturningFromArena { get; private set; }
+
+        private static bool IsArenaState(GameState s) =>
+            s == GameState.Arena || s == GameState.WaterArena || s == GameState.PlanetArena;
+
         public IReadOnlyList<ChassisBlueprint> PresetBlueprints => _presetBlueprints;
 
         private readonly List<UserBlueprintLibrary.Record> _userBlueprints = new();
@@ -151,7 +164,14 @@ namespace Robogame.Gameplay
         // Scene transitions
         // -----------------------------------------------------------------
 
-        public void EnterGarage() => SceneManager.LoadScene(GarageSceneName, LoadSceneMode.Single);
+        public void EnterGarage()
+        {
+            // Snapshot the origin before the load flips State — the garage
+            // opens in build mode when returning from a match, drive mode
+            // on a fresh / menu entry.
+            ReturningFromArena = IsArenaState(State);
+            SceneManager.LoadScene(GarageSceneName, LoadSceneMode.Single);
+        }
         public void EnterArena() => SceneManager.LoadScene(ArenaSceneName, LoadSceneMode.Single);
         public void EnterWaterArena() => SceneManager.LoadScene(WaterArenaSceneName, LoadSceneMode.Single);
         public void EnterPlanetArena() => SceneManager.LoadScene(PlanetArenaSceneName, LoadSceneMode.Single);
