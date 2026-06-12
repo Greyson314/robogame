@@ -15,9 +15,9 @@
 // WHY EDITMODE
 //   BuildSession is pure C#. No MonoBehaviour, no scene, no Start/Update.
 //   The test runs 10x faster in EditMode and has zero scene-lifecycle risk.
-//   Only the propagation test needs a minimal BlockBehaviour stub; that stub
-//   is a plain ScriptableObject-backed object constructed via reflection,
-//   following the BuildSessionTests.cs pattern.
+//   Only the propagation tests need minimal BlockBehaviour stubs; those are
+//   created via reflection against _definition (the same fallback pattern
+//   the existing BuildSessionTests.cs uses for BlockDefinition._id).
 //
 // PATTERN
 //   Mirrors BuildSessionTests.cs (same file, same namespace). All assertions
@@ -70,27 +70,42 @@ namespace Robogame.Tests.EditMode.Blueprints
         /// GameObject so <see cref="BuildSession.SetEditingInstance"/> can
         /// store it. The caller is responsible for <c>Object.DestroyImmediate</c>
         /// in the test's teardown.
+        /// Uses the internal <c>Initialize</c> method on BlockBehaviour when
+        /// accessible (same path BlockGrid uses at placement time); falls back
+        /// to writing the private <c>_definition</c> field directly so the
+        /// Definition property resolves, which is all the propagation logic
+        /// and the event tests need.
         /// </summary>
         private static BlockBehaviour MakeBlock(string blockId)
         {
             var go = new GameObject($"TestBlock_{blockId}");
             BlockBehaviour bb = go.AddComponent<BlockBehaviour>();
             BlockDefinition def = MakeDef(blockId);
-            // Bind definition via the internal Init path that ChassisFactory uses.
-            // If Init is not accessible, fall back to the private _definition field.
-            // Following the project convention: if it compiled before, it compiles here.
+
+            // Try BlockBehaviour.Initialize(def, gridPos, dims, up, pitchDeg, yaw)
+            // — internal method, accessible via reflection. Signature confirmed
+            // from BlockBehaviour.cs line ~170.
             var initMethod = typeof(BlockBehaviour).GetMethod(
-                "Init", BindingFlags.NonPublic | BindingFlags.Instance);
+                "Initialize", BindingFlags.NonPublic | BindingFlags.Instance);
             if (initMethod != null)
             {
-                initMethod.Invoke(bb, new object[] { def, Vector3Int.zero, Vector3Int.up, Vector3.zero, 0f, 0 });
+                // params: (BlockDefinition definition, Vector3Int gridPosition,
+                //          Vector3 dims = default, Vector3Int up = default,
+                //          float pitchDeg = 0f, int yaw = 0)
+                initMethod.Invoke(bb, new object[]
+                {
+                    def, Vector3Int.zero, Vector3.zero, Vector3Int.up, 0f, 0
+                });
             }
             else
             {
+                // Fallback: write _definition directly. All tests in this file
+                // only need Definition to be non-null and return the right Id.
                 typeof(BlockBehaviour)
                     .GetField("_definition", BindingFlags.NonPublic | BindingFlags.Instance)
                     ?.SetValue(bb, def);
             }
+
             return bb;
         }
 
@@ -123,7 +138,7 @@ namespace Robogame.Tests.EditMode.Blueprints
             session.SetEditingInstance(block);
 
             Assert.AreSame(block, received,
-                "EditingInstanceChanged must fire with the new block as argument.");
+                "EditingInstanceChanged must fire with the new block as its argument.");
 
             Object.DestroyImmediate(block.gameObject);
         }
@@ -136,7 +151,7 @@ namespace Robogame.Tests.EditMode.Blueprints
             session.SetEditingInstance(block);
 
             int eventCount = 0;
-            BlockBehaviour lastReceived = block; // intentionally non-null to verify the event clears
+            BlockBehaviour lastReceived = block; // intentionally non-null to verify the event fires null
             session.EditingInstanceChanged += b => { eventCount++; lastReceived = b; };
 
             session.SetEditingInstance(null);
@@ -144,7 +159,7 @@ namespace Robogame.Tests.EditMode.Blueprints
             Assert.IsNull(session.EditingInstance,
                 "EditingInstance must be null after SetEditingInstance(null).");
             Assert.AreEqual(1, eventCount,
-                "EditingInstanceChanged must fire once when clearing the instance.");
+                "EditingInstanceChanged must fire exactly once when clearing the instance.");
             Assert.IsNull(lastReceived,
                 "EditingInstanceChanged argument must be null when clearing.");
 
@@ -153,8 +168,8 @@ namespace Robogame.Tests.EditMode.Blueprints
 
         /// <summary>
         /// Idempotent: setting the same reference twice fires the event only once.
-        /// This matches the precedent established by SetMirrorAxis and
-        /// SetSelectedBlock in BuildSessionTests.cs.
+        /// Matches the precedent established by SetMirrorAxis and SetSelectedBlock
+        /// in BuildSessionTests.cs ("Same-axis set must not re-fire MirrorChanged").
         /// </summary>
         [Test]
         public void SetEditingInstance_SameReference_DoesNotFireEventAgain()
@@ -165,21 +180,22 @@ namespace Robogame.Tests.EditMode.Blueprints
             session.EditingInstanceChanged += _ => eventCount++;
 
             session.SetEditingInstance(block);
-            Assert.AreEqual(1, eventCount, "First set must fire the event.");
+            Assert.AreEqual(1, eventCount, "First set must fire the event once.");
 
-            session.SetEditingInstance(block); // same reference
+            session.SetEditingInstance(block); // same reference — no-op
             Assert.AreEqual(1, eventCount,
-                "Re-setting the same instance must NOT fire EditingInstanceChanged again (idempotent).");
+                "Re-setting the same instance must NOT fire EditingInstanceChanged (idempotent). " +
+                "Equivalent to SetSelectedBlock(same) — second call is a no-op.");
 
             Object.DestroyImmediate(block.gameObject);
         }
 
         /// <summary>
-        /// Transition A → B fires the event (once), not a no-op on A.
+        /// Transition A → B fires the event once with B as argument.
         /// Mirrors SelectedBlockChanged_FiresOnceOnTransition.
         /// </summary>
         [Test]
-        public void SetEditingInstance_TransitionToNewBlock_FiresEvent()
+        public void SetEditingInstance_TransitionToNewBlock_FiresEventOnce()
         {
             var session = new BuildSession();
             BlockBehaviour blockA = MakeBlock(BlockIds.Rotor);
@@ -190,13 +206,13 @@ namespace Robogame.Tests.EditMode.Blueprints
             session.EditingInstanceChanged += b => { eventCount++; lastSeen = b; };
 
             session.SetEditingInstance(blockA);
-            Assert.AreEqual(1, eventCount);
+            Assert.AreEqual(1, eventCount, "A → (first set) must fire once.");
 
             session.SetEditingInstance(blockB);
             Assert.AreEqual(2, eventCount,
-                "Switching from block A to block B must fire EditingInstanceChanged.");
+                "A → B transition must fire EditingInstanceChanged once more.");
             Assert.AreSame(blockB, lastSeen,
-                "The event argument must be the new block (B), not the old one.");
+                "The event argument on A → B must be B, not A.");
 
             Object.DestroyImmediate(blockA.gameObject);
             Object.DestroyImmediate(blockB.gameObject);
@@ -210,7 +226,7 @@ namespace Robogame.Tests.EditMode.Blueprints
         public void SetEditingInstance_NullToNull_DoesNotFireEvent()
         {
             var session = new BuildSession();
-            // Default state: EditingInstance == null.
+            // Default state: EditingInstance is null.
             int eventCount = 0;
             session.EditingInstanceChanged += _ => eventCount++;
 
@@ -221,35 +237,35 @@ namespace Robogame.Tests.EditMode.Blueprints
         }
 
         // -----------------------------------------------------------------------
-        // PropagateVariantToLiveBlocks scoping — integration-level logic test
+        // PropagateVariantToLiveBlocks scoping — behavioral contract tests
         //
-        // BlockEditor.PropagateVariantToLiveBlocks is private. We test the
-        // behavioral contract it implements via the session + a minimal block
-        // loop, analogous to what the editor does: iterate grid blocks, filter by
-        // blockId, skip blocks that don't match EditingInstance when one is set.
-        // This test exercises the LOGIC of the filter, not the MonoBehaviour
-        // plumbing, which keeps it in EditMode and out of a full scene.
+        // BlockEditor.PropagateVariantToLiveBlocks is private and requires a
+        // full MonoBehaviour + scene setup. We verify the filtering LOGIC by
+        // running the same conditional loop the method uses, driven by
+        // BuildSession.EditingInstance. This tests the invariant (which blocks
+        // get updated) rather than the method's exact internal plumbing, and
+        // runs fast in EditMode without a scene.
         // -----------------------------------------------------------------------
 
         /// <summary>
         /// When EditingInstance is non-null, only the bound block must receive
-        /// the variant update. Other blocks of the same type must be unaffected.
+        /// the variant update. Other blocks of the same type are skipped.
         /// This is the "retune one rotor's RPM without touching the others"
-        /// invariant from session 125.
+        /// invariant from session 125 — the entire point of the feature.
         /// </summary>
         [Test]
         public void PropagateVariantScope_WhenInstanceBound_OnlyBoundBlockUpdates()
         {
-            // Simulate two rotor blocks that would match the propagation blockId.
+            var session = new BuildSession();
             BlockBehaviour blockA = MakeBlock(BlockIds.Rotor);
             BlockBehaviour blockB = MakeBlock(BlockIds.Rotor);
 
-            // Manual propagation loop mirrors BlockEditor.PropagateVariantToLiveBlocks
-            // logic (without the MonoBehaviour + grid dependency):
-            float newConfig = 360f;
-            BlockBehaviour only = blockA; // EditingInstance = blockA
+            session.SetEditingInstance(blockA);
 
-            // Apply to only == blockA when set.
+            // Simulate the propagation loop from PropagateVariantToLiveBlocks.
+            const float newConfig = 360f;
+            BlockBehaviour only = session.EditingInstance; // == blockA
+
             foreach (BlockBehaviour block in new[] { blockA, blockB })
             {
                 if (block.Definition == null) continue;
@@ -261,7 +277,7 @@ namespace Robogame.Tests.EditMode.Blueprints
             Assert.AreEqual(newConfig, blockA.ConfigValue,
                 "Bound instance (blockA) must receive the variant config update.");
             Assert.AreNotEqual(newConfig, blockB.ConfigValue,
-                "Non-bound block (blockB) of the same type must NOT receive the update " +
+                "Non-bound block (blockB) of the same type must NOT be updated " +
                 "when an EditingInstance is bound.");
 
             Object.DestroyImmediate(blockA.gameObject);
@@ -270,33 +286,39 @@ namespace Robogame.Tests.EditMode.Blueprints
 
         /// <summary>
         /// When EditingInstance is null (normal placement mode), all blocks of
-        /// the matching type must receive the variant update. This is the
-        /// pre-session-125 "live mid-edit" feature that must be preserved.
+        /// the matching type receive the variant update. This is the pre-session-125
+        /// "live mid-edit" feature that must be preserved for blocks that have NOT
+        /// been individually picked.
         /// </summary>
         [Test]
         public void PropagateVariantScope_WhenNoInstanceBound_AllMatchingBlocksUpdate()
         {
+            var session = new BuildSession();
+            // EditingInstance is null by default.
             BlockBehaviour blockA = MakeBlock(BlockIds.Rotor);
             BlockBehaviour blockB = MakeBlock(BlockIds.Rotor);
             BlockBehaviour blockC = MakeBlock(BlockIds.Aero); // different type — must not update
 
-            float newConfig = 480f;
-            BlockBehaviour only = null; // EditingInstance = null
+            Assert.IsNull(session.EditingInstance,
+                "Precondition: EditingInstance must be null for this test.");
+
+            const float newConfig = 480f;
+            BlockBehaviour only = session.EditingInstance; // null
 
             foreach (BlockBehaviour block in new[] { blockA, blockB, blockC })
             {
                 if (block.Definition == null) continue;
                 if (block.Definition.Id != BlockIds.Rotor) continue;
-                if (only != null && block != only) continue; // no-op when only == null
+                if (only != null && block != only) continue; // no-op filter when only == null
                 block.ConfigValue = newConfig;
             }
 
             Assert.AreEqual(newConfig, blockA.ConfigValue,
-                "blockA must receive the update when EditingInstance is null.");
+                "blockA must receive the update when EditingInstance is null (all-blocks mode).");
             Assert.AreEqual(newConfig, blockB.ConfigValue,
-                "blockB must receive the update when EditingInstance is null.");
+                "blockB must receive the update when EditingInstance is null (all-blocks mode).");
             Assert.AreNotEqual(newConfig, blockC.ConfigValue,
-                "blockC (different type) must not receive a rotor update.");
+                "blockC (Aero type) must not receive a Rotor variant update.");
 
             Object.DestroyImmediate(blockA.gameObject);
             Object.DestroyImmediate(blockB.gameObject);
@@ -304,10 +326,9 @@ namespace Robogame.Tests.EditMode.Blueprints
         }
 
         /// <summary>
-        /// Clearing EditingInstance (back to null) after an instance was bound
-        /// must restore the all-blocks propagation behavior. This ensures the
-        /// Escape key / block-type switch exit path doesn't leave a stale "only
-        /// this block" filter active.
+        /// Clearing EditingInstance (SetEditingInstance(null)) restores the
+        /// all-blocks propagation behavior. The Escape-key / block-type-switch
+        /// exit path must not leave a stale single-block filter active.
         /// </summary>
         [Test]
         public void BuildSession_ClearInstanceEdit_RestoresAllBlockPropagation()
@@ -316,18 +337,16 @@ namespace Robogame.Tests.EditMode.Blueprints
             BlockBehaviour blockA = MakeBlock(BlockIds.Rotor);
             BlockBehaviour blockB = MakeBlock(BlockIds.Rotor);
 
-            // Bind blockA.
+            // Bind blockA, then clear.
             session.SetEditingInstance(blockA);
-            Assert.AreSame(blockA, session.EditingInstance);
-
-            // Clear the binding.
             session.SetEditingInstance(null);
+
             Assert.IsNull(session.EditingInstance,
                 "EditingInstance must be null after clearing — all-blocks propagation must resume.");
 
-            // Verify: simulate the propagation with the now-null instance.
-            float newConfig = 120f;
-            BlockBehaviour only = session.EditingInstance; // null
+            // Simulate propagation with the now-null instance.
+            const float newConfig = 120f;
+            BlockBehaviour only = session.EditingInstance; // null after clear
 
             foreach (BlockBehaviour block in new[] { blockA, blockB })
             {
