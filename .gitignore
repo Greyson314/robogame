@@ -9,6 +9,12 @@
 # Claude Code worktrees — git worktrees live here, never source
 .claude/worktrees/
 
+# Claude Code scheduled-task lock — machine-specific runtime state (PID/session)
+.claude/scheduled_tasks.lock
+
+# Local scratch cache (terrain previews, throwaway scripts)
+.cache/
+
 # Universal Sound FX — third-party audio library, kept on disk for Unity
 # imports but too large to commit (20k+ wav files).
 /Assets/Universal Sound FX/
