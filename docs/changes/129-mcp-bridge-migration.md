@@ -1,7 +1,7 @@
 # 129 — MCP bridge migration: Unity official → CoplayDev MCP for Unity
 
-Research + migration prep. Status: **prepared, validation pending** (needs
-one editor session — see checklist below).
+Research + migration prep. Status: **validated 2026-07-02** (see checklist
+outcomes below).
 
 ## Why
 
@@ -44,18 +44,24 @@ multi-instance routing (relevant to future MPPM netcode testing).
   read_console tool.
 - Installed `uv` 0.11.26 (their server prerequisite; Python 3.14 present).
 
-## Not yet done (validation checklist)
+## Validation outcomes (2026-07-02)
 
-1. Open the editor, let the package import.
-2. Window → MCP for Unity → Configure All Detected Clients (registers
-   the server with Claude Code via `claude mcp add`).
-3. Fresh Claude session: verify tool names (`claude mcp list`, ToolSearch
-   "UnityMCP"), correct agent files if the registered name differs from
-   `UnityMCP`, exercise read_console / play mode / manage_profiler /
-   screenshot_multiview, dispatch qa-verifier once.
-4. Decommission official bridge: disable in Project Settings → AI →
-   Unity MCP, `claude mcp remove unity-mcp` (user scope), then decide
-   whether `com.unity.ai.assistant` stays (Assistant window) or goes.
-   `.claude/hooks/cleanup_orphan_relays.ps1` can retire with it.
-5. Update the two bridge memories + hud/verification docs if tool
-   behavior differs.
+1. ✅ Package imported; server up on HTTP `127.0.0.1:8080`, session
+   active as `robogame`.
+2. ✅ Registered with Claude Code; `claude mcp list` shows `UnityMCP ✓`.
+3. ✅ Tool names resolved exactly as written in the agent files
+   (`mcp__UnityMCP__*`, no corrections needed). Exercised: read_console,
+   manage_scene get_active/get_hierarchy paths, play → console check →
+   stop (clean), manage_profiler profiler_status, manage_camera
+   screenshot (inline image OK). `screenshot_multiview` action resolves
+   (errored only on renderer-less Bootstrap scene — expected). One
+   qa-verifier dispatch: PASS.
+4. ◐ `claude mcp remove unity-mcp` done (was local scope, not user).
+   Still pending — user actions: disable the old bridge in Project
+   Settings → AI → Unity MCP, and decide whether `com.unity.ai.assistant`
+   stays (Assistant window) or goes; `cleanup_orphan_relays.ps1` retires
+   with it.
+5. ✅ Memories updated: revoked-fix ladder marked RETIRED (applies only
+   if the official bridge returns); headless-rig memory still accurate
+   as written. No hud/verification doc changes needed — tool behavior
+   matched the mapping in § Decision.
