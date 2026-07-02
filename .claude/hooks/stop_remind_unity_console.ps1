@@ -8,7 +8,7 @@ if (-not $root) { exit 0 }
 $flag = Join-Path $root '.utmp\claude-hooks\cs-edited.flag'
 if (-not (Test-Path $flag)) { exit 0 }
 
-$msg = "C# files were edited this session. Before declaring the task done, call Unity_GetConsoleLogs (or Unity_ReadConsole) to verify a clean compile. If the Unity MCP bridge is down, ask the user to confirm a clean compile."
+$msg = "C# files were edited this session. Before declaring the task done, call the MCP for Unity read_console tool (mcp__UnityMCP__read_console) to verify a clean compile. If the MCP server is unavailable, ask the user to confirm a clean compile."
 
 $payload = @{
     hookSpecificOutput = @{
