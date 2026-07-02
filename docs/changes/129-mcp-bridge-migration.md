@@ -56,10 +56,16 @@ multi-instance routing (relevant to future MPPM netcode testing).
    screenshot (inline image OK). `screenshot_multiview` action resolves
    (errored only on renderer-less Bootstrap scene — expected). One
    qa-verifier dispatch: PASS.
-4. ◐ `claude mcp remove unity-mcp` done (was local scope, not user).
-   Still pending — user actions: disable the old bridge in Project
-   Settings → AI → Unity MCP, and decide whether `com.unity.ai.assistant`
-   stays (Assistant window) or goes; `cleanup_orphan_relays.ps1` retires
+4. ✅ `claude mcp remove unity-mcp` done (was local scope, not user).
+   Old bridge disabled THROUGH the new bridge: `execute_code` +
+   `unity_reflect` located `Unity.AI.MCP.Editor.UnityMCPBridge`, set
+   `Enabled=false` + `Stop()`; persisted via `MCPSettingsManager`
+   (`bridgeEnabled=false`, saved). All 3 orphaned `relay_win.exe`
+   killed, no respawn, port 9002 free. Correction to § Decision: the
+   "no arbitrary-C#-eval" loss was wrong — v9.7.3 ships `execute_code`
+   (Roslyn, method-body eval), a full `Unity_RunCommand` equivalent.
+   Still open (user decision): whether `com.unity.ai.assistant` stays
+   (Assistant window) or goes; `cleanup_orphan_relays.ps1` retires
    with it.
 5. ✅ Memories updated: revoked-fix ladder marked RETIRED (applies only
    if the official bridge returns); headless-rig memory still accurate
