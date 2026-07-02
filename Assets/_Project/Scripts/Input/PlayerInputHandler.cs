@@ -56,12 +56,13 @@ namespace Robogame.Input
             get
             {
                 if (_fire == null || !_fire.IsPressed()) return false;
-                // IMGUI/UGUI buttons don't auto-block Input System actions.
-                // Suppress fire while the cursor is over a UI element so HUD
-                // clicks (e.g. "Launch") don't also trigger a weapon shot.
-                if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
-                    return false;
-                return true;
+                // Fire only while the camera owns a locked cursor. A free
+                // cursor always means UI mode — hold-to-free (Alt), pause
+                // menu, match-end overlay, or pre-capture — so a HUD click
+                // can never double as a weapon shot. Replaces the old
+                // EventSystem pointer check, which was blind to IMGUI
+                // buttons. TRACE[LOG-128]
+                return Cursor.lockState == CursorLockMode.Locked;
             }
         }
 
@@ -76,9 +77,8 @@ namespace Robogame.Input
             get
             {
                 if (_fire == null || !_fire.WasPressedThisFrame()) return false;
-                if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
-                    return false;
-                return true;
+                // Same locked-cursor gate as FireHeld.
+                return Cursor.lockState == CursorLockMode.Locked;
             }
         }
 

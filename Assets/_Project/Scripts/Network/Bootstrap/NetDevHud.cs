@@ -15,9 +15,12 @@ namespace Robogame.Network.Bootstrap
     /// cursor is locked, and FollowCamera's click-to-recapture path
     /// consumes clicks before IMGUI sees them, so an IMGUI button is a
     /// dead button (documented gotcha in architecture.md — same reason
-    /// StartMatchHud uses a hotkey). The IMGUI panel is status / hint
-    /// display only. F9 = Host, F10 = Join, F8 = Server (Phase 6
-    /// dedicated, no local player), F11 = Stop, F5 = cycle the
+    /// StartMatchHud uses a hotkey). Display is a single status line
+    /// docked under the FPS counter — the old 260×170 left-edge panel
+    /// sat vertically centred and buried the garage's UGUI button stack
+    /// on shorter game views (IMGUI draws over UGUI). TRACE[LOG-128],
+    /// TRACE[DOC:hud-layout]. F9 = Host, F10 = Join, F8 = Server
+    /// (Phase 6 dedicated, no local player), F11 = Stop, F5 = cycle the
     /// <see cref="NetcodeFakeLatencyController"/> preset.
     /// </remarks>
     [DisallowMultipleComponent]
@@ -64,38 +67,61 @@ namespace Robogame.Network.Bootstrap
                 NetcodeFakeLatencyController.Instance?.CyclePreset();
         }
 
+        // Cached status line — rebuilt only when the underlying state
+        // changes so held-open OnGUI repaints stay allocation-free.
+        // TRACE[INV-6]
+        private string _line = string.Empty;
+        private bool _lastOnline;
+        private bool _lastServer;
+        private bool _lastClient;
+        private bool _lastHost;
+        private string _lastPreset;
+        private GUIStyle _style;
+
         private void OnGUI()
         {
             NetworkBootstrap nb = NetworkBootstrap.Instance;
             if (nb == null) return;
 
-            // Left edge, vertically centred — clear of the top-left FPS
-            // counter and the top-right PerformanceHud (F3).
-            const float w = 260f;
-            const float h = 170f;
-            GUILayout.BeginArea(new Rect(8f, Screen.height * 0.5f - h * 0.5f, w, h), GUI.skin.box);
-            GUILayout.Label("<b>Netcode Dev (Phase 3.6)</b>",
-                new GUIStyle(GUI.skin.label) { richText = true });
-
-            if (nb.IsOnline)
-            {
-                GUILayout.Label($"Online — server:{nb.IsServer} " +
-                                $"client:{nb.IsClient} host:{nb.IsHost}");
-                GUILayout.Label("[F11] Stop session");
-            }
-            else
-            {
-                GUILayout.Label("Offline");
-                GUILayout.Label($"[F9]  Host on {NetworkBootstrap.DefaultPort}");
-                GUILayout.Label($"[F10] Join {Ip}:{NetworkBootstrap.DefaultPort}");
-                GUILayout.Label($"[F8]  Server on {NetworkBootstrap.DefaultPort}");
-            }
-
             NetcodeFakeLatencyController lat = NetcodeFakeLatencyController.Instance;
-            if (lat != null)
-                GUILayout.Label($"[F5] Latency: {lat.ActivePresetName}");
+            string preset = lat != null ? lat.ActivePresetName : null;
+            if (_line.Length == 0
+                || nb.IsOnline != _lastOnline || nb.IsServer != _lastServer
+                || nb.IsClient != _lastClient || nb.IsHost != _lastHost
+                || preset != _lastPreset)
+            {
+                _lastOnline = nb.IsOnline;
+                _lastServer = nb.IsServer;
+                _lastClient = nb.IsClient;
+                _lastHost = nb.IsHost;
+                _lastPreset = preset;
+                string latPart = preset != null ? $"  ·  F5 lat: {preset}" : string.Empty;
+                _line = nb.IsOnline
+                    ? $"NET online  srv:{(nb.IsServer ? 1 : 0)} cli:{(nb.IsClient ? 1 : 0)} host:{(nb.IsHost ? 1 : 0)}  ·  F11 stop{latPart}"
+                    : $"NET offline  ·  F9 host  ·  F10 join {Ip}  ·  F8 server  @{NetworkBootstrap.DefaultPort}{latPart}";
+            }
 
-            GUILayout.EndArea();
+            if (_style == null)
+            {
+                _style = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 13,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleLeft,
+                };
+            }
+
+            // One line docked under the top-left FPS counter (y 8–32).
+            // Drop shadow for readability against bright skies — same
+            // treatment as FpsCounter.
+            Rect shadow = new Rect(9f, 35f, 720f, 20f);
+            Rect main = new Rect(8f, 34f, 720f, 20f);
+            Color prev = GUI.color;
+            GUI.color = new Color(0f, 0f, 0f, 0.7f);
+            GUI.Label(shadow, _line, _style);
+            GUI.color = new Color(0.75f, 0.85f, 0.95f, 0.9f);
+            GUI.Label(main, _line, _style);
+            GUI.color = prev;
         }
     }
 }

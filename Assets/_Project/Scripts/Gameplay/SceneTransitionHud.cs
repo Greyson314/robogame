@@ -436,31 +436,20 @@ namespace Robogame.Gameplay
             }
 
             bool inGarage = state.State == GameState.Garage;
-            bool inArena  = state.State == GameState.Arena;
-            bool inWater  = state.State == GameState.WaterArena;
-            bool inPlanet = state.State == GameState.PlanetArena;
 
-            switch (state.State)
+            // Garage-only. The arena "◀ Garage" corner button is gone —
+            // it sat fully buried under the bottom-right VehicleStatsHud
+            // (IMGUI draws over UGUI), and returning mid-match now lives
+            // in the Escape pause menu / match-end overlay instead.
+            // TRACE[LOG-128]
+            if (inGarage)
             {
-                case GameState.Garage:
-                    _label.text = "Launch ▶";
-                    _button.gameObject.SetActive(true);
-                    break;
-                case GameState.Arena:
-                    _label.text = "◀ Garage";
-                    _button.gameObject.SetActive(true);
-                    break;
-                case GameState.WaterArena:
-                    _label.text = "◀ Garage";
-                    _button.gameObject.SetActive(true);
-                    break;
-                case GameState.PlanetArena:
-                    _label.text = "◀ Garage";
-                    _button.gameObject.SetActive(true);
-                    break;
-                default:
-                    _button.gameObject.SetActive(false);
-                    break;
+                _label.text = "Launch ▶";
+                _button.gameObject.SetActive(true);
+            }
+            else
+            {
+                _button.gameObject.SetActive(false);
             }
 
             if (_presetDropdown != null) _presetDropdown.gameObject.SetActive(inGarage);
@@ -480,9 +469,6 @@ namespace Robogame.Gameplay
                 if (inGarage) SyncNameFieldFromState(state);
             }
             EnsureBuildModeSubscription();
-            _ = inArena; // reserved for arena-side HUD growth.
-            _ = inWater; // reserved for water-arena HUD growth.
-            _ = inPlanet; // reserved for planet-arena HUD growth.
         }
 
         private void EnsureBuildModeSubscription()
@@ -528,32 +514,14 @@ namespace Robogame.Gameplay
 
         private void HandleClick()
         {
+            // Button is garage-only (Launch). Arena-side returns route
+            // through PauseMenuHud / MatchEndOverlay.
             GameStateController state = GameStateController.Instance;
-            if (state == null) return;
+            if (state == null || state.State != GameState.Garage) return;
 
-            switch (state.State)
-            {
-                case GameState.Garage:
-                    var garage = FindAnyObjectByType<GarageController>();
-                    if (garage != null) garage.Launch();
-                    else state.EnterArena();
-                    break;
-                case GameState.Arena:
-                    var arena = FindAnyObjectByType<ArenaController>();
-                    if (arena != null) arena.Return();
-                    else state.EnterGarage();
-                    break;
-                case GameState.WaterArena:
-                    var water = FindAnyObjectByType<WaterArenaController>();
-                    if (water != null) water.Return();
-                    else state.EnterGarage();
-                    break;
-                case GameState.PlanetArena:
-                    var planet = FindAnyObjectByType<PlanetArenaController>();
-                    if (planet != null) planet.Return();
-                    else state.EnterGarage();
-                    break;
-            }
+            var garage = FindAnyObjectByType<GarageController>();
+            if (garage != null) garage.Launch();
+            else state.EnterArena();
         }
 
         private void HandleWaterClicked()

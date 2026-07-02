@@ -86,11 +86,16 @@ namespace Robogame.Gameplay
             // state, so being defensive is harmless.
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
+            // Modal registration: without it, the click on our IMGUI
+            // button also re-captured the cursor (the FollowCamera's
+            // pointer check can't see IMGUI). TRACE[LOG-128]
+            Robogame.Core.HudPointerGuard.SetModalOpen(this, true);
         }
 
         private void OnDisable()
         {
             if (_match != null) _match.MatchEnded -= HandleMatchEnded;
+            Robogame.Core.HudPointerGuard.SetModalOpen(this, false);
         }
 
         // -----------------------------------------------------------------
@@ -99,7 +104,13 @@ namespace Robogame.Gameplay
 
         private void OnGUI()
         {
-            if (!IsVisible) return;
+            if (!IsVisible)
+            {
+                // Covers exits that skip ReturnToGarage (e.g. a future
+                // round-restart flips the match state under us).
+                Robogame.Core.HudPointerGuard.SetModalOpen(this, false);
+                return;
+            }
             EnsureStyles();
 
             // Dim background.
@@ -163,6 +174,7 @@ namespace Robogame.Gameplay
             // Hide ourselves first so the next scene's GUI doesn't see a
             // stale "VICTORY" overlay during the load frame.
             _hasArgs = false;
+            Robogame.Core.HudPointerGuard.SetModalOpen(this, false);
             GameStateController state = GameStateController.Instance;
             if (state != null) state.EnterGarage();
         }

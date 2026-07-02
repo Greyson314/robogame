@@ -2,15 +2,16 @@ using System.Collections.Generic;
 using Robogame.Core;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 namespace Robogame.Gameplay
 {
     /// <summary>
-    /// Esc-toggled settings panel. Lives on the persistent Bootstrap object
-    /// so a single instance survives scene transitions.
+    /// Settings panel. Lives on the persistent Bootstrap object so a single
+    /// instance survives scene transitions. Opened from the pause menu
+    /// (<see cref="PauseMenuHud"/>) or the main menu — it no longer polls
+    /// Escape itself; the pause menu owns that key. TRACE[LOG-128]
     /// </summary>
     /// <remarks>
     /// <para>
@@ -30,9 +31,6 @@ namespace Robogame.Gameplay
     [DisallowMultipleComponent]
     public sealed class SettingsHud : MonoBehaviour
     {
-        [Tooltip("Key that toggles the settings panel. Defaults to Escape.")]
-        [SerializeField] private Key _toggleKey = Key.Escape;
-
         private GameObject _root;
         private GameObject _content;
         private bool _open;
@@ -83,18 +81,10 @@ namespace Robogame.Gameplay
         private void OnDestroy()
         {
             Tweakables.Changed -= ApplyPause;
+            HudPointerGuard.SetModalOpen(this, false);
             // Restore time scale on teardown so a scene reload while
             // the panel was open doesn't leave the next scene paused.
             Time.timeScale = 1f;
-        }
-
-        private void Update()
-        {
-            Keyboard kb = Keyboard.current;
-            if (kb != null && kb[_toggleKey].wasPressedThisFrame)
-            {
-                SetOpen(!_open);
-            }
         }
 
         // -----------------------------------------------------------------
@@ -123,6 +113,10 @@ namespace Robogame.Gameplay
         {
             _open = open;
             if (_root != null) _root.SetActive(open);
+            // Modal registration suppresses cursor re-capture / camera drag
+            // / fire underneath, whichever route opened us (pause menu or
+            // main menu).
+            HudPointerGuard.SetModalOpen(this, open);
             if (open)
             {
                 Cursor.visible = true;

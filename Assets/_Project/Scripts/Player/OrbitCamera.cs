@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 namespace Robogame.Player
@@ -93,11 +92,11 @@ namespace Robogame.Player
             Mouse m = Mouse.current;
             if (m == null) return;
 
-            // If the cursor is over a UI element, only consume scroll if the
-            // pointer happens to be on a non-interactive element. We always
-            // suppress drag-rotate / drag-pan over UI to avoid the camera
-            // spinning while the player drags a HUD slider.
-            bool overUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+            // Suppress drag-rotate / drag-pan / scroll over interactive HUD
+            // (UGUI + registered IMGUI, plus open modals) so the camera
+            // doesn't spin while the player drags a HUD slider.
+            bool overUI = Robogame.Core.HudPointerGuard.AnyModalOpen
+                || Robogame.Core.HudPointerGuard.PointerOverHud(m.position.ReadValue());
 
             Vector2 delta = m.delta.ReadValue();
 

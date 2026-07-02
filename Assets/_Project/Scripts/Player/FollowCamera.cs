@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using Robogame.Block;
 using Robogame.Robots;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 namespace Robogame.Player
@@ -147,14 +146,22 @@ namespace Robogame.Player
         [Header("Cursor")]
         [Tooltip("Lock and hide the OS cursor so mouse delta drives the orbit cleanly. " +
                  "When CaptureOnClick is true, locking happens on the first left-click " +
-                 "inside the game view and releases on Escape — never on Play start. " +
-                 "This prevents the editor's Game view from resizing when entering Play, " +
-                 "which would otherwise re-flow IMGUI / dev HUD layouts.")]
+                 "inside the game view — never on Play start. Release paths: hold " +
+                 "HoldCursorKey (temporary), or Escape via the pause menu (full). " +
+                 "Never-on-Play-start prevents the editor's Game view from resizing " +
+                 "when entering Play, which would otherwise re-flow IMGUI layouts.")]
         [SerializeField] private bool _lockCursor = true;
 
         [Tooltip("If true (recommended), only lock the cursor after the player clicks. " +
-                 "Press Escape to release. If false, lock immediately when this component enables.")]
+                 "If false, lock immediately when this component enables. The pause menu " +
+                 "(Escape) is the full-release path; see also HoldCursorKey.")]
         [SerializeField] private bool _captureOnClick = true;
+
+        [Tooltip("Held key that temporarily frees the OS cursor for HUD clicks while " +
+                 "captured (War Thunder style). Releasing it re-locks — unless a modal " +
+                 "screen (pause menu / settings) opened meanwhile, in which case cursor " +
+                 "ownership transfers to the modal.")]
+        [SerializeField] private Key _holdCursorKey = Key.LeftAlt;
 
         public Transform Target { get => _target; set => _target = value; }
 
@@ -183,6 +190,11 @@ namespace Robogame.Player
         private Camera _camera;
         private string _targetName;
         private bool _cursorWasLocked;
+        // True while the hold-to-free key keeps the cursor deliberately
+        // unlocked. _cursorWasLocked stays true for the duration — the
+        // camera still owns capture, it's just lending the cursor to the
+        // HUD — so the focus watchdog must not fight it (see Update).
+        private bool _uiCursorHeld;
 
         // ADS state. _baseFov captured at Awake so the inspector value is
         // honoured. _chassisRenderers is rebuilt whenever the target swaps
@@ -242,6 +254,19 @@ namespace Robogame.Player
             // Game view re-acquire its rendering surface, which shifts
             // Screen.width/height mid-frame and breaks IMGUI layout.
             if (_lockCursor && !_captureOnClick) ApplyCursorLock();
+
+            // Stale-lock normalization: a scene transition can arrive here
+            // with the OS cursor still locked by the PREVIOUS scene's
+            // camera (e.g. a click during the match-end frame re-locked it
+            // right before the load). This fresh component thinks the
+            // cursor is free, so nothing would ever release it — the
+            // player lands in the garage with an invisible locked cursor.
+            // If we don't own the lock, release it. TRACE[LOG-128]
+            if (_lockCursor && _captureOnClick && !_cursorWasLocked
+                && Cursor.lockState == CursorLockMode.Locked)
+            {
+                ReleaseCursor();
+            }
             if (_autoRebindOnRebuild) Robot.Rebuilt += HandleRobotRebuilt;
         }
 
@@ -305,30 +330,55 @@ namespace Robogame.Player
                 Mouse mouse = Mouse.current;
                 Keyboard kb = Keyboard.current;
 
+                // Hold-to-free: while captured, holding the configured key
+                // frees the cursor for HUD clicks without surrendering
+                // capture ownership; releasing snaps it back. If a modal
+                // opened during the hold (e.g. the player clicked a button
+                // that raised the pause menu), ownership transfers instead
+                // of re-locking over the top of it.
+                if (_cursorWasLocked && kb != null && _holdCursorKey != Key.None)
+                {
+                    bool held = kb[_holdCursorKey].isPressed;
+                    if (held && !_uiCursorHeld)
+                    {
+                        _uiCursorHeld = true;
+                        Cursor.lockState = CursorLockMode.None;
+                        Cursor.visible = true;
+                    }
+                    else if (!held && _uiCursorHeld)
+                    {
+                        _uiCursorHeld = false;
+                        if (Robogame.Core.HudPointerGuard.AnyModalOpen) ReleaseCursor();
+                        else if (Application.isFocused) ApplyCursorLock();
+                    }
+                }
+
                 // Click-to-capture: lock when the player left-clicks inside
-                // a focused game view. Skip when the click landed on a UI
-                // element so HUD buttons (e.g. "Launch") still work.
+                // a focused game view. Skip when the click landed on any
+                // interactive HUD (UGUI *or* registered IMGUI — plain
+                // EventSystem checks can't see IMGUI buttons and used to
+                // eat the match-end button's click) or while a modal owns
+                // the screen. TRACE[LOG-128]
                 if (_captureOnClick
                     && !_cursorWasLocked
                     && Application.isFocused
                     && mouse != null
                     && mouse.leftButton.wasPressedThisFrame
-                    && !(EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()))
+                    && !Robogame.Core.HudPointerGuard.AnyModalOpen
+                    && !Robogame.Core.HudPointerGuard.PointerOverHud(mouse.position.ReadValue()))
                 {
                     ApplyCursorLock();
                 }
 
-                // Escape releases (matches every modern shooter).
-                if (_cursorWasLocked
-                    && kb != null
-                    && kb.escapeKey.wasPressedThisFrame)
-                {
-                    ReleaseCursor();
-                }
+                // Escape is owned by PauseMenuHud (release + menu in one
+                // gesture); it routes back through ReleaseCursor /
+                // ApplyCursorLock so the watchdog below stays consistent.
 
                 // Re-apply lock if focus changed while captured (Unity
-                // sometimes drops it on alt-tab).
+                // sometimes drops it on alt-tab). Suspended during a
+                // hold-to-free — that unlock is deliberate.
                 if (_cursorWasLocked
+                    && !_uiCursorHeld
                     && Cursor.lockState != CursorLockMode.Locked
                     && Application.isFocused)
                 {
@@ -337,11 +387,12 @@ namespace Robogame.Player
             }
 
             // --- Mouse-driven orbit (only while captured, or if not using lock at all) ---
-            bool inputActive = !_lockCursor || _cursorWasLocked;
+            bool inputActive = (!_lockCursor || _cursorWasLocked) && !_uiCursorHeld;
             if (!inputActive)
             {
-                // Cursor was released mid-ADS (Esc): drop the zoom so we
-                // don't stay stuck zoomed while the player navigates UI.
+                // Cursor was released mid-ADS (pause menu / hold-to-free):
+                // drop the zoom so we don't stay stuck zoomed while the
+                // player navigates UI.
                 _adsActive = false;
                 return;
             }
@@ -355,7 +406,7 @@ namespace Robogame.Player
             // also zoom the camera.
             float scroll = m.scroll.ReadValue().y;
             if (Mathf.Abs(scroll) > 0.01f
-                && !(EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()))
+                && !Robogame.Core.HudPointerGuard.PointerOverHud(m.position.ReadValue()))
             {
                 s_distanceMultiplier = Mathf.Clamp(
                     s_distanceMultiplier - Mathf.Sign(scroll) * _zoomStep,
@@ -378,7 +429,7 @@ namespace Robogame.Player
             // Aim Down Sights — held while captured and not over UI. Build
             // mode disables this whole component, so no explicit gate needed.
             _adsActive = m.rightButton.isPressed
-                && !(EventSystem.current != null && EventSystem.current.IsPointerOverGameObject());
+                && !Robogame.Core.HudPointerGuard.PointerOverHud(m.position.ReadValue());
         }
 
         private void LateUpdate()
@@ -632,16 +683,16 @@ namespace Robogame.Player
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
             _cursorWasLocked = true;
+            _uiCursorHeld = false;
         }
 
         /// <summary>
         /// Release the OS cursor and stop the per-frame re-lock guard. Public
-        /// so external systems (match-end overlay, settings panel, scripted
-        /// cutscenes) can hand control back to the OS without fighting the
-        /// FollowCamera's "did focus drop?" relock heuristic in
-        /// <see cref="HandleCursorLockHotkey"/>. Without this, simply assigning
-        /// <c>Cursor.lockState = None</c> from outside lasts exactly one frame
-        /// because the next <see cref="LateUpdate"/> sees
+        /// so external systems (pause menu, match-end overlay, settings panel,
+        /// scripted cutscenes) can hand control back to the OS without fighting
+        /// the focus-drop relock watchdog in <see cref="Update"/>. Without this,
+        /// simply assigning <c>Cursor.lockState = None</c> from outside lasts
+        /// exactly one frame because the watchdog sees
         /// <c>_cursorWasLocked == true</c> and re-locks.
         /// </summary>
         public void ReleaseCursor()
@@ -649,6 +700,9 @@ namespace Robogame.Player
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
             _cursorWasLocked = false;
+            // Clear any in-flight hold-to-free so a release during the hold
+            // (e.g. Escape → pause menu) can't leave orbit input suspended.
+            _uiCursorHeld = false;
         }
     }
 }

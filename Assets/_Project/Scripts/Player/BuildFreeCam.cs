@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 namespace Robogame.Player
@@ -57,9 +56,19 @@ namespace Robogame.Player
         [Tooltip("Metres added to forward distance per scroll-wheel notch.")]
         [SerializeField, Min(0.1f)] private float _scrollDolly = 1.5f;
 
+        [Header("Cursor")]
+        [Tooltip("Held key that temporarily frees the OS cursor for HUD clicks " +
+                 "(hotbar, variant panel) while flying. Releasing re-locks — unless " +
+                 "a modal (pause menu / settings) opened meanwhile. Same convention " +
+                 "as FollowCamera so the muscle memory carries over.")]
+        [SerializeField] private Key _holdCursorKey = Key.LeftAlt;
+
         // Persistent yaw / pitch — updated each frame from mouse delta.
         private float _yaw;
         private float _pitch;
+        // True while the hold-to-free key keeps the cursor deliberately
+        // unlocked (rotation already self-gates on the actual lock state).
+        private bool _uiCursorHeld;
 
         private void OnEnable()
         {
@@ -74,6 +83,7 @@ namespace Robogame.Player
             // keyboard (1..N for slots, Q/E for category cycling).
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
+            _uiCursorHeld = false;
         }
 
         private void OnDisable()
@@ -99,20 +109,36 @@ namespace Robogame.Player
             if (kb == null && m == null) return;
 
             // -----------------------------------------------------------------
-            // Cursor capture / release. Esc releases for HUD interaction
-            // (Build button, chassis dropdown, settings panel). Left-click
-            // anywhere in the game view re-locks. Mirrors FollowCamera's
-            // click-to-capture pattern so the muscle memory carries over.
+            // Cursor capture / release. Hold-to-free (Alt) lends the cursor
+            // to the HUD while held; left-click anywhere in the game view
+            // re-locks a free cursor. Escape is owned by PauseMenuHud.
+            // Mirrors FollowCamera's conventions so the muscle memory
+            // carries over. TRACE[LOG-128]
             // -----------------------------------------------------------------
-            if (kb != null && kb.escapeKey.wasPressedThisFrame
-                && Cursor.lockState == CursorLockMode.Locked)
+            if (kb != null && _holdCursorKey != Key.None)
             {
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
+                bool held = kb[_holdCursorKey].isPressed;
+                if (held && !_uiCursorHeld && Cursor.lockState == CursorLockMode.Locked)
+                {
+                    _uiCursorHeld = true;
+                    Cursor.lockState = CursorLockMode.None;
+                    Cursor.visible = true;
+                }
+                else if (!held && _uiCursorHeld)
+                {
+                    _uiCursorHeld = false;
+                    if (!Robogame.Core.HudPointerGuard.AnyModalOpen)
+                    {
+                        Cursor.lockState = CursorLockMode.Locked;
+                        Cursor.visible = false;
+                    }
+                }
             }
             if (m != null && m.leftButton.wasPressedThisFrame
                 && Cursor.lockState != CursorLockMode.Locked
-                && !(EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()))
+                && !_uiCursorHeld
+                && !Robogame.Core.HudPointerGuard.AnyModalOpen
+                && !Robogame.Core.HudPointerGuard.PointerOverHud(m.position.ReadValue()))
             {
                 Cursor.lockState = CursorLockMode.Locked;
                 Cursor.visible = false;
@@ -167,7 +193,7 @@ namespace Robogame.Player
             // with W/S so the player can dolly while flying.
             // -----------------------------------------------------------------
             if (m != null
-                && !(EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()))
+                && !Robogame.Core.HudPointerGuard.PointerOverHud(m.position.ReadValue()))
             {
                 float scroll = m.scroll.ReadValue().y;
                 if (Mathf.Abs(scroll) > 0.01f)
