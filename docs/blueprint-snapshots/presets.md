@@ -6,7 +6,7 @@ Run Window → Test Runner → EditMode → DumpAllPresets to refresh.
 ## Tank
 
 ```
-Blueprint 'Tank' (Ground, 25 cells)
+Blueprint 'Tank' (Ground, 26 cells)
 RotorsGenerateLift: False
 Bounds: x[-2..2] y[0..1] z[-2..3]
 
@@ -17,7 +17,7 @@ Layer y=1:
   1   .  .  .  .  . 
   0   .  .  G  .  . 
  -1   .  .  .  .  . 
- -2   .  .  .  .  . 
+ -2   .  .  ?  .  . 
 
 Layer y=0:
       -2 -1  0  1  2
@@ -301,6 +301,53 @@ Layer y=0:
  -3   .  .  #  .  . 
  -4   .  .  #  .  . 
  -5   .  .  #  .  . 
+
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+```
+
+Validation: OK
+
+## DrillBot
+
+```
+Blueprint 'DrillBot' (Ground, 14 cells)
+RotorsGenerateLift: False
+Bounds: x[-2..2] y[0..0] z[-1..2]
+
+Layer y=0:
+      -2 -1  0  1  2
+  2   .  .  ?  .  . 
+  1   S  #  #  #  S 
+  0   .  #  C  #  . 
+ -1   W  #  #  #  W 
+
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+```
+
+Validation: OK
+
+## SpringBot
+
+```
+Blueprint 'SpringBot' (Ground, 20 cells)
+RotorsGenerateLift: False
+Bounds: x[-2..2] y[0..1] z[-2..2]
+
+Layer y=1:
+      -2 -1  0  1  2
+  2   .  .  #  .  . 
+  1   .  .  #  .  . 
+  0   .  .  C  .  . 
+ -1   .  .  #  .  . 
+ -2   .  .  #  .  . 
+
+Layer y=0:
+      -2 -1  0  1  2
+  2   .  .  ?  .  . 
+  1   S  #  #  #  S 
+  0   .  #  #  #  . 
+ -1   W  #  #  #  W 
+ -2   .  .  ?  .  . 
 
 Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
 ```
