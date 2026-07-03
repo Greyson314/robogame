@@ -64,9 +64,12 @@ multi-instance routing (relevant to future MPPM netcode testing).
    killed, no respawn, port 9002 free. Correction to § Decision: the
    "no arbitrary-C#-eval" loss was wrong — v9.7.3 ships `execute_code`
    (Roslyn, method-body eval), a full `Unity_RunCommand` equivalent.
-   Still open (user decision): whether `com.unity.ai.assistant` stays
-   (Assistant window) or goes; `cleanup_orphan_relays.ps1` retires
-   with it.
+   User opted to drop `com.unity.ai.assistant` entirely: removed via
+   `manage_packages` (took transitive-only `com.unity.2d.sprite` +
+   `com.unity.cloud.gltfast` with it; no project refs to any of the
+   three). `cleanup_orphan_relays.ps1` hook retired. Post-removal:
+   zero compile errors, EditMode 375/375 pass (also first exercise of
+   the new `run_tests` tool — works).
 5. ✅ Memories updated: revoked-fix ladder marked RETIRED (applies only
    if the official bridge returns); headless-rig memory still accurate
    as written. No hud/verification doc changes needed — tool behavior
