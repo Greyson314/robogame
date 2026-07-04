@@ -35,9 +35,11 @@ storytelling.
   the bottom — the rolled sheet's edge), gear/brad/loft/export. Exporter
   renames per-weapon yoke/muzzle empties to `Turret`/`ShootPoint` at export
   time (Blender object names are global; three weapons share the scene).
-- `artgen/smg_paperpunk.py` → `SMG_Paper.fbx`. Boiler-drum receiver with
-  brass bands + top pressure gauge, LEFT ammo-reel canister (red stripe,
-  brass hub), RIGHT casing chute with red slot, brass bead sight, split
+- `artgen/smg_paperpunk.py` → `SMG_Paper.fbx`. Square-ish mechanism, short
+  barrel (user steer: not everything should be cannon-shaped): laminated
+  card box receiver with stepped feed-cover hump, brass trunk straps,
+  pressure gauge on the hump, LEFT ammo-reel canister (red stripe, brass
+  hub), RIGHT casing chute with red slot, brass bead sight, short split
   rolled-tube barrel with the open groove. Asymmetry preserved (user:
   blocks are symmetric, weapons shouldn't be).
 - `artgen/mortar_paperpunk.py` → `Mortar_Paper.fbx`. Old bombard on the
