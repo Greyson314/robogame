@@ -26,9 +26,13 @@ namespace Robogame.Tools.Editor
                 "Weapon_Smg", fireRate: 12f, muzzleSpeed: 80f, spreadDeg: 1.2f, damage: 25f, recoil: 5f);
             BombDefinition bombDef = CreateOrUpdateBombDefinition(
                 "Bomb_Default", dropInterval: 1.2f, damage: 80f, radius: 18f, initialSpeed: 2f);
+            // TRACE[LOG-127]: cannon buff 60 -> 110 (survey-driven). The
+            // CreateOrUpdate* helpers re-stamp EXISTING assets, so these
+            // literals must track balance changes or re-runs revert them
+            // (bit session 131 three times before being traced here).
             CannonDefinition cannonDef = CreateOrUpdateCannonDefinition(
                 "Cannon_Default",
-                fireInterval: 0.85f, muzzleSpeed: 80f, damage: 60f,
+                fireInterval: 0.85f, muzzleSpeed: 80f, damage: 110f,
                 ballRadius: 0.28f, recoil: 28f, ballMass: 5f);
             MortarDefinition mortarDef = CreateOrUpdateMortarDefinition(
                 "Mortar_Default",
