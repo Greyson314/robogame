@@ -1,4 +1,4 @@
-# 131 — Paper-punk SMG: first bespoke weapon model
+# 131 — Paper-punk weapon family: SMG, mortar, cannon
 
 **Date:** July 4, 2026
 **Intent:** Test a design-vibe theory on the SMG using the session-130 Blender
@@ -24,24 +24,37 @@ storytelling.
 
 ## What shipped
 
-- `artgen/smg_paperpunk.py` — parametric build, `_card_panel` helper
-  (2D silhouette → extruded card sheet with face/edge materials). Idempotent;
-  exports on run. Supersedes the deleted `smg_origami.py` exploration.
-- `Assets/_Project/Art/Models/Weapons/SMG_Paper.fbx` — exported with
-  `FBX_SCALE_ALL`, meshes + empties.
-- Hierarchy matches the WeaponModelRig convention (session 120): root yaws,
-  child empty `Turret` is the pitch yoke, `ShootPoint` marks the muzzle
-  inside the open groove. Pitch sweep visually verified ±22° in Blender
-  (receiver clears the gusset spacer; slight magazine/gear proximity at
-  extreme depression is accepted).
+- `artgen/paperlib.py` — shared helpers for the family: `card_panel`
+  (2D silhouette → extruded card sheet with face/edge materials),
+  `arc_shell`/`tube` (rolled-card tubes; full tubes carry a 3° seam slit at
+  the bottom — the rolled sheet's edge), gear/brad/loft/export. Exporter
+  renames per-weapon yoke/muzzle empties to `Turret`/`ShootPoint` at export
+  time (Blender object names are global; three weapons share the scene).
+- `artgen/smg_paperpunk.py` → `SMG_Paper.fbx`. Asymmetry pass on the
+  receiver (user: blocks are symmetric, weapons shouldn't be): stepped
+  feed-cover deck, Sten-style horizontal LEFT magazine (red rims), RIGHT
+  ejection port + charging handle, offset sight fins. Underslung mag gone.
+- `artgen/mortar_paperpunk.py` → `Mortar_Paper.fbx`. Fireworks-mortar
+  concept (real firework mortars are cardboard tubes): fat seamed tube,
+  wrap bands, laminated breech + brass center, LEFT card rack of three
+  red-nosed paper shells. Authored level; MortarBlock lobs the yoke at
+  runtime.
+- `artgen/cannon_paperpunk.py` → `Cannon_Paper.fbx`. Heavy of the family:
+  4-layer yaw gear, telescoping rolled barrel with band joints, kraft
+  breech cylinder + handle (right), recuperator tube above-right, single
+  cradled shell (left).
+- All exported with `FBX_SCALE_ALL`, meshes + empties, WeaponModelRig
+  convention (root yaws → `Turret` pitch yoke → `ShootPoint`). SMG pitch
+  sweep visually verified ±22° in Blender. Supersedes the deleted
+  `smg_origami.py` exploration.
 
 ## Open / next
 
-- **Unity wiring pending an editor session:** import FBX, then point
-  `Weapon_Smg.asset` `_turretModel` at it (GUID exists only after import),
-  set scale/offset (model is authored at real size for a 1 m block, so scale
-  ≈ 1, offset ≈ 0 vs. the Fatty placeholder's 0.35 / −0.45), verify aim
-  tracking + commit `.meta`s.
+- **Unity wiring pending an editor session:** import the three FBX files,
+  then point `Weapon_Smg` / `Mortar_Default` / `Cannon_Default` `_turretModel`
+  at them (GUIDs exist only after import), set scale/offset (authored at
+  real size for a 1 m block, so scale ≈ 1, offset ≈ 0 vs. the Fatty
+  placeholders' 0.35 / −0.45), verify aim tracking + commit `.meta`s.
 - Texture-stage ideas parked: paper grain, corrugation on thick cut edges,
   printed stencils/part numbers on the big white side plates.
 - If the profile read of the barrel feels muddy in-game, laminate each
