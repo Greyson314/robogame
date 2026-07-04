@@ -41,8 +41,10 @@ namespace Robogame.Core
             [Range(0f, 1f)] public float SpatialBlend = 1f;
             [Tooltip("Per-cue volume multiplier (linear). Stacks on top of the mix bus.")]
             [Range(0f, 2f)] public float Volume = 1f;
-            [Tooltip("Random ±pitch jitter applied at play time. 0 = no jitter; 0.1 = ±10%.")]
+            [Tooltip("Random ±pitch jitter applied at play time. 0 = no jitter; 0.1 = ±10%. Ignored when Phrase is musical.")]
             [Range(0f, 0.5f)] public float PitchJitter = 0.05f;
+            [Tooltip("Instrument-voiced cues: pick pitch as a note on the global pentatonic scale instead of random jitter. Clip must be recorded at the scale root. None = normal SFX.")]
+            public MusicalPhrase Phrase = MusicalPhrase.None;
             [Tooltip("Only one instance of this cue can be alive at a time (prevents stuttering on rapid-fire SMG hits).")]
             public bool Solo;
         }

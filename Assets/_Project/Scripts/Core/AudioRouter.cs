@@ -361,7 +361,11 @@ namespace Robogame.Core
             src.clip = entry.Clip;
             src.loop = false;
             src.spatialBlend = entry.SpatialBlend;
-            src.pitch = 1f + Random.Range(-entry.PitchJitter, entry.PitchJitter);
+            // Musical cues land on in-tune scale notes; jitter would
+            // detune the instrument, so the two paths are exclusive.
+            src.pitch = entry.Phrase == MusicalPhrase.None
+                ? 1f + Random.Range(-entry.PitchJitter, entry.PitchJitter)
+                : MusicalSfx.NextPitch(entry.Cue, entry.Phrase);
             src.volume = ComputeVolume(entry.Bus, entry.Volume);
         }
 
