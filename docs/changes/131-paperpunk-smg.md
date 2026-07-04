@@ -83,11 +83,25 @@ storytelling.
   −90°X default rotation from the Z-up file header — harmless for
   weapons (rig strips it), but raw `Instantiate` callers must reset
   `localRotation` to identity.
-- **Stale-editor clobber struck again**, same value as last time: the
-  editor's `SaveAssets` reverted `Cannon_Default._damage` 110 → 60
-  (session-127 buff). Caught by the git-status inspection rule, restored
-  to 110 in-editor. Scene/material churn (symmetric re-serialization
-  noise) committed separately as chore.
+- **Base normalization (user steer):** the square base plate was sized by
+  its yaw diagonal and shrank everything. Removed; the yaw-gear ring is
+  now the bottom of each weapon at exactly 1 m diameter (the largest
+  circle that spins freely in a cell), and each weapon is uniformly
+  scaled so the ring touches the cell edges (`paperlib.scale_tree`,
+  ×1.56 SMG/mortar, ×1.52 cannon — baked into the FBX; definitions stay
+  scale 1 / offset −0.5, no fudge factors). Verified in the garage.
+- **Cannon-damage clobber root-caused** (third occurrence of 110 → 60,
+  triggering the research-before-third-patch rule): two findings.
+  (1) `BlockDefinitionWizard.CreateOrUpdate*` re-stamps hardcoded stats
+  onto EXISTING weapon-definition assets — its "idempotent" doc comment
+  is false — so any Build Everything run reverted the session-127 buff;
+  literal fixed 60 → 110 with a warning trace. (2) This editor session
+  held a stale in-memory 60 that every `SaveAssets` flush re-persisted
+  (all four weapon defs flushed together at 16:28; only cannon diverged);
+  no runtime mutator exists in gameplay code (verified by grep + a
+  play-cycle experiment). A domain reload rebuilt memory from disk;
+  stable at 110 through play/stop/disk since. Scene/material churn
+  committed separately as chore.
 
 ## Open / next
 - Texture-stage ideas parked: paper grain, corrugation on thick cut edges,

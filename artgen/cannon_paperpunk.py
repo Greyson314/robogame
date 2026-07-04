@@ -26,16 +26,17 @@ importlib.reload(paperlib)
 from paperlib import (materials, clear_objects, hide_default_cube,
                       make_object, loft, card_panel, ngon_pts, arc_shell,
                       tube, gear_profile, brad, disc_ball, ref_block,
-                      export_tree)
+                      scale_tree, export_tree)
 
 DO_EXPORT = True
 EXPORT_PATH = r"C:\Users\Grey\Desktop\mutedtuple\robogame\Assets\_Project\Art\Models\Weapons\Cannon_Paper.fbx"
 
 LOCATION = (-1.8, 0.0, 0.0)  # scene slot left of the SMG; zeroed at export
-PIVOT_Z = 0.50               # trunnion height
-BASE_PLATE = 0.72
-GEAR_Z0 = 0.05
-GEAR_TOP = 0.18
+PIVOT_Z = 0.45               # trunnion height
+GEAR_Z0 = 0.0
+GEAR_TOP = 0.13              # 4 laminate layers — heavier bearing
+GEAR_R_OUT = 0.33
+SCALE = 0.5 / GEAR_R_OUT     # yaw-gear ring -> exactly 1 m diameter
 
 clear_objects(prefixes=("CAN_",), names=("Cannon_Paper",))
 hide_default_cube()
@@ -48,13 +49,10 @@ root.location = LOCATION
 bpy.context.scene.collection.objects.link(root)
 ref_block("CAN_RefBlock", m["gray"], root)
 
-# base sheet + 4-layer yaw gear
-h = BASE_PLATE / 2
-card_panel("CAN_BasePlate", [(-h, -h), (h, -h), (h, h), (-h, h)],
-           0.05, 'Z', 0.025, [white, kraft], parent=root)
+# 4-layer yaw gear — the bottom of the weapon
 card_panel("CAN_GearBottom", ngon_pts(12, 0.30), 0.03, 'Z', GEAR_Z0 + 0.015,
            [white, kraft], parent=root)
-card_panel("CAN_GearTeeth", gear_profile(10, 0.27, 0.33), 0.04, 'Z',
+card_panel("CAN_GearTeeth", gear_profile(10, 0.27, GEAR_R_OUT), 0.04, 'Z',
            GEAR_Z0 + 0.05, [white, kraft], parent=root)
 card_panel("CAN_GearMid", ngon_pts(12, 0.26), 0.03, 'Z', GEAR_Z0 + 0.085,
            [kraft, kraft], parent=root)
@@ -63,20 +61,20 @@ card_panel("CAN_GearTop", ngon_pts(12, 0.24), 0.03, 'Z', GEAR_Z0 + 0.115,
 
 # carriage: stepped card cheeks (old naval-carriage profile) that carry the
 # trunnion brads, plus scalloped card wheels on brass axles
-cheek = [(-0.30, 0.18), (0.44, 0.18), (0.44, 0.26), (0.30, 0.26),
-         (0.30, 0.38), (0.14, 0.38), (0.14, 0.56), (-0.12, 0.56),
-         (-0.30, 0.42)]
+cheek = [(-0.30, 0.13), (0.44, 0.13), (0.44, 0.21), (0.30, 0.21),
+         (0.30, 0.33), (0.14, 0.33), (0.14, 0.51), (-0.12, 0.51),
+         (-0.30, 0.37)]
 for sign, side in ((1, "R"), (-1, "L")):
     card_panel(f"CAN_Cheek{side}", cheek, 0.05, 'X', sign * 0.16,
                [white, kraft], parent=root)
-card_panel("CAN_CheekSpacer", [(0.20, 0.18), (0.40, 0.18),
-                               (0.40, 0.30), (0.20, 0.30)],
+card_panel("CAN_CheekSpacer", [(0.20, 0.13), (0.40, 0.13),
+                               (0.40, 0.25), (0.20, 0.25)],
            0.27, 'X', 0.0, [white, kraft], parent=root)
-wheel_prof = [(y + 0.16, z + 0.21) for y, z in gear_profile(8, 0.125, 0.16)]
+wheel_prof = [(y + 0.16, z + 0.16) for y, z in gear_profile(8, 0.125, 0.16)]
 for sign, side in ((1, "R"), (-1, "L")):
     card_panel(f"CAN_Wheel{side}", wheel_prof, 0.035, 'X', sign * 0.215,
                [white, kraft], parent=root)
-    brad(f"CAN_Axle{side}", sign * 0.21, sign * 0.26, 0.05, 0.21, brass,
+    brad(f"CAN_Axle{side}", sign * 0.21, sign * 0.26, 0.05, 0.16, brass,
          parent=root, y=0.16)
 brad("CAN_TrunnionR", 0.185, 0.21, 0.06, PIVOT_Z, brass, parent=root)
 brad("CAN_TrunnionL", -0.185, -0.21, 0.06, PIVOT_Z, brass, parent=root)
@@ -85,12 +83,12 @@ brad("CAN_TrunnionL", -0.185, -0.21, 0.06, PIVOT_Z, brass, parent=root)
 # teeth ring — the corner sits in a tooth gap)
 card_panel("CAN_BallShelf", [(0.20, -0.20), (0.32, -0.20), (0.32, -0.32),
                              (0.20, -0.32)],
-           0.016, 'Z', 0.068, [white, kraft], parent=root)
-disc_ball("CAN_Ball0", 0.065, (0.26, -0.26, 0.141), [kraft, white],
+           0.016, 'Z', 0.018, [white, kraft], parent=root)
+disc_ball("CAN_Ball0", 0.065, (0.26, -0.26, 0.091), [kraft, white],
           parent=root)
-disc_ball("CAN_Ball1", 0.065, (0.31, -0.31, 0.141), [kraft, white],
+disc_ball("CAN_Ball1", 0.065, (0.31, -0.31, 0.091), [kraft, white],
           parent=root)
-disc_ball("CAN_Ball2", 0.065, (0.285, -0.285, 0.251), [kraft, white],
+disc_ball("CAN_Ball2", 0.065, (0.285, -0.285, 0.201), [kraft, white],
           parent=root)
 
 # ---------------------------------------------------------------- turret --
@@ -128,6 +126,8 @@ muzzle.empty_display_size = 0.05
 bpy.context.scene.collection.objects.link(muzzle)
 muzzle.parent = yoke
 muzzle.location = (0, -0.98, 0)
+
+scale_tree(root, SCALE)
 
 if DO_EXPORT:
     export_tree(root, EXPORT_PATH, yoke=yoke, muzzle=muzzle)

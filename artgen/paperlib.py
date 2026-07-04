@@ -226,6 +226,34 @@ def ref_block(name, gray, parent):
     return make_object(name, pv, pf, [gray], parent=parent)
 
 
+def scale_tree(root, s):
+    """Uniformly scale the built weapon (positions + mesh data + bevel
+    widths) about the root, leaving the root's own scene placement and the
+    RefBlock untouched. Used to normalize each weapon so its yaw-gear ring
+    is exactly 1 m in diameter — the largest circle that can spin freely
+    inside a 1 m block cell (session 131: the old square base was sized by
+    its diagonal and shrank everything)."""
+    m = Matrix.Scale(s, 4)
+    seen = set()
+
+    def walk(o):
+        if o.name.endswith("RefBlock"):
+            return
+        o.location = o.location * s
+        if o.type == 'MESH' and o.data.name not in seen:
+            o.data.transform(m)
+            seen.add(o.data.name)
+            for mod in o.modifiers:
+                if mod.type == 'BEVEL':
+                    mod.width *= s
+        for c in o.children:
+            walk(c)
+
+    for c in root.children:
+        walk(c)
+    bpy.context.view_layer.update()
+
+
 def export_tree(root, path, yoke=None, muzzle=None):
     """Export root's tree as FBX, renaming yoke/muzzle to the WeaponModelRig
     convention names (Turret / ShootPoint) for the duration of the export.

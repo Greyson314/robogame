@@ -27,17 +27,22 @@ import paperlib
 importlib.reload(paperlib)
 from paperlib import (materials, clear_objects, hide_default_cube,
                       make_object, loft, card_panel, ngon_pts, arc_shell,
-                      tube, gear_profile, brad, ref_block, export_tree)
+                      tube, gear_profile, brad, ref_block, scale_tree,
+                      export_tree)
 
 DO_EXPORT = True
 EXPORT_PATH = r"C:\Users\Grey\Desktop\mutedtuple\robogame\Assets\_Project\Art\Models\Weapons\SMG_Paper.fbx"
 
 # Forward = -Y, up = +Z. Units: meters. Block = 1 m cube. Root at origin.
+# The yaw gear is the bottom of the weapon; SCALE normalizes its toothed
+# ring to exactly 1 m diameter — the largest circle that spins freely
+# inside the cell (no square plate, no diagonal penalty).
 LOCATION = (0.0, 0.0, 0.0)
-PIVOT_Z = 0.52
-BASE_PLATE = 0.72
-GEAR_Z0 = 0.05
-GEAR_TOP = 0.145
+PIVOT_Z = 0.47
+GEAR_Z0 = 0.0
+GEAR_TOP = 0.095
+GEAR_R_OUT = 0.32
+SCALE = 0.5 / GEAR_R_OUT
 RAIL_ROOT_Y = -0.48     # stubby: the barrel is a fat little pellet spitter
 RAIL_TIP_Y = -0.78
 BARREL_R = 0.07
@@ -57,13 +62,10 @@ root.location = LOCATION
 bpy.context.scene.collection.objects.link(root)
 ref_block("SMG_RefBlock", m["gray"], root)
 
-# base sheet + yaw gear (family-standard rotary base)
-h = BASE_PLATE / 2
-card_panel("SMG_BasePlate", [(-h, -h), (h, -h), (h, h), (-h, h)],
-           0.05, 'Z', 0.025, [white, kraft], parent=root)
+# yaw gear — the bottom of the weapon (family-standard rotary base)
 card_panel("SMG_GearBottom", ngon_pts(12, 0.29), 0.03, 'Z', GEAR_Z0 + 0.015,
            [white, kraft], parent=root)
-card_panel("SMG_GearTeeth", gear_profile(10, 0.26, 0.32), 0.035, 'Z',
+card_panel("SMG_GearTeeth", gear_profile(10, 0.26, GEAR_R_OUT), 0.035, 'Z',
            GEAR_Z0 + 0.0475, [white, kraft], parent=root)
 card_panel("SMG_GearTop", ngon_pts(12, 0.24), 0.03, 'Z', GEAR_Z0 + 0.08,
            [white, kraft], parent=root)
@@ -177,6 +179,8 @@ muzzle.empty_display_size = 0.05
 bpy.context.scene.collection.objects.link(muzzle)
 muzzle.parent = yoke
 muzzle.location = (0, RAIL_TIP_Y + 0.04, -0.01)
+
+scale_tree(root, SCALE)
 
 if DO_EXPORT:
     export_tree(root, EXPORT_PATH, yoke=yoke, muzzle=muzzle)

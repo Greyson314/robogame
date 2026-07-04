@@ -28,16 +28,17 @@ importlib.reload(paperlib)
 from paperlib import (materials, clear_objects, hide_default_cube,
                       make_object, loft, card_panel, ngon_pts, arc_shell,
                       tube, gear_profile, brad, disc_ball, ref_block,
-                      export_tree)
+                      scale_tree, export_tree)
 
 DO_EXPORT = True
 EXPORT_PATH = r"C:\Users\Grey\Desktop\mutedtuple\robogame\Assets\_Project\Art\Models\Weapons\Mortar_Paper.fbx"
 
 LOCATION = (1.8, 0.0, 0.0)   # scene slot next to the SMG; zeroed at export
-PIVOT_Z = 0.44
-BASE_PLATE = 0.72
-GEAR_Z0 = 0.05
-GEAR_TOP = 0.145
+PIVOT_Z = 0.39
+GEAR_Z0 = 0.0
+GEAR_TOP = 0.095
+GEAR_R_OUT = 0.32
+SCALE = 0.5 / GEAR_R_OUT     # yaw-gear ring -> exactly 1 m diameter
 TUBE_R = 0.16                # breech-end radius (tapers slightly forward)
 TUBE_WALL = 0.022
 TUBE_REAR_Y = 0.14
@@ -55,13 +56,10 @@ root.location = LOCATION
 bpy.context.scene.collection.objects.link(root)
 ref_block("MOR_RefBlock", m["gray"], root)
 
-# base sheet + yaw gear (family-standard rotary base)
-h = BASE_PLATE / 2
-card_panel("MOR_BasePlate", [(-h, -h), (h, -h), (h, h), (-h, h)],
-           0.05, 'Z', 0.025, [white, kraft], parent=root)
+# yaw gear — the bottom of the weapon (family-standard rotary base)
 card_panel("MOR_GearBottom", ngon_pts(12, 0.29), 0.03, 'Z', GEAR_Z0 + 0.015,
            [white, kraft], parent=root)
-card_panel("MOR_GearTeeth", gear_profile(10, 0.26, 0.32), 0.035, 'Z',
+card_panel("MOR_GearTeeth", gear_profile(10, 0.26, GEAR_R_OUT), 0.035, 'Z',
            GEAR_Z0 + 0.0475, [white, kraft], parent=root)
 card_panel("MOR_GearTop", ngon_pts(12, 0.24), 0.03, 'Z', GEAR_Z0 + 0.08,
            [white, kraft], parent=root)
@@ -123,6 +121,8 @@ muzzle.empty_display_size = 0.05
 bpy.context.scene.collection.objects.link(muzzle)
 muzzle.parent = yoke
 muzzle.location = (0, TUBE_TIP_Y + 0.06, 0)
+
+scale_tree(root, SCALE)
 
 if DO_EXPORT:
     export_tree(root, EXPORT_PATH, yoke=yoke, muzzle=muzzle)
