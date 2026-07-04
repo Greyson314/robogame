@@ -2,6 +2,8 @@
 
 > Single source of truth for how Robogame **looks**. Read top-down before authoring or generating any art-adjacent code or assets. Mirrors the structure of [../research/robocraft-reference.md](../research/robocraft-reference.md) — decisions first, rationale next, open questions at the bottom.
 
+> **⚠️ Status (July 4, 2026): style exploration mode.** The 12-token palette lock and the style-driven Forbidden List entries (realistic textures, normal-mapped detail, off-palette colors/emission, palette-locked particles, mandatory re-pointing of third-party materials) are **suspended** while the art direction is re-explored with AI-assisted asset tooling (Blender MCP et al.). Engineering-driven rules remain in force: no per-renderer material instances (`MaterialPropertyBlock` only), no additional asset-store shaders, perf budgets per [performance.md](performance.md). Sections below describe the prior locked direction — treat them as reference, not directives, until a new direction is committed here.
+
 ---
 
 ## 📋 Table of Contents
@@ -358,4 +360,4 @@ Everything in this doc that's procedural / shader / volume.
 
 ---
 
-*Last updated: April 30, 2026 — Phase 1 art pass shipped (MK Toon + Polyverse Skies + URP volumes).*
+*Last updated: July 4, 2026 — style exploration mode: palette lock and style-driven restrictions suspended (see status banner). Prior milestone: Phase 1 art pass shipped April 30, 2026 (MK Toon + Polyverse Skies + URP volumes).*
