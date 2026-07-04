@@ -47,6 +47,70 @@ namespace Robogame.Tests.EditMode.Combat
             }
         }
 
+        // ---- MountUp ----------------------------------------------------
+
+        [Test]
+        public void MountUp_RolledChassis_FollowsTheBlock()
+        {
+            // A turret on top of a plane that rolls inverted must ride the
+            // roll (session 131): its yaw axis is the authored mount up in
+            // the CHASSIS frame, so at 180° roll it points world-DOWN. The
+            // old gravity-up axis kept the turret world-level, which read as
+            // the weapon detaching from its block.
+            var chassis = new GameObject("chassis");
+            var block = new GameObject("block");
+            try
+            {
+                block.transform.SetParent(chassis.transform, false);
+                chassis.transform.rotation = Quaternion.Euler(0f, 0f, 180f);
+                Vector3 up = TurretYoke.MountUp(block.transform, Quaternion.identity);
+                Assert.That(Vector3.Distance(up, Vector3.down), Is.LessThan(Tol),
+                    "mount up must follow the rolled chassis");
+            }
+            finally { Object.DestroyImmediate(chassis); }
+        }
+
+        [Test]
+        public void MountUp_SideMountedBlock_UsesAuthoredRestOrientation()
+        {
+            // A block authored on a side face (rest rotation 90° about Z) has
+            // its mount up along the chassis' +X — the yaw axis must come
+            // from the authored rest rotation, not the block's current
+            // (Track-overwritten) rotation and not world up.
+            var chassis = new GameObject("chassis");
+            var block = new GameObject("block");
+            try
+            {
+                block.transform.SetParent(chassis.transform, false);
+                Quaternion rest = Quaternion.Euler(0f, 0f, -90f); // up -> +X
+                Vector3 up = TurretYoke.MountUp(block.transform, rest);
+                Assert.That(Vector3.Distance(up, Vector3.right), Is.LessThan(Tol));
+            }
+            finally { Object.DestroyImmediate(chassis); }
+        }
+
+        [Test]
+        public void Yaw_RolledChassis_TurretStaysAttached()
+        {
+            // Full chain for the inverted-plane case: with the mount-up axis,
+            // the yawed block's world up must match the (inverted) chassis
+            // up, and its forward must stay in the chassis' yaw plane.
+            Quaternion parent = Quaternion.Euler(0f, 0f, 180f);
+            Vector3 mountUp = parent * Vector3.up; // == world down
+            bool ok = TurretYoke.TryYawTargetLocal(
+                Vector3.zero, parent,
+                aimPoint: new Vector3(4f, -1f, 9f), localUp: mountUp,
+                out Quaternion local);
+
+            Assert.IsTrue(ok);
+            Vector3 blockUp = (parent * local) * Vector3.up;
+            Assert.That(Vector3.Distance(blockUp, mountUp), Is.LessThan(Tol),
+                "turret up must ride the chassis roll, not stay world-level");
+            Vector3 blockFwd = (parent * local) * Vector3.forward;
+            Assert.That(Mathf.Abs(Vector3.Dot(blockFwd, mountUp)), Is.LessThan(Tol),
+                "turret forward must stay in the chassis yaw plane");
+        }
+
         // ---- TryYawTargetLocal ------------------------------------------
 
         [Test]

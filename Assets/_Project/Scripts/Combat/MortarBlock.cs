@@ -112,9 +112,13 @@ namespace Robogame.Combat
 
         private LineRenderer _arcLine;
         private static Material s_arcMaterial;
+        private Quaternion _restLocalRotation = Quaternion.identity;
 
         private void Awake()
         {
+            // Rest rotation before the first Yaw overwrites it — the yaw
+            // axis is the authored mount orientation, not gravity.
+            _restLocalRotation = transform.localRotation;
             // _block must resolve before EnsureRig so the rig can read the
             // MortarDefinition's optional turret model.
             _block = GetComponent<BlockBehaviour>();
@@ -172,10 +176,12 @@ namespace Robogame.Combat
                 : transform.position + transform.forward * 40f;
 
             // ---- Yaw the whole block toward the aim direction. ----
-            // TRACE[ADR-0003]: shared surface-up-aware yaw (phase C); the mortar
-            // drives its own lob pitch below, so it uses Yaw, not the full Track.
+            // TRACE[ADR-0003]: shared yaw (phase C); the mortar drives its own
+            // lob pitch below, so it uses Yaw, not the full Track. Yaw axis is
+            // the chassis-frame mount up since LOG-131, so the tube follows
+            // the block through rolls.
             new TurretYoke(transform, _yoke, _muzzle, _yawSpeed, _pitchSpeed, 0f, 0f)
-                .Yaw(aim, TurretYoke.UpAt(transform.position), Time.deltaTime);
+                .Yaw(aim, TurretYoke.MountUp(transform, _restLocalRotation), Time.deltaTime);
 
             // ---- Pitch the yoke to the launch elevation (offset above aim). ----
             // Unity X-rot: positive = nose down, so -elevation pitches the

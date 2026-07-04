@@ -53,7 +53,9 @@ namespace Robogame.Combat
             _maxPitch = maxPitch;
         }
 
-        // TRACE[AUDIT-8]: local up = opposite gravity, so turrets yaw about the surface normal on planet arenas (was Vector3.up)
+        // TRACE[AUDIT-8]: local up = opposite gravity (was Vector3.up). No longer
+        // the turret yaw axis — superseded by MountUp (LOG-131) — kept for
+        // gravity-frame consumers and the pinned spherical regression tests.
         /// <summary>
         /// The local "up" at <paramref name="worldPos"/>: opposite the sampled
         /// gravity, or <see cref="Vector3.up"/> where gravity is ~0. On flat
@@ -65,6 +67,26 @@ namespace Robogame.Combat
         {
             Vector3 g = GravityField.SampleAt(worldPos);
             return g.sqrMagnitude > 1e-6f ? (-g).normalized : Vector3.up;
+        }
+
+        // TRACE[LOG-131]: turrets ride the chassis — yaw about the block's
+        // authored mount axis in the parent frame, not gravity-up. Rolling
+        // the bot rolls the gun with it.
+        /// <summary>
+        /// The block's mount "up" in world space: the up axis of its authored
+        /// rest orientation (<paramref name="restLocalRotation"/>, captured
+        /// before the first yaw write), rotated into the current parent
+        /// (chassis) frame. Turrets yaw about this axis so they stay attached
+        /// to their block through chassis rolls. On a planet a grounded bot's
+        /// chassis up tracks the surface normal, so the audit #8 spherical
+        /// behavior is preserved for the case it targeted; <see cref="UpAt"/>
+        /// (gravity up) kept turrets world-level even on a rolled chassis,
+        /// which read as the weapon detaching from its block.
+        /// </summary>
+        public static Vector3 MountUp(Transform block, Quaternion restLocalRotation)
+        {
+            Quaternion parentRot = block.parent != null ? block.parent.rotation : Quaternion.identity;
+            return parentRot * (restLocalRotation * Vector3.up);
         }
 
         /// <summary>

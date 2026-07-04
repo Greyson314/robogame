@@ -103,6 +103,19 @@ storytelling.
   stable at 110 through play/stop/disk since. Scene/material churn
   committed separately as chore.
 
+- **Turrets now ride the chassis through rolls** (user report: an SMG on
+  a rolling plane stayed world-level — base floating, top clipped).
+  `TurretYoke.UpAt` (gravity up) is no longer the yaw axis; new
+  `TurretYoke.MountUp` yaws about the block's authored rest orientation
+  in the chassis frame (rest local rotation captured in each block's
+  `Awake` before the first Track overwrites it). All four turret blocks
+  switched (weapon/cannon/grapple/mortar). On planet arenas a grounded
+  bot's chassis up tracks the surface normal, so the audit #8 spherical
+  fix is preserved for its target case; `UpAt` kept for reference +
+  pinned tests. 3 new EditMode regressions (rolled chassis, side mount,
+  full yaw chain); suite 378/378 green; upright garage behavior verified
+  unchanged in play mode.
+
 ## Open / next
 - Texture-stage ideas parked: paper grain, corrugation on thick cut edges,
   printed stencils/part numbers on the big white side plates.

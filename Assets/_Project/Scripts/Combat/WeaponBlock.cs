@@ -42,9 +42,13 @@ namespace Robogame.Combat
         public Transform Muzzle => _muzzle;
 
         private Robogame.Block.BlockBehaviour _block;
+        private Quaternion _restLocalRotation = Quaternion.identity;
 
         private void Awake()
         {
+            // Rest rotation before the first Track overwrites it — the yaw
+            // axis is the authored mount orientation, not gravity.
+            _restLocalRotation = transform.localRotation;
             // _block must resolve before EnsureRig so the rig can read the
             // WeaponDefinition's optional turret model.
             _block = GetComponent<Robogame.Block.BlockBehaviour>();
@@ -78,8 +82,10 @@ namespace Robogame.Combat
                 ? _mount.AimPoint
                 : transform.position + transform.forward * 30f;
 
-            // TRACE[ADR-0003]: shared yaw/pitch/muzzle track, surface-up aware (phase C)
-            Vector3 up = TurretYoke.UpAt(transform.position);
+            // TRACE[ADR-0003]: shared yaw/pitch/muzzle track (phase C); yaw
+            // axis is the chassis-frame mount up since LOG-131, so the turret
+            // follows the block through rolls.
+            Vector3 up = TurretYoke.MountUp(transform, _restLocalRotation);
             new TurretYoke(transform, _yoke, _muzzle, _yawSpeed, _pitchSpeed, _minPitch, _maxPitch)
                 .Track(aim, up, Time.deltaTime);
         }
