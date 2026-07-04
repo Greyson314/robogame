@@ -44,6 +44,7 @@ BARREL_R = 0.07
 SHELL_T = 0.018
 GAP_DEG = 16.0
 ARC_SEGS = 10
+RAKE_DEG = 4.0          # receiver leans into the action; barrel stays level
 
 clear_objects(prefixes=("SMG_",), names=("SMG_Paper",))
 hide_default_cube()
@@ -90,54 +91,62 @@ bpy.context.scene.collection.objects.link(yoke)
 yoke.parent = root
 yoke.location = (0, 0, PIVOT_Z)
 
+# body sub-frame: the whole receiver assembly rakes nose-down a few
+# degrees while the barrel stays on the aim line — cartoon lean-in
+body = bpy.data.objects.new("SMG_Body", None)
+body.empty_display_size = 0.06
+bpy.context.scene.collection.objects.link(body)
+body.parent = yoke
+body.rotation_euler = (radians(RAKE_DEG), 0, 0)
+
 # receiver: chubby rounded loaf — chamfered card box, short and tall.
 # Cartoon proportions carry the cuteness; the facets stay paper.
 core_loaf = [(0.22, -0.13), (0.22, 0.13), (0.14, 0.19), (-0.14, 0.19),
              (-0.24, 0.11), (-0.34, 0.05), (-0.34, -0.07), (-0.26, -0.13)]
 card_panel("SMG_ReceiverCore", core_loaf, 0.13, 'X', 0.0,
-           [white, kraft], parent=yoke)
+           [white, kraft], parent=body)
 plate_loaf = [(0.245, -0.11), (0.245, 0.11), (0.155, 0.165), (-0.125, 0.165),
               (-0.215, 0.09), (-0.30, 0.03), (-0.30, -0.06), (-0.235, -0.11)]
 for sign, side in ((1, "R"), (-1, "L")):
     card_panel(f"SMG_SidePlate{side}", plate_loaf, 0.02, 'X', sign * 0.075,
-               [white, kraft], parent=yoke)
+               [white, kraft], parent=body)
 
 # rear closure: kraft cap plate pinned with a brass fastener
 card_panel("SMG_RearCap", [(-0.06, -0.10), (0.06, -0.10), (0.06, 0.10),
                            (-0.06, 0.10)],
-           0.025, 'Y', 0.2325, [kraft, kraft], parent=yoke)
+           0.025, 'Y', 0.2325, [kraft, kraft], parent=body)
 hex_pts = [(0.04 * cos(i * tau / 6), 0.04 * sin(i * tau / 6))
            for i in range(6)]
 pv, pf = loft([[(x, 0.245, z) for x, z in hex_pts],
                [(x, 0.28, z) for x, z in hex_pts]])
-make_object("SMG_RearBrad", pv, pf, [brass], parent=yoke)
+make_object("SMG_RearBrad", pv, pf, [brass], parent=body)
 
 # one brass strap over the loaf — a little belt
 card_panel("SMG_Strap", [(-0.095, -0.14), (0.095, -0.14),
                          (0.095, 0.20), (-0.095, 0.20)],
-           0.03, 'Y', -0.12, [brass, brass], parent=yoke)
+           0.03, 'Y', -0.12, [brass, brass], parent=body)
 
 # big gauge dial on top — oversized, the "top view" lovable detail
 card_panel("SMG_GaugeRing", ngon_pts(10, 0.075, cy=0.02), 0.05, 'Z', 0.215,
-           [brass, brass], parent=yoke)
+           [brass, brass], parent=body)
 card_panel("SMG_GaugeFace", ngon_pts(10, 0.065, cy=0.02), 0.014, 'Z', 0.247,
-           [white, kraft], parent=yoke)
+           [white, kraft], parent=body)
 
 # oversized ammo-reel canister on the LEFT — chubby, red-striped, brass
 # hub. Mounted clear of the strut plane so it never clips through pitch.
 card_panel("SMG_ReelNeck", ngon_pts(8, 0.06, cx=-0.16), 0.05, 'X', -0.10,
-           [kraft, kraft], parent=yoke)
+           [kraft, kraft], parent=body)
 card_panel("SMG_Reel", [(y - 0.16, z) for y, z in ngon_pts(12, 0.15)],
-           0.13, 'X', -0.18, [white, kraft], parent=yoke)
+           0.13, 'X', -0.18, [white, kraft], parent=body)
 card_panel("SMG_ReelStripe", [(y - 0.16, z) for y, z in ngon_pts(12, 0.158)],
-           0.035, 'X', -0.18, [channel, channel], parent=yoke)
-brad("SMG_ReelHub", -0.245, -0.27, 0.05, 0.0, brass, parent=yoke, y=-0.16)
+           0.035, 'X', -0.18, [channel, channel], parent=body)
+brad("SMG_ReelHub", -0.245, -0.27, 0.05, 0.0, brass, parent=body, y=-0.16)
 
 # casing chute low on the RIGHT — angled kraft duct with a red slot
 card_panel("SMG_Chute", [(0.04, -0.08), (-0.08, -0.12), (-0.08, -0.19),
                          (0.04, -0.15)],
            0.035, 'X', 0.10, [kraft, kraft, channel], cap_slots=(0, 2),
-           parent=yoke)
+           parent=body)
 
 # collar: two fat laminate rings stepping the loaf down to the barrel
 card_panel("SMG_Collar0", ngon_pts(12, 0.115, cy=-0.01, phase=tau / 24),
