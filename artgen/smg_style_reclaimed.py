@@ -1,9 +1,10 @@
-# artgen/smg_style_reclaimed.py — SMG style study 1: reclaimed metal & plant.
+# artgen/smg_style_reclaimed.py — SMG style study: reclaimed metal & plant.
 # Blender-only exploration (no FBX export) — the paper-punk SMG stays the
 # in-game version. Same cutesy bones as smg_paperpunk.py; the material
-# language swaps to salvage: mismatched metals, rivet-studded patch
-# plates, and greenery reclaiming the seams. The gauge becomes a potted
-# sprout.
+# language is metal-first salvage (dark iron core, steel and galvanized
+# plates, rust) with VINES wrapping the barrel, body, and a strut leg,
+# sprouting leaves as they climb. Second revision: the potted plant is
+# gone — the plants live ON the machine, reclaiming it.
 
 import sys
 
@@ -13,7 +14,7 @@ if ARTGEN not in sys.path:
 
 import importlib
 import bpy
-from math import radians, cos, sin, tau
+from math import radians, cos, sin, tau, pi
 import paperlib
 importlib.reload(paperlib)
 from paperlib import (clear_objects, hide_default_cube, make_object, loft,
@@ -48,13 +49,15 @@ def mat(name, color, rough=0.6, metallic=0.0):
     return m
 
 
-steel = mat("RclSteel", (0.42, 0.44, 0.47, 1), rough=0.55, metallic=0.8)
-rust = mat("RclRust", (0.44, 0.21, 0.10, 1), rough=0.92)
-galv = mat("RclGalv", (0.61, 0.63, 0.64, 1), rough=0.35, metallic=0.9)
-verdi = mat("RclVerdigris", (0.34, 0.57, 0.47, 1), rough=0.6, metallic=0.4)
+iron = mat("RclIron", (0.16, 0.17, 0.19, 1), rough=0.45, metallic=0.85)
+steel = mat("RclSteel", (0.45, 0.47, 0.50, 1), rough=0.38, metallic=0.95)
+galv = mat("RclGalv", (0.62, 0.64, 0.66, 1), rough=0.28, metallic=1.0)
+rust = mat("RclRust", (0.42, 0.20, 0.09, 1), rough=0.9)
+verdi = mat("RclVerdigris", (0.33, 0.55, 0.46, 1), rough=0.5, metallic=0.6)
+pale = mat("RclGaugeFace", (0.80, 0.78, 0.68, 1), rough=0.6)
+vine_m = mat("RclVineStem", (0.19, 0.28, 0.11, 1), rough=0.8)
 leaf_g = mat("RclLeaf", (0.27, 0.52, 0.19, 1), rough=0.7)
 leaf_d = mat("RclLeafDark", (0.16, 0.34, 0.12, 1), rough=0.75)
-soil = mat("RclSoil", (0.22, 0.15, 0.10, 1), rough=1.0)
 gray = paperlib.get_material("RefGray", paperlib.REF_GRAY, roughness=0.9)
 
 clear_objects(prefixes=("RCL_",), names=("SMG_Reclaimed",))
@@ -66,24 +69,23 @@ root.location = LOCATION
 bpy.context.scene.collection.objects.link(root)
 ref_block("RCL_RefBlock", gray, root)
 
-# yaw gear: salvage iron ring, rust laminate in the middle
+# yaw gear: iron ring, rust laminate in the middle
 card_panel("RCL_GearBottom", ngon_pts(12, 0.29), 0.03, 'Z', GEAR_Z0 + 0.015,
-           [steel, rust], parent=root)
+           [iron, iron], parent=root)
 card_panel("RCL_GearTeeth", gear_profile(10, 0.26, GEAR_R_OUT), 0.035, 'Z',
            GEAR_Z0 + 0.0475, [rust, rust], parent=root)
 card_panel("RCL_GearTop", ngon_pts(12, 0.24), 0.03, 'Z', GEAR_Z0 + 0.08,
            [steel, steel], parent=root)
 
-# A-frame: scavenged angle-iron
 strut_front = [(-0.25, GEAR_TOP), (-0.15, GEAR_TOP),
                (-0.005, PIVOT_Z + 0.045), (-0.075, PIVOT_Z + 0.045)]
 strut_rear = [(0.15, GEAR_TOP), (0.25, GEAR_TOP),
               (0.075, PIVOT_Z + 0.045), (0.005, PIVOT_Z + 0.045)]
 for sign, side in ((1, "R"), (-1, "L")):
     card_panel(f"RCL_StrutFront{side}", strut_front, 0.022, 'X', sign * 0.10,
-               [steel, rust], parent=root)
+               [steel, iron], parent=root)
     card_panel(f"RCL_StrutRear{side}", strut_rear, 0.022, 'X', sign * 0.10,
-               [galv, steel], parent=root)
+               [galv, iron], parent=root)
 card_panel("RCL_GussetSpacer", [(0.14, GEAR_TOP), (0.24, GEAR_TOP),
                                 (0.24, GEAR_TOP + 0.10), (0.14, GEAR_TOP + 0.10)],
            0.178, 'X', 0.0, [rust, rust], parent=root)
@@ -102,26 +104,26 @@ bpy.context.scene.collection.objects.link(body)
 body.parent = yoke
 body.rotation_euler = (radians(RAKE_DEG), 0, 0)
 
-# loaf: steel core, MISMATCHED side plates (rust left, galvanized right)
+# loaf: dark iron core, mismatched metal plates (rusted left, galvanized
+# right), rivet-studded patch plates
 core_loaf = [(0.22, -0.13), (0.22, 0.13), (0.14, 0.19), (-0.14, 0.19),
              (-0.24, 0.11), (-0.34, 0.05), (-0.34, -0.07), (-0.26, -0.13)]
 card_panel("RCL_ReceiverCore", core_loaf, 0.13, 'X', 0.0,
-           [steel, rust], parent=body)
+           [iron, iron], parent=body)
 plate_loaf = [(0.245, -0.11), (0.245, 0.11), (0.155, 0.165), (-0.125, 0.165),
               (-0.215, 0.09), (-0.30, 0.03), (-0.30, -0.06), (-0.235, -0.11)]
 card_panel("RCL_SidePlateR", plate_loaf, 0.02, 'X', 0.075,
            [galv, steel], parent=body)
 card_panel("RCL_SidePlateL", plate_loaf, 0.02, 'X', -0.075,
-           [rust, rust], parent=body)
+           [rust, iron], parent=body)
 
-# patch plates: welded-on scraps with rivet studs
 patches = [
     ("RCL_Patch0", [(0.05, 0.02), (0.19, 0.02), (0.19, 0.11), (0.05, 0.11)],
-     0.088, galv),
+     0.088, steel),
     ("RCL_Patch1", [(-0.20, -0.09), (-0.06, -0.09), (-0.06, -0.01), (-0.20, -0.01)],
      0.088, rust),
     ("RCL_Patch2", [(-0.02, 0.03), (0.10, 0.03), (0.10, 0.10), (-0.02, 0.10)],
-     -0.088, verdi),
+     -0.088, galv),
 ]
 for nm, prof, off, pm in patches:
     card_panel(nm, prof, 0.012, 'X', off, [pm, pm], parent=body)
@@ -131,7 +133,7 @@ for nm, prof, off, pm in patches:
                                   (0.05, 0.03), (-0.05, 0.03))):
         s = 1 if off > 0 else -1
         brad(f"{nm}_Rivet{i}", off, off + s * 0.008, 0.008, cz + dz,
-             steel, parent=body, y=cx + dy)
+             iron, parent=body, y=cx + dy)
 
 # rear cap: rusted plate + steel bolt
 card_panel("RCL_RearCap", [(-0.06, -0.10), (0.06, -0.10), (0.06, 0.10),
@@ -143,40 +145,15 @@ pv, pf = loft([[(x, 0.245, z) for x, z in hex_pts],
                [(x, 0.28, z) for x, z in hex_pts]])
 make_object("RCL_RearBolt", pv, pf, [steel], parent=body)
 
-# potted sprout where the gauge was — the reclaimed heart of the design
-card_panel("RCL_Pot", ngon_pts(10, 0.055, cy=0.02), 0.07, 'Z', 0.225,
+# weathered gauge back on top — rusted bezel, faded face
+card_panel("RCL_GaugeRing", ngon_pts(10, 0.075, cy=0.02), 0.05, 'Z', 0.215,
            [rust, rust], parent=body)
-card_panel("RCL_PotSoil", ngon_pts(10, 0.047, cy=0.02), 0.012, 'Z', 0.262,
-           [soil, soil], parent=body)
-
-
-def leaf_fan(prefix, parent, loc, count, length, width, tilt=40.0, phase=0.0):
-    for i in range(count):
-        prof = [(0.0, 0.0), (width * 0.5, length * 0.35), (0.0, length),
-                (-width * 0.5, length * 0.35)]
-        o = card_panel(f"{prefix}{i}", prof, 0.008, 'X', 0.0,
-                       [leaf_g, leaf_d], parent=parent)
-        o.location = loc
-        o.rotation_euler = (radians(tilt), 0.0,
-                            radians(phase + i * 360.0 / count))
-
-
-leaf_fan("RCL_Sprout", body, (0.0, 0.02, 0.265), 5, 0.13, 0.06, tilt=35)
-leaf_fan("RCL_SeamSprig", body, (-0.30, -0.02, 0.02), 3, 0.08, 0.04,
-         tilt=65, phase=180)
-leaf_fan("RCL_BaseSprig", root, (0.20, 0.24, GEAR_TOP), 3, 0.09, 0.045,
-         tilt=55, phase=40)
-
-# moss: squashed blobs where water would sit
-for i, (loc, r) in enumerate((((-0.10, 0.13, 0.185), 0.05),
-                              ((0.14, -0.28, GEAR_TOP + 0.005), 0.06))):
-    parent = body if i == 0 else root
-    m0 = disc_ball(f"RCL_Moss{i}", r, loc, [leaf_d, leaf_g], parent=parent)
-    m0.scale = (1.0, 1.0, 0.3)
+card_panel("RCL_GaugeFace", ngon_pts(10, 0.065, cy=0.02), 0.014, 'Z', 0.247,
+           [pale, rust], parent=body)
 
 # reel: verdigris drum banded in rust, steel hub
 card_panel("RCL_ReelNeck", ngon_pts(8, 0.06, cx=-0.16), 0.05, 'X', -0.10,
-           [rust, rust], parent=body)
+           [iron, iron], parent=body)
 card_panel("RCL_Reel", [(y - 0.16, z) for y, z in ngon_pts(12, 0.15)],
            0.13, 'X', -0.18, [verdi, verdi], parent=body)
 card_panel("RCL_ReelStripe", [(y - 0.16, z) for y, z in ngon_pts(12, 0.158)],
@@ -188,7 +165,7 @@ card_panel("RCL_Chute", [(0.04, -0.08), (-0.08, -0.12), (-0.08, -0.19),
                          (0.04, -0.15)],
            0.035, 'X', 0.10, [rust, rust], parent=body)
 
-# collar + barrel: salvage steel, rusty muzzle ring
+# collar + barrel: steel shells, rusted muzzle ring, galvanized bead
 card_panel("RCL_Collar0", ngon_pts(12, 0.115, cy=-0.01, phase=tau / 24),
            0.05, 'Y', -0.37, [steel, rust], parent=yoke)
 card_panel("RCL_Collar1", ngon_pts(12, 0.088, cy=-0.01, phase=tau / 24),
@@ -198,12 +175,106 @@ for top, name in ((True, "RCL_BarrelTop"), (False, "RCL_BarrelBottom")):
     if not top:
         a0, a1 = -a0, -a1
     arc_shell(name, BARREL_R, SHELL_T, RAIL_ROOT_Y, RAIL_TIP_Y, a0, a1,
-              ARC_SEGS, [steel, rust, rust], slots=(0, 1, 2),
+              ARC_SEGS, [steel, iron, rust], slots=(0, 1, 2),
               center=(0.0, -0.01), parent=yoke)
 card_panel("RCL_MuzzleRing", ngon_pts(12, 0.10, cy=-0.01, phase=tau / 24),
            0.06, 'Y', -0.70, [rust, steel], parent=yoke)
 card_panel("RCL_SightBead", ngon_pts(6, 0.024, cy=-0.70), 0.05, 'Z', 0.115,
            [galv, galv], parent=yoke)
 
+
+# ------------------------------------------------------------------ vines --
+def vine(name, points, radius, parent):
+    """Rounded vine stem following a 3D polyline (smoothed NURBS sweep,
+    converted to mesh so scale_tree handles it like everything else)."""
+    cu = bpy.data.curves.new(name, 'CURVE')
+    cu.dimensions = '3D'
+    cu.bevel_depth = radius
+    cu.bevel_resolution = 3
+    cu.use_fill_caps = True
+    sp = cu.splines.new('NURBS')
+    sp.points.add(len(points) - 1)
+    for p, (x, y, z) in zip(sp.points, points):
+        p.co = (x, y, z, 1.0)
+    sp.use_endpoint_u = True
+    obj = bpy.data.objects.new(name, cu)
+    obj.data.materials.append(vine_m)
+    bpy.context.scene.collection.objects.link(obj)
+    obj.parent = parent
+    with bpy.context.temp_override(active_object=obj, selected_objects=[obj],
+                                   selected_editable_objects=[obj]):
+        bpy.ops.object.convert(target='MESH')
+    return obj
+
+
+def leaf_pair(prefix, parent, loc, yaw_deg, tilt=50.0, length=0.075, width=0.038):
+    for i in range(2):
+        prof = [(0.0, 0.0), (width * 0.5, length * 0.35), (0.0, length),
+                (-width * 0.5, length * 0.35)]
+        o = card_panel(f"{prefix}_{i}", prof, 0.007, 'X', 0.0,
+                       [leaf_g, leaf_d], parent=parent)
+        o.location = loc
+        o.rotation_euler = (radians(tilt), 0.0,
+                            radians(yaw_deg + 140.0 * i))
+
+
+# vine 1: spirals up a front strut leg from the gear to the pivot brad
+pts = []
+n = 14
+for i in range(n):
+    t = i / (n - 1)
+    cx, cy_, cz = -0.10, -0.20 + t * 0.16, GEAR_TOP + t * (PIVOT_Z - GEAR_TOP)
+    a = t * tau * 1.6
+    pts.append((cx + 0.035 * cos(a), cy_ + 0.055 * sin(a), cz))
+vine("RCL_VineStrut", pts, 0.011, root)
+leaf_pair("RCL_LeafStrut0", root, (-0.135, -0.16, 0.22), 210)
+leaf_pair("RCL_LeafStrut1", root, (-0.075, -0.09, 0.38), 30, tilt=60)
+
+# vine 2: wraps the loaf diagonally, riding the raked body
+pts = []
+n = 16
+for i in range(n):
+    t = i / (n - 1)
+    y = 0.16 - t * 0.40
+    a = t * tau * 1.25 + 0.6
+    pts.append((0.10 * cos(a), y, 0.02 + 0.175 * sin(a)))
+vine("RCL_VineBody", pts, 0.012, body)
+leaf_pair("RCL_LeafBody0", body, (0.095, 0.05, 0.13), 320, tilt=55)
+leaf_pair("RCL_LeafBody1", body, (-0.10, -0.10, -0.10), 140, tilt=115)
+leaf_pair("RCL_LeafBody2", body, (0.02, -0.22, 0.185), 70, tilt=25)
+
+# vine 3: coils along the barrel and reaches over the muzzle ring
+pts = []
+n = 16
+for i in range(n):
+    t = i / (n - 1)
+    y = -0.42 - t * 0.34
+    a = t * tau * 1.8 + pi
+    r = 0.085 if y > -0.67 else 0.112
+    pts.append((r * cos(a), y, -0.01 + r * sin(a)))
+vine("RCL_VineBarrel", pts, 0.009, yoke)
+leaf_pair("RCL_LeafBarrel0", yoke, (-0.082, -0.50, 0.04), 250, tilt=75)
+leaf_pair("RCL_LeafBarrel1", yoke, (0.09, -0.64, -0.04), 60, tilt=105)
+
+# vine 4: creeps over the gear ring onto the base
+pts = []
+n = 12
+for i in range(n):
+    t = i / (n - 1)
+    a = 2.2 + t * 2.4
+    r = 0.34 - t * 0.10
+    pts.append((r * cos(a), r * sin(a), 0.02 + t * 0.10))
+vine("RCL_VineBase", pts, 0.012, root)
+leaf_pair("RCL_LeafBase0", root, (-0.24, 0.16, 0.10), 100, tilt=70)
+leaf_pair("RCL_LeafBase1", root, (-0.16, -0.20, 0.13), 200, tilt=65)
+
+# moss where water pools
+m0 = disc_ball("RCL_Moss0", 0.05, (-0.08, 0.12, 0.185), [leaf_d, leaf_g],
+               parent=body)
+m0.scale = (1.0, 1.0, 0.3)
+m1 = disc_ball("RCL_Moss1", 0.06, (0.16, -0.24, GEAR_TOP + 0.005),
+               [leaf_d, leaf_g], parent=root)
+m1.scale = (1.0, 1.0, 0.3)
+
 scale_tree(root, SCALE)
-print("SMG_Reclaimed built.")
+print("SMG_Reclaimed rebuilt with vines.")

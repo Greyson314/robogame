@@ -116,14 +116,17 @@ storytelling.
   full yaw chain); suite 378/378 green; upright garage behavior verified
   unchanged in play mode.
 
-- **Three style studies on the SMG** (Blender-only, no export; paper-punk
-  stays the in-game version): `artgen/smg_style_reclaimed.py` (salvage
-  metals + plants — potted sprout replaces the gauge), `smg_style_
-  steampunk.py` (iron/brass/copper, rivet rows, pipe run, valve wheel,
-  smokestack), `smg_style_marleybone.py` (midnight navy + cream coach-
-  lining + gold, clock face, checkered muzzle band, gaslamp-amber groove).
-  Same cutesy bones as the paper SMG so the comparison isolates material
-  language. Scene slots x 3.6 / 5.4 / 7.2 beside the paper family.
+- **Style studies on the SMG** (Blender-only, no export; paper-punk stays
+  the in-game version), same cutesy bones so the comparison isolates
+  material language. Kept: `artgen/smg_style_reclaimed.py` — metal-first
+  salvage (iron core, steel/galvanized/rust plates) with VINES wrapping
+  strut, body, barrel, and base (NURBS-curve sweeps converted to mesh)
+  and leaf pairs along them; second revision after user steer away from
+  the potted-plant read. Kept as-is: `smg_style_steampunk.py`
+  (iron/brass/copper, rivets, pipe, valve, smokestack) — user note: the
+  card-panel-derived shapes read cardboard, a real steampunk pass would
+  need different structure, parked. Axed: the Marleybone study (looked
+  silly) — script deleted, git history has it.
 
 ## Open / next
 - Texture-stage ideas parked: paper grain, corrugation on thick cut edges,
