@@ -6,8 +6,8 @@
 import bpy
 import bmesh
 import os
-from math import radians, cos, sin, tau
-from mathutils import Vector
+from math import radians, cos, sin, tau, pi
+from mathutils import Vector, Matrix
 
 PAPER_WHITE = (0.93, 0.91, 0.85, 1.0)
 KRAFT = (0.52, 0.36, 0.20, 1.0)
@@ -249,6 +249,33 @@ def export_tree(root, path, yoke=None, muzzle=None):
 
     saved_loc = root.location.copy()
     root.location = (0.0, 0.0, 0.0)
+
+    # Convert the whole tree to Unity's frame (up +Y, forward +Z) OURSELVES,
+    # then export with no exporter-side conversion. Unity ignores the FBX
+    # file-level axis hint, and bake_space_transform mangles children of
+    # empties — but the rig contract is strict: WeaponModelRig/TurretYoke
+    # force identity rotations on the root and the Turret yoke at runtime,
+    # so the data itself must be Y-up with identity node rotations.
+    # Mesh data is rotated; every local matrix is conjugated into the new
+    # frame; the scene is restored afterwards. Session 131 finding.
+    conv = Matrix.Rotation(-pi / 2, 4, 'X')  # +Z -> +Y (up), -Y -> +Z (fwd)
+
+    def _tree(o):
+        yield o
+        for c in o.children:
+            yield from _tree(c)
+
+    def _convert(mat):
+        inv = mat.inverted()
+        seen = set()
+        for o in _tree(root):
+            if o.type == 'MESH' and o.data.name not in seen:
+                o.data.transform(mat)
+                seen.add(o.data.name)
+            o.matrix_basis = mat @ o.matrix_basis @ inv
+        bpy.context.view_layer.update()
+
+    _convert(conv)
     bpy.ops.object.select_all(action="DESELECT")
 
     def sel(o):
@@ -266,8 +293,11 @@ def export_tree(root, path, yoke=None, muzzle=None):
         use_mesh_modifiers=True,
         apply_unit_scale=True,
         apply_scale_options="FBX_SCALE_ALL",
+        axis_forward="-Y",
+        axis_up="Z",
         add_leaf_bones=False,
     )
+    _convert(conv.inverted())
     root.location = saved_loc
     for obj, name in reversed(renames):
         obj.name = name

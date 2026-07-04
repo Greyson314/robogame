@@ -64,13 +64,32 @@ storytelling.
   sweep visually verified ±22° in Blender. Supersedes the deleted
   `smg_origami.py` exploration.
 
-## Open / next
+## Unity wiring (done, same session)
 
-- **Unity wiring pending an editor session:** import the three FBX files,
-  then point `Weapon_Smg` / `Mortar_Default` / `Cannon_Default` `_turretModel`
-  at them (GUIDs exist only after import), set scale/offset (authored at
-  real size for a 1 m block, so scale ≈ 1, offset ≈ 0 vs. the Fatty
-  placeholders' 0.35 / −0.45), verify aim tracking + commit `.meta`s.
+- All three definitions point at the paper models: scale 1, offset
+  (0, −0.5, 0) — model origin is the base-plate bottom at the block's
+  bottom face. Verified live in the garage (SMG on the Tank bot tracking
+  the reticle; mortar/cannon spot-instantiated). The CoplayDev MCP server
+  wasn't in this Claude session (Unity opened mid-session), so the wiring
+  ran over direct JSON-RPC to `http://localhost:8080/mcp`.
+- **Axis-conversion finding:** Blender FBX export needed a manual frame
+  conversion (now in `paperlib.export_tree`): mesh data + all local
+  matrices conjugated into Unity's frame (up +Y, fwd +Z), exporter told
+  to do no conversion. `bake_space_transform=True` mangles children of
+  empties; the exporter's default file-level conversion only adds a root
+  compensation rotation that `WeaponModelRig` strips (it forces identity
+  on root and `Turret`, so the data itself must be Y-up with identity
+  node rotations). Caveat: the imported prefab root still shows a
+  −90°X default rotation from the Z-up file header — harmless for
+  weapons (rig strips it), but raw `Instantiate` callers must reset
+  `localRotation` to identity.
+- **Stale-editor clobber struck again**, same value as last time: the
+  editor's `SaveAssets` reverted `Cannon_Default._damage` 110 → 60
+  (session-127 buff). Caught by the git-status inspection rule, restored
+  to 110 in-editor. Scene/material churn (symmetric re-serialization
+  noise) committed separately as chore.
+
+## Open / next
 - Texture-stage ideas parked: paper grain, corrugation on thick cut edges,
   printed stencils/part numbers on the big white side plates.
 - If the profile read of the barrel feels muddy in-game, laminate each
