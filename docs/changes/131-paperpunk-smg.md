@@ -135,8 +135,11 @@ storytelling.
   aerial screw), paper-punk as material palette, composition rule "solid
   where you shoot it, skeletal where it moves" (structure/weapon blocks =
   solid card, movement blocks = spar + membrane). Ink construction marks
-  instead of filigree/sepia. User is writing an aesthetic note to anchor
-  this — look for it before doing further art-direction work.
+  instead of filigree/sepia. The note landed same session:
+  [research/inventor-aesthetic.md](../research/inventor-aesthetic.md) —
+  papercraft abandoned as the direction in favor of the **inventor
+  aesthetic** (wood + linen, rib-and-membrane, ink maps, instrument-voiced
+  audio à la Don't Starve); paper-punk assets stay in-game as interim.
 
 ## Open / next
 - Texture-stage ideas parked: paper grain, corrugation on thick cut edges,
