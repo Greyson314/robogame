@@ -342,7 +342,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 47c4593720aa16744af4cb2b0f089d95, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Robogame.Gameplay::Robogame.Gameplay.SettingsHud
-  _toggleKey: 60
 --- !u!1 &1983535497
 GameObject:
   m_ObjectHideFlags: 0
