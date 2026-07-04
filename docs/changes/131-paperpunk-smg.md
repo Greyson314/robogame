@@ -128,6 +128,16 @@ storytelling.
   need different structure, parked. Axed: the Marleybone study (looked
   silly) — script deleted, git history has it.
 
+- **Direction synthesis (end of session):** capybara pilots have been a
+  locked commitment since ~day 3 (pilot in the middle of the bot) — not
+  previously written down. The da Vinci × papercraft interplay resonated:
+  da Vinci as structural grammar (rib-and-membrane, visible mechanism,
+  aerial screw), paper-punk as material palette, composition rule "solid
+  where you shoot it, skeletal where it moves" (structure/weapon blocks =
+  solid card, movement blocks = spar + membrane). Ink construction marks
+  instead of filigree/sepia. User is writing an aesthetic note to anchor
+  this — look for it before doing further art-direction work.
+
 ## Open / next
 - Texture-stage ideas parked: paper grain, corrugation on thick cut edges,
   printed stencils/part numbers on the big white side plates.
