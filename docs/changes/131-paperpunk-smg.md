@@ -26,6 +26,11 @@ storytelling.
   tubes, flared muzzles, carriage cheeks + scalloped wheels, cascabel
   balls, cartoon bombs. No Sten mags, no field-gun telescoping, no
   finned mortar shells.
+- **Cartoonish / lighthearted, via proportion not decoration** (user
+  steer: the whole game should feel fairly cartoonish/cutesy; a pew-pew
+  weapon should feel lighthearted): chubby chamfered volumes, one
+  oversized lovable detail per view, stubby fat barrels. Candidate
+  headline language for art-direction.md when the direction is committed.
 
 ## What shipped
 
@@ -36,12 +41,14 @@ storytelling.
   renames per-weapon yoke/muzzle empties to `Turret`/`ShootPoint` at export
   time (Blender object names are global; three weapons share the scene).
 - `artgen/smg_paperpunk.py` → `SMG_Paper.fbx`. Square-ish mechanism, short
-  barrel (user steer: not everything should be cannon-shaped): laminated
-  card box receiver with stepped feed-cover hump, brass trunk straps,
-  pressure gauge on the hump, LEFT ammo-reel canister (red stripe, brass
-  hub), RIGHT casing chute with red slot, brass bead sight, short split
-  rolled-tube barrel with the open groove. Asymmetry preserved (user:
-  blocks are symmetric, weapons shouldn't be).
+  barrel, cutesy proportions (user steers: not cannon-shaped, and the
+  pew-pew gun should feel lighthearted): chubby chamfered-loaf card
+  receiver, oversized LEFT ammo-reel canister (red stripe, brass hub),
+  oversized gauge dial on top, brass strap belt, rear kraft cap + brass
+  fastener, RIGHT casing chute with red slot, fat stubby split-tube
+  barrel with bulbous muzzle ring, chunky brass bead. Groove + red
+  channel signature intact. Asymmetry preserved (user: blocks are
+  symmetric, weapons shouldn't be).
 - `artgen/mortar_paperpunk.py` → `Mortar_Paper.fbx`. Old bombard on the
   fireworks-tube honesty (real firework mortars are cardboard): short fat
   tapered tube, hoop rings, flared mouth with red bore, laminated breech +

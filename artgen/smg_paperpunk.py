@@ -7,13 +7,12 @@
 # In-scene the empties are SMG_Yoke / SMG_Muzzle (names are global in
 # Blender and the weapon family shares the scene).
 #
-# Concept (session 131, third revision): square-ish mechanism, short
-# barrel — the family shouldn't be three cannon-shaped tubes. Laminated
-# card box receiver with a stepped feed-cover deck, steampunk dressing in
-# box-native forms: brass straps around the box, a pressure gauge on the
-# hump, LEFT ammo-reel canister, RIGHT casing chute, brass bead sight,
-# and the signature split rolled-tube barrel (short) with the open
-# projectile groove.
+# Concept (session 131, fourth revision — cutesy pass): the pew-pew gun
+# should feel lighthearted, in sync with the cartoon cannon and bombard.
+# Cartoon = proportion, not decoration: a chubby rounded-loaf receiver
+# (chamfered card box, shorter + taller), one oversized lovable detail per
+# view — big ammo-reel canister (left), big gauge dial (top), fat stubby
+# barrel with a bulbous muzzle ring — plus the signature open groove.
 
 import sys
 
@@ -39,10 +38,10 @@ PIVOT_Z = 0.52
 BASE_PLATE = 0.72
 GEAR_Z0 = 0.05
 GEAR_TOP = 0.145
-RAIL_ROOT_Y = -0.63     # short barrel — this is the bullet hose, not a gun
-RAIL_TIP_Y = -0.95
-BARREL_R = 0.055
-SHELL_T = 0.016
+RAIL_ROOT_Y = -0.48     # stubby: the barrel is a fat little pellet spitter
+RAIL_TIP_Y = -0.78
+BARREL_R = 0.07
+SHELL_T = 0.018
 GAP_DEG = 16.0
 ARC_SEGS = 10
 
@@ -91,72 +90,62 @@ bpy.context.scene.collection.objects.link(yoke)
 yoke.parent = root
 yoke.location = (0, 0, PIVOT_Z)
 
-# receiver: laminated card box — thick core with a stepped feed-cover
-# hump, proud side plates with distinct per-side silhouettes
-core_profile = [(0.30, -0.11), (0.30, 0.11), (0.24, 0.17), (-0.02, 0.17),
-                (-0.08, 0.115), (-0.38, 0.115), (-0.50, 0.045),
-                (-0.50, -0.03), (-0.28, -0.11)]
-card_panel("SMG_ReceiverCore", core_profile, 0.13, 'X', 0.0,
+# receiver: chubby rounded loaf — chamfered card box, short and tall.
+# Cartoon proportions carry the cuteness; the facets stay paper.
+core_loaf = [(0.22, -0.13), (0.22, 0.13), (0.14, 0.19), (-0.14, 0.19),
+             (-0.24, 0.11), (-0.34, 0.05), (-0.34, -0.07), (-0.26, -0.13)]
+card_panel("SMG_ReceiverCore", core_loaf, 0.13, 'X', 0.0,
            [white, kraft], parent=yoke)
-plate_r = [(0.32, -0.09), (0.32, 0.09), (0.26, 0.15), (0.0, 0.15),
-           (-0.06, 0.095), (-0.40, 0.095), (-0.47, 0.02), (-0.47, -0.055),
-           (-0.26, -0.09)]
-card_panel("SMG_SidePlateR", plate_r, 0.02, 'X', 0.075,
-           [white, kraft], parent=yoke)
-plate_l = [(0.32, -0.09), (0.32, 0.09), (0.26, 0.15), (0.0, 0.15),
-           (-0.06, 0.095), (-0.34, 0.095), (-0.41, 0.03), (-0.41, -0.05),
-           (-0.10, -0.09)]
-card_panel("SMG_SidePlateL", plate_l, 0.02, 'X', -0.075,
-           [white, kraft], parent=yoke)
+plate_loaf = [(0.245, -0.11), (0.245, 0.11), (0.155, 0.165), (-0.125, 0.165),
+              (-0.215, 0.09), (-0.30, 0.03), (-0.30, -0.06), (-0.235, -0.11)]
+for sign, side in ((1, "R"), (-1, "L")):
+    card_panel(f"SMG_SidePlate{side}", plate_loaf, 0.02, 'X', sign * 0.075,
+               [white, kraft], parent=yoke)
 
 # rear closure: kraft cap plate pinned with a brass fastener
-card_panel("SMG_RearCap", [(-0.06, -0.095), (0.06, -0.095), (0.06, 0.095),
-                           (-0.06, 0.095)],
-           0.025, 'Y', 0.3125, [kraft, kraft], parent=yoke)
+card_panel("SMG_RearCap", [(-0.06, -0.10), (0.06, -0.10), (0.06, 0.10),
+                           (-0.06, 0.10)],
+           0.025, 'Y', 0.2325, [kraft, kraft], parent=yoke)
 hex_pts = [(0.04 * cos(i * tau / 6), 0.04 * sin(i * tau / 6))
            for i in range(6)]
-pv, pf = loft([[(x, 0.325, z) for x, z in hex_pts],
-               [(x, 0.36, z) for x, z in hex_pts]])
+pv, pf = loft([[(x, 0.245, z) for x, z in hex_pts],
+               [(x, 0.28, z) for x, z in hex_pts]])
 make_object("SMG_RearBrad", pv, pf, [brass], parent=yoke)
 
-# brass straps around the forward deck — steampunk luggage-trunk banding
-for i, y in enumerate((-0.14, -0.30)):
-    card_panel(f"SMG_Strap{i}", [(-0.095, -0.12), (0.095, -0.12),
-                                 (0.095, 0.125), (-0.095, 0.125)],
-               0.03, 'Y', y, [brass, brass], parent=yoke)
+# one brass strap over the loaf — a little belt
+card_panel("SMG_Strap", [(-0.095, -0.14), (0.095, -0.14),
+                         (0.095, 0.20), (-0.095, 0.20)],
+           0.03, 'Y', -0.12, [brass, brass], parent=yoke)
 
-# pressure gauge on the feed-cover hump
-card_panel("SMG_GaugeRing", ngon_pts(10, 0.05, cy=0.06), 0.045, 'Z', 0.185,
+# big gauge dial on top — oversized, the "top view" lovable detail
+card_panel("SMG_GaugeRing", ngon_pts(10, 0.075, cy=0.02), 0.05, 'Z', 0.215,
            [brass, brass], parent=yoke)
-card_panel("SMG_GaugeFace", ngon_pts(10, 0.042, cy=0.06), 0.012, 'Z', 0.212,
+card_panel("SMG_GaugeFace", ngon_pts(10, 0.065, cy=0.02), 0.014, 'Z', 0.247,
            [white, kraft], parent=yoke)
 
-# ammo reel on the LEFT flank, forward-mounted: laminated card canister
-# with a red mid-stripe and a brass hub
-card_panel("SMG_ReelNeck", ngon_pts(8, 0.05, cx=-0.28), 0.11, 'X', -0.14,
+# oversized ammo-reel canister on the LEFT — chubby, red-striped, brass
+# hub. Mounted clear of the strut plane so it never clips through pitch.
+card_panel("SMG_ReelNeck", ngon_pts(8, 0.06, cx=-0.16), 0.05, 'X', -0.10,
            [kraft, kraft], parent=yoke)
-card_panel("SMG_Reel", [(y - 0.28, z) for y, z in ngon_pts(12, 0.115)],
-           0.11, 'X', -0.25, [white, kraft], parent=yoke)
-card_panel("SMG_ReelStripe", [(y - 0.28, z) for y, z in ngon_pts(12, 0.122)],
-           0.03, 'X', -0.25, [channel, channel], parent=yoke)
-brad("SMG_ReelHub", -0.305, -0.328, 0.04, 0.0, brass, parent=yoke, y=-0.28)
+card_panel("SMG_Reel", [(y - 0.16, z) for y, z in ngon_pts(12, 0.15)],
+           0.13, 'X', -0.18, [white, kraft], parent=yoke)
+card_panel("SMG_ReelStripe", [(y - 0.16, z) for y, z in ngon_pts(12, 0.158)],
+           0.035, 'X', -0.18, [channel, channel], parent=yoke)
+brad("SMG_ReelHub", -0.245, -0.27, 0.05, 0.0, brass, parent=yoke, y=-0.16)
 
 # casing chute low on the RIGHT — angled kraft duct with a red slot
-card_panel("SMG_Chute", [(0.02, -0.06), (-0.10, -0.10), (-0.10, -0.17),
-                         (0.02, -0.13)],
+card_panel("SMG_Chute", [(0.04, -0.08), (-0.08, -0.12), (-0.08, -0.19),
+                         (0.04, -0.15)],
            0.035, 'X', 0.10, [kraft, kraft, channel], cap_slots=(0, 2),
            parent=yoke)
 
-# collar: laminated card discs stepping the box down to the barrel
-disc_y = -0.505
-radii = (0.092, 0.068, 0.080, 0.055)
-for i, r in enumerate(radii):
-    mm = [white, kraft] if i % 2 == 0 else [kraft, kraft]
-    card_panel(f"SMG_Collar{i}", ngon_pts(12, r, cy=-0.01, phase=tau / 24),
-               0.036, 'Y', disc_y - i * 0.044, mm, parent=yoke)
+# collar: two fat laminate rings stepping the loaf down to the barrel
+card_panel("SMG_Collar0", ngon_pts(12, 0.115, cy=-0.01, phase=tau / 24),
+           0.05, 'Y', -0.37, [white, kraft], parent=yoke)
+card_panel("SMG_Collar1", ngon_pts(12, 0.088, cy=-0.01, phase=tau / 24),
+           0.045, 'Y', -0.43, [kraft, kraft], parent=yoke)
 
-# barrel: rolled-card tube split horizontally into two half-shells — open
-# groove down the middle, red channel interior, kraft cut edges
+# barrel: fat stubby split tube — open groove, red channel, kraft edges
 for top, name in ((True, "SMG_BarrelTop"), (False, "SMG_BarrelBottom")):
     a0, a1 = GAP_DEG, 180.0 - GAP_DEG
     if not top:
@@ -165,8 +154,12 @@ for top, name in ((True, "SMG_BarrelTop"), (False, "SMG_BarrelBottom")):
               ARC_SEGS, [white, kraft, channel], slots=(0, 1, 2),
               center=(0.0, -0.01), parent=yoke)
 
-# brass bead sight near the muzzle, standing on the top rail
-card_panel("SMG_SightBead", ngon_pts(6, 0.015, cy=-0.86), 0.04, 'Z', 0.065,
+# bulbous muzzle ring near the tip — the cartoon "boop"
+card_panel("SMG_MuzzleRing", ngon_pts(12, 0.10, cy=-0.01, phase=tau / 24),
+           0.06, 'Y', -0.70, [white, kraft], parent=yoke)
+
+# chunky brass bead sight on the muzzle ring
+card_panel("SMG_SightBead", ngon_pts(6, 0.024, cy=-0.70), 0.05, 'Z', 0.115,
            [brass, brass], parent=yoke)
 
 # muzzle marker, inside the open groove
