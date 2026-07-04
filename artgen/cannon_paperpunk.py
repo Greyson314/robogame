@@ -6,10 +6,11 @@
 #   root "Cannon_Paper" (yaws) -> "Turret" pitch yoke -> "ShootPoint".
 # In-scene names: CAN_Yoke / CAN_Muzzle.
 #
-# Concept: the heavy of the family. Telescoping rolled-card barrel (nested
-# poster tubes with wrap-band joints), chunky laminated receiver with a
-# rolled breech cylinder, recuperator tube offset above-right (asymmetry),
-# and one big red-nosed shell cradled on the left flank.
+# Concept (session 131 revision, steering away from WWII field-gun shapes):
+# the cartoon cannon archetype — fat tapered barrel with hoop rings, flared
+# muzzle lip, cascabel ball at the breech, riding on stepped carriage
+# cheeks with scalloped wheels, cannonball pyramid stacked on the deck.
+# All still paper: rolled cone tubes, card cheeks, laminated-disc balls.
 
 import sys
 
@@ -24,16 +25,17 @@ import paperlib
 importlib.reload(paperlib)
 from paperlib import (materials, clear_objects, hide_default_cube,
                       make_object, loft, card_panel, ngon_pts, arc_shell,
-                      tube, gear_profile, brad, ref_block, export_tree)
+                      tube, gear_profile, brad, disc_ball, ref_block,
+                      export_tree)
 
 DO_EXPORT = True
 EXPORT_PATH = r"C:\Users\Grey\Desktop\mutedtuple\robogame\Assets\_Project\Art\Models\Weapons\Cannon_Paper.fbx"
 
 LOCATION = (-1.8, 0.0, 0.0)  # scene slot left of the SMG; zeroed at export
-PIVOT_Z = 0.55
+PIVOT_Z = 0.50               # trunnion height
 BASE_PLATE = 0.72
 GEAR_Z0 = 0.05
-GEAR_TOP = 0.18              # 4 laminate layers — heavier bearing
+GEAR_TOP = 0.18
 
 clear_objects(prefixes=("CAN_",), names=("Cannon_Paper",))
 hide_default_cube()
@@ -59,21 +61,37 @@ card_panel("CAN_GearMid", ngon_pts(12, 0.26), 0.03, 'Z', GEAR_Z0 + 0.085,
 card_panel("CAN_GearTop", ngon_pts(12, 0.24), 0.03, 'Z', GEAR_Z0 + 0.115,
            [white, kraft], parent=root)
 
-# heavy A-frame: thicker card, taller reach
-strut_front = [(-0.30, GEAR_TOP), (-0.18, GEAR_TOP),
-               (-0.02, PIVOT_Z + 0.05), (-0.10, PIVOT_Z + 0.05)]
-strut_rear = [(0.18, GEAR_TOP), (0.30, GEAR_TOP),
-              (0.10, PIVOT_Z + 0.05), (0.02, PIVOT_Z + 0.05)]
+# carriage: stepped card cheeks (old naval-carriage profile) that carry the
+# trunnion brads, plus scalloped card wheels on brass axles
+cheek = [(-0.30, 0.18), (0.44, 0.18), (0.44, 0.26), (0.30, 0.26),
+         (0.30, 0.38), (0.14, 0.38), (0.14, 0.56), (-0.12, 0.56),
+         (-0.30, 0.42)]
 for sign, side in ((1, "R"), (-1, "L")):
-    card_panel(f"CAN_StrutFront{side}", strut_front, 0.035, 'X', sign * 0.13,
+    card_panel(f"CAN_Cheek{side}", cheek, 0.05, 'X', sign * 0.16,
                [white, kraft], parent=root)
-    card_panel(f"CAN_StrutRear{side}", strut_rear, 0.035, 'X', sign * 0.13,
+card_panel("CAN_CheekSpacer", [(0.20, 0.18), (0.40, 0.18),
+                               (0.40, 0.30), (0.20, 0.30)],
+           0.27, 'X', 0.0, [white, kraft], parent=root)
+wheel_prof = [(y + 0.16, z + 0.21) for y, z in gear_profile(8, 0.125, 0.16)]
+for sign, side in ((1, "R"), (-1, "L")):
+    card_panel(f"CAN_Wheel{side}", wheel_prof, 0.035, 'X', sign * 0.215,
                [white, kraft], parent=root)
-card_panel("CAN_GussetSpacer", [(0.18, GEAR_TOP), (0.28, GEAR_TOP),
-                                (0.28, GEAR_TOP + 0.10), (0.18, GEAR_TOP + 0.10)],
-           0.225, 'X', 0.0, [white, kraft], parent=root)
-brad("CAN_BradR", 0.148, 0.175, 0.065, PIVOT_Z, brass, parent=root)
-brad("CAN_BradL", -0.148, -0.175, 0.065, PIVOT_Z, brass, parent=root)
+    brad(f"CAN_Axle{side}", sign * 0.21, sign * 0.26, 0.05, 0.21, brass,
+         parent=root, y=0.16)
+brad("CAN_TrunnionR", 0.185, 0.21, 0.06, PIVOT_Z, brass, parent=root)
+brad("CAN_TrunnionL", -0.185, -0.21, 0.06, PIVOT_Z, brass, parent=root)
+
+# cannonball pyramid on the front-right deck corner (clear of the gear
+# teeth ring — the corner sits in a tooth gap)
+card_panel("CAN_BallShelf", [(0.20, -0.20), (0.32, -0.20), (0.32, -0.32),
+                             (0.20, -0.32)],
+           0.016, 'Z', 0.068, [white, kraft], parent=root)
+disc_ball("CAN_Ball0", 0.065, (0.26, -0.26, 0.141), [kraft, white],
+          parent=root)
+disc_ball("CAN_Ball1", 0.065, (0.31, -0.31, 0.141), [kraft, white],
+          parent=root)
+disc_ball("CAN_Ball2", 0.065, (0.285, -0.285, 0.251), [kraft, white],
+          parent=root)
 
 # ---------------------------------------------------------------- turret --
 yoke = bpy.data.objects.new("CAN_Yoke", None)
@@ -82,84 +100,34 @@ bpy.context.scene.collection.objects.link(yoke)
 yoke.parent = root
 yoke.location = (0, 0, PIVOT_Z)
 
-# receiver: chunky laminated box with a stepped top deck
-core_profile = [(0.28, -0.14), (0.28, 0.14), (0.20, 0.20), (-0.04, 0.20),
-                (-0.10, 0.15), (-0.30, 0.15), (-0.38, 0.06), (-0.38, -0.06),
-                (-0.24, -0.14)]
-card_panel("CAN_ReceiverCore", core_profile, 0.20, 'X', 0.0,
-           [white, kraft], parent=yoke)
-plate_r = [(0.31, -0.12), (0.31, 0.12), (0.23, 0.175), (-0.02, 0.175),
-           (-0.08, 0.125), (-0.33, 0.125), (-0.40, 0.03), (-0.40, -0.08),
-           (-0.20, -0.12)]
-card_panel("CAN_SidePlateR", plate_r, 0.025, 'X', 0.115,
-           [white, kraft], parent=yoke)
-plate_l = [(0.31, -0.12), (0.31, 0.12), (0.23, 0.175), (-0.02, 0.175),
-           (-0.08, 0.125), (-0.26, 0.125), (-0.32, 0.04), (-0.32, -0.07),
-           (-0.14, -0.12)]
-card_panel("CAN_SidePlateL", plate_l, 0.025, 'X', -0.115,
-           [white, kraft], parent=yoke)
+# the gun: one long rolled cone, breech-fat to muzzle-slim, hooped
+tube("CAN_Barrel", 0.130, 0.018, 0.26, -0.86, 12,
+     [white, kraft, kraft], parent=yoke, r_end=0.082)
+card_panel("CAN_BreechCap", ngon_pts(12, 0.118, phase=tau / 24), 0.03, 'Y',
+           0.265, [kraft, kraft], parent=yoke)
+card_panel("CAN_Hoop0", ngon_pts(12, 0.132, phase=tau / 24), 0.05, 'Y',
+           -0.12, [white, kraft], parent=yoke)
+card_panel("CAN_Hoop1", ngon_pts(12, 0.112, phase=tau / 24), 0.05, 'Y',
+           -0.55, [white, kraft], parent=yoke)
 
-# breech: rolled kraft cylinder out the rear + brass fastener center
-tube("CAN_Breech", 0.10, 0.018, 0.40, 0.27, 10, [kraft, kraft, kraft],
-     parent=yoke)
-card_panel("CAN_BreechCap", ngon_pts(10, 0.095, phase=tau / 20), 0.03, 'Y',
-           0.405, [kraft, kraft], parent=yoke)
-hex_pts = [(0.045 * cos(i * tau / 6), 0.045 * sin(i * tau / 6))
+# flared muzzle lip, open red bore
+tube("CAN_Flare", 0.082, 0.016, -0.86, -1.02, 12,
+     [white, kraft, channel], parent=yoke, r_end=0.14)
+
+# cascabel: laminated paper ball + brass knob off the breech
+disc_ball("CAN_Cascabel", 0.075, (0, 0.335, 0), [white, kraft], parent=yoke)
+hex_pts = [(0.035 * cos(i * tau / 6), 0.035 * sin(i * tau / 6))
            for i in range(6)]
-pv, pf = loft([[(x, 0.42, z) for x, z in hex_pts],
-               [(x, 0.45, z) for x, z in hex_pts]])
-make_object("CAN_BreechBrad", pv, pf, [brass], parent=yoke)
+pv, pf = loft([[(x, 0.40, z) for x, z in hex_pts],
+               [(x, 0.46, z) for x, z in hex_pts]])
+make_object("CAN_CascabelKnob", pv, pf, [brass], parent=yoke)
 
-# breech handle: kraft L-tab on the right of the breech
-card_panel("CAN_BreechHandle", [(0.30, 0.02), (0.36, 0.02), (0.36, -0.10),
-                                (0.33, -0.10), (0.33, -0.01), (0.30, -0.01)],
-           0.02, 'X', 0.10, [kraft, kraft], parent=yoke)
-
-# barrel: telescoping rolled tubes, wrap-band joints, open red bore
-tube("CAN_BarrelA", 0.075, 0.016, -0.35, -0.72, 12,
-     [white, kraft, channel], parent=yoke)
-card_panel("CAN_BandA", ngon_pts(12, 0.088, phase=tau / 24), 0.05, 'Y',
-           -0.70, [white, kraft], parent=yoke)
-tube("CAN_BarrelB", 0.062, 0.014, -0.70, -1.05, 12,
-     [white, kraft, channel], parent=yoke)
-card_panel("CAN_BandB", ngon_pts(12, 0.074, phase=tau / 24), 0.045, 'Y',
-           -1.03, [white, kraft], parent=yoke)
-tube("CAN_BarrelC", 0.050, 0.012, -1.03, -1.35, 12,
-     [white, kraft, channel], parent=yoke)
-card_panel("CAN_BandRoot", ngon_pts(12, 0.09, phase=tau / 24), 0.05, 'Y',
-           -0.37, [white, kraft], parent=yoke)
-
-# recuperator: slim rolled tube riding above-right of the barrel root —
-# the asymmetric mechanism read
-tube("CAN_Recuperator", 0.032, 0.010, -0.28, -0.78, 8,
-     [white, kraft, kraft], center=(0.058, 0.108), parent=yoke)
-card_panel("CAN_RecupCap", ngon_pts(8, 0.036, cx=0.058, cy=0.108), 0.025,
-           'Y', -0.785, [kraft, kraft], parent=yoke)
-
-# spare shell cradled on the LEFT flank: card tray + one big red-nosed round
-card_panel("CAN_CradlePlate", [(0.06, -0.16), (-0.44, -0.16), (-0.44, 0.10),
-                               (0.06, 0.10)],
-           0.016, 'X', -0.145, [white, kraft], parent=yoke)
-tube("CAN_Shell", 0.055, 0.014, -0.02, -0.36, 10,
-     [white, kraft, kraft], center=(-0.21, -0.03), parent=yoke)
-nose0 = [(-0.21 + 0.055 * cos(a), -0.36, -0.03 + 0.055 * sin(a))
-         for a in [k * tau / 10 for k in range(10)]]
-nose1 = [(-0.21 + 0.007 * cos(a), -0.47, -0.03 + 0.007 * sin(a))
-         for a in [k * tau / 10 for k in range(10)]]
-pv, pf = loft([nose0, nose1])
-make_object("CAN_ShellNose", pv, pf, [channel], parent=yoke)
-
-# sight: card tab offset RIGHT on the receiver deck
-card_panel("CAN_Sight", [(-0.16, 0.20), (-0.23, 0.20), (-0.23, 0.28),
-                         (-0.18, 0.28)],
-           0.016, 'X', 0.04, [white, kraft], parent=yoke)
-
-# muzzle marker, just inside the bore
+# muzzle marker, just inside the flare
 muzzle = bpy.data.objects.new("CAN_Muzzle", None)
 muzzle.empty_display_size = 0.05
 bpy.context.scene.collection.objects.link(muzzle)
 muzzle.parent = yoke
-muzzle.location = (0, -1.31, 0)
+muzzle.location = (0, -0.98, 0)
 
 if DO_EXPORT:
     export_tree(root, EXPORT_PATH, yoke=yoke, muzzle=muzzle)

@@ -129,20 +129,27 @@ def ngon_pts(n, r, cx=0.0, cy=0.0, phase=0.0):
 
 
 def arc_shell(name, r_out, wall, y0, y1, a0_deg, a1_deg, segs, mats,
-              slots=(0, 1, 2), center=(0.0, 0.0), parent=None):
+              slots=(0, 1, 2), center=(0.0, 0.0), parent=None, r_end=None):
     """Rolled-card tube shell swept along Y between two arc angles.
     slots = (outer surface, cut edges incl. end rings, inner surface).
     center = (x, z) of the tube axis. A partial arc leaves an open groove;
-    a near-full arc leaves the rolled sheet's seam."""
+    a near-full arc leaves the rolled sheet's seam. r_end (radius at y1)
+    makes the sweep conical — tapers and muzzle flares."""
     a0, a1 = radians(a0_deg), radians(a1_deg)
     angs = [a0 + (a1 - a0) * i / segs for i in range(segs + 1)]
     cx, cz = center
-    prof = [(cx + cos(a) * r_out, cz + sin(a) * r_out) for a in angs]
-    prof += [(cx + cos(a) * (r_out - wall), cz + sin(a) * (r_out - wall))
-             for a in reversed(angs)]
-    rings = [[(x, y, z) for x, z in prof] for y in (y0, y1)]
+
+    def prof(r):
+        p = [(cx + cos(a) * r, cz + sin(a) * r) for a in angs]
+        p += [(cx + cos(a) * (r - wall), cz + sin(a) * (r - wall))
+              for a in reversed(angs)]
+        return p
+
+    p0 = prof(r_out)
+    p1 = prof(r_end if r_end is not None else r_out)
+    rings = [[(x, y0, z) for x, z in p0], [(x, y1, z) for x, z in p1]]
     pv, pf = loft(rings)
-    n = len(prof)
+    n = len(p0)
     fmi = {}
     for j in range(n):
         if j < segs:
@@ -157,11 +164,35 @@ def arc_shell(name, r_out, wall, y0, y1, a0_deg, a1_deg, segs, mats,
 
 
 def tube(name, r_out, wall, y0, y1, segs, mats, slots=(0, 1, 2),
-         center=(0.0, 0.0), parent=None):
+         center=(0.0, 0.0), parent=None, r_end=None):
     """Full rolled tube with a 3° seam slit at the bottom — where the rolled
     sheet's edges meet. The seam is a feature, not a gap."""
     return arc_shell(name, r_out, wall, y0, y1, -88.5, 268.5, segs, mats,
-                     slots=slots, center=center, parent=parent)
+                     slots=slots, center=center, parent=parent, r_end=r_end)
+
+
+def disc_ball(name, r, center, mats, parent=None, bands=6, segs=10):
+    """Laminated-paper ball: a low-poly sphere of stacked horizontal bands,
+    alternating material slots 0/1 so the laminate stripes read. Cartoon
+    cannonballs and bombs."""
+    from math import pi
+    cx, cy, cz = center
+    rings = []
+    for i in range(bands + 1):
+        phi = pi * (0.12 + 0.76 * i / bands)     # trimmed poles, flat caps
+        rr, z = r * sin(phi), r * cos(phi)
+        rings.append([(cx + rr * cos(k * tau / segs),
+                       cy + rr * sin(k * tau / segs), cz + z)
+                      for k in range(segs)])
+    # rings are horizontal (x, y) circles stacked in z
+    pv, pf = loft(rings)
+    fmi = {}
+    for b in range(bands):
+        for j in range(segs):
+            fmi[b * segs + j] = b % 2
+    fmi[bands * segs] = 0
+    fmi[bands * segs + 1] = 0
+    return make_object(name, pv, pf, mats, face_mat_idx=fmi, parent=parent)
 
 
 def gear_profile(teeth, r_root, r_out):
@@ -178,11 +209,11 @@ def gear_profile(teeth, r_root, r_out):
     return pts
 
 
-def brad(name, x_in, x_out, r, z, brass, parent=None):
-    """Brass paper-fastener head on the pitch axis. x signs give the side."""
+def brad(name, x_in, x_out, r, z, brass, parent=None, y=0.0):
+    """Brass paper-fastener head on a lateral axis. x signs give the side."""
     hex_pts = [(r * cos(i * tau / 6), r * sin(i * tau / 6)) for i in range(6)]
-    ring_in = [(x_in, y, z + zz) for y, zz in hex_pts]
-    ring_out = [(x_out, y, z + zz) for y, zz in hex_pts]
+    ring_in = [(x_in, y + yy, z + zz) for yy, zz in hex_pts]
+    ring_out = [(x_out, y + yy, z + zz) for yy, zz in hex_pts]
     pv, pf = loft([ring_in, ring_out])
     return make_object(name, pv, pf, [brass], parent=parent)
 

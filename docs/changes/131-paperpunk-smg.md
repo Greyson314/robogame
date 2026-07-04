@@ -21,6 +21,11 @@ storytelling.
   into two half-shells, open groove down the middle, muzzle showing the
   kraft annular cut + red channel bore (projectile theme, explicitly not
   hitscan-laser).
+- **Silhouettes are steampunk / old-timey, not WWII** (user steer, second
+  revision): boiler drums, brass bands, pressure gauges, hooped tapered
+  tubes, flared muzzles, carriage cheeks + scalloped wheels, cascabel
+  balls, cartoon bombs. No Sten mags, no field-gun telescoping, no
+  finned mortar shells.
 
 ## What shipped
 
@@ -30,19 +35,21 @@ storytelling.
   the bottom — the rolled sheet's edge), gear/brad/loft/export. Exporter
   renames per-weapon yoke/muzzle empties to `Turret`/`ShootPoint` at export
   time (Blender object names are global; three weapons share the scene).
-- `artgen/smg_paperpunk.py` → `SMG_Paper.fbx`. Asymmetry pass on the
-  receiver (user: blocks are symmetric, weapons shouldn't be): stepped
-  feed-cover deck, Sten-style horizontal LEFT magazine (red rims), RIGHT
-  ejection port + charging handle, offset sight fins. Underslung mag gone.
-- `artgen/mortar_paperpunk.py` → `Mortar_Paper.fbx`. Fireworks-mortar
-  concept (real firework mortars are cardboard tubes): fat seamed tube,
-  wrap bands, laminated breech + brass center, LEFT card rack of three
-  red-nosed paper shells. Authored level; MortarBlock lobs the yoke at
-  runtime.
-- `artgen/cannon_paperpunk.py` → `Cannon_Paper.fbx`. Heavy of the family:
-  4-layer yaw gear, telescoping rolled barrel with band joints, kraft
-  breech cylinder + handle (right), recuperator tube above-right, single
-  cradled shell (left).
+- `artgen/smg_paperpunk.py` → `SMG_Paper.fbx`. Boiler-drum receiver with
+  brass bands + top pressure gauge, LEFT ammo-reel canister (red stripe,
+  brass hub), RIGHT casing chute with red slot, brass bead sight, split
+  rolled-tube barrel with the open groove. Asymmetry preserved (user:
+  blocks are symmetric, weapons shouldn't be).
+- `artgen/mortar_paperpunk.py` → `Mortar_Paper.fbx`. Old bombard on the
+  fireworks-tube honesty (real firework mortars are cardboard): short fat
+  tapered tube, hoop rings, flared mouth with red bore, laminated breech +
+  cascabel ball, LEFT shelf of cartoon paper bombs with brass fuse studs.
+  Authored level; MortarBlock lobs the yoke at runtime.
+- `artgen/cannon_paperpunk.py` → `Cannon_Paper.fbx`. The cartoon cannon
+  archetype: stepped carriage cheeks + scalloped card wheels on brass
+  axles, one long tapered rolled cone with hoops, flared muzzle lip,
+  cascabel ball + brass knob, cannonball pyramid (laminated disc balls)
+  on the deck corner.
 - All exported with `FBX_SCALE_ALL`, meshes + empties, WeaponModelRig
   convention (root yaws → `Turret` pitch yoke → `ShootPoint`). SMG pitch
   sweep visually verified ±22° in Blender. Supersedes the deleted
