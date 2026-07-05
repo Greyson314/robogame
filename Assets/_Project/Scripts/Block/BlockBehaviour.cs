@@ -176,8 +176,36 @@ namespace Robogame.Block
             _pitchDeg = pitchDeg;
             _yaw = yaw;
             _currentHealth = definition != null ? definition.MaxHealth : 1f;
+            BuildStaticVisual();
             CacheRenderers();
             UpdateDamageVisual();
+        }
+
+        // TRACE[LOG-132]: generic authored-model path — ends the "red host
+        // cube" fallback for blocks with no moving-part component (drill,
+        // rope, tips, modules). Opt-in per definition (VisualModelStatic);
+        // moving-part blocks keep component-driven models (wheel under its
+        // Spin pivot, weapons via WeaponModelRig). Idempotent by child name;
+        // runs before CacheRenderers so damage tint reaches the model.
+        private void BuildStaticVisual()
+        {
+            if (_definition == null || !_definition.VisualModelStatic
+                || _definition.VisualModel == null)
+            {
+                return;
+            }
+            Transform existing = transform.Find("BlockModel");
+            GameObject inst = existing != null
+                ? existing.gameObject
+                : UnityEngine.Object.Instantiate(_definition.VisualModel, transform);
+            inst.name = "BlockModel";
+            inst.transform.localPosition = _definition.VisualModelOffset;
+            // Imported FBX roots carry a junk -90°X header rotation; force
+            // identity (session-131 caveat, same as WeaponModelRig).
+            inst.transform.localRotation = Quaternion.identity;
+            inst.transform.localScale =
+                Vector3.one * Mathf.Max(0.01f, _definition.VisualModelScale);
+            BlockVisuals.HideHostMesh(gameObject);
         }
 
         private void Awake()

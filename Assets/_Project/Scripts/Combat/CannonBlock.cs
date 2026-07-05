@@ -162,6 +162,9 @@ namespace Robogame.Combat
 
         private void Update()
         {
+            // TRACE[LOG-132]: activation-order tolerant input re-resolve
+            // (same fix as MortarBlock / DrillBlock).
+            if (_input == null) _input = GetComponentInParent<IInputSource>();
             if (_input == null || !_input.FireHeld) return;
             float interval = Mathf.Max(0.05f, ResolveFireInterval());
             if (_gate.TryFire(true, Time.time, interval, _ammo, _blockId, transform.position, 0.30f))

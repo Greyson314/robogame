@@ -97,6 +97,9 @@ namespace Robogame.Combat
 
         private void Update()
         {
+            // TRACE[LOG-132]: activation-order tolerant input re-resolve
+            // (same fix as MortarBlock / DrillBlock).
+            if (_input == null) _input = GetComponentInParent<IInputSource>();
             if (_input == null || !_input.FireHeld) return;
             BombDefinition def = ResolveDef();
             float interval = Mathf.Max(0.05f, def != null ? def.DropInterval : _dropInterval);

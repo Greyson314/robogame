@@ -39,11 +39,32 @@ namespace Robogame.Tools.Editor
 
             // Blocks on the BlockDefinition visual-model path. Wheel model
             // is authored at 1 m diameter; WheelBlock scales by physics
-            // radius itself, so definition scale stays 1.
+            // radius itself, so definition scale stays 1. Component-driven
+            // (isStatic false): WheelBlock owns the instance under Spin.
             changed += WireBlock("BlockDefinitions/BlockDef_Wheel.asset",
-                                 "Wheel_Inv.fbx");
+                                 "Wheel_Inv.fbx", isStatic: false);
             changed += WireBlock("BlockDefinitions/BlockDef_WheelSteer.asset",
-                                 "Wheel_Inv.fbx");
+                                 "Wheel_Inv.fbx", isStatic: false);
+
+            // Static visuals: no moving parts — BlockBehaviour attaches the
+            // model generically at placement. Ends the red-cube fallback for
+            // these ids everywhere (garage + arena, all spawn paths).
+            changed += WireBlock("BlockDefinitions/BlockDef_Drill.asset",
+                                 "Drill_Inv.fbx", isStatic: true);
+            changed += WireBlock("BlockDefinitions/BlockDef_Rope.asset",
+                                 "Rope_Inv.fbx", isStatic: true);
+            changed += WireBlock("BlockDefinitions/BlockDef_Spring.asset",
+                                 "Spring_Inv.fbx", isStatic: true);
+            changed += WireBlock("BlockDefinitions/BlockDef_Hook.asset",
+                                 "TipHook_Inv.fbx", isStatic: true);
+            changed += WireBlock("BlockDefinitions/BlockDef_Mace.asset",
+                                 "TipMace_Inv.fbx", isStatic: true);
+            changed += WireBlock("BlockDefinitions/BlockDef_Magnet.asset",
+                                 "TipMagnet_Inv.fbx", isStatic: true);
+            changed += WireBlock("BlockDefinitions/BlockDef_ModuleEmp.asset",
+                                 "ModuleEmp_Inv.fbx", isStatic: true);
+            changed += WireBlock("BlockDefinitions/BlockDef_ModuleRepair.asset",
+                                 "ModuleRepair_Inv.fbx", isStatic: true);
 
             if (changed > 0) AssetDatabase.SaveAssets();
             Debug.Log($"[InventorModelWiring] Done — {changed} definition(s) updated.");
@@ -56,16 +77,17 @@ namespace Robogame.Tools.Editor
                          1f, offset);
         }
 
-        private static int WireBlock(string defRelPath, string fbxName)
+        private static int WireBlock(string defRelPath, string fbxName, bool isStatic)
         {
             return Apply(DefsDir + defRelPath, BlocksDir + fbxName,
                          "_visualModel", "_visualModelScale", "_visualModelOffset",
-                         1f, Vector3.zero);
+                         1f, Vector3.zero, "_visualModelStatic", isStatic);
         }
 
         private static int Apply(string defPath, string fbxPath,
                                  string modelProp, string scaleProp,
-                                 string offsetProp, float scale, Vector3 offset)
+                                 string offsetProp, float scale, Vector3 offset,
+                                 string boolProp = null, bool boolValue = false)
         {
             var def = AssetDatabase.LoadAssetAtPath<ScriptableObject>(defPath);
             if (def == null)
@@ -93,14 +115,27 @@ namespace Robogame.Tools.Editor
                 return 0;
             }
 
+            SerializedProperty pBool = null;
+            if (boolProp != null)
+            {
+                pBool = so.FindProperty(boolProp);
+                if (pBool == null)
+                {
+                    Debug.LogWarning($"[InventorModelWiring] {defPath}: missing serialized field {boolProp} — skipped.");
+                    return 0;
+                }
+            }
+
             bool dirty = pModel.objectReferenceValue != model
                          || !Mathf.Approximately(pScale.floatValue, scale)
-                         || pOffset.vector3Value != offset;
+                         || pOffset.vector3Value != offset
+                         || (pBool != null && pBool.boolValue != boolValue);
             if (!dirty) return 0;
 
             pModel.objectReferenceValue = model;
             pScale.floatValue = scale;
             pOffset.vector3Value = offset;
+            if (pBool != null) pBool.boolValue = boolValue;
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(def);
             Debug.Log($"[InventorModelWiring] {defPath} -> {fbxPath}");

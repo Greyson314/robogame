@@ -245,6 +245,41 @@ Joint variants via per-block MPB UV offset remain the phase-2 step.
 BlockDef asset churn (24 files) = the new `_visualModel` fields
 serializing with defaults; scene churn committed separately as chore.
 
+## Red-cubism deep pass (user report: mortar red + dead in arena)
+
+Reproduced the REAL pipeline end-to-end (garage → CurrentBlueprint →
+Launch → ChassisAssembler → arena): on current code the mortar builds,
+binds, and fires in the arena — the user's red-cube session was a
+stale-editor state (import-window class). But the investigation
+surfaced three systemic red-cubism causes, all fixed:
+
+1. **Silent block drops:** `ChassisAssembler` ignored
+   `PlaceBlock == null` — a rejected block vanished between garage and
+   arena with zero log. Now warns with id + cell (Fail Loud).
+2. **Bind-once-in-Awake input:** Mortar/Cannon/BombBay bound
+   `IInputSource` once in Awake; any activation-order change (arena
+   spawn, future netcode possession) leaves dead weapons. All three now
+   lazily re-resolve in Update — the same fix `DrillBlock` already
+   carried with a comment admitting the staleness.
+3. **No generic model path:** blocks without bespoke visual components
+   (drill, rope, spring, tips, modules) rendered the raw red host cube
+   forever. `BlockDefinition` gained `_visualModelStatic`;
+   `BlockBehaviour.Initialize` now attaches the authored model
+   generically (host mesh hidden, before `CacheRenderers` so damage
+   tint reaches it). Opt-in per definition — moving-part blocks stay
+   component-driven. Wired: drill (Archimedes auger verified live on
+   the user's `ddd` bot), rope, spring, hook, mace, magnet, EMP +
+   Repair modules. Red-cube states remaining BY DESIGN: blocks whose
+   sweep integration is pending (rotor/thruster/wing/fin/rudder/
+   hoverblade/grapple/CPU keep procedural or primitive visuals until
+   their moving-part consumers land).
+
+Diagnostic pattern worth keeping: the user save at
+`%AppData%..\LocalLow\MutedTuple\Robogame\blueprints\*.robot.json` can
+be parsed via `BlueprintSerializer.TryFromJson` and pushed through
+`GameStateController.SetCurrentBlueprint` to test the exact
+launch-frozen pipeline without touching build-mode UI.
+
 ## Open / next
 
 - User verdict on the seven studies — which graduate to export +

@@ -290,6 +290,15 @@ namespace Robogame.Gameplay
                     }
                     BlockBehaviour placed = grid.PlaceBlock(
                         def, entry.Position, entry.EffectiveUp, entry.Dims, entry.Pitch, entry.EffectiveYaw);
+                    // TRACE[LOG-132]: fail loud — a rejected placement used
+                    // to vanish silently between garage and arena, which is
+                    // indistinguishable from "the block never existed".
+                    if (placed == null)
+                    {
+                        Debug.LogWarning(
+                            $"[Robogame] ChassisAssembler: PlaceBlock rejected '{entry.BlockId}' at {entry.Position} — block dropped from assembled chassis.",
+                            root);
+                    }
                     // Per-block server-authoritative scalar (thruster
                     // thrust / rudder authority / rotor RPM). 0 = use the
                     // block's authored default. Rides the same Entry the

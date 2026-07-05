@@ -111,6 +111,13 @@ namespace Robogame.Block
         [Tooltip("Local offset for the visual model instance.")]
         [SerializeField] private Vector3 _visualModelOffset = Vector3.zero;
 
+        [Tooltip("When true, BlockBehaviour attaches the visual model " +
+                 "generically at placement (host mesh hidden) — for blocks " +
+                 "with no moving-part component (drill, rope, tips, modules). " +
+                 "Leave false when a component owns the model (wheel under " +
+                 "its Spin pivot, weapons via WeaponModelRig).")]
+        [SerializeField] private bool _visualModelStatic = false;
+
         [Header("Component data (kind-specific)")]
         [Tooltip("Optional ScriptableObject carrying per-kind authored stats. " +
                  "Examples: WeaponDefinition for Weapon blocks, BombDefinition for BombBay blocks. " +
@@ -146,6 +153,7 @@ namespace Robogame.Block
         public GameObject VisualModel => _visualModel;
         public float VisualModelScale => _visualModelScale;
         public Vector3 VisualModelOffset => _visualModelOffset;
+        public bool VisualModelStatic => _visualModelStatic;
         public ScriptableObject ComponentData => _componentData;
 
         /// <summary>Convenience cast for consumers that know the expected type.</summary>

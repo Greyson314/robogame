@@ -245,6 +245,11 @@ namespace Robogame.Combat
 
         private void Update()
         {
+            // TRACE[LOG-132]: activation-order tolerant — a bind-once Awake
+            // lookup goes stale when the input source lands after this block
+            // (arena spawn / future netcode possession). Same lazy re-resolve
+            // DrillBlock already carries. Null check is free per frame.
+            if (_input == null) _input = GetComponentInParent<IInputSource>();
             if (_input == null || !_input.FireHeld) return;
             float interval = Mathf.Max(0.05f, ResolveFireInterval());
             if (_gate.TryFire(true, Time.time, interval, _ammo, _blockId, transform.position, 0.40f))
