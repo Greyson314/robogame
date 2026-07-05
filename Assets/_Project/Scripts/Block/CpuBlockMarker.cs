@@ -59,32 +59,57 @@ namespace Robogame.Block
 
         private void BuildVisuals()
         {
-            // Antenna mast — thin tall cylinder rising from the top of the cube.
-            // The host cube has localScale = cellSize (1m default), so local
-            // y=0.5 is the top face. We stack the antenna on top of that.
-            Transform mast = BlockVisuals.GetOrCreatePrimitiveChild(
-                transform, "CpuBeaconMast", PrimitiveType.Cylinder);
-            mast.localScale = new Vector3(0.12f, 0.45f, 0.12f);
-            mast.localPosition = new Vector3(0f, 0.5f + 0.45f, 0f);
+            // Authored-model CPUs (the capybara cockpit, 1x1x2) carry
+            // their own silhouette — a beacon mast would spear the pilot.
+            // Keep only the pulsing light, floated above the model.
+            // BlockGrid adds this marker AFTER BlockBehaviour.Initialize,
+            // so the definition (and BlockModel child) already exist.
+            var block = GetComponent<BlockBehaviour>();
+            bool hasModel = block != null && block.Definition != null
+                            && block.Definition.VisualModelStatic
+                            && block.Definition.VisualModel != null;
 
-            // Tip sphere — sits on top of the antenna.
-            Transform tip = BlockVisuals.GetOrCreatePrimitiveChild(
-                transform, "CpuBeaconTip", PrimitiveType.Sphere);
-            tip.localScale = new Vector3(0.32f, 0.32f, 0.32f);
-            tip.localPosition = new Vector3(0f, 0.5f + 0.45f * 2f + 0.16f, 0f);
-
-            // Apply emissive cyan to both via one shared material.
-            _renderers = new[]
+            Transform lightMount;
+            if (hasModel)
             {
-                mast.GetComponent<Renderer>(),
-                tip.GetComponent<Renderer>(),
-            };
-            ApplyEmissive(_renderers);
+                lightMount = transform.Find("CpuBeaconLightMount");
+                if (lightMount == null)
+                {
+                    lightMount = new GameObject("CpuBeaconLightMount").transform;
+                    lightMount.SetParent(transform, worldPositionStays: false);
+                }
+                lightMount.localPosition = new Vector3(0f, 1.45f, 0f);
+            }
+            else
+            {
+                // Antenna mast — thin tall cylinder rising from the top of the
+                // cube. The host cube has localScale = cellSize (1m default),
+                // so local y=0.5 is the top face. Antenna stacks on top.
+                Transform mast = BlockVisuals.GetOrCreatePrimitiveChild(
+                    transform, "CpuBeaconMast", PrimitiveType.Cylinder);
+                mast.localScale = new Vector3(0.12f, 0.45f, 0.12f);
+                mast.localPosition = new Vector3(0f, 0.5f + 0.45f, 0f);
 
-            // Point light at the tip — this is the bit that screams "kill me"
+                // Tip sphere — sits on top of the antenna.
+                Transform tip = BlockVisuals.GetOrCreatePrimitiveChild(
+                    transform, "CpuBeaconTip", PrimitiveType.Sphere);
+                tip.localScale = new Vector3(0.32f, 0.32f, 0.32f);
+                tip.localPosition = new Vector3(0f, 0.5f + 0.45f * 2f + 0.16f, 0f);
+
+                // Apply emissive cyan to both via one shared material.
+                _renderers = new[]
+                {
+                    mast.GetComponent<Renderer>(),
+                    tip.GetComponent<Renderer>(),
+                };
+                ApplyEmissive(_renderers);
+                lightMount = tip;
+            }
+
+            // Point light — this is the bit that screams "kill me"
             // from across the arena.
             GameObject lightGo = new GameObject("CpuBeaconLight");
-            lightGo.transform.SetParent(tip, worldPositionStays: false);
+            lightGo.transform.SetParent(lightMount, worldPositionStays: false);
             _light = lightGo.AddComponent<Light>();
             _light.type = LightType.Point;
             _light.color = s_beaconColor;

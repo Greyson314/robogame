@@ -65,6 +65,12 @@ namespace Robogame.Tools.Editor
                                  "ModuleEmp_Inv.fbx", isStatic: true);
             changed += WireBlock("BlockDefinitions/BlockDef_ModuleRepair.asset",
                                  "ModuleRepair_Inv.fbx", isStatic: true);
+            // CPU: the capybara command cockpit (1x1x2 — head rises into
+            // the cell above; origin at bottom-cell centre so offset 0).
+            // CpuBlockMarker sees the model and keeps only its pulsing
+            // light — no beacon mast through the pilot.
+            changed += WireBlock("BlockDefinitions/BlockDef_Cpu.asset",
+                                 "CapyCube_Inv.fbx", isStatic: true);
 
             if (changed > 0) AssetDatabase.SaveAssets();
             Debug.Log($"[InventorModelWiring] Done — {changed} definition(s) updated.");

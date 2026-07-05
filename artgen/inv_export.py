@@ -128,6 +128,9 @@ STATICS = [
     ("inv_drill", "build", "InvDrill_Root", "Drill_Inv"),
     ("inv_rope", "build", "InvRope_Root", "Rope_Inv"),
     ("inv_cpu", "build", "InvCpu_Root", "Cpu_Inv"),
+    # 1x1x2: bottom cell = cockpit cube, capybara head rises into the
+    # cell above. Origin at bottom-cell centre -> Unity offset zero.
+    ("inv_capycube", "build", "InvCapyCube_Root", "CapyCube_Inv"),
     ("inv_grapple", "build", "InvGrap_Root", "Grapple_Inv"),
     ("inv_tips", "build_hook", "InvHook_Root", "TipHook_Inv"),
     ("inv_tips", "build_mace", "InvMace_Root", "TipMace_Inv"),
