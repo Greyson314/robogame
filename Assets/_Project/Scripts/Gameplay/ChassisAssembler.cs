@@ -196,10 +196,18 @@ namespace Robogame.Gameplay
                         if (e.BlockId == BlockIds.Aero || e.BlockId == BlockIds.AeroFin) hasAero = true;
                         if (e.BlockId == BlockIds.HoverBlade) hasHovers = true;
                         if (ModuleKinds.IsModuleId(e.BlockId)) hasModule = true;
-                        if (e.BlockId == BlockIds.Weapon
-                            || e.BlockId == BlockIds.BombBay
-                            || e.BlockId == BlockIds.Cannon
-                            || e.BlockId == BlockIds.GrappleMagnet)
+                        // TRACE[LOG-132]: weapon detection by definition
+                        // category, not a hand-synced id list — the old list
+                        // {Weapon, BombBay, Cannon, GrappleMagnet} silently
+                        // missed the mortar, so a mortar-only bot got no
+                        // WeaponMount / RobotWeaponBinder: red host cube,
+                        // dead trigger. Same registry-over-list move as
+                        // ADR-0003 phase B. Tip blocks are Weapon-category
+                        // too; the binder's own ShouldBind skips them, so an
+                        // idle binder on a tips-only bot is the only cost.
+                        BlockDefinition weaponProbe = library.Get(e.BlockId);
+                        if (weaponProbe != null &&
+                            weaponProbe.Category == BlockCategory.Weapon)
                             hasWeapon = true;
                     }
 

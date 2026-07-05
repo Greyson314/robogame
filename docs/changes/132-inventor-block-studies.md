@@ -298,6 +298,27 @@ editor states while this session was actively compiling/refreshing;
 every clean-state repro passes. If it recurs in a fresh session:
 capture WHERE (garage vs which arena) + console before anything else.
 
+## THE mortar bug (caught live in the user's session)
+
+User screenshot: mortar as a red cube in the arena, ammo HUD showing
+the pool, "turned red as soon as I clicked save." Live inspection of
+their running session: the mortar block had **no MortarBlock
+component** and the robot had **no RobotWeaponBinder at all**. Root
+cause: `ChassisAssembler`'s `hasWeapon` detection was a hand-synced id
+list — {Weapon, BombBay, Cannon, GrappleMagnet} — **missing
+BlockIds.Mortar**. A mortar-only bot assembled with no WeaponMount and
+no weapon binder: red host cube, dead trigger. Every earlier repro
+carried an SMG, which set hasWeapon and masked the bug completely;
+"worked for a second" = their earlier bot still had an SMG; "broke on
+save" = save triggers reassembly of a fresh root. Fix: weapon
+detection by `BlockDefinition.Category == Weapon` via the library —
+the same registry-over-hand-synced-list move as ADR-0003 phase B
+(tips are Weapon-category too; the binder's ShouldBind skips them, so
+an idle binder is the only cost). Verified on the exact failing
+config (mortar-only bot, no SMG): binder present, block bound, tub
+rendered, 5 rounds fired via synthetic held input, impacts on
+terrain.
+
 ## Open / next
 
 - User verdict on the seven studies — which graduate to export +
