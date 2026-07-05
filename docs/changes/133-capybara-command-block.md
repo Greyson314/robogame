@@ -84,7 +84,19 @@ into the game as the CPU block's visual.
   plasma hourglass (new InvPlasma emissive ≈ Plasma token), Shield =
   linen parasol, Smoke = censer + carved wisp, Invis = empty jar with
   a specimen tag, Mines = banded bomb pyramid. Every gameplay block id
-  now has an inventor study. Not exported/wired — review first.
+  now has an inventor study.
+- **All six wired in-game (same session, user go-ahead).** Modules via
+  the static path (shield verified on a live placement). The foil is
+  the first authored model on a scalable block: `AeroSurfaceBlock`
+  hangs `Foil_Inv` under its Wing rig with an inverse-FoilDefaults
+  child scale (absolute cube scale → ratio scaling; default dims =
+  authored mesh exactly). Rotor mode = +90° Z axis-permutation (root
+  on the hub side). Mirrored side mounts flip camber, so
+  `SyncWingModel` mirrors via negative X scale when the camber axis
+  points below chassis horizontal. Exporter bakes Rz(180)·Ry(−90).
+  Verified live: heli rotor = four cambered linen sails; plane span-4
+  wings stretch + camber symmetrically; fin keeps its slab pending
+  its own wiring. Suite green 378/378.
 
 ## Open / design review
 - Garage scene holds a parked chassis remnant ~1600 m below origin
