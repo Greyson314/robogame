@@ -84,4 +84,9 @@ def build(loc=(1.8, -8.0, 0.0)):
              [(0.010, 0.45), (0.030, 0.47), (0.033, 0.495),
               (0.018, 0.515), (0.003, 0.525)],
              [m["brass"]], segs=10, axis='Y', parent=muzzle)
+
+    # Muzzle marker for export (WeaponModelRig ShootPoint).
+    shoot = il.root_empty(PFX + "Muzzle", (0, 0, 0))
+    shoot.parent = muzzle
+    shoot.location = (0, -0.74, 0)
     return root

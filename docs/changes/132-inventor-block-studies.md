@@ -172,6 +172,39 @@ studies at y = −8 covering the rest of the block roster
 Every gameplay block id now has an inventor-language study except the
 plain CPU/cube/wheel/wing/thruster/rotor/SMG set from earlier legs.
 
+## Unity wiring (fourth leg, user go-ahead)
+
+All 22 studies exported to FBX (`artgen/inv_export.py`, paperlib
+frame conversion): four weapons to `Art/Models/Weapons/*_Inv.fbx`,
+the rest to `Art/Models/Blocks/Inv/`. Rig rules encoded in the
+exporter: cannon rake zeroed (TurretYoke owns pitch and forces
+identity on the Turret node), the mortar tub's display tilt BAKED
+into child geometry so the yoke exports identity and MortarBlock's
+runtime lob isn't doubled, wheel wrapped in a −90°-about-Y empty so
+its axle lands on Unity +Y (= WheelBlock's spin axis) at exactly 1 m
+diameter, bomb bay exported doors-closed / no bomb.
+
+Code: `BlockDefinition` gained optional `_visualModel/Scale/Offset`
+(behaviours are runtime-AddComponent'ed, so models must ride the
+definition — mirrors `WeaponStatsDefinition`). `WheelBlock.EnsureRig`
+instantiates the model under `Spin` (scale = 2 × physics radius) and
+skips the tyre/hubcap primitives; stem/hub/spin rig unchanged. New
+`InventorModelWiring` editor menu (Robogame → Art → Wire Inventor
+Models) idempotently points Weapon_Smg / Cannon_Default /
+Mortar_Default / Bomb_Default (`_turretModel`, offset −0.5; bay 0)
+and BlockDef_Wheel(+Steer) (`_visualModel`) at the FBXs. Kept OUT of
+BlockDefinitionWizard on purpose — its stat-restamping clobber (131)
+must never ride along with art wiring.
+
+**Wired this leg:** SMG, cannon, mortar, bomb bay, wheel, steer wheel.
+**Sweep remaining** (each needs its own moving-part integration in
+the behaviour, FBXs already in-repo): rotor (spin child), thruster
+(bellows + nozzle), wing/fin/rudder (aero surfaces), hoverblade,
+spring, drill (auger spin), rope, tips (rope-end attach), grapple
+(procedural rig today, no model path), modules, CPU. Cube stays on
+the MK Toon primitive until the plank albedo exists (perf: the cube
+is THE batched block; a 49-object prefab would nuke instancing).
+
 ## Open / next
 
 - User verdict on the seven studies — which graduate to export +

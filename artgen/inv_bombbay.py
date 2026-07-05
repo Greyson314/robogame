@@ -16,7 +16,9 @@ P = 0.38   # post centreline
 B = 0.07   # post cross-section
 
 
-def build(loc=(0.0, -8.0, 0.5)):
+def build(loc=(0.0, -8.0, 0.5), doors=( -55.0, 235.0), with_bomb=True):
+    """Display build: doors mid-swing + dropping bomb. Export build:
+    doors nearly closed, no bomb (BombBayBlock spawns real bombs)."""
     pl.clear_objects(prefixes=(PFX,))
     m = il.materials()
     root = il.root_empty(PFX + "Root", loc)
@@ -53,8 +55,8 @@ def build(loc=(0.0, -8.0, 0.5)):
         il.box(f"{PFX}Lid{k}", (x, 0, 0.445), (0.20, 2 * P - B, 0.025),
                [m["wood"]], parent=root)
 
-    # Trapdoors caught mid-swing (hinge lines at the bottom rails).
-    for sy, ang in ((1, -55.0), (-1, 235.0)):
+    # Trapdoors (hinge lines at the bottom rails).
+    for sy, ang in ((1, doors[0]), (-1, doors[1])):
         door = il.box(f"{PFX}Door{sy}", (0, 0.175, 0), (0.60, 0.35, 0.022),
                       [m["wood"]], parent=root)
         door.rotation_euler = (radians(ang), 0, 0)
@@ -65,10 +67,10 @@ def build(loc=(0.0, -8.0, 0.5)):
                    (hx + 0.04, sy * (P - 0.02), -0.425),
                    0.020, [m["brass"]], sides=6, parent=root)
 
-    # The bomb, mid-drop.
-    pl.disc_ball(f"{PFX}Bomb", 0.145, (0, 0, -0.60),
-                 [m["iron"], m["ink"]], parent=root)
-    il.lathe(f"{PFX}BombStud", [(0.032, -0.47), (0.030, -0.445),
-                                (0.012, -0.43)],
-             [m["brass"]], segs=8, parent=root)
+    if with_bomb:
+        pl.disc_ball(f"{PFX}Bomb", 0.145, (0, 0, -0.60),
+                     [m["iron"], m["ink"]], parent=root)
+        il.lathe(f"{PFX}BombStud", [(0.032, -0.47), (0.030, -0.445),
+                                    (0.012, -0.43)],
+                 [m["brass"]], segs=8, parent=root)
     return root

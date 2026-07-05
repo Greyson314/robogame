@@ -336,6 +336,29 @@ namespace Robogame.Movement
             // Spin pivot: rotates around block-local +Y (= the axle).
             if (_spin == null) _spin = BlockVisuals.GetOrCreateChild(_hub, "Spin");
 
+            // TRACE[LOG-132]: authored wheel model (inventor cartwheel)
+            // replaces the tyre/hubcap primitives when the definition
+            // carries one. Authored at exactly 1 m outer diameter, axle
+            // along +Y (the spin axis) — so uniform scale = 2 * radius.
+            // Imported FBX roots carry a junk -90°X header rotation;
+            // localRotation is forced to identity (session-131 caveat).
+            GameObject visualModel = null;
+            var behaviour = GetComponent<Robogame.Block.BlockBehaviour>();
+            if (behaviour != null && behaviour.Definition != null)
+                visualModel = behaviour.Definition.VisualModel;
+            if (visualModel != null)
+            {
+                Transform existing = _spin.Find("WheelModel");
+                GameObject inst = existing != null
+                    ? existing.gameObject
+                    : Instantiate(visualModel, _spin);
+                inst.name = "WheelModel";
+                inst.transform.localPosition = Vector3.zero;
+                inst.transform.localRotation = Quaternion.identity;
+                inst.transform.localScale = Vector3.one * (_radius * 2f);
+                return; // stem/hub/spin exist; no primitive tyre needed
+            }
+
             // Tyre: dark, thin disc. Cylinder default long axis = +Y, which
             // here IS the axle, so no rotation needed; just scale.
             if (_tyre == null)

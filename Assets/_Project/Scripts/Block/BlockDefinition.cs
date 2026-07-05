@@ -94,6 +94,23 @@ namespace Robogame.Block
                  "Falls back to the primitive's default material if null.")]
         [SerializeField] private Material _material;
 
+        // TRACE[LOG-132]: inventor-aesthetic model wiring — authored FBX
+        // visuals ride the definition (behaviours are AddComponent'ed at
+        // runtime, so serialized fields on prefabs can't carry them).
+        [Tooltip("Optional authored visual model (FBX). Block components that " +
+                 "support model visuals (WheelBlock first; sweep in progress) " +
+                 "instantiate it in place of their procedural primitives. " +
+                 "Null = keep the procedural rig.")]
+        [SerializeField] private GameObject _visualModel;
+
+        [Tooltip("Uniform scale for the visual model instance. Components may " +
+                 "layer their own sizing on top (e.g. WheelBlock scales a 1 m " +
+                 "authored wheel to its physics radius).")]
+        [SerializeField, Min(0.01f)] private float _visualModelScale = 1f;
+
+        [Tooltip("Local offset for the visual model instance.")]
+        [SerializeField] private Vector3 _visualModelOffset = Vector3.zero;
+
         [Header("Component data (kind-specific)")]
         [Tooltip("Optional ScriptableObject carrying per-kind authored stats. " +
                  "Examples: WeaponDefinition for Weapon blocks, BombDefinition for BombBay blocks. " +
@@ -126,6 +143,9 @@ namespace Robogame.Block
         public GameObject Prefab => _prefab;
         public Color TintColor => _tintColor;
         public Material Material => _material;
+        public GameObject VisualModel => _visualModel;
+        public float VisualModelScale => _visualModelScale;
+        public Vector3 VisualModelOffset => _visualModelOffset;
         public ScriptableObject ComponentData => _componentData;
 
         /// <summary>Convenience cast for consumers that know the expected type.</summary>

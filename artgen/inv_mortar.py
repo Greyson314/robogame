@@ -54,6 +54,11 @@ def build(loc=(3.6, -8.0, 0.0)):
               (0.14, -0.01)],
              [m["wood_dark"]], segs=12, axis='Z', parent=tilt)
 
+    # Muzzle marker at the mouth for export (ShootPoint).
+    shoot = il.root_empty(PFX + "Muzzle", (0, 0, 0))
+    shoot.parent = tilt
+    shoot.location = (0, 0, 0.46)
+
     # Cartoon bomb on the deck, brass fuse stud.
     pl.disc_ball(f"{PFX}Bomb", 0.125, (0.20, 0.24, 0.215),
                  [m["iron"], m["ink"]], parent=root)
