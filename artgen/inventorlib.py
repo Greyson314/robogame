@@ -115,8 +115,30 @@ def materials():
         "cord": pl.get_material("InvCord", CORD, roughness=0.95),
         "iron": pl.get_material("InvIron", IRON, roughness=0.55),
         "ink": pl.get_material("InvInk", INK, roughness=0.6),
+        "glass": _glassify(pl.get_material("InvGlass",
+                                           (0.75, 0.85, 0.90, 1.0),
+                                           roughness=0.08)),
+        "mint": pl.get_material("InvMint", (0.055, 0.28, 0.11, 1.0),
+                                roughness=0.4),
     })
     return m
+
+
+def _glassify(mat):
+    """Bell-jar glass: translucent via alpha blend (robust across EEVEE
+    generations, unlike transmission in material preview)."""
+    bsdf = mat.node_tree.nodes.get("Principled BSDF")
+    if bsdf and "Alpha" in bsdf.inputs:
+        bsdf.inputs["Alpha"].default_value = 0.22
+    try:
+        mat.blend_method = 'BLEND'
+    except Exception:
+        pass
+    try:
+        mat.surface_render_method = 'BLENDED'
+    except Exception:
+        pass
+    return mat
 
 
 def root_empty(name, loc):
@@ -222,13 +244,17 @@ def sweep(name, path, r, mats, sides=6, parent=None):
     return pl.make_object(name, pv, pf, mats, parent=parent)
 
 
-def ribbon(name, rows, thickness, mats, parent=None):
+def ribbon(name, rows, thickness, mats, parent=None, axis='Z'):
     """Thin stretched sheet from a grid of rows (equal-length 3D point
     lists). Each row becomes a closed ring by appending the reversed row
-    dropped by `thickness` — membrane with visible edge thickness."""
+    offset by `thickness` along -axis — membrane with visible edge
+    thickness. axis='X'/'Y' for vertical / axial sheets."""
+    d = {'X': (thickness, 0, 0), 'Y': (0, thickness, 0),
+         'Z': (0, 0, thickness)}[axis]
     rings = []
     for row in rows:
-        bottom = [(x, y, z - thickness) for (x, y, z) in reversed(row)]
+        bottom = [(x - d[0], y - d[1], z - d[2]) for (x, y, z) in
+                  reversed(row)]
         rings.append([tuple(p) for p in row] + bottom)
     pv, pf = pl.loft(rings)
     return pl.make_object(name, pv, pf, mats, parent=parent)

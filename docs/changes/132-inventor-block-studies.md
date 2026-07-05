@@ -138,6 +138,40 @@ no frame, no pegs. In-game plan: ONE chamfered mesh + plank albedo
 with 3-4 joint variants picked per block via MaterialPropertyBlock UV
 offset (MPB path already exists for damage tint, batching survives).
 
+## Full component pass (same session, third leg)
+
+Tiling walls deleted (scene + `inv_cube_walls.py` git-rm'd — decision
+recorded above, git history keeps the script). Then sixteen new
+studies at y = −8 covering the rest of the block roster
+(`inventorlib` grew `ribbon` axis param + glass/mint materials;
+`inv_wheel.make_wheel` is now reusable):
+
+- **WheelSteer** — cartwheel in a walnut caster fork under a mini
+  steering gear + brass kingpin. **AeroFin** — 3-spar pennant of the
+  wing fan. **Rudder** — sternpost + brass gudgeons, vertical fan
+  blade, tiller arm. **Drill** — Archimedes auger: iron flight on a
+  tapered oak shaft off a laminated gear collar. **Spring** —
+  full-elliptic carriage leaf spring, cord-whipped eyes (rotated to
+  face front). **HoverBlade** — pitched-linen pinwheel fan in an oak
+  hoop (v1 vanes read as shards; overlap + gentle pitch fixed it).
+- **Cannon** — iron barrel + brass hoops on stepped walnut cheeks,
+  scalloped oak wheels, cascabel, red bore. **Mortar** — staved oak
+  tub bombard at 42° on wedge cheeks, deck bomb. **BombBay** —
+  open-bottom crate, cord X-braces, trapdoors mid-swing, laminated
+  iron bomb dropping. **GrappleMagnet** — deck winch: hemp drum, oak
+  trough, horseshoe loaded poles-forward, crank.
+- **Rope** — flanged spool of hemp + cleat. **Hook** — 3-fluke iron
+  grapnel, brass points. **Mace** — laminated wood ball + iron studs.
+  **Magnet** — THE cartoon horseshoe (vermilion, pale pole shoes,
+  brass eye); `inv_tips.horseshoe` shared with the launcher.
+- **Modules** (family rule: same apparatus, contents differ): walnut
+  plinth + brass-collared glass bell jar; EMP = mini tesla coil with
+  cyan spark, Repair = mint draught. Blink/Shield/Smoke/Invis/Mines
+  follow the recipe.
+
+Every gameplay block id now has an inventor-language study except the
+plain CPU/cube/wheel/wing/thruster/rotor/SMG set from earlier legs.
+
 ## Open / next
 
 - User verdict on the seven studies — which graduate to export +
