@@ -48,6 +48,64 @@ def _weave(mat, scale=170.0, strength=0.14):
     return mat
 
 
+# Structure-cube oak: the committed direction (session 132 cube call) —
+# continuous planking, "slightly darker than mid", grain along the plank.
+OAK_A = (0.235, 0.130, 0.056, 1.0)
+OAK_B = (0.200, 0.110, 0.047, 1.0)
+
+
+def _grain(mat, tone, axis='X'):
+    """Directional wood grain: stretched noise drives a two-stop ramp
+    around the base tone plus a gentle bump. Idempotent by node name.
+    axis = the plank's long axis (grain runs along it)."""
+    nt = mat.node_tree
+    bsdf = nt.nodes.get("Principled BSDF")
+    if bsdf is None:
+        return mat
+
+    def node(name, kind, loc):
+        n = nt.nodes.get(name)
+        if n is None:
+            n = nt.nodes.new(kind)
+            n.name = name
+            n.location = loc
+        return n
+
+    co = node("GrainCo", "ShaderNodeTexCoord", (-900, -100))
+    mp = node("GrainMap", "ShaderNodeMapping", (-720, -100))
+    mp.inputs["Scale"].default_value = \
+        (3.0, 26.0, 26.0) if axis == 'X' else (26.0, 3.0, 26.0)
+    noise = node("GrainNoise", "ShaderNodeTexNoise", (-540, -100))
+    noise.inputs["Scale"].default_value = 1.0
+    noise.inputs["Detail"].default_value = 2.5
+    noise.inputs["Roughness"].default_value = 0.5
+    ramp = node("GrainRamp", "ShaderNodeValToRGB", (-360, -100))
+    ramp.color_ramp.elements[0].position = 0.25
+    ramp.color_ramp.elements[0].color = \
+        (tone[0] * 1.06, tone[1] * 1.06, tone[2] * 1.06, 1.0)
+    ramp.color_ramp.elements[1].position = 0.75
+    ramp.color_ramp.elements[1].color = \
+        (tone[0] * 0.72, tone[1] * 0.70, tone[2] * 0.68, 1.0)
+    bump = node("GrainBump", "ShaderNodeBump", (-360, -380))
+    bump.inputs["Strength"].default_value = 0.05
+    nt.links.new(co.outputs["Object"], mp.inputs["Vector"])
+    nt.links.new(mp.outputs["Vector"], noise.inputs["Vector"])
+    nt.links.new(noise.outputs["Fac"], ramp.inputs["Fac"])
+    nt.links.new(ramp.outputs["Color"], bsdf.inputs["Base Color"])
+    nt.links.new(noise.outputs["Fac"], bump.inputs["Height"])
+    nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    return mat
+
+
+def oak_grain(axis='X'):
+    """Two-tone grained plank pair for the given plank direction."""
+    a = _grain(pl.get_material(f"InvOakA{axis}", OAK_A, roughness=0.78),
+               OAK_A, axis)
+    b = _grain(pl.get_material(f"InvOakB{axis}", OAK_B, roughness=0.78),
+               OAK_B, axis)
+    return a, b
+
+
 def materials():
     m = pl.materials()  # white, kraft, brass, channel, gray
     m.update({

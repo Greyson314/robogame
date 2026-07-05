@@ -124,6 +124,20 @@ Direction confirmed — visual work continues, audio parked for later.
   `smg_paperpunk.py` kept — it's the source for the in-game interim
   SMG_Paper.fbx.
 
+## Structure-cube direction (decided this session)
+
+Frame+linen is dead as the bulk tile — high internal contrast tiles
+into a waffle (see `inv_cube_walls.py`, A/B/C/D wall comparison; the
+frame+panel language stays a candidate for special one-off blocks).
+User's dark-oak-planks instinct steered to: **continuous oak
+planking, slightly darker than mid, with directional grain** — dark
+collapses to a blob at combat distance and spends the walnut accent.
+`inv_cube.py` v2: four courses ringing the cube, staggered butt
+joints, two-tone oak + grain (`inventorlib.oak_grain`, `OAK_A/B`),
+no frame, no pegs. In-game plan: ONE chamfered mesh + plank albedo
+with 3-4 joint variants picked per block via MaterialPropertyBlock UV
+offset (MPB path already exists for damage tint, batching survives).
+
 ## Open / next
 
 - User verdict on the seven studies — which graduate to export +
