@@ -55,9 +55,16 @@ into the game as the CPU block's visual.
   in the cabin — capy rides inside, invisible) and stress towers
   (rotor-above-CPU is the stress profile). Verified live from
   Bootstrap: Tank shows the capy mid-deck facing the bow gun.
-- **Pre-existing bug surfaced, spawned as background task:**
-  AudioRouter NREs after editor domain reload (`_voiceStates` null in
-  OnEnable/Update — Awake doesn't re-run on reload). Not touched here.
+- **AudioRouter domain-reload NREs — fixed (same session, spawned
+  task):** a mid-play recompile re-runs OnEnable on the surviving
+  router but not Awake, so the non-serialized voice pool was null.
+  Three-part fix: `EnsurePool()` on OnEnable + null-guard in Update;
+  `BuildVoicePool` adopts surviving `Voice_XX` children by name
+  (blind rebuild stacked 24 duplicates per recompile); and
+  `EnsureBootstrap` adopts a surviving router instead of cloning one
+  per reload (statics reset, the GameObject doesn't). Verified with a
+  forced `RequestScriptReload` mid-play: zero NREs, one router, 24
+  voices, PlayUI claims and plays through the adopted pool.
 - **Face-void bug (user report: "nose non-existent/transparent"):**
   `make_object`'s 0.003 EdgeSoften bevel, applied at export, overlaps
   across the 0.009-wide nose ring bands and corrupts the face-plate

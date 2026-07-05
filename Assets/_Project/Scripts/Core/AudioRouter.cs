@@ -118,6 +118,15 @@ namespace Robogame.Core
         private static void EnsureBootstrap()
         {
             if (s_instance != null) return;
+            // A mid-play domain reload resets these statics while the
+            // previous [AudioRouter] GameObject survives — adopt it
+            // rather than stacking one clone per recompile.
+            s_instance = FindFirstObjectByType<AudioRouter>();
+            if (s_instance != null)
+            {
+                s_root = s_instance.gameObject;
+                return;
+            }
             s_root = new GameObject("[AudioRouter]");
             DontDestroyOnLoad(s_root);
             s_instance = s_root.AddComponent<AudioRouter>();
@@ -125,11 +134,16 @@ namespace Robogame.Core
 
         private void Awake()
         {
-            BuildVoicePool();
+            EnsurePool();
         }
 
         private void OnEnable()
         {
+            // A domain reload re-runs OnEnable on the surviving instance
+            // but NOT Awake, so the non-serialized pool is null here after
+            // a mid-play recompile (the inverse cousin of the project's
+            // statics-survive-domain-reload failure mode).
+            EnsurePool();
             Tweakables.Changed += ApplyVolumesFromTweakables;
             ApplyVolumesFromTweakables();
         }
@@ -139,6 +153,11 @@ namespace Robogame.Core
             Tweakables.Changed -= ApplyVolumesFromTweakables;
         }
 
+        private void EnsurePool()
+        {
+            if (_voiceStates == null) BuildVoicePool();
+        }
+
         private void BuildVoicePool()
         {
             _voices = new AudioSource[MaxConcurrentVoices];
@@ -146,9 +165,22 @@ namespace Robogame.Core
             _freeIndices = new Stack<int>(MaxConcurrentVoices);
             for (int i = MaxConcurrentVoices - 1; i >= 0; i--)
             {
-                var go = new GameObject($"Voice_{i:D2}");
-                go.transform.SetParent(transform, worldPositionStays: false);
-                var src = go.AddComponent<AudioSource>();
+                // Voice children survive a domain reload even though the
+                // pool arrays don't — adopt by name instead of stacking
+                // 24 duplicates per recompile. Any adopted voice is
+                // stopped and re-stamped; all slots restart free.
+                string voiceName = $"Voice_{i:D2}";
+                Transform existing = transform.Find(voiceName);
+                GameObject go = existing != null
+                    ? existing.gameObject
+                    : new GameObject(voiceName);
+                if (existing == null)
+                {
+                    go.transform.SetParent(transform, worldPositionStays: false);
+                }
+                AudioSource src = go.GetComponent<AudioSource>();
+                if (src == null) src = go.AddComponent<AudioSource>();
+                if (src.isPlaying) src.Stop();
                 src.playOnAwake = false;
                 src.loop = false;
                 src.spatialBlend = 1f;       // overridden per cue
@@ -256,6 +288,9 @@ namespace Robogame.Core
 
         private void Update()
         {
+            // Belt to OnEnable's EnsurePool suspenders: never dereference
+            // a pool that a domain reload nulled out.
+            if (_voiceStates == null) return;
             float now = Time.unscaledTime;
             for (int i = 0; i < _voiceStates.Length; i++)
             {
