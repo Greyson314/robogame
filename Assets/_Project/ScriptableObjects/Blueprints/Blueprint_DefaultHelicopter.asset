@@ -138,7 +138,7 @@ MonoBehaviour:
   - BlockId: block.movement.aero
     Position: {x: 0, y: 3, z: -1}
     Up: {x: 0, y: 0, z: -1}
-    Dims: {x: 0, y: 0, z: 0}
+    Dims: {x: 3, y: 0.05, z: 0.45}
     Pitch: 0
     Yaw: 0
     Teeter: 0
@@ -228,7 +228,7 @@ MonoBehaviour:
   - BlockId: block.movement.aero
     Position: {x: -1, y: 3, z: 0}
     Up: {x: -1, y: 0, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
+    Dims: {x: 3, y: 0.05, z: 0.45}
     Pitch: -0
     Yaw: 0
     Teeter: 0
@@ -246,7 +246,7 @@ MonoBehaviour:
   - BlockId: block.movement.aero
     Position: {x: 1, y: 3, z: 0}
     Up: {x: 1, y: 0, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
+    Dims: {x: 3, y: 0.05, z: 0.45}
     Pitch: 0
     Yaw: 0
     Teeter: 0
@@ -309,7 +309,7 @@ MonoBehaviour:
   - BlockId: block.movement.aero
     Position: {x: 0, y: 3, z: 1}
     Up: {x: 0, y: 0, z: 1}
-    Dims: {x: 0, y: 0, z: 0}
+    Dims: {x: 3, y: 0.05, z: 0.45}
     Pitch: -0
     Yaw: 0
     Teeter: 0

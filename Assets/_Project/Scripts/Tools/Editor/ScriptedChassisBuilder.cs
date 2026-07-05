@@ -229,18 +229,21 @@ namespace Robogame.Tools.Editor
         /// <see cref="BuildSession.TryPlace"/>; the foils then mount on
         /// the cube's four lateral faces.
         /// </summary>
-        public ScriptedChassisBuilder RotorWithFoils(Vector3Int cell, Vector3Int spinAxis = default)
+        public ScriptedChassisBuilder RotorWithFoils(Vector3Int cell, Vector3Int spinAxis = default,
+                                                     Vector3 foilDims = default)
         {
             if (spinAxis == default) spinAxis = Vector3Int.up;
             // Rotor's up == its spin axis. The auto-companion mechanism
-            // cube lands at cell + spinAxis automatically.
+            // cube lands at cell + spinAxis automatically. foilDims
+            // (x=span, y=thickness, z=chord; zero = block defaults)
+            // shapes all four blades.
             Place(BlockIds.Rotor, cell, spinAxis);
             Vector3Int mechanism = cell + spinAxis;
             LateralAxes(spinAxis, out Vector3Int a, out Vector3Int b);
-            Place(BlockIds.Aero, mechanism + a, a);
-            Place(BlockIds.Aero, mechanism - a, -a);
-            Place(BlockIds.Aero, mechanism + b, b);
-            Place(BlockIds.Aero, mechanism - b, -b);
+            Place(BlockIds.Aero, mechanism + a, a, foilDims);
+            Place(BlockIds.Aero, mechanism - a, -a, foilDims);
+            Place(BlockIds.Aero, mechanism + b, b, foilDims);
+            Place(BlockIds.Aero, mechanism - b, -b, foilDims);
             return this;
         }
 

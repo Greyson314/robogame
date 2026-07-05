@@ -519,7 +519,9 @@ namespace Robogame.Tools.Editor
                 // hosts on (0, 1, 0) (a roof cell); auto-companion drops
                 // the mechanism cube at (0, 3, 0); the four foils ring
                 // around it.
-                sb.RotorWithFoils(new Vector3Int(0, 2, 0));
+                // Long skinny blades, real-heli read: max span, thin chord.
+                sb.RotorWithFoils(new Vector3Int(0, 2, 0),
+                                  foilDims: new Vector3(3.0f, 0.05f, 0.45f));
                 sb.RotorsGenerateLift(true);
                 return sb.Build();
             }
