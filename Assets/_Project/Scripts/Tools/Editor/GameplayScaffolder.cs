@@ -141,7 +141,7 @@ namespace Robogame.Tools.Editor
         private static BlueprintPlan BuildGroundPlan(BlockDefinitionLibrary lib)
         {
             // 3-wide × 6-long floor (x ∈ [-1,1], z ∈ [-2,3]), CPU at centre,
-            // weapon on top, six wheels side-mounted on the outermost cubes.
+            // bow gun forward, six wheels side-mounted on the outermost cubes.
             // Build order is CPU → outward so every Place call has a placed
             // host on its mount face — the same constraint a player faces
             // building this from scratch in the garage.
@@ -173,8 +173,9 @@ namespace Robogame.Tools.Editor
                     .Place(BlockIds.Cube, new Vector3Int(1, 0,  3), rightStep)
                     .Place(BlockIds.Cube, new Vector3Int(1, 0, -1), rightStep)
                     .Place(BlockIds.Cube, new Vector3Int(1, 0, -2), rightStep));
-                // Top weapon on CPU's +Y face.
-                sb.Place(BlockIds.Weapon, new Vector3Int(0, 1, 0), Vector3Int.up);
+                // Bow gun on the front spine cube — the cell above the CPU
+                // belongs to the capybara (1x1x2 command cockpit).
+                sb.Place(BlockIds.Weapon, new Vector3Int(0, 1, 3), Vector3Int.up);
                 // EMP module on the rear deck (+Y of the z=-2 cube) so the
                 // default tank can demo the ability bar (press 1). Each module
                 // is its own block now; swap it for any other Module-category
@@ -433,7 +434,9 @@ namespace Robogame.Tools.Editor
                 sb.Place(BlockIds.Cube, new Vector3Int(0, 0,  3), forwardStep);
                 sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -1), backStep);
                 sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -2), backStep);
-                sb.Place(BlockIds.Weapon, new Vector3Int(0, 1, 0), Vector3Int.up);
+                // Weapon forward on the spine — the cell above the CPU
+                // belongs to the capybara (1x1x2 command cockpit).
+                sb.Place(BlockIds.Weapon, new Vector3Int(0, 1, 3), Vector3Int.up);
                 sb.MirrorX(b => b
                     .Place(BlockIds.Aero, new Vector3Int(1, 0,  0), upRight, wingDims)
                     .Place(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)

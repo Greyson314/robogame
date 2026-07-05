@@ -11,7 +11,7 @@ namespace Robogame.Block
     /// <remarks>
     /// Mirrors the shape used by the default ground rover preset (see
     /// <c>GameplayScaffolder.BuildDefaultGroundBlueprint</c>): 3×3 floor
-    /// of cubes with a CPU at centre and a hitscan weapon on top, plus
+    /// of cubes with a CPU at centre and a hitscan weapon forward, plus
     /// six wheels on the side faces of the outermost cubes (two steering
     /// at the front, two drive at the middle, two drive at the rear).
     /// </remarks>
@@ -32,7 +32,9 @@ namespace Robogame.Block
                         list.Add(new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(x, 0, z)));
 
             list.Add(new ChassisBlueprint.Entry(BlockIds.Cpu,    new Vector3Int(0, 0, 0)));
-            list.Add(new ChassisBlueprint.Entry(BlockIds.Weapon, new Vector3Int(0, 1, 0)));
+            // Weapon on the front row, not above the CPU — that cell
+            // belongs to the capybara (1x1x2 command cockpit).
+            list.Add(new ChassisBlueprint.Entry(BlockIds.Weapon, new Vector3Int(0, 1, 1)));
 
             // Wheels mount on the ±X faces of the outermost floor cubes;
             // stem extends outward, tyre at the cell beyond. Steering at
