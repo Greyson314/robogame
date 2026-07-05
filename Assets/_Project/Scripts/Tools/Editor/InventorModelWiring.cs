@@ -71,6 +71,22 @@ namespace Robogame.Tools.Editor
             // light — no beacon mast through the pilot.
             changed += WireBlock("BlockDefinitions/BlockDef_Cpu.asset",
                                  "CapyCube_Inv.fbx", isStatic: true);
+            // Remaining module family (session 133 studies).
+            changed += WireBlock("BlockDefinitions/BlockDef_ModuleBlink.asset",
+                                 "ModuleBlink_Inv.fbx", isStatic: true);
+            changed += WireBlock("BlockDefinitions/BlockDef_ModuleShield.asset",
+                                 "ModuleShield_Inv.fbx", isStatic: true);
+            changed += WireBlock("BlockDefinitions/BlockDef_ModuleSmoke.asset",
+                                 "ModuleSmoke_Inv.fbx", isStatic: true);
+            changed += WireBlock("BlockDefinitions/BlockDef_ModuleInvis.asset",
+                                 "ModuleInvis_Inv.fbx", isStatic: true);
+            changed += WireBlock("BlockDefinitions/BlockDef_ModuleMines.asset",
+                                 "ModuleMines_Inv.fbx", isStatic: true);
+            // Plain foil: component-driven — AeroSurfaceBlock hangs the
+            // model under its Wing rig with an inverse-defaults child
+            // scale (authored at FoilDefaults dims).
+            changed += WireBlock("BlockDefinitions/BlockDef_Aero.asset",
+                                 "Foil_Inv.fbx", isStatic: false);
 
             if (changed > 0) AssetDatabase.SaveAssets();
             Debug.Log($"[InventorModelWiring] Done — {changed} definition(s) updated.");

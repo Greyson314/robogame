@@ -412,10 +412,71 @@ namespace Robogame.Movement
         private void EnsureRig()
         {
             BlockVisuals.HideHostMesh(gameObject);
-            if (_wingMesh != null) return;
-
-            _wingMesh = BlockVisuals.GetOrCreatePrimitiveChild(transform, "Wing", PrimitiveType.Cube);
+            if (_wingMesh == null)
+            {
+                _wingMesh = BlockVisuals.GetOrCreatePrimitiveChild(transform, "Wing", PrimitiveType.Cube);
+            }
+            EnsureWingModel();
             ApplyOrientationToVisual();
+        }
+
+        // TRACE[LOG-133]: authored foil model rides the Wing transform's
+        // existing pose/scale rig. The model is authored at FoilDefaults
+        // dims in real metres; an inverse-defaults child scale turns the
+        // Wing cube's absolute (thickness, span, chord) scale into ratio
+        // scaling, so default dims reproduce the authored mesh exactly
+        // and scaled foils stretch it like they stretch the cube today.
+        private Transform _wingModel;
+
+        private void EnsureWingModel()
+        {
+            BlockBehaviour bb = GetComponent<BlockBehaviour>();
+            BlockDefinition def = bb != null ? bb.Definition : null;
+            GameObject asset = def != null && !def.VisualModelStatic ? def.VisualModel : null;
+            if (asset == null || _wingMesh == null) return;
+            if (_wingModel == null)
+            {
+                Transform existing = _wingMesh.Find("WingModel");
+                _wingModel = existing != null
+                    ? existing
+                    : Instantiate(asset, _wingMesh).transform;
+                _wingModel.name = "WingModel";
+                // The model replaces the primitive slab visually.
+                MeshRenderer slab = _wingMesh.GetComponent<MeshRenderer>();
+                if (slab != null) slab.enabled = false;
+            }
+            SyncWingModel();
+        }
+
+        private void SyncWingModel()
+        {
+            if (_wingModel == null) return;
+            _wingModel.localPosition = Vector3.zero;
+            // Rotor mode swaps the span axis from wing-local +Y to +X
+            // (see ComputeFoilMeshScale); rotate the model to follow.
+            // 90° steps are pure axis permutations, so the non-uniform
+            // parent scale cannot shear the model. +90 about Z puts the
+            // model root (local -Y) on wing-local +X — the hub side per
+            // ComputeWingShift's outward = -X rule.
+            _wingModel.localRotation = _rotorMode
+                ? Quaternion.AngleAxis(90f, Vector3.forward)
+                : Quaternion.identity;
+            // Cosmetic camber orientation: mirrored side mounts flip
+            // wing-local +X, which would arch one wing up and droop its
+            // twin. Mirror the model across its span/chord plane
+            // (negative X scale keeps root + leading edge in place)
+            // whenever the camber axis points below the chassis
+            // horizontal. Rotor blades skip this — their camber already
+            // rides the spin axis by construction.
+            float sx = 1f;
+            if (!_rotorMode && _wingMesh != null)
+            {
+                Vector3 camberChassis = transform.root.InverseTransformDirection(
+                    _wingMesh.TransformDirection(Vector3.right));
+                if (camberChassis.y < -0.01f) sx = -1f;
+            }
+            _wingModel.localScale = new Vector3(
+                sx / DefaultThickness, 1f / DefaultSpan, 1f / DefaultChord);
         }
 
         /// <summary>
@@ -581,6 +642,7 @@ namespace Robogame.Movement
                 out Vector3 pos, out Quaternion rot);
             _wingMesh.localPosition = pos;
             _wingMesh.localRotation = rot;
+            SyncWingModel();
         }
     }
 }

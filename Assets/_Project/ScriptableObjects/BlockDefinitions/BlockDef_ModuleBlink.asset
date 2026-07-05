@@ -24,8 +24,8 @@ MonoBehaviour:
   _prefab: {fileID: 0}
   _tintColor: {r: 1, g: 1, b: 1, a: 1}
   _material: {fileID: 2100000, guid: 4654b993fe492c94c8fc9359b69c852a, type: 2}
-  _visualModel: {fileID: 0}
+  _visualModel: {fileID: 919132149155446097, guid: 2f8dcf17cfdeb7e42b54eb1da4e5e4f8, type: 3}
   _visualModelScale: 1
   _visualModelOffset: {x: 0, y: 0, z: 0}
-  _visualModelStatic: 0
+  _visualModelStatic: 1
   _componentData: {fileID: 0}

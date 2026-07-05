@@ -134,6 +134,11 @@ STATICS = [
     ("inv_tips", "build_magnet", "InvMagnet_Root", "TipMagnet_Inv"),
     ("inv_modules", "build_emp", "InvModEmp_Root", "ModuleEmp_Inv"),
     ("inv_modules", "build_repair", "InvModRep_Root", "ModuleRepair_Inv"),
+    ("inv_modules", "build_blink", "InvModBlink_Root", "ModuleBlink_Inv"),
+    ("inv_modules", "build_shield", "InvModShield_Root", "ModuleShield_Inv"),
+    ("inv_modules", "build_smoke", "InvModSmoke_Root", "ModuleSmoke_Inv"),
+    ("inv_modules", "build_invis", "InvModInvis_Root", "ModuleInvis_Inv"),
+    ("inv_modules", "build_mines", "InvModMines_Root", "ModuleMines_Inv"),
 ]
 
 
@@ -150,6 +155,24 @@ def export_capycube():
     bake_rotation(root, Matrix.Rotation(pi, 4, 'Z'))
     pl.export_tree(root, os.path.join(BLOCKS_DIR, "CapyCube_Inv.fbx"))
     inv_capycube.build()
+
+
+def export_foil():
+    # Authored: span +X, leading edge +Y, camber +Z (study display).
+    # AeroSurfaceBlock's Wing frame wants span on Unity +Y (root at
+    # -Y), chord on Z (leading +Z), camber +X. With the exporter's
+    # Blender->Unity map (X->X, Z->Y, -Y->Z) that means baking
+    # Rz(180) @ Ry(-90): span -> +Z_b, leading -> -Y_b, camber -> +X_b.
+    # Exported at TRUE metres (FoilDefaults dims); the runtime child
+    # scale under the Wing cube divides by the defaults.
+    import inv_foil
+    importlib.reload(inv_foil)
+    inv_foil.build()
+    root = bpy.data.objects["InvFoil_Root"]
+    bake_rotation(root, Matrix.Rotation(pi, 4, 'Z')
+                  @ Matrix.Rotation(-pi / 2, 4, 'Y'))
+    pl.export_tree(root, os.path.join(BLOCKS_DIR, "Foil_Inv.fbx"))
+    inv_foil.build()
 
 
 def export_statics():
@@ -174,5 +197,6 @@ def export_all():
     export_bombbay()
     export_wheel()
     export_capycube()
+    export_foil()
     export_statics()
     print("inv export complete")
