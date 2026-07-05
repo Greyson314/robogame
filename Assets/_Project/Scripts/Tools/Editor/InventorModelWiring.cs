@@ -87,6 +87,17 @@ namespace Robogame.Tools.Editor
             // scale (authored at FoilDefaults dims).
             changed += WireBlock("BlockDefinitions/BlockDef_Aero.asset",
                                  "Foil_Inv.fbx", isStatic: false);
+            // Fin binds AeroSurfaceBlock too — same WingModel rig.
+            changed += WireBlock("BlockDefinitions/BlockDef_AeroFin.asset",
+                                 "Fin_Inv.fbx", isStatic: false);
+            // Rudder blade never rotates (steering is force-only) and the
+            // thruster's moving parts are the flame/plume, which stay on
+            // the procedural rig — both take the generic static path;
+            // their components suppress the procedural slab/cube.
+            changed += WireBlock("BlockDefinitions/BlockDef_Rudder.asset",
+                                 "Rudder_Inv.fbx", isStatic: true);
+            changed += WireBlock("BlockDefinitions/BlockDef_Thruster.asset",
+                                 "Thruster_Inv.fbx", isStatic: true);
 
             if (changed > 0) AssetDatabase.SaveAssets();
             Debug.Log($"[InventorModelWiring] Done — {changed} definition(s) updated.");

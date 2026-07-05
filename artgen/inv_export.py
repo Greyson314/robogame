@@ -120,9 +120,10 @@ STATICS = [
     ("inv_cube", "build", "InvCube_Root", "Cube_Inv"),
     ("inv_rotor", "build", "InvRotor_Root", "Rotor_Inv"),
     ("inv_wing", "build", "InvWing_Root", "Wing_Inv"),
-    ("inv_aerofin", "build", "InvFin_Root", "Fin_Inv"),
+    # fin exports via export_fin (Wing-frame bake); thruster via
+    # export_thruster (180° spin — study nozzle follows the weapon
+    # forward convention but a thruster exhausts AFT).
     ("inv_rudder", "build", "InvRudder_Root", "Rudder_Inv"),
-    ("inv_thruster", "build", "InvThr_Root", "Thruster_Inv"),
     ("inv_hoverblade", "build", "InvHover_Root", "Hover_Inv"),
     ("inv_spring", "build", "InvSpring_Root", "Spring_Inv"),
     ("inv_drill", "build", "InvDrill_Root", "Drill_Inv"),
@@ -175,6 +176,33 @@ def export_foil():
     inv_foil.build()
 
 
+def export_fin():
+    # Same Wing-frame bake as the foil: the fin binds AeroSurfaceBlock,
+    # so its model rides the same WingModel rig (span -> Unity +Y from
+    # Blender +X via the bake, chord/camber likewise).
+    import inv_aerofin
+    importlib.reload(inv_aerofin)
+    inv_aerofin.build()
+    root = bpy.data.objects["InvFin_Root"]
+    bake_rotation(root, Matrix.Rotation(pi, 4, 'Z')
+                  @ Matrix.Rotation(-pi / 2, 4, 'Y'))
+    pl.export_tree(root, os.path.join(BLOCKS_DIR, "Fin_Inv.fbx"))
+    inv_aerofin.build()
+
+
+def export_thruster():
+    # Study nozzle points Blender -Y (weapon forward convention) which
+    # would exhaust Unity +Z — forward. ThrusterBlock's flame/plume sit
+    # at -Z, so bake a 180° spin to point the nozzle aft.
+    import inv_thruster
+    importlib.reload(inv_thruster)
+    inv_thruster.build()
+    root = bpy.data.objects["InvThr_Root"]
+    bake_rotation(root, Matrix.Rotation(pi, 4, 'Z'))
+    pl.export_tree(root, os.path.join(BLOCKS_DIR, "Thruster_Inv.fbx"))
+    inv_thruster.build()
+
+
 def export_statics():
     for mod_name, fn, root_name, out in STATICS:
         mod = importlib.import_module(mod_name)
@@ -198,5 +226,7 @@ def export_all():
     export_wheel()
     export_capycube()
     export_foil()
+    export_fin()
+    export_thruster()
     export_statics()
     print("inv export complete")

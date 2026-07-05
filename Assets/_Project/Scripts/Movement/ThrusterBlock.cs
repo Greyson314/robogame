@@ -197,6 +197,18 @@ namespace Robogame.Movement
                 }
                 fmr.sharedMaterial = s_nozzleMaterial;
             }
+
+            // Authored model present (bellows via BuildStaticVisual):
+            // it replaces the nozzle cube visually. The cube transform
+            // stays alive as the Flame anchor; only its renderer hides.
+            BlockBehaviour bb = GetComponent<BlockBehaviour>();
+            if (bb != null && bb.Definition != null
+                && bb.Definition.VisualModelStatic
+                && bb.Definition.VisualModel != null)
+            {
+                MeshRenderer nmr = _nozzle.GetComponent<MeshRenderer>();
+                if (nmr != null) nmr.enabled = false;
+            }
         }
 
         // Procedural particle plume parented to the thruster's transform

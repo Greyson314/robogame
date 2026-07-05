@@ -112,6 +112,16 @@ namespace Robogame.Movement
         private void EnsureRig()
         {
             BlockVisuals.HideHostMesh(gameObject);
+            // Authored model present: BlockBehaviour.BuildStaticVisual
+            // already attached it (the blade never rotates — steering is
+            // force-only), so skip the procedural slab entirely.
+            BlockBehaviour bb = GetComponent<BlockBehaviour>();
+            if (bb != null && bb.Definition != null
+                && bb.Definition.VisualModelStatic
+                && bb.Definition.VisualModel != null)
+            {
+                return;
+            }
             if (_blade != null) return;
 
             // Thin vertical blade. Long axis Y (deep), chord along Z so
