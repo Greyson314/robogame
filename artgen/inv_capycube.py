@@ -1,12 +1,11 @@
 # artgen/inv_capycube.py — inventor study: command block with capybara pilot.
-# v5: painted-look face. Nostril slits are per-facet material paint
-# (make_object's face_mat_idx). Eyes are shaped black DECALS — thin
-# slabs whose outline is solved onto the head's superellipse side wall
-# (_head_surface_x), sitting a hair proud so they read as paint but
-# aren't limited to facet shapes: big, slightly pointy, slightly angry.
-# The head reads as an extension of the body loaf (no neck step), both
-# carry a subtle scalloped "fluff" modulation, and the ears are thin,
-# slightly pointed flaps angled notably outward.
+# v6: full-facet painted face (user call, reverting v5's shaped eye
+# decals — git has them if wanted back). One pure-black side facet per
+# side = the eyes; two dark facet-pairs flanking the nose top = nostril
+# slits. All via make_object's face_mat_idx. The head reads as an
+# extension of the body loaf (no neck step), both carry a subtle
+# scalloped "fluff" modulation, and the ears are thin, slightly pointed
+# flaps angled notably outward.
 # Layout: 1x1x2. Bottom cell is a planked structure cube with an inset
 # open-air cockpit well (coaming rail + rolled linen pad). Top cell is
 # nothing but the capybara. Cyan spark = flush deck binnacle.
@@ -71,10 +70,8 @@ def _rring_xy(z, w, d, cy, n=24, exp=0.50, fluff=0.0, lobes=8, ph=0.0):
     return pts
 
 
-# head ring spec: (y, w, h, cz). Shared by the head loft and the eye-
-# decal surface solve — change it in ONE place.
+# head ring spec: (y, w, h, cz)
 HZ = 0.95   # head vertical center
-P = 2.0 / 0.48   # superellipse power matching _rring_xz's exp
 HEAD_SPEC = [
     (-0.24, 0.28, 0.30, HZ - 0.010),
     (-0.16, 0.38, 0.40, HZ + 0.000),
@@ -87,40 +84,6 @@ HEAD_SPEC = [
     (0.359, 0.21, 0.20, HZ - 0.069),
     (0.368, 0.17, 0.17, HZ - 0.070),
 ]
-
-
-def _head_surface_x(y, z):
-    """|x| of the head's side wall at (y, z): lerp the ring spec in y,
-    then solve the superellipse. Used to conform eye decals."""
-    spec = HEAD_SPEC
-    y = max(spec[0][0], min(spec[-1][0], y))
-    for (y0, w0, h0, c0), (y1, w1, h1, c1) in zip(spec, spec[1:]):
-        if y <= y1:
-            t = (y - y0) / (y1 - y0)
-            w = w0 + (w1 - w0) * t
-            h = h0 + (h1 - h0) * t
-            cz = c0 + (c1 - c0) * t
-            break
-    dz = min(0.999, abs(z - cz) / (h / 2))
-    return (w / 2) * (1.0 - dz ** P) ** (1.0 / P)
-
-
-def _eye_decal(name, s, mats, parent):
-    """Big, slightly pointy, slightly angry eye: a thin black slab whose
-    outline (in y/z around the eye center) is solved onto the side wall.
-    Front tip points toward the nose; the top edge slashes down."""
-    ey, ez = 0.05, HZ + 0.015
-    outline = [(-0.090, -0.005), (-0.075, 0.030), (-0.020, 0.048),
-               (0.030, 0.030), (0.085, -0.015), (0.045, -0.045),
-               (-0.010, -0.058), (-0.075, -0.045)]
-    outer, inner = [], []
-    for dy, dz in outline:
-        y, z = ey + dy, ez + dz
-        sx = _head_surface_x(y, z)
-        outer.append((s * (sx + 0.006), y, z))
-        inner.append((s * (sx - 0.020), y, z))
-    pv, pf = pl.loft([outer, inner])
-    return pl.make_object(name, pv, pf, mats, parent=parent)
 
 
 def _ear(name, s, mats, parent):
@@ -240,22 +203,22 @@ def build(loc=(10.4, -5.0, 0.5)):
         a, ph = fluff_by_ring.get(ri, (0.0, 0.0))
         head_rings.append(_rring_xz(y, w, h, cz, fluff=a, ph=ph))
     pv, pf = pl.loft(head_rings)
-    # paint the nostril slits onto the mesh: slot 0 = fur, slot 1 = black
+    # paint the face onto the mesh: slot 0 = fur, slot 1 = black
     fmi = {}
     for n_f, f in enumerate(pf):
         cx = sum(pv[i][0] for i in f) / len(f)
         cy = sum(pv[i][1] for i in f) / len(f)
         cz = sum(pv[i][2] for i in f) / len(f)
+        # eyes: the facet centered on each side wall at mid-skull
+        if abs(cx) > 0.19 and -0.05 < cy < 0.11 \
+                and abs(cz - (HZ + 0.005)) < 0.045:
+            fmi[n_f] = 1
         # nose: two vertical slit facet-pairs on the nose front, one
         # facet-column of fur left between them
         if cy > 0.345 and cz > HZ - 0.01 and 0.044 < abs(cx) < 0.064:
             fmi[n_f] = 1
     pl.make_object(f"{PFX}CapyHead", pv, pf, [fur, black],
                    face_mat_idx=fmi, parent=root)
-
-    # eyes: shaped decals conformed to the side wall
-    for i, s in enumerate((1, -1)):
-        _eye_decal(f"{PFX}CapyEye{i}", s, [black], parent=root)
 
     # ears: thin pointed flaps, notably outward-facing
     for i, s in enumerate((1, -1)):
