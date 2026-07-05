@@ -205,6 +205,21 @@ spring, drill (auger spin), rope, tips (rope-end attach), grapple
 the MK Toon primitive until the plank albedo exists (perf: the cube
 is THE batched block; a 49-object prefab would nuke instancing).
 
+## Live verification (bridge session)
+
+Wiring menu ran clean: 6 definitions updated, asset diffs audited —
+model fields only, zero stat re-stamps (the 131 clobber lesson held).
+Play-mode garage: crank-organ SMG live on the Tank turret, cartwright
+wheels replacing the tyre primitives at correct diameter. Spot-check
+instrumentation (ShootPoint offset from root) caught **one real bug**:
+the mortar's baked rotation used −90°X and aimed the tub backward
+(muzzle −Z). Exporter sign fixed (+90°X: mouth +Z→−Y), re-exported,
+reimported: muzzle now root-local (0, 0.41, +0.69) ✓. Cannon verified
++Z forward. Suite was green on this exact code pre-wiring (0 failures
+both modes); asset changes since are data-only, so no extra
+qa-verifier pass. perf-checker skipped per rule: zero physics objects
+added (visual swaps only).
+
 ## Open / next
 
 - User verdict on the seven studies — which graduate to export +

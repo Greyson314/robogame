@@ -78,9 +78,11 @@ def export_mortar():
     importlib.reload(inv_mortar)
     root = inv_mortar.build()
     tilt = bpy.data.objects["InvMortar_Tilt"]
-    # Tub is authored mouth-up (+Z) under a display tilt. Bake a -90°X
-    # rotation so the tub points forward (-Y) with the yoke identity.
-    bake_rotation(tilt, Matrix.Rotation(-pi / 2, 4, 'X'))
+    # Tub is authored mouth-up (+Z) under a display tilt. Bake a +90°X
+    # rotation so the mouth lands on -Y (weapon forward): R_x(+90)
+    # maps +Z -> -Y. (First export used -90 and the tub aimed backward
+    # — caught by the in-editor ShootPoint offset check.)
+    bake_rotation(tilt, Matrix.Rotation(pi / 2, 4, 'X'))
     muzzle = bpy.data.objects["InvMortar_Muzzle"]
     pl.scale_tree(root, SCALE)
     pl.export_tree(root, os.path.join(WEAPONS_DIR, "Mortar_Inv.fbx"),
