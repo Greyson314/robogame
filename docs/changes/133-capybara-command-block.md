@@ -43,14 +43,23 @@ into the game as the CPU block's visual.
   hatch. Cockpit cube buries into the hull layer and reads as a deck
   hatch — the intended ship language.
 
-## Open / design review
+## Fix-up leg (same session, user review)
 
-- **Cell-above clipping:** anything in the cell above the CPU shares
-  space with the capybara. The default starter (and the user's current
-  bot) put the SMG there — it fully swallows him. The old beacon mast
-  already clipped that cell, so this is an existing class, but much
-  more visible now. User call: move the starter's gun off-centre, or
-  accept clipping as the oversize-component norm.
+- **Facing:** the capy rode backwards — the study faces Blender +Y but
+  Unity forward is Blender −Y (the mortar exporter lesson repeats).
+  `inv_export.py` gained `export_capycube()` (bakes 180° about Z);
+  moved out of the STATICS table.
+- **Preset weapons off the CPU cell:** Tank + Prop Plane weapons →
+  front spine (0,1,3); ground starter weapon → (0,1,1). Assets
+  regenerated (validator green). Left alone: Helicopter (CPU enclosed
+  in the cabin — capy rides inside, invisible) and stress towers
+  (rotor-above-CPU is the stress profile). Verified live from
+  Bootstrap: Tank shows the capy mid-deck facing the bow gun.
+- **Pre-existing bug surfaced, spawned as background task:**
+  AudioRouter NREs after editor domain reload (`_voiceStates` null in
+  OnEnable/Update — Awake doesn't re-run on reload). Not touched here.
+
+## Open / design review
 - Garage scene holds a parked chassis remnant ~1600 m below origin
   (CPU at grid (0,1,0), never Initialize'd this session — host cube
   still visible, no model). Harmless, worth a cleanup look someday.
