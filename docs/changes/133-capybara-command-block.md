@@ -95,8 +95,18 @@ into the game as the CPU block's visual.
   `SyncWingModel` mirrors via negative X scale when the camber axis
   points below chassis horizontal. Exporter bakes Rz(180)·Ry(−90).
   Verified live: heli rotor = four cambered linen sails; plane span-4
-  wings stretch + camber symmetrically; fin keeps its slab pending
-  its own wiring. Suite green 378/378.
+  wings stretch + camber symmetrically. Suite green 378/378.
+- **Fin/rudder/thruster wired (same session).** Fin rides the
+  WingModel rig (binds AeroSurfaceBlock; Wing-frame re-export).
+  Rudder + thruster take the static path with slab-suppression
+  branches in their components (rudder blade never rotates; thruster
+  keeps the nozzle transform alive as the Flame anchor, renderer
+  hidden). Thruster export bakes 180° — the study followed the
+  weapon-forward convention but a thruster exhausts aft. Verified on
+  Boat + Plane. **Still procedural: rotor head (screw decision
+  parked), grapple (no model path), hoverblade (fan wants its spin
+  integration), cube (plank albedo covers it). Everything else now
+  shows inventor art in-game.** Suite green 378/378.
 
 ## Open / design review
 - Garage scene holds a parked chassis remnant ~1600 m below origin
