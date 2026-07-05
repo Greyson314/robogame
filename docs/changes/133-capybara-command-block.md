@@ -73,6 +73,19 @@ into the game as the CPU block's visual.
   on head/body/ears. **Artgen gotcha for future organic meshes: ring
   spacing must clear 2× the bevel width, or strip the modifier.**
 
+## Suite completion (same session)
+
+- **`inv_foil.py` — the existing plain aerofoil** in rib-and-membrane
+  language at FoilDefaults dims (1.0 × 0.9), row y = −11. Deliberately
+  neither the bat-wing nor the aerial screw: the composed rotor+foils
+  mechanic keeps its current geometry while the macro-component
+  decision stays parked.
+- **Module family completed** (`inv_modules.py`, y = −8 row): Blink =
+  plasma hourglass (new InvPlasma emissive ≈ Plasma token), Shield =
+  linen parasol, Smoke = censer + carved wisp, Invis = empty jar with
+  a specimen tag, Mines = banded bomb pyramid. Every gameplay block id
+  now has an inventor study. Not exported/wired — review first.
+
 ## Open / design review
 - Garage scene holds a parked chassis remnant ~1600 m below origin
   (CPU at grid (0,1,0), never Initialize'd this session — host cube
