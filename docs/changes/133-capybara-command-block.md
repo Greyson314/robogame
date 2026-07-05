@@ -58,6 +58,13 @@ into the game as the CPU block's visual.
 - **Pre-existing bug surfaced, spawned as background task:**
   AudioRouter NREs after editor domain reload (`_voiceStates` null in
   OnEnable/Update — Awake doesn't re-run on reload). Not touched here.
+- **Face-void bug (user report: "nose non-existent/transparent"):**
+  `make_object`'s 0.003 EdgeSoften bevel, applied at export, overlaps
+  across the 0.009-wide nose ring bands and corrupts the face-plate
+  shading — Unity renders the plate as an unlit void; Blender's
+  viewport hides it (no backface culling). Fixed with `_strip_bevel`
+  on head/body/ears. **Artgen gotcha for future organic meshes: ring
+  spacing must clear 2× the bevel width, or strip the modifier.**
 
 ## Open / design review
 - Garage scene holds a parked chassis remnant ~1600 m below origin
