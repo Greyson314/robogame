@@ -16,7 +16,7 @@
 # to re-tune the windows — they select facets by center position.
 
 import bpy
-from math import tau, cos, sin
+from math import tau, pi, cos, sin
 
 from mathutils import Vector
 
@@ -40,15 +40,18 @@ def fur_materials():
     return fur, fur_l, black
 
 
-def _rring_xz(y, w, h, cz, n=34, exp=0.48, fluff=0.0, lobes=7, ph=0.0):
+def _rring_xz(y, w, h, cz, n=34, exp=0.48, fluff=0.0, lobes=7, ph=0.0,
+              extra_ts=()):
     """Rounded-rectangle ring in the XZ plane at depth y (head sections).
     fluff modulates the radius with soft lobes for the fluffy outline.
     Half-segment phase shift: one facet lands dead-center on each SIDE
     (the painted eye) and a vertex lands at top-center so the two facets
-    flanking it become the painted nostril slits."""
+    flanking it become the painted nostril slits. extra_ts injects
+    additional vertex rows at chosen angles — used to split the eye
+    facet so the painted part can be shorter than a full segment."""
     pts = []
-    for k in range(n):
-        t = (k + 0.5) * tau / n
+    ts = sorted([(k + 0.5) * tau / n for k in range(n)] + list(extra_ts))
+    for t in ts:
         c, s = cos(t), sin(t)
         f = 1.0 + fluff * cos(lobes * t + ph)
         x = (abs(c) ** exp) * (1 if c >= 0 else -1) * w / 2 * f
@@ -198,10 +201,17 @@ def build(loc=(10.4, -5.0, 0.5)):
     # face plate. Rear rings carry a light fluff; face rings stay clean
     # so the painted-facet windows land where computed.
     fluff_by_ring = {0: (0.015, 0.5), 1: (0.015, 1.3), 2: (0.012, 2.1)}
+    # eye-trim rows: split the side facet so the eye is ~35% shorter,
+    # trimmed from the BOTTOM. Bottom edge target = 9.6% of half-height
+    # (in |sin t|^exp units) -> |sin t| = 0.096^(1/0.48) -> t = 0.0075 rad.
+    # Right side bottom is just below t=0, left side bottom just past pi.
+    trim = 0.0075
+    extra_ts = (tau - trim, pi + trim)
     head_rings = []
     for ri, (y, w, h, cz) in enumerate(HEAD_SPEC):
         a, ph = fluff_by_ring.get(ri, (0.0, 0.0))
-        head_rings.append(_rring_xz(y, w, h, cz, fluff=a, ph=ph))
+        head_rings.append(_rring_xz(y, w, h, cz, fluff=a, ph=ph,
+                                    extra_ts=extra_ts))
     pv, pf = pl.loft(head_rings)
     # paint the face onto the mesh: slot 0 = fur, slot 1 = black
     fmi = {}
@@ -209,9 +219,10 @@ def build(loc=(10.4, -5.0, 0.5)):
         cx = sum(pv[i][0] for i in f) / len(f)
         cy = sum(pv[i][1] for i in f) / len(f)
         cz = sum(pv[i][2] for i in f) / len(f)
-        # eyes: the facet centered on each side wall at mid-skull
+        # eyes: the upper part of the split side facet at mid-skull
+        # (the sliver below the trim row stays fur)
         if abs(cx) > 0.19 and -0.05 < cy < 0.11 \
-                and abs(cz - (HZ + 0.005)) < 0.045:
+                and 0.0 < cz - (HZ + 0.005) < 0.055:
             fmi[n_f] = 1
         # nose: two vertical slit facet-pairs on the nose front, one
         # facet-column of fur left between them
