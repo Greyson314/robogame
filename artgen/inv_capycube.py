@@ -107,7 +107,18 @@ def _ear(name, s, mats, parent):
                             + ydir * (sin(a * tau / 10) * hd))
                       for a in range(10)])
     pv, pf = pl.loft(rings)
-    return pl.make_object(name, pv, pf, mats, parent=parent)
+    return _strip_bevel(pl.make_object(name, pv, pf, mats, parent=parent))
+
+
+def _strip_bevel(obj):
+    """Remove make_object's hairline EdgeSoften bevel. On the organic
+    meshes (head, ears) ring bands are narrower than the bevel width —
+    applying the modifier at export explodes the geometry and inverts
+    the face-plate shading (rendered as a black void in Unity). Organic
+    shapes don't want the crisp-edge bevel anyway."""
+    for mod in list(obj.modifiers):
+        obj.modifiers.remove(mod)
+    return obj
 
 
 def build(loc=(10.4, -5.0, 0.5)):
@@ -195,7 +206,7 @@ def build(loc=(10.4, -5.0, 0.5)):
         _rring_xy(0.78, 0.34, 0.40, -0.02, fluff=0.016, ph=4.3),
     ]
     pv, pf = pl.loft(body_rings)
-    pl.make_object(f"{PFX}CapyBody", pv, pf, [fur], parent=root)
+    _strip_bevel(pl.make_object(f"{PFX}CapyBody", pv, pf, [fur], parent=root))
 
     # head: wide boxy loaf sunk into the body top, sloping into a blunt
     # face plate. Rear rings carry a light fluff; face rings stay clean
@@ -228,8 +239,8 @@ def build(loc=(10.4, -5.0, 0.5)):
         # facet-column of fur left between them
         if cy > 0.345 and cz > HZ - 0.01 and 0.044 < abs(cx) < 0.064:
             fmi[n_f] = 1
-    pl.make_object(f"{PFX}CapyHead", pv, pf, [fur, black],
-                   face_mat_idx=fmi, parent=root)
+    _strip_bevel(pl.make_object(f"{PFX}CapyHead", pv, pf, [fur, black],
+                                face_mat_idx=fmi, parent=root))
 
     # ears: thin pointed flaps, notably outward-facing
     for i, s in enumerate((1, -1)):
