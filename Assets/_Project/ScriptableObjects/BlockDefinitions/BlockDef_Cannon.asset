@@ -27,4 +27,5 @@ MonoBehaviour:
   _visualModel: {fileID: 0}
   _visualModelScale: 1
   _visualModelOffset: {x: 0, y: 0, z: 0}
+  _visualModelStatic: 0
   _componentData: {fileID: 11400000, guid: a657b5a512079f94f908e3a28cdc59b7, type: 2}
