@@ -1,88 +1,111 @@
 # artgen/inv_wing.py — inventor study: aero wing.
-# The composition rule made literal: rib-and-membrane. Walnut leading-edge
-# spar, five spruce ribs, linen membrane stretched over the top with a
-# scalloped trailing edge sagging between rib tips — the one silhouette
-# cue that says "fabric wing" from 30 m. Membrane rows follow the rib
-# camber so the skin visibly drapes on the skeleton.
+# Session-132 revision (user steer): bigger, bonier, bat-wing-ish in
+# PROFILE only — a fan of tapered spars radiating from the root, linen
+# membrane stretched between them, deep scallops on the outer edge.
+# The bones sit centred in the membrane and are fatter than it, so the
+# skeleton reads from both faces. Spans ~2 blocks: components are sized
+# to their mechanic, not to one cell; the mount is the root corner.
 
-from math import cos, sin, pi, tau
+from math import cos, sin, pi, tau, radians
 
 import paperlib as pl
 import inventorlib as il
 
 PFX = "InvWing_"
 
-Y_LE = 0.42     # leading edge
-Y_TE = -0.44    # trailing edge at ribs
-SCALLOP = 0.08  # trailing-edge pull-in between ribs
-BAYS = 4
-RIB_X = [-0.5 + i * 0.25 for i in range(5)]
+# Fan origin sits just inboard of the mount. Spars fan from along +X
+# (leading, longest) around to trailing-root (shortest). Angles in
+# degrees from +X, lengths in metres.
+ORIGIN = (-0.72, 0.28)
+SPAR_A = [0.0, -24.0, -47.0, -70.0, -92.0]
+SPAR_L = [1.62, 1.46, 1.16, 0.84, 0.58]
+SCALLOP = 0.17          # edge pull-in between spar tips
+THICK = 0.014           # membrane thickness
+N_TH, N_T = 29, 11      # membrane samples: angular, radial
 
 
-def z_top(c):
-    """Camber curve, c in [0, 1] leading -> trailing."""
-    return 0.105 * sin(pi * c ** 0.85)
+def edge_len(a_deg):
+    """Outer-edge radius at an angle: lerp between spar lengths with a
+    scallop dip between neighbours."""
+    for i in range(len(SPAR_A) - 1):
+        a0, a1 = SPAR_A[i], SPAR_A[i + 1]
+        if a1 <= a_deg <= a0:
+            u = (a0 - a_deg) / (a0 - a1)
+            base = SPAR_L[i] + (SPAR_L[i + 1] - SPAR_L[i]) * u
+            return base * (1.0 - SCALLOP * sin(pi * u))
+    return SPAR_L[-1]
 
 
-def y_te(x):
-    u = (x + 0.5) / (1.0 / BAYS)
-    return Y_TE + SCALLOP * (0.5 - 0.5 * cos(tau * u))
+def surf_z(t, a_deg):
+    """Membrane top surface: gentle span-wise arch, drooping toward the
+    trailing spars."""
+    arch = 0.09 * t * (1.0 - t) * 2.0
+    droop = -0.07 * t * (abs(a_deg) / 92.0) ** 1.5
+    return arch + droop
 
 
 def build(loc=(0.0, -5.0, 0.5)):
     pl.clear_objects(prefixes=(PFX,))
     m = il.materials()
     root = il.root_empty(PFX + "Root", loc)
+    ox, oy = ORIGIN
 
-    # Ribs: closed (y, z) profiles, deep at the leading edge, knife-thin
-    # at the trailing edge.
-    NP = 11
-    top, bot = [], []
-    for i in range(NP):
-        c = i / (NP - 1)
-        y = Y_LE - (Y_LE - Y_TE) * c
-        depth = 0.055 * (1.0 - 0.75 * c) + 0.012
-        top.append((y, z_top(c) - 0.004))
-        bot.append((y, z_top(c) - depth))
-    profile = top + list(reversed(bot))
-    for i, x in enumerate(RIB_X):
-        pl.card_panel(f"{PFX}Rib{i}", profile, 0.022, 'X', x,
-                      [m["wood"]], cap_slots=(0, 0), edge_slot=0,
-                      parent=root)
-
-    # Membrane: rows at span stations, chord shortened by the scallop.
+    # Membrane: polar rows out from the fan origin.
     rows = []
-    NROW, NCH = 33, 9
-    for i in range(NROW):
-        x = -0.5 + i / (NROW - 1)
-        yt = y_te(x)
+    for i in range(N_T):
+        t = 0.06 + (1.0 - 0.06) * i / (N_T - 1)
         row = []
-        for j in range(NCH):
-            c = j / (NCH - 1)
-            y = 0.38 - (0.38 - yt) * c
-            cc = (Y_LE - y) / (Y_LE - Y_TE)
-            row.append((x, y, z_top(cc) + 0.004))
+        for j in range(N_TH):
+            a = SPAR_A[0] + (SPAR_A[-1] - SPAR_A[0]) * j / (N_TH - 1)
+            r = t * edge_len(a)
+            ar = radians(a)
+            row.append((ox + r * cos(ar), oy + r * sin(ar),
+                        surf_z(t, a) + THICK / 2))
         rows.append(row)
-    il.ribbon(f"{PFX}Membrane", rows, 0.012, [m["linen"]], parent=root)
+    il.ribbon(f"{PFX}Membrane", rows, THICK, [m["linen"]], parent=root)
 
-    # Spars: fat walnut round at the leading edge (proud ends with brass
-    # caps), slimmer stringer at mid-chord under the membrane.
-    il.rod(f"{PFX}SparLE", (-0.53, 0.40, 0.015), (0.53, 0.40, 0.015),
-           0.038, [m["wood_dark"]], sides=10, parent=root)
-    for s, x in ((0, -0.545), (1, 0.545)):
-        il.lathe(f"{PFX}SparCap{s}",
-                 [(0.040, x), (0.040, x + (0.02 if s == 0 else -0.02))],
-                 [m["brass"]], segs=10, axis='X', parent=root)
-    il.rod(f"{PFX}SparMid", (-0.5, -0.02, 0.055), (0.5, -0.02, 0.055),
-           0.020, [m["wood"]], sides=8, parent=root)
+    # Bones: swept along the membrane surface so a straight rod never
+    # dives through the arch. Fatter than the membrane — visible both
+    # sides. Leading spar is the thickest; the fan tapers.
+    for k, (a, L) in enumerate(zip(SPAR_A, SPAR_L)):
+        ar = radians(a)
+        r_bone = 0.040 - 0.005 * k
+        path = []
+        for s in range(13):
+            t = 0.02 + 0.98 * s / 12
+            path.append((ox + t * L * cos(ar), oy + t * L * sin(ar),
+                         surf_z(t, a)))
+        il.sweep(f"{PFX}Spar{k}", path, r_bone,
+                 [m["wood_dark"] if k == 0 else m["wood"]],
+                 sides=7, parent=root)
+        # Brass bead capping each spar tip (direction-agnostic).
+        tip = path[-1]
+        rb = r_bone * 1.25
+        il.lathe(f"{PFX}Tip{k}",
+                 [(0.004, -rb), (rb * 0.8, -rb * 0.5), (rb, 0.0),
+                  (rb * 0.8, rb * 0.5), (0.004, rb)],
+                 [m["brass"]], segs=10, center=tip, parent=root)
 
-    # Cord lacing along the leading edge: short diagonal wraps spar->rib.
-    for i, x in enumerate(RIB_X):
-        il.torus(f"{PFX}Lash{i}", 0.052, 0.008, [m["cord"]],
-                 center=(x, 0.40, 0.015), axis='X', segs=12, sides=5,
-                 parent=root)
+    # One curved cross-batten mid-span tying the fan together.
+    batten = []
+    for j in range(N_TH):
+        a = SPAR_A[0] + (SPAR_A[-1] - SPAR_A[0]) * j / (N_TH - 1)
+        ar = radians(a)
+        r = 0.55 * edge_len(a)
+        batten.append((ox + r * cos(ar), oy + r * sin(ar),
+                       surf_z(0.55, a) - THICK))
+    il.sweep(f"{PFX}Batten", batten, 0.016, [m["wood"]], sides=6,
+             parent=root)
 
-    # Brass mount plate under the mid-chord — where it bolts to the bot.
-    il.box(f"{PFX}Mount", (0.0, 0.0, -0.055), (0.16, 0.16, 0.022),
+    # Root boss where the fan converges: turned walnut disc + cord
+    # whipping + brass mount plate below (the one block-sized part).
+    il.lathe(f"{PFX}Boss",
+             [(0.055, -0.055), (0.105, -0.03), (0.115, 0.02),
+              (0.08, 0.06), (0.03, 0.08)],
+             [m["wood_dark"]], segs=12, center=(ox, oy, 0.0), parent=root)
+    il.torus(f"{PFX}Whip", 0.108, 0.012, [m["cord"]],
+             center=(ox, oy, -0.01), axis='Z', segs=16, sides=5,
+             parent=root)
+    il.box(f"{PFX}Mount", (ox, oy, -0.085), (0.20, 0.20, 0.026),
            [m["brass"]], parent=root)
     return root

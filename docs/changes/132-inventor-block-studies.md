@@ -97,6 +97,33 @@ kill, volley landing), not per-shot melody. The infra above is
 exactly big enough to pilot that on the mortar and small enough to
 delete in one commit if it's cursed.
 
+## Revision pass (same session, user review)
+
+Direction confirmed — visual work continues, audio parked for later.
+
+- **Woods darkened a full step** (`inventorlib.py` linear values), linen
+  gained a procedural weave bump (`_weave`, idempotent nodes). Shared
+  datablocks, so all studies updated without rebuilds.
+- **New authoring habit: components are sized to the mechanic they
+  replace, not to one cell.** Most non-block components will span
+  multiple blocks. First application: the aerial screw is now a wide,
+  thin ~2.9 m disc (low helical rise, short mast) because it visually
+  replaces the whole helicopter assembly. Rigging kept to the final
+  upper turn — crossing cords read as an umbrella frame when squashed.
+- **Wing rebuilt as a vague bat-wing profile** (user: profile, not
+  literal anatomy): five tapered spars fanning from a root boss, swept
+  along the membrane surface, fatter than the membrane so the skeleton
+  reads from both faces; deep scallops; brass tip beads; ~2-block span.
+- **SMG fully rerolled** — paper-punk loaf bones discarded on user
+  call. New concept: crank-organ pellet gun (cask receiver + brass
+  hoops, turned flared barrel + vermilion bore, linen pellet sack on a
+  brass feed pipe LEFT, crank + exposed drive gear RIGHT, turned yoke
+  columns). `smg_style_reclaimed.py` / `smg_style_steampunk.py` deleted
+  (git history keeps them; reclaimed's metal-and-plants idea stays
+  recorded in inventor-aesthetic.md as arena-layer candidate).
+  `smg_paperpunk.py` kept — it's the source for the in-game interim
+  SMG_Paper.fbx.
+
 ## Open / next
 
 - User verdict on the seven studies — which graduate to export +

@@ -13,12 +13,39 @@ import paperlib as pl
 
 # Colors are LINEAR (Principled base color) — picked so the sRGB result
 # reads right in material preview; don't eyeball them as hex paint values.
-WOOD = (0.43, 0.25, 0.11, 1.0)        # warm spruce — members, turned parts
-WOOD_DARK = (0.13, 0.062, 0.030, 1.0)  # walnut — frames, boards, masts
+# Session-132 revision: woods darkened a full step on user review.
+WOOD = (0.24, 0.13, 0.055, 1.0)       # oiled oak — members, turned parts
+WOOD_DARK = (0.062, 0.028, 0.013, 1.0)  # dark walnut — frames, boards, masts
 LINEN = (0.87, 0.81, 0.66, 1.0)       # stretched membrane, wraps
 CORD = (0.40, 0.28, 0.13, 1.0)        # hemp rigging, wound-rope tires
 IRON = (0.085, 0.082, 0.095, 1.0)     # small dark fittings
 INK = (0.045, 0.05, 0.07, 1.0)        # intake holes, dark interiors
+
+
+def _weave(mat, scale=170.0, strength=0.14):
+    """Cloth-grain bump on a Principled material — the linen 'a bit of
+    texture' pass. Idempotent: nodes are found by name on re-run."""
+    nt = mat.node_tree
+    bsdf = nt.nodes.get("Principled BSDF")
+    if bsdf is None:
+        return mat
+    noise = nt.nodes.get("WeaveNoise")
+    if noise is None:
+        noise = nt.nodes.new("ShaderNodeTexNoise")
+        noise.name = "WeaveNoise"
+        noise.location = (-500, -200)
+    noise.inputs["Scale"].default_value = scale
+    noise.inputs["Detail"].default_value = 3.0
+    noise.inputs["Roughness"].default_value = 0.55
+    bump = nt.nodes.get("WeaveBump")
+    if bump is None:
+        bump = nt.nodes.new("ShaderNodeBump")
+        bump.name = "WeaveBump"
+        bump.location = (-250, -200)
+    bump.inputs["Strength"].default_value = strength
+    nt.links.new(noise.outputs["Fac"], bump.inputs["Height"])
+    nt.links.new(bump.outputs["Normal"], bsdf.inputs["Normal"])
+    return mat
 
 
 def materials():
@@ -26,7 +53,7 @@ def materials():
     m.update({
         "wood": pl.get_material("InvWood", WOOD, roughness=0.75),
         "wood_dark": pl.get_material("InvWoodDark", WOOD_DARK, roughness=0.8),
-        "linen": pl.get_material("InvLinen", LINEN, roughness=0.95),
+        "linen": _weave(pl.get_material("InvLinen", LINEN, roughness=0.95)),
         "cord": pl.get_material("InvCord", CORD, roughness=0.95),
         "iron": pl.get_material("InvIron", IRON, roughness=0.55),
         "ink": pl.get_material("InvInk", INK, roughness=0.6),
