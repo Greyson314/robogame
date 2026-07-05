@@ -61,6 +61,10 @@ namespace Robogame.Tools.Editor
             // as a confident comic-panel ink line at 1080p.
             Build("BlockMat_Structure", WorldPalette.SlateLight, metallic: 0.0f, smoothness: 0.20f, outline: true,
                   outlineSize: 95f, textureIndex: BlockTextures.Picks.Structure);
+            // TRACE[LOG-132]: inventor oak-plank albedo overrides the slate
+            // tint + pattern when the generated texture exists — keeps a
+            // Build Everything run from silently reverting the cube look.
+            InventorPlankTexture.ApplyIfPresent();
 
             // Cpu: cyan, outline-on, low base emission. Beacon adds the loud emission.
             Build("BlockMat_Cpu",       WorldPalette.Cyan,       metallic: 0.5f, smoothness: 0.55f, outline: true,

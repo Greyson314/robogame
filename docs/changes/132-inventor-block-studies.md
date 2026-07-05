@@ -220,6 +220,31 @@ both modes); asset changes since are data-only, so no extra
 qa-verifier pass. perf-checker skipped per rule: zero physics objects
 added (visual swaps only).
 
+## Mortar re-verify + plank albedo (user-away session)
+
+User reported mortars as red cubes + not firing — that was the
+pre-refresh editor window (FBXs/wiring existed on disk, editor hadn't
+imported). Reproduced their path live: placed a mortar via
+`BlockGrid.PlaceBlock` in play mode — TurretModel builds, host mesh
+hides, yoke drives to lob elevation, and reflection-invoked
+`FireMortar()` launched a live shell (tracer confirmed on screen).
+Zero console errors. If their saved bot still shows red cubes, it's a
+stale scene instance — reload rebuilds it.
+
+**Plank texture landed** (the hesitation was geometry-vs-texture: 49
+plank objects would break the batched cube; a painted albedo costs
+nothing). `InventorPlankTexture` (menu: Robogame → Art → Generate
+Plank Texture) generates a 256² oak-plank albedo (4 courses,
+staggered joints, Perlin grain, painted course chamfer — sRGB bytes
+derived from inventorlib's linear oak tones) and applies it to
+`BlockMat_Structure` (`_AlbedoMap`+fallback slots, tint → white so
+damage MPB darkening still multiplies). `BlockMaterials` re-applies
+it after every rebuild so Build Everything can't silently revert the
+cube to slate. Verified in-game: the Tank hull reads as planked oak.
+Joint variants via per-block MPB UV offset remain the phase-2 step.
+BlockDef asset churn (24 files) = the new `_visualModel` fields
+serializing with defaults; scene churn committed separately as chore.
+
 ## Open / next
 
 - User verdict on the seven studies — which graduate to export +
