@@ -280,6 +280,24 @@ be parsed via `BlueprintSerializer.TryFromJson` and pushed through
 `GameStateController.SetCurrentBlueprint` to test the exact
 launch-frozen pipeline without touching build-mode UI.
 
+## Mortar fire-cycle verification (real input path)
+
+User re-report: mortar "worked for a second" then stopped firing.
+Verified the complete chain in the arena with synthetic Input System
+mouse events (real device path — PlayerInputHandler → FireHeld →
+WeaponFireGate → WeaponAmmoState → FireMortar): mortar fired all 5
+rounds, auto-reload ran (3.5 s), pool refilled, firing resumed.
+Console clean throughout. The authored rhythm explains the feel:
+2.2 s between lobs, 5-round clip, 3.5 s locked reload — clicking
+instead of holding lands most presses inside the cooldown, and the
+reload window is 3.8 s of nothing. Feedback audit: WeaponEmpty ✓ and
+ReloadComplete ✓ have clips; **ReloadStart has no clip** (reload
+begins silently) — wire a clip in AudioCueLibrary. The user's hard
+failures (red cube, zero fire) all occurred against mid-session
+editor states while this session was actively compiling/refreshing;
+every clean-state repro passes. If it recurs in a fresh session:
+capture WHERE (garage vs which arena) + console before anything else.
+
 ## Open / next
 
 - User verdict on the seven studies — which graduate to export +
