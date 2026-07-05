@@ -1,13 +1,18 @@
-# artgen/inv_capycube.py — inventor study: command cube with capybara pilot.
-# A walnut timber-frame cage (the frame+panel language kept for special
-# one-off blocks per the session-132 cube call), oak plank floor, cambered
-# linen canopy, a little ship's helm at the open front — and sitting
-# behind it, entirely unbothered, the capybara. The cyan spark hangs in a
-# brass lantern from the canopy: same "idea that keeps the machine alive"
-# vocabulary as inv_cpu, because this is where the machine gets its ideas.
+# artgen/inv_capycube.py — inventor study: command block with capybara pilot.
+# v2 (user direction): a 1x1x2 setup. Bottom cell is a planked structure
+# cube with a slightly inset open-air cockpit well (coaming rail + rolled
+# linen pad, ship-hatch language). Top cell is nothing but the capybara
+# from the shoulders up — head out of the hatch, paws on the rim. The
+# cyan spark sits flush in the deck as a small brass-ringed binnacle disc,
+# keeping the cyan = CPU vocabulary without cluttering the silhouette.
+#
+# Capybara build note: the head is lofted from rounded-rectangle
+# (superellipse) cross-sections, not a lathe — the capybara read lives in
+# the boxy skull, the flat-fronted snout, and eyes/ears set high and far
+# back. Root local z: bottom cell -0.5..0.5, top cell 0.5..1.5.
 
 import bpy
-from math import tau, cos, sin, pi
+from math import tau, cos, sin
 
 import paperlib as pl
 import inventorlib as il
@@ -15,152 +20,165 @@ import inv_cpu
 
 PFX = "InvCapyCube_"
 
-FUR = (0.21, 0.115, 0.05, 1.0)        # tawny capybara brown (linear)
-FUR_LIGHT = (0.30, 0.175, 0.085, 1.0)  # muzzle / feet
+FUR = (0.23, 0.125, 0.055, 1.0)        # tawny capybara brown (linear)
+FUR_LIGHT = (0.31, 0.185, 0.09, 1.0)   # paws / chest
 
 
 def fur_materials():
     fur = pl.get_material("InvCapyFur", FUR, roughness=0.93)
-    il._weave(fur, scale=90.0, strength=0.22)   # fuzz, not linen weave
+    il._weave(fur, scale=90.0, strength=0.18)
     fur_l = pl.get_material("InvCapyFurLight", FUR_LIGHT, roughness=0.93)
-    il._weave(fur_l, scale=90.0, strength=0.22)
+    il._weave(fur_l, scale=90.0, strength=0.18)
     return fur, fur_l
+
+
+def _rring_xz(y, w, h, cz, n=18, exp=0.45):
+    """Rounded-rectangle ring in the XZ plane at depth y (head sections).
+    exp is the superellipse power: 1.0 = diamond-ish, 0.5 ~ rounded box,
+    lower = boxier."""
+    pts = []
+    for k in range(n):
+        t = k * tau / n
+        c, s = cos(t), sin(t)
+        x = (abs(c) ** exp) * (1 if c >= 0 else -1) * w / 2
+        z = (abs(s) ** exp) * (1 if s >= 0 else -1) * h / 2
+        pts.append((x, y, cz + z))
+    return pts
+
+
+def _rring_xy(z, w, d, cy, n=18, exp=0.45):
+    """Rounded-rectangle ring in the XY plane at height z (body sections)."""
+    pts = []
+    for k in range(n):
+        t = k * tau / n
+        c, s = cos(t), sin(t)
+        x = (abs(c) ** exp) * (1 if c >= 0 else -1) * w / 2
+        y = (abs(s) ** exp) * (1 if s >= 0 else -1) * d / 2
+        pts.append((x, cy + y, z))
+    return pts
 
 
 def build(loc=(10.4, -5.0, 0.5)):
     pl.clear_objects(prefixes=(PFX,))
     m = il.materials()
-    oak_a, oak_b = il.oak_grain('X')
+    oak_ax, oak_bx = il.oak_grain('X')
+    oak_ay, oak_by = il.oak_grain('Y')
     fur, fur_l = fur_materials()
     spark = inv_cpu.spark_material()
     root = il.root_empty(PFX + "Root", loc)
 
-    # ---- the cube: walnut frame, open sides, plank floor -------------
+    # ---- bottom cell: planked cube with cockpit well ------------------
     for i, (sx, sy) in enumerate(((1, 1), (1, -1), (-1, 1), (-1, -1))):
-        il.box(f"{PFX}Post{i}", (sx * 0.45, sy * 0.45, 0),
-               (0.10, 0.10, 1.0), [m["wood_dark"]], parent=root)
-        # brass peg cap on each post top
+        il.box(f"{PFX}Post{i}", (sx * 0.46, sy * 0.46, 0),
+               (0.08, 0.08, 1.0), [m["wood_dark"]], parent=root)
         il.lathe(f"{PFX}Cap{i}",
-                 [(0.030, 0.0), (0.030, 0.022), (0.013, 0.034)],
-                 [m["brass"]], segs=12,
-                 center=(sx * 0.45, sy * 0.45, 0.50), parent=root)
+                 [(0.026, 0.0), (0.026, 0.018), (0.012, 0.028)],
+                 [m["brass"]], segs=10,
+                 center=(sx * 0.46, sy * 0.46, 0.50), parent=root)
+    # side panels, grain along the visible face
+    il.box(f"{PFX}PanelF", (0, 0.455, -0.03), (0.84, 0.055, 0.94),
+           [oak_ax], parent=root)
+    il.box(f"{PFX}PanelB", (0, -0.455, -0.03), (0.84, 0.055, 0.94),
+           [oak_bx], parent=root)
+    il.box(f"{PFX}PanelR", (0.455, 0, -0.03), (0.055, 0.84, 0.94),
+           [oak_ay], parent=root)
+    il.box(f"{PFX}PanelL", (-0.455, 0, -0.03), (0.055, 0.84, 0.94),
+           [oak_by], parent=root)
+
+    # deck frame around the 0.60 x 0.60 well, plank seam mid-front/back
     for i, s in enumerate((1, -1)):
-        for z in (0.45, -0.45):
-            tag = "Top" if z > 0 else "Skirt"
-            il.box(f"{PFX}{tag}X{i}{'a' if z > 0 else 'b'}",
-                   (0, s * 0.45, z), (1.0, 0.10, 0.10),
-                   [m["wood_dark"]], parent=root)
-            il.box(f"{PFX}{tag}Y{i}{'a' if z > 0 else 'b'}",
-                   (s * 0.45, 0, z), (0.10, 1.0, 0.10),
-                   [m["wood_dark"]], parent=root)
+        il.box(f"{PFX}DeckF{i}", (s * 0.23, 0.38, 0.47),
+               (0.46, 0.16, 0.06), [oak_ax if i == 0 else oak_bx],
+               parent=root)
+        il.box(f"{PFX}DeckB{i}", (s * 0.23, -0.38, 0.47),
+               (0.46, 0.16, 0.06), [oak_bx if i == 0 else oak_ax],
+               parent=root)
+        il.box(f"{PFX}DeckSide{i}", (s * 0.38, 0, 0.47),
+               (0.16, 0.60, 0.06), [oak_ay if i == 0 else oak_by],
+               parent=root)
 
-    # floor planks, grain along X, alternating oak tones
-    for i, y in enumerate((-0.30, 0.0, 0.30)):
-        il.box(f"{PFX}Plank{i}", (0, y, -0.42), (0.82, 0.27, 0.05),
-               [oak_a if i % 2 == 0 else oak_b], parent=root)
-
-    # mid rails on back + sides (front open — that's the bridge)
-    il.box(f"{PFX}RailBack", (0, -0.45, 0.02), (0.80, 0.055, 0.055),
-           [m["wood"]], parent=root)
+    # well: walnut lining + floor, slightly inset
     for i, s in enumerate((1, -1)):
-        il.box(f"{PFX}RailSide{i}", (s * 0.45, 0, 0.02),
-               (0.055, 0.80, 0.055), [m["wood"]], parent=root)
+        il.box(f"{PFX}WellWallY{i}", (0, s * 0.30, 0.325),
+               (0.60, 0.035, 0.29), [m["wood_dark"]], parent=root)
+        il.box(f"{PFX}WellWallX{i}", (s * 0.30, 0, 0.325),
+               (0.035, 0.60, 0.29), [m["wood_dark"]], parent=root)
+    il.box(f"{PFX}WellFloor", (0, 0, 0.17), (0.60, 0.60, 0.04),
+           [oak_ax], parent=root)
 
-    # cambered linen canopy under the top frame
-    xs = [-0.46 + 0.92 * k / 6 for k in range(7)]
-    rows = []
-    for j in range(5):
-        y = -0.44 + 0.88 * j / 4
-        rows.append([(x, y, 0.365 + 0.065 * (1.0 - (x / 0.46) ** 2))
-                     for x in xs])
-    il.ribbon(f"{PFX}Canopy", rows, 0.018, [m["linen"]], parent=root,
-              axis='Z')
-
-    # ---- the helm ----------------------------------------------------
-    il.rod(f"{PFX}HelmPost", (0, 0.34, -0.42), (0, 0.36, -0.16),
-           0.022, [m["wood_dark"]], parent=root)
-    il.torus(f"{PFX}HelmRim", 0.11, 0.013, [m["wood"]],
-             center=(0, 0.36, -0.10), axis='Y', segs=22, sides=7,
-             parent=root)
-    for i in range(6):
-        a = i * tau / 6
-        d = (cos(a), sin(a))
-        il.rod(f"{PFX}HelmSpoke{i}",
-               (0.030 * d[0], 0.36, -0.10 + 0.030 * d[1]),
-               (0.105 * d[0], 0.36, -0.10 + 0.105 * d[1]),
-               0.008, [m["wood"]], sides=6, parent=root)
-        il.rod(f"{PFX}HelmHandle{i}",
-               (0.110 * d[0], 0.36, -0.10 + 0.110 * d[1]),
-               (0.148 * d[0], 0.36, -0.10 + 0.148 * d[1]),
-               0.0095, [m["wood_dark"]], sides=6, parent=root)
-    il.lathe(f"{PFX}HelmHub",
-             [(0.012, -0.030), (0.026, -0.012), (0.026, 0.012),
-              (0.012, 0.030)],
-             [m["brass"]], segs=12, axis='Y', center=(0, 0.36, -0.10),
-             parent=root)
-
-    # ---- the spark lantern -------------------------------------------
-    il.rod(f"{PFX}LanternCord", (0, 0, 0.375), (0, 0, 0.305),
-           0.006, [m["cord"]], sides=6, parent=root)
-    il.lathe(f"{PFX}LanternCap",
-             [(0.008, 0.0), (0.032, -0.010), (0.034, -0.020),
-              (0.006, -0.026)],
-             [m["brass"]], segs=12, center=(0, 0, 0.305), parent=root)
-    il.torus(f"{PFX}LanternRing", 0.026, 0.0045, [m["brass"]],
-             center=(0, 0, 0.228), axis='Z', segs=12, sides=6, parent=root)
-    for i in range(3):
-        a = i * tau / 3
-        il.rod(f"{PFX}LanternBar{i}",
-               (0.030 * cos(a), 0.030 * sin(a), 0.288),
-               (0.026 * cos(a), 0.026 * sin(a), 0.228),
-               0.004, [m["brass"]], sides=5, parent=root)
-    pl.disc_ball(f"{PFX}Spark", 0.024, (0, 0, 0.262), [spark],
-                 parent=root, bands=6, segs=10)
-
-    # ---- the capybara (sitting upright, facing the helm) -------------
-    floor_top = -0.395
-
-    # body: chonky egg, big rump, narrowing chest
-    il.lathe(f"{PFX}CapyBody",
-             [(0.035, floor_top), (0.115, floor_top + 0.010),
-              (0.150, floor_top + 0.095), (0.145, floor_top + 0.175),
-              (0.115, floor_top + 0.265), (0.075, floor_top + 0.320),
-              (0.028, floor_top + 0.350)],
-             [fur], segs=18, center=(0, -0.08, 0), parent=root)
-
-    # head: blunt-nosed loaf along +Y — the capybara profile IS the snout
-    il.lathe(f"{PFX}CapyHead",
-             [(0.010, -0.090), (0.058, -0.078), (0.074, -0.030),
-              (0.072, 0.015), (0.062, 0.055), (0.055, 0.085),
-              (0.050, 0.105), (0.010, 0.113)],
-             [fur], segs=16, axis='Y', center=(0, 0.03, -0.035),
-             parent=root)
-
-    # nose pad on the snout tip
-    il.lathe(f"{PFX}CapyNose",
-             [(0.020, -0.006), (0.026, 0.000), (0.014, 0.008)],
-             [m["ink"]], segs=10, axis='Y', center=(0, 0.143, -0.045),
-             parent=root)
-
-    # eyes: small, high, far apart, judging nothing
+    # coaming rails + rolled linen pad (the cozy hatch rim)
     for i, s in enumerate((1, -1)):
-        pl.disc_ball(f"{PFX}CapyEye{i}", 0.012,
-                     (s * 0.065, 0.055, 0.005), [m["ink"]],
+        il.box(f"{PFX}CoamY{i}", (0, s * 0.315, 0.535),
+               (0.73, 0.05, 0.07), [m["wood_dark"]], parent=root)
+        il.box(f"{PFX}CoamX{i}", (s * 0.315, 0, 0.535),
+               (0.05, 0.63, 0.07), [m["wood_dark"]], parent=root)
+        il.rod(f"{PFX}PadY{i}", (-0.315, s * 0.315, 0.578),
+               (0.315, s * 0.315, 0.578), 0.026, [m["linen"]],
+               parent=root)
+        il.rod(f"{PFX}PadX{i}", (s * 0.315, -0.315, 0.578),
+               (s * 0.315, 0.315, 0.578), 0.026, [m["linen"]],
+               parent=root)
+    for i, (sx, sy) in enumerate(((1, 1), (1, -1), (-1, 1), (-1, -1))):
+        pl.disc_ball(f"{PFX}PadCorner{i}", 0.026,
+                     (sx * 0.315, sy * 0.315, 0.578), [m["linen"]],
                      parent=root, bands=5, segs=8)
-        # ears: little cups on top-back of the head
+
+    # flush spark binnacle on the front deck
+    il.torus(f"{PFX}SparkRing", 0.05, 0.009, [m["brass"]],
+             center=(0, 0.40, 0.503), axis='Z', segs=14, sides=6,
+             parent=root)
+    il.lathe(f"{PFX}Spark",
+             [(0.040, 0.0), (0.042, 0.008), (0.018, 0.016)],
+             [spark], segs=12, center=(0, 0.40, 0.50), parent=root)
+
+    # ---- the capybara (shoulders up, head out of the hatch) -----------
+    # body loaf, mostly hidden in the well
+    body_rings = [
+        _rring_xy(0.20, 0.30, 0.34, -0.02),
+        _rring_xy(0.26, 0.42, 0.46, -0.02),
+        _rring_xy(0.40, 0.46, 0.50, -0.02),
+        _rring_xy(0.54, 0.42, 0.46, -0.02),
+        _rring_xy(0.62, 0.34, 0.40, -0.02),
+        _rring_xy(0.66, 0.22, 0.28, -0.02),
+    ]
+    pv, pf = pl.loft(body_rings)
+    pl.make_object(f"{PFX}CapyBody", pv, pf, [fur], parent=root)
+
+    # head: boxy skull, straight top sloping to a flat blunt nose,
+    # deep jowls. Sections run back (-y) to nose (+y); flat end cap IS
+    # the nose front.
+    HZ = 0.87   # head vertical center
+    head_rings = [
+        _rring_xz(-0.20, 0.20, 0.24, HZ + 0.000),
+        _rring_xz(-0.14, 0.27, 0.32, HZ + 0.000),
+        _rring_xz(-0.04, 0.30, 0.36, HZ + 0.010),
+        _rring_xz(0.06, 0.29, 0.35, HZ + 0.000),
+        _rring_xz(0.12, 0.27, 0.30, HZ - 0.020),
+        _rring_xz(0.20, 0.255, 0.26, HZ - 0.045),
+        _rring_xz(0.26, 0.245, 0.235, HZ - 0.055),
+    ]
+    head_rings = [[(x, y + 0.02, z) for (x, y, z) in r] for r in head_rings]
+    pv, pf = pl.loft(head_rings)
+    pl.make_object(f"{PFX}CapyHead", pv, pf, [fur], parent=root)
+
+    # nostrils: two dots on the top-front of the snout
+    for i, s in enumerate((1, -1)):
+        pl.disc_ball(f"{PFX}CapyNostril{i}", 0.013,
+                     (s * 0.055, 0.265, HZ + 0.045), [m["ink"]],
+                     parent=root, bands=4, segs=8)
+        # eyes: small, high, FAR back — this placement is the capybara
+        pl.disc_ball(f"{PFX}CapyEye{i}", 0.017,
+                     (s * 0.147, 0.000, HZ + 0.095), [m["ink"]],
+                     parent=root, bands=5, segs=10)
+        # ears: little rounded flaps at the top-back corners
         il.lathe(f"{PFX}CapyEar{i}",
-                 [(0.006, 0.0), (0.019, 0.014), (0.021, 0.030),
-                  (0.010, 0.040)],
-                 [fur], segs=10, center=(s * 0.042, -0.010, 0.030),
-                 parent=root)
-        # front legs planted between the hind feet
-        il.rod(f"{PFX}CapyLeg{i}",
-               (s * 0.060, 0.020, -0.20), (s * 0.062, 0.050, -0.385),
-               0.020, [fur], parent=root)
-        il.box(f"{PFX}CapyFoot{i}", (s * 0.062, 0.075, -0.382),
-               (0.048, 0.065, 0.026), [fur_l], parent=root)
-        # hind feet poking forward from under the rump — the sitting cue
-        il.box(f"{PFX}CapyHindFoot{i}", (s * 0.105, 0.010, -0.382),
-               (0.052, 0.110, 0.026), [fur_l], parent=root)
+                 [(0.010, 0.0), (0.038, 0.020), (0.043, 0.052),
+                  (0.018, 0.070)],
+                 [fur], segs=10,
+                 center=(s * 0.108, -0.095, HZ + 0.155), parent=root)
+    # paws resting on the front coaming pad
+    for i, s in enumerate((1, -1)):
+        il.box(f"{PFX}CapyPaw{i}", (s * 0.14, 0.325, 0.605),
+               (0.095, 0.095, 0.05), [fur_l], parent=root)
 
     return root
