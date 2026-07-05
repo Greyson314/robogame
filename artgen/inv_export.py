@@ -126,7 +126,8 @@ STATICS = [
     ("inv_rudder", "build", "InvRudder_Root", "Rudder_Inv"),
     ("inv_hoverblade", "build", "InvHover_Root", "Hover_Inv"),
     ("inv_spring", "build", "InvSpring_Root", "Spring_Inv"),
-    ("inv_drill", "build", "InvDrill_Root", "Drill_Inv"),
+    # drill exports via export_drill (Rx-90 bake — study points -Y,
+    # the auger must run along the block mount-up / dig axis).
     ("inv_rope", "build", "InvRope_Root", "Rope_Inv"),
     ("inv_cpu", "build", "InvCpu_Root", "Cpu_Inv"),
     ("inv_grapple", "build", "InvGrap_Root", "Grapple_Inv"),
@@ -203,6 +204,22 @@ def export_thruster():
     inv_thruster.build()
 
 
+def export_drill():
+    # Study auger points Blender -Y. The drill mounts with up = mount
+    # normal, and DrillBlock's dig axis (and procedural cone bit) is the
+    # block's local +Y. Bake Rx(-90): Blender -Y -> +Z -> Unity +Y, so
+    # the auger runs down the dig axis at identity (BuildStaticVisual
+    # forces identity, so orientation must live in the FBX). The seating
+    # offset that snugs the collar to the hull lives in the wiring.
+    import inv_drill
+    importlib.reload(inv_drill)
+    inv_drill.build()
+    root = bpy.data.objects["InvDrill_Root"]
+    bake_rotation(root, Matrix.Rotation(-pi / 2, 4, 'X'))
+    pl.export_tree(root, os.path.join(BLOCKS_DIR, "Drill_Inv.fbx"))
+    inv_drill.build()
+
+
 def export_statics():
     for mod_name, fn, root_name, out in STATICS:
         mod = importlib.import_module(mod_name)
@@ -228,5 +245,6 @@ def export_all():
     export_foil()
     export_fin()
     export_thruster()
+    export_drill()
     export_statics()
     print("inv export complete")

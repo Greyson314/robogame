@@ -49,8 +49,12 @@ namespace Robogame.Tools.Editor
             // Static visuals: no moving parts — BlockBehaviour attaches the
             // model generically at placement. Ends the red-cube fallback for
             // these ids everywhere (garage + arena, all spawn paths).
+            // Drill: baked Rx-90 so the auger runs down the dig axis; the
+            // -0.4 block-local Y offset seats the drive collar against the
+            // hull (the drill cell sits one ahead of the front cube).
             changed += WireBlock("BlockDefinitions/BlockDef_Drill.asset",
-                                 "Drill_Inv.fbx", isStatic: true);
+                                 "Drill_Inv.fbx", isStatic: true,
+                                 offset: new Vector3(0f, -0.4f, 0f));
             changed += WireBlock("BlockDefinitions/BlockDef_Rope.asset",
                                  "Rope_Inv.fbx", isStatic: true);
             changed += WireBlock("BlockDefinitions/BlockDef_Spring.asset",
@@ -110,11 +114,12 @@ namespace Robogame.Tools.Editor
                          1f, offset);
         }
 
-        private static int WireBlock(string defRelPath, string fbxName, bool isStatic)
+        private static int WireBlock(string defRelPath, string fbxName, bool isStatic,
+                                     Vector3 offset = default)
         {
             return Apply(DefsDir + defRelPath, BlocksDir + fbxName,
                          "_visualModel", "_visualModelScale", "_visualModelOffset",
-                         1f, Vector3.zero, "_visualModelStatic", isStatic);
+                         1f, offset, "_visualModelStatic", isStatic);
         }
 
         private static int Apply(string defPath, string fbxPath,
