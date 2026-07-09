@@ -675,7 +675,7 @@ namespace Robogame.Gameplay
         // UGUI build
         // -----------------------------------------------------------------
 
-        private static Font UIFont => Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        private static Font UIFont => Robogame.Core.InkKit.Display;
 
         private void BuildCanvas()
         {
@@ -770,7 +770,7 @@ namespace Robogame.Gameplay
             listRT.pivot = new Vector2(0.5f, 1f);
             listRT.sizeDelta = new Vector2(0f, 0f); // height set per-populate
             listRT.anchoredPosition = new Vector2(0f, -86f);
-            _concoctionList.AddComponent<Image>().color = new Color(0.04f, 0.05f, 0.07f, 0.96f);
+            _concoctionList.AddComponent<Image>().color = UguiPalette.Backdrop;
             _concoctionList.SetActive(false);
 
             return section;
@@ -1068,7 +1068,7 @@ namespace Robogame.Gameplay
             trt.sizeDelta = new Vector2(0f, 28f);
             trt.anchoredPosition = new Vector2(0f, toggleY);
             var img = toggleGo.AddComponent<Image>();
-            img.color = new Color(0.10f, 0.13f, 0.18f, 1f);
+            img.color = UguiPalette.ButtonIdle;
             var btn = toggleGo.AddComponent<Button>();
             btn.targetGraphic = img;
             btn.onClick.AddListener(ToggleFoilAdvanced);

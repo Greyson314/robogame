@@ -238,7 +238,7 @@ namespace Robogame.Gameplay
         // Panel construction (procedural UGUI, matches SettingsHud family)
         // -----------------------------------------------------------------
 
-        private static Font UIFont => Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        private static Font UIFont => Robogame.Core.InkKit.Display;
 
         private static void EnsureEventSystem()
         {
@@ -274,7 +274,7 @@ namespace Robogame.Gameplay
             // blocker for everything underneath.
             var dim = NewChild("Dim", canvasGO.transform);
             FillParent(dim);
-            dim.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.55f);
+            dim.AddComponent<Image>().color = UguiPalette.ScrimDim;
 
             // Centered panel.
             var panel = NewChild("Panel", canvasGO.transform);
@@ -302,7 +302,7 @@ namespace Robogame.Gameplay
             titleRT.sizeDelta = new Vector2(0f, 64f);
             titleRT.anchoredPosition = new Vector2(0f, -10f);
             var titleText = title.AddComponent<Text>();
-            titleText.text = "PAUSED";
+            titleText.text = "Paused";
             titleText.font = UIFont;
             titleText.fontSize = 34;
             titleText.fontStyle = FontStyle.Bold;
@@ -361,7 +361,7 @@ namespace Robogame.Gameplay
             text.font = UIFont;
             text.fontSize = 18;
             text.alignment = TextAnchor.MiddleCenter;
-            text.color = Color.white;
+            text.color = UguiPalette.Text;
 
             btn.onClick.AddListener(onClick);
             return btn;

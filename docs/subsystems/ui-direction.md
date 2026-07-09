@@ -5,6 +5,14 @@
 > Open Question 7 ("HUD tone… deserves its own doc"). Same rule applies: every
 > visible colour is a palette token, never an ad-hoc literal.
 
+> **Current look (July 2026): "inventor + painter"** — ink on paper, indigo
+> wash, strictly rationed vermilion, Yuji Syuku + Cardo Italic type, brush
+> shapes from the runtime-generated
+> [`InkKit`](../../Assets/_Project/Scripts/Core/InkKit.cs). Canonical spec:
+> [research/ui-design-handoff.md](../research/ui-design-handoff.md); rollout
+> log: [changes/134](../changes/134-inventor-ui-pass-1.md) (pass 1: tokens,
+> main menu, settings; combat-HUD component shapes are pass 2).
+
 ## The two theme helpers (both in `Robogame.Core`)
 
 The UI is built procedurally in C# — no prefabs, no UXML. It splits two ways,

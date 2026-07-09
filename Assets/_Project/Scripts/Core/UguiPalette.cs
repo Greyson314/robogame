@@ -33,11 +33,13 @@ namespace Robogame.Core
         // Shared semantics — kept in lockstep with the IMGUI HUD.
         // -----------------------------------------------------------------
 
-        /// <summary>Project accent — hazard orange. Headers, highlights, primary action.</summary>
+        // TRACE[DOC:research/ui-design-handoff]: inventor + painter tokens.
+
+        /// <summary>Project accent — indigo wash. Headers, highlights, selected state.</summary>
         public static readonly Color Accent = HudStyles.Accent;
 
         /// <summary>Darkened accent for the pressed state of an accent button.</summary>
-        public static readonly Color AccentPressed = new(0.70f, 0.40f, 0.05f, 1f);
+        public static readonly Color AccentPressed = new(0.227f, 0.345f, 0.400f, 1f);
 
         /// <summary>Primary body text (off-white).</summary>
         public static readonly Color Text = HudStyles.TextPrimary;
@@ -55,21 +57,47 @@ namespace Robogame.Core
         // Panel chrome — UGUI panels are more opaque than the IMGUI overlays.
         // -----------------------------------------------------------------
 
-        /// <summary>Canonical opaque panel background, anchored to the locked UIBg token.</summary>
-        public static readonly Color PanelBg = WithAlpha(RuntimePalette.UIBg, 0.93f);
+        /// <summary>Canonical panel background — paper (#F6F0E0), near-opaque.
+        /// No longer anchored to <see cref="RuntimePalette.UIBg"/>: the 12-token
+        /// lock is suspended per art-direction.md's status banner, and the UI
+        /// paper ground has no equivalent among the world tokens.</summary>
+        public static readonly Color PanelBg = new(0.965f, 0.941f, 0.878f, 0.97f);
 
-        /// <summary>Full-screen modal scrim behind a focused overlay (Lab, modal menus). Near-opaque, slightly blue-black.</summary>
-        public static readonly Color Backdrop = new(0.02f, 0.03f, 0.05f, 0.92f);
+        /// <summary>Full-screen modal ground behind a focused overlay (Lab, modal menus). Opaque paper, mid falloff tone.</summary>
+        public static readonly Color Backdrop = new(0.929f, 0.894f, 0.800f, 0.98f);
 
-        /// <summary>Lighter dim laid over live gameplay (Settings / pause), so the world stays faintly visible.</summary>
-        public static readonly Color ScrimDim = new(0f, 0f, 0f, 0.55f);
+        /// <summary>Ink dim laid over live gameplay (Settings / pause), so the world stays faintly visible.</summary>
+        public static readonly Color ScrimDim = new(0.149f, 0.129f, 0.102f, 0.45f);
 
-        /// <summary>Idle face of a structural (non-accent) button.</summary>
-        public static readonly Color ButtonIdle = new(0.10f, 0.12f, 0.16f, 0.95f);
+        /// <summary>Idle face of a structural (non-accent) button — parchment, one step
+        /// below the paper ground so ink <see cref="Text"/> labels stay readable.</summary>
+        public static readonly Color ButtonIdle = new(0.918f, 0.875f, 0.773f, 1f);
 
-        /// <summary>Opaque header strip / sub-panel divider.</summary>
-        public static readonly Color Header = new(0.10f, 0.12f, 0.16f, 1f);
+        /// <summary>Hovered face of a structural button — ink at ~8% over parchment.</summary>
+        public static readonly Color ButtonHover = new(0.855f, 0.812f, 0.702f, 1f);
 
-        private static Color WithAlpha(Color c, float a) => new(c.r, c.g, c.b, a);
+        /// <summary>Header strip / sub-panel divider — deeper parchment.</summary>
+        public static readonly Color Header = new(0.882f, 0.835f, 0.714f, 1f);
+
+        /// <summary>Solid ink (#26211A) — primary "Begin"-style buttons, brush fills. Pair with <see cref="CreamText"/>.</summary>
+        public static readonly Color Ink = HudStyles.Ink;
+
+        /// <summary>Hovered ink surface (#322B21).</summary>
+        public static readonly Color InkHover = new(0.196f, 0.169f, 0.129f, 1f);
+
+        /// <summary>Cream text (#F1E9D4) for labels on ink surfaces.</summary>
+        public static readonly Color CreamText = HudStyles.CreamText;
+
+        /// <summary>Vermilion (#C33D1F). STRICTLY RATIONED: needles, ticks, strike-throughs, splats, seals — never large fills.</summary>
+        public static readonly Color Vermilion = HudStyles.Danger;
+
+        /// <summary>Indigo label text (#5B7280) on wash panels.</summary>
+        public static readonly Color IndigoText = new(0.357f, 0.447f, 0.502f, 1f);
+
+        /// <summary>1px rules and ticks — frame-line ink @ 0.5.</summary>
+        public static readonly Color FrameLine = new(0.180f, 0.157f, 0.125f, 0.5f);
+
+        /// <summary>Drafting-grid tint for <see cref="InkKit.GridTile"/> overlays — ink @ 3%.</summary>
+        public static readonly Color GridLine = new(0.200f, 0.173f, 0.129f, 0.03f);
     }
 }

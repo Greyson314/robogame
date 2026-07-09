@@ -155,7 +155,10 @@ namespace Robogame.Gameplay
         // Panel construction
         // -----------------------------------------------------------------
 
-        private static Font UIFont => Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        // TRACE[DOC:research/ui-design-handoff]: Yuji Syuku for UI text,
+        // Cardo italic for annotations/placeholders.
+        private static Font UIFont => InkKit.Display;
+        private static Font AnnotationFont => InkKit.Annotation;
 
         private void BuildPanel()
         {
@@ -173,31 +176,42 @@ namespace Robogame.Gameplay
 
             _root = canvasGO;
 
-            // Dim background.
+            // Ink dim over live gameplay — world stays faintly visible.
             var dimGO = NewChild("Dim", canvasGO.transform);
             FillParent(dimGO);
-            dimGO.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.55f);
+            dimGO.AddComponent<Image>().color = UguiPalette.ScrimDim;
 
-            // Centered panel.
+            // Centered panel — paper ground with radial falloff.
             var panel = NewChild("Panel", canvasGO.transform);
             var panelRT = panel.GetComponent<RectTransform>();
             panelRT.anchorMin = new Vector2(0.5f, 0.5f);
             panelRT.anchorMax = new Vector2(0.5f, 0.5f);
             panelRT.pivot = new Vector2(0.5f, 0.5f);
             panelRT.sizeDelta = new Vector2(900f, 720f);
-            panel.AddComponent<Image>().color = s_panelColor;
+            var panelImg = panel.AddComponent<Image>();
+            panelImg.sprite = InkKit.Paper;
+            panelImg.color = Color.white;
 
-            // Header strip.
+            // Faint drafting grid over the paper.
+            var gridGO = NewChild("Grid", panel.transform);
+            FillParent(gridGO);
+            var gridImg = gridGO.AddComponent<Image>();
+            gridImg.sprite = InkKit.GridTile;
+            gridImg.type = Image.Type.Tiled;
+            gridImg.color = UguiPalette.GridLine;
+            gridImg.raycastTarget = false;
+
+            // Header strip — parchment, one step below the paper ground.
             var header = NewChild("Header", panel.transform);
             var headerRT = header.GetComponent<RectTransform>();
             headerRT.anchorMin = new Vector2(0f, 1f);
             headerRT.anchorMax = new Vector2(1f, 1f);
             headerRT.pivot = new Vector2(0.5f, 1f);
             headerRT.sizeDelta = new Vector2(0f, 64f);
-            header.AddComponent<Image>().color = new Color(0.10f, 0.12f, 0.16f, 1f);
+            header.AddComponent<Image>().color = UguiPalette.Header;
 
-            // Title text.
-            AddText(header.transform, "SETTINGS", 32, FontStyle.Bold, TextAnchor.MiddleLeft,
+            // Title text — Title Case, never all caps.
+            AddText(header.transform, "Settings", 32, FontStyle.Normal, TextAnchor.MiddleLeft,
                 offset: new Vector2(16f, 0f));
 
             // Tab strip (only one tab for now).
@@ -229,7 +243,7 @@ namespace Robogame.Gameplay
             searchRT.pivot = new Vector2(0.5f, 1f);
             searchRT.sizeDelta = new Vector2(-32f, 36f);   // 16px margin per side
             searchRT.anchoredPosition = new Vector2(0f, -76f);
-            search.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.06f);
+            search.AddComponent<Image>().color = new Color(UguiPalette.Ink.r, UguiPalette.Ink.g, UguiPalette.Ink.b, 0.05f);
             _searchField = BuildSearchField(search);
 
             // Scrollable body. Reserve a vertical strip on the right for
@@ -301,11 +315,11 @@ namespace Robogame.Gameplay
             placeholderRT.offsetMin = new Vector2(12f, 0f);
             placeholderRT.offsetMax = new Vector2(-12f, 0f);
             var placeholder = placeholderGO.AddComponent<Text>();
-            placeholder.text = "Search tweaks…  (e.g. recoil, water, tank)";
-            placeholder.font = UIFont;
+            placeholder.text = "search tweaks…  (recoil, water, tank)";
+            placeholder.font = AnnotationFont;
             placeholder.fontSize = 16;
             placeholder.fontStyle = FontStyle.Italic;
-            placeholder.color = new Color(0.55f, 0.58f, 0.63f, 1f);
+            placeholder.color = s_textDimColor;
             placeholder.alignment = TextAnchor.MiddleLeft;
 
             var textGO = NewChild("Text", host.transform);
@@ -404,7 +418,7 @@ namespace Robogame.Gameplay
             var rowGO = NewChild($"Action_{label}", _content.transform);
             var le = rowGO.AddComponent<LayoutElement>();
             le.preferredHeight = 44f;
-            rowGO.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.03f);
+            rowGO.AddComponent<Image>().color = new Color(UguiPalette.Ink.r, UguiPalette.Ink.g, UguiPalette.Ink.b, 0.04f);
 
             var labelGO = NewChild("Label", rowGO.transform);
             var labelRT = labelGO.GetComponent<RectTransform>();
@@ -459,7 +473,7 @@ namespace Robogame.Gameplay
             var rowGO = NewChild($"Bisect_{label}", _content.transform);
             var le = rowGO.AddComponent<LayoutElement>();
             le.preferredHeight = 44f;
-            rowGO.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.03f);
+            rowGO.AddComponent<Image>().color = new Color(UguiPalette.Ink.r, UguiPalette.Ink.g, UguiPalette.Ink.b, 0.04f);
 
             var labelGO = NewChild("Label", rowGO.transform);
             var labelRT = labelGO.GetComponent<RectTransform>();
@@ -482,8 +496,10 @@ namespace Robogame.Gameplay
             void Sync()
             {
                 bool off = isOff();
-                btnText.text = off ? "DISABLED" : "ON";
-                btnText.color = off ? new Color(1f, 0.44f, 0.26f, 1f) : Color.white;
+                btnText.text = off ? "Disabled" : "On";
+                // Vermilion is rationed; a disabled-subsystem flag is exactly
+                // the kind of small mark it's for.
+                btnText.color = off ? UguiPalette.Vermilion : s_textColor;
             }
             Sync();
             _bisectSyncs.Add(Sync);
@@ -520,7 +536,7 @@ namespace Robogame.Gameplay
             le.preferredHeight = 36f;
             var img = go.AddComponent<Image>();
             img.color = new Color(0f, 0f, 0f, 0f);
-            var label = AddText(go.transform, group.ToUpperInvariant(), 18, FontStyle.Bold, TextAnchor.MiddleLeft,
+            var label = AddText(go.transform, group, 18, FontStyle.Normal, TextAnchor.MiddleLeft,
                 offset: new Vector2(8f, 0f));
             label.color = s_groupColor;
         }
@@ -557,10 +573,10 @@ namespace Robogame.Gameplay
             labelRT.offsetMin = new Vector2(36f, 0f);
             labelRT.offsetMax = new Vector2(-180f, 0f);
             var labelText = labelGO.AddComponent<Text>();
-            labelText.text = group.ToUpperInvariant();
+            labelText.text = group;
             labelText.font = UIFont;
             labelText.fontSize = 18;
-            labelText.fontStyle = FontStyle.Bold;
+            labelText.fontStyle = FontStyle.Normal;
             labelText.color = s_groupColor;
             labelText.alignment = TextAnchor.MiddleLeft;
 
@@ -631,7 +647,7 @@ namespace Robogame.Gameplay
             var rowGO = NewChild($"Row_{spec.Key}", _content.transform);
             var le = rowGO.AddComponent<LayoutElement>();
             le.preferredHeight = 44f;
-            rowGO.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.03f);
+            rowGO.AddComponent<Image>().color = new Color(UguiPalette.Ink.r, UguiPalette.Ink.g, UguiPalette.Ink.b, 0.04f);
 
             var labelGO = NewChild("Label", rowGO.transform);
             var labelRT = labelGO.GetComponent<RectTransform>();
@@ -692,7 +708,7 @@ namespace Robogame.Gameplay
             var rowGO = NewChild($"Row_{spec.Key}", _content.transform);
             var le = rowGO.AddComponent<LayoutElement>();
             le.preferredHeight = 44f;
-            rowGO.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.03f);
+            rowGO.AddComponent<Image>().color = new Color(UguiPalette.Ink.r, UguiPalette.Ink.g, UguiPalette.Ink.b, 0.04f);
 
             // Label on the left.
             var labelGO = NewChild("Label", rowGO.transform);
@@ -733,21 +749,38 @@ namespace Robogame.Gameplay
 
         private static Slider BuildSlider(GameObject host, Tweakables.Spec spec)
         {
-            var bg = NewChild("Background", host.transform);
-            var bgRT = bg.GetComponent<RectTransform>();
-            bgRT.anchorMin = new Vector2(0f, 0.4f);
-            bgRT.anchorMax = new Vector2(1f, 0.6f);
-            bgRT.offsetMin = Vector2.zero;
-            bgRT.offsetMax = Vector2.zero;
-            var bgImg = bg.AddComponent<Image>();
-            bgImg.color = new Color(1f, 1f, 1f, 0.18f);
+            // Ruler frame: a 1px bottom rule with a dashed tick line above
+            // it, indigo wash fill, ink brush thumb rotated -3°.
+            // TRACE[DOC:research/ui-design-handoff]: "quantities live inside
+            // ruler-like frames."
+            var rule = NewChild("Rule", host.transform);
+            var ruleRT = rule.GetComponent<RectTransform>();
+            ruleRT.anchorMin = new Vector2(0f, 0.32f);
+            ruleRT.anchorMax = new Vector2(1f, 0.32f);
+            ruleRT.sizeDelta = new Vector2(0f, 1.5f);
+            var ruleImg = rule.AddComponent<Image>();
+            ruleImg.color = UguiPalette.FrameLine;
+            ruleImg.raycastTarget = false;
+
+            var ticks = NewChild("Ticks", host.transform);
+            var ticksRT = ticks.GetComponent<RectTransform>();
+            ticksRT.anchorMin = new Vector2(0f, 0.38f);
+            ticksRT.anchorMax = new Vector2(1f, 0.62f);
+            ticksRT.offsetMin = Vector2.zero;
+            ticksRT.offsetMax = Vector2.zero;
+            var ticksImg = ticks.AddComponent<Image>();
+            ticksImg.sprite = InkKit.DashTile;
+            ticksImg.type = Image.Type.Tiled;
+            Color minorTick = UguiPalette.FrameLine; minorTick.a = 0.3f;
+            ticksImg.color = minorTick;
+            ticksImg.raycastTarget = false;
 
             var fillArea = NewChild("Fill Area", host.transform);
             var faRT = fillArea.GetComponent<RectTransform>();
-            faRT.anchorMin = new Vector2(0f, 0.4f);
-            faRT.anchorMax = new Vector2(1f, 0.6f);
-            faRT.offsetMin = new Vector2(8f, 0f);
-            faRT.offsetMax = new Vector2(-8f, 0f);
+            faRT.anchorMin = new Vector2(0f, 0.30f);
+            faRT.anchorMax = new Vector2(1f, 0.70f);
+            faRT.offsetMin = new Vector2(2f, 0f);
+            faRT.offsetMax = new Vector2(-2f, 0f);
             var fill = NewChild("Fill", fillArea.transform);
             var fillRT = fill.GetComponent<RectTransform>();
             fillRT.anchorMin = Vector2.zero;
@@ -755,19 +788,23 @@ namespace Robogame.Gameplay
             fillRT.offsetMin = Vector2.zero;
             fillRT.offsetMax = Vector2.zero;
             var fillImg = fill.AddComponent<Image>();
-            fillImg.color = new Color(0.95f, 0.55f, 0.10f, 1f);
+            fillImg.sprite = InkKit.WashFill;
+            fillImg.color = UguiPalette.Accent;
+            fillImg.raycastTarget = false;
 
             var handleArea = NewChild("Handle Slide Area", host.transform);
             var haRT = handleArea.GetComponent<RectTransform>();
             haRT.anchorMin = new Vector2(0f, 0f);
             haRT.anchorMax = new Vector2(1f, 1f);
-            haRT.offsetMin = new Vector2(10f, 0f);
-            haRT.offsetMax = new Vector2(-10f, 0f);
+            haRT.offsetMin = new Vector2(6f, 0f);
+            haRT.offsetMax = new Vector2(-6f, 0f);
             var handle = NewChild("Handle", handleArea.transform);
             var handleRT = handle.GetComponent<RectTransform>();
-            handleRT.sizeDelta = new Vector2(20f, 24f);
+            handleRT.sizeDelta = new Vector2(12f, 26f);
+            handleRT.localRotation = Quaternion.Euler(0f, 0f, -3f);
             var handleImg = handle.AddComponent<Image>();
-            handleImg.color = Color.white;
+            handleImg.sprite = InkKit.BarFill;
+            handleImg.color = UguiPalette.Ink;
 
             var slider = host.AddComponent<Slider>();
             slider.targetGraphic = handleImg;
@@ -789,7 +826,8 @@ namespace Robogame.Gameplay
             var clickImg = host.AddComponent<Image>();
             clickImg.color = new Color(1f, 1f, 1f, 0f);
 
-            // Track (background pill).
+            // Track — a tiny ruler: 1px rule with end ticks.
+            // TRACE[DOC:research/ui-design-handoff]: toggle rail spec.
             var track = NewChild("Track", host.transform);
             var trackRT = track.GetComponent<RectTransform>();
             trackRT.anchorMin = new Vector2(1f, 0.5f);
@@ -798,18 +836,39 @@ namespace Robogame.Gameplay
             trackRT.sizeDelta = new Vector2(56f, 26f);
             trackRT.anchoredPosition = Vector2.zero;
             var trackImg = track.AddComponent<Image>();
-            trackImg.color = new Color(1f, 1f, 1f, 0.22f);
+            trackImg.color = Color.clear; // rail drawn by Rail/EndTick children
 
-            // Knob — moves left/right based on value.
+            var rail = NewChild("Rail", track.transform);
+            var railRT = rail.GetComponent<RectTransform>();
+            railRT.anchorMin = new Vector2(0f, 0.5f);
+            railRT.anchorMax = new Vector2(1f, 0.5f);
+            railRT.sizeDelta = new Vector2(0f, 1.5f);
+            var railImg = rail.AddComponent<Image>();
+            railImg.color = UguiPalette.FrameLine;
+            railImg.raycastTarget = false;
+            for (int i = 0; i < 2; i++)
+            {
+                var tick = NewChild("EndTick", track.transform);
+                var tickRT = tick.GetComponent<RectTransform>();
+                tickRT.anchorMin = new Vector2(i, 0.5f);
+                tickRT.anchorMax = new Vector2(i, 0.5f);
+                tickRT.sizeDelta = new Vector2(1.5f, 10f);
+                var tickImg = tick.AddComponent<Image>();
+                tickImg.color = UguiPalette.FrameLine;
+                tickImg.raycastTarget = false;
+            }
+
+            // Knob — organic ink blob; ON = solid at right, OFF = faded at left.
             var knob = NewChild("Knob", track.transform);
             var knobRT = knob.GetComponent<RectTransform>();
             knobRT.anchorMin = new Vector2(0f, 0.5f);
             knobRT.anchorMax = new Vector2(0f, 0.5f);
             knobRT.pivot = new Vector2(0f, 0.5f);
-            knobRT.sizeDelta = new Vector2(22f, 22f);
+            knobRT.sizeDelta = new Vector2(20f, 20f);
             knobRT.anchoredPosition = new Vector2(2f, 0f);
             var knobImg = knob.AddComponent<Image>();
-            knobImg.color = Color.white;
+            knobImg.sprite = InkKit.Splat;
+            knobImg.color = UguiPalette.Ink;
 
             // ON/OFF label sits to the left of the track.
             var stateGO = NewChild("State", host.transform);
@@ -819,10 +878,10 @@ namespace Robogame.Gameplay
             stateRT.offsetMin = new Vector2(0f, 0f);
             stateRT.offsetMax = new Vector2(-66f, 0f);
             var stateText = stateGO.AddComponent<Text>();
-            stateText.text = "OFF";
+            stateText.text = "Off";
             stateText.font = UIFont;
             stateText.fontSize = 16;
-            stateText.fontStyle = FontStyle.Bold;
+            stateText.fontStyle = FontStyle.Normal;
             stateText.color = s_textDimColor;
             stateText.alignment = TextAnchor.MiddleRight;
 
@@ -845,13 +904,22 @@ namespace Robogame.Gameplay
 
         private static void ApplyToggleVisuals(bool on, Image track, RectTransform knob, Text stateLabel)
         {
-            if (track != null)
-                track.color = on ? new Color(0.95f, 0.55f, 0.10f, 0.85f) : new Color(1f, 1f, 1f, 0.22f);
+            // Knob slides along the rail: ON = solid ink at right,
+            // OFF = faded ink at left. (Rail itself never changes colour.)
             if (knob != null)
-                knob.anchoredPosition = new Vector2(on ? 32f : 2f, 0f);
+            {
+                knob.anchoredPosition = new Vector2(on ? 34f : 2f, 0f);
+                var knobImg = knob.GetComponent<Image>();
+                if (knobImg != null)
+                {
+                    Color c = UguiPalette.Ink;
+                    c.a = on ? 1f : 0.3f;
+                    knobImg.color = c;
+                }
+            }
             if (stateLabel != null)
             {
-                stateLabel.text = on ? "ON" : "OFF";
+                stateLabel.text = on ? "On" : "Off";
                 stateLabel.color = on ? s_textColor : s_textDimColor;
             }
         }
@@ -890,7 +958,7 @@ namespace Robogame.Gameplay
             var rowGO = NewChild($"Key_{action}", _content.transform);
             var le = rowGO.AddComponent<LayoutElement>();
             le.preferredHeight = 32f;
-            rowGO.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.02f);
+            rowGO.AddComponent<Image>().color = new Color(UguiPalette.Ink.r, UguiPalette.Ink.g, UguiPalette.Ink.b, 0.025f);
 
             var actionGO = NewChild("Action", rowGO.transform);
             var actionRT = actionGO.GetComponent<RectTransform>();
@@ -972,7 +1040,7 @@ namespace Robogame.Gameplay
             rt.sizeDelta = new Vector2(width, 0f);
             rt.anchoredPosition = Vector2.zero;
             var bg = bar.AddComponent<Image>();
-            bg.color = new Color(1f, 1f, 1f, 0.06f);
+            bg.color = new Color(UguiPalette.Ink.r, UguiPalette.Ink.g, UguiPalette.Ink.b, 0.06f);
 
             var slidingArea = NewChild("Sliding Area", bar.transform);
             var saRT = slidingArea.GetComponent<RectTransform>();
@@ -988,7 +1056,8 @@ namespace Robogame.Gameplay
             hRT.offsetMin = Vector2.zero;
             hRT.offsetMax = Vector2.zero;
             var hImg = handle.AddComponent<Image>();
-            hImg.color = new Color(0.95f, 0.55f, 0.10f, 0.90f);
+            Color inkHandle = UguiPalette.Ink; inkHandle.a = 0.55f;
+            hImg.color = inkHandle;
 
             var sb = bar.AddComponent<Scrollbar>();
             sb.targetGraphic = hImg;
@@ -1055,8 +1124,12 @@ namespace Robogame.Gameplay
             rt.pivot = pivot;
             rt.sizeDelta = size;
             rt.anchoredPosition = anchoredPos;
+            // Brush-blob face: outlined-parchment idle, hover gains an ink
+            // wash, press deepens. Slight rotation keeps it off-rectangle.
             var img = go.AddComponent<Image>();
-            img.color = new Color(0.18f, 0.22f, 0.28f, 1f);
+            img.sprite = InkKit.BrushBlob;
+            img.color = UguiPalette.ButtonIdle;
+            rt.localRotation = Quaternion.Euler(0f, 0f, -0.6f);
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             // Audio cue on every Settings button. Method-group listener
@@ -1064,8 +1137,11 @@ namespace Robogame.Gameplay
             // their gameplay listener separately.
             btn.onClick.AddListener(PlayUiClick);
             ColorBlock cols = btn.colors;
-            cols.highlightedColor = new Color(0.95f, 0.55f, 0.10f, 1f);
-            cols.pressedColor = new Color(0.7f, 0.4f, 0.05f, 1f);
+            cols.normalColor = UguiPalette.ButtonIdle;
+            cols.highlightedColor = UguiPalette.ButtonHover;
+            cols.pressedColor = UguiPalette.Header;
+            cols.selectedColor = UguiPalette.ButtonIdle;
+            cols.colorMultiplier = 1f;
             btn.colors = cols;
 
             var labelGO = NewChild("Label", go.transform);
@@ -1078,9 +1154,10 @@ namespace Robogame.Gameplay
             t.text = label;
             t.font = UIFont;
             t.fontSize = 18;
-            t.fontStyle = FontStyle.Bold;
-            t.color = Color.white;
+            t.fontStyle = FontStyle.Normal;
+            t.color = s_textColor;
             t.alignment = TextAnchor.MiddleCenter;
+            t.raycastTarget = false;
             return btn;
         }
 
@@ -1099,10 +1176,13 @@ namespace Robogame.Gameplay
             rt.pivot = new Vector2(1f, 0.5f);
             rt.sizeDelta = new Vector2(160f, 40f);
             rt.anchoredPosition = anchoredPos;
+            // Indigo wash pill with indigo label — selected-tab treatment.
             var img = go.AddComponent<Image>();
-            img.color = new Color(0.95f, 0.55f, 0.10f, 1f);
-            var t = AddText(go.transform, label, 18, FontStyle.Bold, TextAnchor.MiddleCenter);
-            t.color = Color.white;
+            img.sprite = InkKit.WashFill;
+            Color washPill = UguiPalette.Accent; washPill.a = 0.55f;
+            img.color = washPill;
+            var t = AddText(go.transform, label, 18, FontStyle.Normal, TextAnchor.MiddleCenter);
+            t.color = UguiPalette.IndigoText;
         }
     }
 }

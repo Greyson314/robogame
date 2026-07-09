@@ -149,8 +149,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Robogame.Gameplay::Robogame.Gameplay.MainMenuController
   _startScene: Garage
-  _title: ROBOGAME
-  _tagline: voxel combat sandbox
+  _title: Robogame
+  _tagline: A Bestiary of Contraptions
 --- !u!4 &1684340315
 Transform:
   m_ObjectHideFlags: 0

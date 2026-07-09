@@ -12,46 +12,37 @@ namespace Robogame.Gameplay
     /// Procedural main-menu HUD. Lives in MainMenu.unity, the first scene
     /// loaded after Bootstrap. Three primary actions:
     /// <list type="bullet">
-    ///   <item><b>Start</b> — load Garage.unity (entry into the build / loadout flow).</item>
+    ///   <item><b>Begin</b> — load Garage.unity (entry into the build / loadout flow).</item>
     ///   <item><b>Settings</b> — defer to the persistent <see cref="SettingsHud"/> panel
     ///     that already lives on the Bootstrap GameObject.</item>
-    ///   <item><b>Exit</b> — Application.Quit. No-op in editor (logs instead).</item>
+    ///   <item><b>Take Leave</b> — Application.Quit. No-op in editor (logs instead).</item>
     /// </list>
     /// </summary>
     /// <remarks>
     /// <para>
     /// Built procedurally in UGUI to match <see cref="SettingsHud"/> /
-    /// <see cref="SceneTransitionHud"/>. Fade-in on enable, hover lift on
-    /// the buttons, version readout in the bottom-right corner.
+    /// <see cref="SceneTransitionHud"/>. Fade-in on enable, version readout
+    /// bottom-right.
     /// </para>
     /// <para>
-    /// The persistent SettingsHud (instantiated by Bootstrap.unity) survives
-    /// scene transitions so MainMenu's "Settings" button just calls into
-    /// the existing instance — no duplicate UI to maintain.
+    /// TRACE[DOC:research/ui-design-handoff]: layout and treatments follow
+    /// the unified-menu reference — paper ground with drafting grid,
+    /// registration marks, ink brush title underline with vermilion splats,
+    /// ink-blob primary button, wash-underline secondary buttons, and a
+    /// mirror-written flavor line (the da Vinci easter egg).
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
     public sealed class MainMenuController : MonoBehaviour
     {
-        [Tooltip("Scene name to load when Start is pressed. Must be in Build Settings.")]
+        [Tooltip("Scene name to load when Begin is pressed. Must be in Build Settings.")]
         [SerializeField] private string _startScene = "Garage";
 
         [Tooltip("Game title shown at the top of the menu.")]
-        [SerializeField] private string _title = "ROBOGAME";
+        [SerializeField] private string _title = "Robogame";
 
         [Tooltip("Optional tagline shown beneath the title.")]
-        [SerializeField] private string _tagline = "voxel combat sandbox";
-
-        // -----------------------------------------------------------------
-        // Palette (kept consistent with SettingsHud)
-        // -----------------------------------------------------------------
-        private static readonly Color s_bgColor       = new Color(0.04f, 0.05f, 0.08f, 1f); // opaque full-screen menu bg (menu-specific)
-        private static readonly Color s_panelColor    = UguiPalette.PanelBg;
-        private static readonly Color s_accentOrange  = UguiPalette.Accent;
-        private static readonly Color s_accentDim     = new Color(0.85f, 0.50f, 0.10f, 0.55f); // translucent accent underline (one-off)
-        private static readonly Color s_textColor     = UguiPalette.Text;
-        private static readonly Color s_textDim       = UguiPalette.TextDim;
-        private static readonly Color s_buttonBase    = UguiPalette.ButtonIdle;
+        [SerializeField] private string _tagline = "A Bestiary of Contraptions";
 
         private CanvasGroup _fadeGroup;
         private float _fadeT;
@@ -96,8 +87,6 @@ namespace Robogame.Gameplay
         // Panel construction
         // -----------------------------------------------------------------
 
-        private static Font UIFont => Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-
         private void BuildPanel()
         {
             // Top-level canvas — sits below SettingsHud's order so the
@@ -117,30 +106,28 @@ namespace Robogame.Gameplay
             _fadeGroup.alpha = 0f;
             _fadeT = 0f;
 
-            // Solid full-bleed background.
-            var bg = NewChild("Background", canvasGO.transform);
+            // Paper ground — baked radial falloff, full-bleed.
+            var bg = NewChild("Paper", canvasGO.transform);
             FillParent(bg);
-            bg.AddComponent<Image>().color = s_bgColor;
+            var paperImg = bg.AddComponent<Image>();
+            paperImg.sprite = InkKit.Paper;
+            paperImg.color = Color.white;
 
-            // Top accent strip — ties visually to the in-game palette.
-            var accent = NewChild("AccentTop", canvasGO.transform);
-            var accRT = accent.GetComponent<RectTransform>();
-            accRT.anchorMin = new Vector2(0f, 1f);
-            accRT.anchorMax = new Vector2(1f, 1f);
-            accRT.pivot = new Vector2(0.5f, 1f);
-            accRT.sizeDelta = new Vector2(0f, 6f);
-            accRT.anchoredPosition = Vector2.zero;
-            accent.AddComponent<Image>().color = s_accentOrange;
+            // Faint drafting grid over the paper.
+            var grid = NewChild("Grid", canvasGO.transform);
+            FillParent(grid);
+            var gridImg = grid.AddComponent<Image>();
+            gridImg.sprite = InkKit.GridTile;
+            gridImg.type = Image.Type.Tiled;
+            gridImg.color = UguiPalette.GridLine;
+            gridImg.raycastTarget = false;
 
-            // Bottom accent strip (thinner, dimmer).
-            var accentBottom = NewChild("AccentBottom", canvasGO.transform);
-            var accBRT = accentBottom.GetComponent<RectTransform>();
-            accBRT.anchorMin = new Vector2(0f, 0f);
-            accBRT.anchorMax = new Vector2(1f, 0f);
-            accBRT.pivot = new Vector2(0.5f, 0f);
-            accBRT.sizeDelta = new Vector2(0f, 2f);
-            accBRT.anchoredPosition = Vector2.zero;
-            accentBottom.AddComponent<Image>().color = s_accentDim;
+            // Registration marks at the four corners — the "printed off the
+            // drafting table" signature.
+            AddRegMark(canvasGO.transform, new Vector2(0f, 0f), new Vector2(30f, 30f));
+            AddRegMark(canvasGO.transform, new Vector2(1f, 0f), new Vector2(-30f, 30f));
+            AddRegMark(canvasGO.transform, new Vector2(0f, 1f), new Vector2(30f, -30f));
+            AddRegMark(canvasGO.transform, new Vector2(1f, 1f), new Vector2(-30f, -30f));
 
             // Centered content column.
             var column = NewChild("Column", canvasGO.transform);
@@ -148,70 +135,83 @@ namespace Robogame.Gameplay
             colRT.anchorMin = new Vector2(0.5f, 0.5f);
             colRT.anchorMax = new Vector2(0.5f, 0.5f);
             colRT.pivot = new Vector2(0.5f, 0.5f);
-            colRT.sizeDelta = new Vector2(560f, 600f);
+            colRT.sizeDelta = new Vector2(560f, 620f);
             colRT.anchoredPosition = Vector2.zero;
 
-            // Title.
-            var title = AddText(column.transform, _title, 96, FontStyle.Bold, TextAnchor.MiddleCenter,
+            // Title — Title Case, never all caps.
+            var title = AddText(column.transform, _title, 84, InkKit.Display, FontStyle.Normal, TextAnchor.MiddleCenter,
                 anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
-                offsetMin: new Vector2(0f, -160f), offsetMax: Vector2.zero,
-                color: s_textColor);
+                offsetMin: new Vector2(0f, -150f), offsetMax: Vector2.zero,
+                color: HudStyles.TextPrimary);
             title.rectTransform.pivot = new Vector2(0.5f, 1f);
-            // Never wrap/clip the wordmark — render it full-width on one line
-            // (110pt "ROBOGAME" overflowed the column and clipped to "ROBOGA").
+            // Never wrap/clip the wordmark — render it full-width on one line.
             title.horizontalOverflow = HorizontalWrapMode.Overflow;
             title.verticalOverflow = VerticalWrapMode.Overflow;
 
-            // Title underline accent.
-            var titleUnderline = NewChild("TitleUnderline", column.transform);
-            var tuRT = titleUnderline.GetComponent<RectTransform>();
+            // Full-column ink brush underline beneath the title…
+            var underline = NewChild("TitleUnderline", column.transform);
+            var tuRT = underline.GetComponent<RectTransform>();
             tuRT.anchorMin = new Vector2(0.5f, 1f);
             tuRT.anchorMax = new Vector2(0.5f, 1f);
             tuRT.pivot = new Vector2(0.5f, 1f);
-            tuRT.sizeDelta = new Vector2(360f, 4f);
-            tuRT.anchoredPosition = new Vector2(0f, -190f);
-            titleUnderline.AddComponent<Image>().color = s_accentOrange;
+            tuRT.sizeDelta = new Vector2(560f, 14f);
+            tuRT.anchoredPosition = new Vector2(0f, -168f);
+            tuRT.localRotation = Quaternion.Euler(0f, 0f, -0.5f);
+            var ulImg = underline.AddComponent<Image>();
+            ulImg.sprite = InkKit.Underline;
+            ulImg.color = UguiPalette.Ink;
+            ulImg.raycastTarget = false;
 
-            // Tagline.
+            // …with two small vermilion splats off its right end.
+            AddSplat(column.transform, new Vector2(296f, -166f), 13f);
+            AddSplat(column.transform, new Vector2(316f, -174f), 8f);
+
+            // Tagline — annotation voice, Cardo italic.
             if (!string.IsNullOrEmpty(_tagline))
             {
-                var tag = AddText(column.transform, _tagline, 26, FontStyle.Italic, TextAnchor.MiddleCenter,
+                var tag = AddText(column.transform, _tagline, 24, InkKit.Annotation, FontStyle.Italic, TextAnchor.MiddleCenter,
                     anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
-                    offsetMin: new Vector2(0f, -246f), offsetMax: new Vector2(0f, -206f),
-                    color: s_textDim);
+                    offsetMin: new Vector2(0f, -236f), offsetMax: new Vector2(0f, -192f),
+                    color: HudStyles.TextMuted);
                 tag.rectTransform.pivot = new Vector2(0.5f, 1f);
             }
 
-            // Button stack.
-            const float btnW = 360f;
-            const float btnH = 64f;
-            const float btnGap = 14f;
+            // Button stack: one ink-blob primary, two wash-underline secondaries.
             float stackTopY = -300f;
-            BuildButton(column.transform, "Start",    new Vector2(btnW, btnH),
-                anchoredPos: new Vector2(0f, stackTopY - 0 * (btnH + btnGap)),
+            BuildPrimaryButton(column.transform, "Begin",
+                anchoredPos: new Vector2(0f, stackTopY),
                 onClick: HandleStart);
-            BuildButton(column.transform, "Settings", new Vector2(btnW, btnH),
-                anchoredPos: new Vector2(0f, stackTopY - 1 * (btnH + btnGap)),
-                onClick: HandleSettings);
-            BuildButton(column.transform, "Exit",     new Vector2(btnW, btnH),
-                anchoredPos: new Vector2(0f, stackTopY - 2 * (btnH + btnGap)),
+            BuildSecondaryButton(column.transform, "Settings",
+                anchoredPos: new Vector2(0f, stackTopY - 96f),
+                washHover: UguiPalette.Accent, onClick: HandleSettings);
+            BuildSecondaryButton(column.transform, "Take Leave",
+                anchoredPos: new Vector2(0f, stackTopY - 156f),
+                washHover: new Color(UguiPalette.Vermilion.r, UguiPalette.Vermilion.g, UguiPalette.Vermilion.b, 0.35f),
                 onClick: HandleExit);
 
-            // Bottom-left: control hint.
-            AddText(canvasGO.transform, "Esc — open settings",
-                14, FontStyle.Normal, TextAnchor.LowerLeft,
+            // Bottom-left: control hint + mirror-written flavor line.
+            AddText(canvasGO.transform, "Esc — Open Settings",
+                18, InkKit.Display, FontStyle.Normal, TextAnchor.LowerLeft,
                 anchorMin: new Vector2(0f, 0f), anchorMax: new Vector2(0f, 0f),
-                offsetMin: new Vector2(20f, 16f), offsetMax: new Vector2(280f, 36f),
-                color: s_textDim);
+                offsetMin: new Vector2(24f, 44f), offsetMax: new Vector2(360f, 68f),
+                color: HudStyles.TextMuted);
+            var flavor = AddText(canvasGO.transform, "the frame remembers every fall",
+                17, InkKit.Annotation, FontStyle.Italic, TextAnchor.LowerLeft,
+                anchorMin: new Vector2(0f, 0f), anchorMax: new Vector2(0f, 0f),
+                offsetMin: new Vector2(24f, 18f), offsetMax: new Vector2(360f, 40f),
+                color: HudStyles.TextMuted);
+            // Mirror writing — flavor lines only. TRACE[DOC:research/ui-design-handoff]
+            flavor.rectTransform.localScale = new Vector3(-1f, 1f, 1f);
+            var flavorCol = flavor.color; flavorCol.a = 0.6f; flavor.color = flavorCol;
 
-            // Bottom-right: version + build info.
+            // Bottom-right: version + build info, Cardo italic.
             string version = string.IsNullOrEmpty(Application.version) ? "dev" : Application.version;
             string platform = Application.platform.ToString();
             AddText(canvasGO.transform, $"v{version}  ·  {platform}",
-                14, FontStyle.Normal, TextAnchor.LowerRight,
+                17, InkKit.Annotation, FontStyle.Italic, TextAnchor.LowerRight,
                 anchorMin: new Vector2(1f, 0f), anchorMax: new Vector2(1f, 0f),
-                offsetMin: new Vector2(-360f, 16f), offsetMax: new Vector2(-20f, 36f),
-                color: s_textDim);
+                offsetMin: new Vector2(-360f, 18f), offsetMax: new Vector2(-24f, 40f),
+                color: HudStyles.TextMuted);
         }
 
         // -----------------------------------------------------------------
@@ -273,8 +273,38 @@ namespace Robogame.Gameplay
             rt.offsetMax = Vector2.zero;
         }
 
+        private static void AddRegMark(Transform parent, Vector2 anchor, Vector2 inset)
+        {
+            var go = NewChild("RegMark", parent);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = anchor;
+            rt.anchorMax = anchor;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(16f, 16f);
+            rt.anchoredPosition = inset;
+            var img = go.AddComponent<Image>();
+            img.sprite = InkKit.RegMark;
+            img.color = new Color(UguiPalette.Ink.r, UguiPalette.Ink.g, UguiPalette.Ink.b, 0.45f);
+            img.raycastTarget = false;
+        }
+
+        private static void AddSplat(Transform parent, Vector2 pos, float size)
+        {
+            var go = NewChild("Splat", parent);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(size, size);
+            rt.anchoredPosition = pos;
+            var img = go.AddComponent<Image>();
+            img.sprite = InkKit.Splat;
+            img.color = UguiPalette.Vermilion;
+            img.raycastTarget = false;
+        }
+
         private static Text AddText(Transform parent, string content, int size,
-            FontStyle style, TextAnchor anchor,
+            Font font, FontStyle style, TextAnchor anchor,
             Vector2 anchorMin, Vector2 anchorMax,
             Vector2 offsetMin, Vector2 offsetMax,
             Color color)
@@ -287,7 +317,7 @@ namespace Robogame.Gameplay
             rt.offsetMax = offsetMax;
             var t = go.AddComponent<Text>();
             t.text = content;
-            t.font = UIFont;
+            t.font = font;
             t.fontSize = size;
             t.fontStyle = style;
             t.color = color;
@@ -295,55 +325,82 @@ namespace Robogame.Gameplay
             return t;
         }
 
-        private void BuildButton(Transform parent, string label, Vector2 size, Vector2 anchoredPos, System.Action onClick)
+        /// <summary>Primary action: solid ink brush blob, cream label, slight rotation.</summary>
+        private void BuildPrimaryButton(Transform parent, string label, Vector2 anchoredPos, System.Action onClick)
         {
             var go = NewChild($"Btn_{label}", parent);
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0.5f, 1f);
             rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.sizeDelta = size;
+            rt.sizeDelta = new Vector2(360f, 72f);
             rt.anchoredPosition = anchoredPos;
+            rt.localRotation = Quaternion.Euler(0f, 0f, -0.7f);
             var img = go.AddComponent<Image>();
-            img.color = s_buttonBase;
+            img.sprite = InkKit.BrushBlob;
+            img.color = UguiPalette.Ink;
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
             ColorBlock cols = btn.colors;
-            cols.normalColor      = s_buttonBase;
-            cols.highlightedColor = s_accentOrange;
-            cols.pressedColor     = UguiPalette.AccentPressed;
-            cols.selectedColor    = s_buttonBase;
+            cols.normalColor      = UguiPalette.Ink;
+            cols.highlightedColor = UguiPalette.InkHover;
+            cols.pressedColor     = Color.black;
+            cols.selectedColor    = UguiPalette.Ink;
             cols.colorMultiplier  = 1f;
             cols.fadeDuration     = 0.10f;
             btn.colors = cols;
             btn.onClick.AddListener(() => onClick?.Invoke());
             btn.onClick.AddListener(PlayUiClick);
 
-            // Left side accent bar — shows orange on hover via a sibling
-            // image whose alpha fades with selection state. Cheap polish.
-            var bar = NewChild("Bar", go.transform);
-            var brt = bar.GetComponent<RectTransform>();
-            brt.anchorMin = new Vector2(0f, 0f);
-            brt.anchorMax = new Vector2(0f, 1f);
-            brt.pivot = new Vector2(0f, 0.5f);
-            brt.sizeDelta = new Vector2(6f, 0f);
-            brt.anchoredPosition = Vector2.zero;
-            bar.AddComponent<Image>().color = s_accentOrange;
+            var t = AddText(go.transform, label, 30, InkKit.Display, FontStyle.Normal, TextAnchor.MiddleCenter,
+                Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, UguiPalette.CreamText);
+            t.raycastTarget = false;
+        }
 
-            // Label.
-            var labelGO = NewChild("Label", go.transform);
-            var lrt = labelGO.GetComponent<RectTransform>();
-            lrt.anchorMin = Vector2.zero;
-            lrt.anchorMax = Vector2.one;
-            lrt.offsetMin = Vector2.zero;
-            lrt.offsetMax = Vector2.zero;
-            var t = labelGO.AddComponent<Text>();
-            t.text = label;
-            t.font = UIFont;
-            t.fontSize = 26;
-            t.fontStyle = FontStyle.Bold;
-            t.color = s_textColor;
-            t.alignment = TextAnchor.MiddleCenter;
+        /// <summary>Secondary action: plain ink text over an indigo wash underline; hover deepens the wash.</summary>
+        private void BuildSecondaryButton(Transform parent, string label, Vector2 anchoredPos, Color washHover, System.Action onClick)
+        {
+            var go = NewChild($"Btn_{label}", parent);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 1f);
+            rt.anchorMax = new Vector2(0.5f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.sizeDelta = new Vector2(280f, 48f);
+            rt.anchoredPosition = anchoredPos;
+            // Invisible raycast face so the whole rect is clickable.
+            var face = go.AddComponent<Image>();
+            face.color = Color.clear;
+
+            // Wash underline sits behind the label's lower half.
+            var wash = NewChild("Wash", go.transform);
+            var wrt = wash.GetComponent<RectTransform>();
+            wrt.anchorMin = new Vector2(0.5f, 0f);
+            wrt.anchorMax = new Vector2(0.5f, 0f);
+            wrt.pivot = new Vector2(0.5f, 0f);
+            wrt.sizeDelta = new Vector2(200f, 12f);
+            wrt.anchoredPosition = new Vector2(0f, 6f);
+            var washImg = wash.AddComponent<Image>();
+            washImg.sprite = InkKit.Underline;
+            Color washIdle = UguiPalette.Accent; washIdle.a = 0.35f;
+            washImg.color = washIdle;
+            washImg.raycastTarget = false;
+
+            var btn = go.AddComponent<Button>();
+            btn.targetGraphic = washImg;
+            ColorBlock cols = btn.colors;
+            cols.normalColor      = washIdle;
+            cols.highlightedColor = washHover;
+            cols.pressedColor     = UguiPalette.AccentPressed;
+            cols.selectedColor    = washIdle;
+            cols.colorMultiplier  = 1f;
+            cols.fadeDuration     = 0.10f;
+            btn.colors = cols;
+            btn.onClick.AddListener(() => onClick?.Invoke());
+            btn.onClick.AddListener(PlayUiClick);
+
+            var t = AddText(go.transform, label, 26, InkKit.Display, FontStyle.Normal, TextAnchor.MiddleCenter,
+                Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, HudStyles.TextPrimary);
+            t.raycastTarget = false;
         }
 
         // Method-group hook so per-button AddListener doesn't allocate a

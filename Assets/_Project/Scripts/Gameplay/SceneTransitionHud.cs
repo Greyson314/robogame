@@ -161,8 +161,8 @@ namespace Robogame.Gameplay
             _label = labelGO.AddComponent<Text>();
             _label.alignment = TextAnchor.MiddleCenter;
             _label.fontSize = _fontSize;
-            _label.color = Color.white;
-            _label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _label.color = UguiPalette.Text;
+            _label.font = Robogame.Core.InkKit.Display;
 
             var lrt = labelGO.GetComponent<RectTransform>();
             lrt.anchorMin = Vector2.zero;
@@ -222,8 +222,8 @@ namespace Robogame.Gameplay
             var text = labelGO.AddComponent<Text>();
             text.alignment = TextAnchor.MiddleCenter;
             text.fontSize = _fontSize - 2;
-            text.color = Color.white;
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.color = UguiPalette.Text;
+            text.font = Robogame.Core.InkKit.Display;
             text.text = label;
             var lrt = labelGO.GetComponent<RectTransform>();
             lrt.anchorMin = Vector2.zero;
@@ -265,8 +265,8 @@ namespace Robogame.Gameplay
             var caption = captionGO.AddComponent<Text>();
             caption.alignment = TextAnchor.MiddleLeft;
             caption.fontSize = _fontSize;
-            caption.color = Color.white;
-            caption.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            caption.color = UguiPalette.Text;
+            caption.font = Robogame.Core.InkKit.Display;
             var captionRT = captionGO.GetComponent<RectTransform>();
             captionRT.anchorMin = Vector2.zero;
             captionRT.anchorMax = Vector2.one;
@@ -280,8 +280,8 @@ namespace Robogame.Gameplay
             var arrow = arrowGO.AddComponent<Text>();
             arrow.alignment = TextAnchor.MiddleRight;
             arrow.fontSize = _fontSize;
-            arrow.color = Color.white;
-            arrow.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            arrow.color = UguiPalette.Text;
+            arrow.font = Robogame.Core.InkKit.Display;
             arrow.text = "▾";
             var arrowRT = arrowGO.GetComponent<RectTransform>();
             arrowRT.anchorMin = Vector2.zero;
@@ -299,7 +299,7 @@ namespace Robogame.Gameplay
             templateRT.pivot = new Vector2(0.5f, 1f);
             templateRT.sizeDelta = new Vector2(0f, 150f);
             var templateImg = template.AddComponent<Image>();
-            templateImg.color = new Color(0.08f, 0.10f, 0.13f, 0.97f);
+            templateImg.color = UguiPalette.Backdrop;
             var templateScroll = template.AddComponent<ScrollRect>();
             template.AddComponent<Mask>().showMaskGraphic = true;
 
@@ -332,7 +332,7 @@ namespace Robogame.Gameplay
             var itemBg = new GameObject("Item Background");
             itemBg.transform.SetParent(item.transform, worldPositionStays: false);
             var itemBgImg = itemBg.AddComponent<Image>();
-            itemBgImg.color = new Color(0.18f, 0.22f, 0.28f, 1f);
+            itemBgImg.color = UguiPalette.ButtonIdle;
             var itemBgRT = itemBg.GetComponent<RectTransform>();
             itemBgRT.anchorMin = Vector2.zero;
             itemBgRT.anchorMax = Vector2.one;
@@ -354,8 +354,8 @@ namespace Robogame.Gameplay
             var itemText = itemLabel.AddComponent<Text>();
             itemText.alignment = TextAnchor.MiddleLeft;
             itemText.fontSize = _fontSize - 2;
-            itemText.color = Color.white;
-            itemText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            itemText.color = UguiPalette.Text;
+            itemText.font = Robogame.Core.InkKit.Display;
             var itemTextRT = itemLabel.GetComponent<RectTransform>();
             itemTextRT.anchorMin = Vector2.zero;
             itemTextRT.anchorMax = Vector2.one;
@@ -589,7 +589,7 @@ namespace Robogame.Gameplay
             var go = new GameObject("NameField");
             go.transform.SetParent(canvas, worldPositionStays: false);
             var img = go.AddComponent<Image>();
-            img.color = new Color(0.06f, 0.07f, 0.10f, 0.92f);
+            img.color = UguiPalette.ButtonIdle;
 
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0f, 0f);
@@ -609,9 +609,9 @@ namespace Robogame.Gameplay
             var text = textGO.AddComponent<Text>();
             text.alignment = TextAnchor.MiddleLeft;
             text.fontSize = _fontSize - 2;
-            text.color = Color.white;
+            text.color = UguiPalette.Text;
             text.supportRichText = false;
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = Robogame.Core.InkKit.Display;
             var trt = textGO.GetComponent<RectTransform>();
             trt.anchorMin = Vector2.zero;
             trt.anchorMax = Vector2.one;
@@ -628,7 +628,7 @@ namespace Robogame.Gameplay
             ph.color = new Color(1f, 1f, 1f, 0.4f);
             ph.fontStyle = FontStyle.Italic;
             ph.text = "Robot name…";
-            ph.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            ph.font = Robogame.Core.InkKit.Display;
             var prt = phGO.GetComponent<RectTransform>();
             prt.anchorMin = Vector2.zero;
             prt.anchorMax = Vector2.one;

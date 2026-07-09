@@ -432,7 +432,7 @@ namespace Robogame.Gameplay
             _detailText.alignment = TextAnchor.MiddleCenter;
             _detailText.fontSize = 14;
             _detailText.color = UguiPalette.TextDim;
-            _detailText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _detailText.font = Robogame.Core.InkKit.Display;
             _detailText.text = string.Empty;
             var drt = detailGO.GetComponent<RectTransform>();
             drt.anchorMin = new Vector2(0.5f, 0f);
@@ -448,7 +448,7 @@ namespace Robogame.Gameplay
             _cpuReadout.alignment = TextAnchor.MiddleCenter;
             _cpuReadout.fontSize = 18;
             _cpuReadout.color = UguiPalette.Text;
-            _cpuReadout.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _cpuReadout.font = Robogame.Core.InkKit.Display;
             _cpuReadout.text = "CPU  0 / 0\nMASS  0.0 kg     BLOCKS  0";
             _cpuReadout.lineSpacing = 1.0f;
             var crt = cpuGO.GetComponent<RectTransform>();
@@ -502,7 +502,7 @@ namespace Robogame.Gameplay
             if (n == 0) return;
             float totalW = n * _tabSize.x + (n - 1) * _tabGap;
             float startX = -totalW * 0.5f;
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            Font font = Robogame.Core.InkKit.Display;
 
             for (int i = 0; i < n; i++)
             {
@@ -558,7 +558,7 @@ namespace Robogame.Gameplay
             int n = defs.Count;
             float totalW = n * _slotSize.x + (n - 1) * _slotGap;
             float startX = -totalW * 0.5f;
-            Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            Font font = Robogame.Core.InkKit.Display;
 
             for (int i = 0; i < n; i++)
             {

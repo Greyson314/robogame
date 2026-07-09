@@ -19,13 +19,10 @@ namespace Robogame.Core
     /// re-skins the whole HUD.
     /// </para>
     /// <para>
-    /// Font: a dynamic OS-resolved monospace stack (Consolas → Menlo →
-    /// DejaVu Sans Mono → Courier New). Monospace gives stable column
-    /// alignment for changing readouts (SPD 7.3 m/s ↔ 12.6 m/s doesn't
-    /// shift the suffix horizontally). The first font available on the
-    /// running platform wins; Windows always has Consolas, macOS has
-    /// Menlo, Linux distros typically ship DejaVu. Cached as a static
-    /// because <c>Font.CreateDynamicFontFromOSFont</c> isn't free.
+    /// Font: Yuji Syuku via <see cref="InkKit.Display"/> — the single UI
+    /// face of the inventor + painter direction (labels, numerals,
+    /// hotkeys). Cached as a static; the null-check tolerates domain
+    /// reload because Unity's fake-null reports destroyed fonts as null.
     /// </para>
     /// </remarks>
     public static class HudStyles
@@ -34,41 +31,51 @@ namespace Robogame.Core
         // Palette — every HUD-visible colour goes through one of these.
         // -----------------------------------------------------------------
 
-        /// <summary>Off-white body text. Reads as "system text" against any background.</summary>
-        public static readonly Color TextPrimary = new(0.95f, 0.97f, 1f, 1f);
+        // TRACE[DOC:research/ui-design-handoff]: "inventor + painter" palette
+        // — ink on paper, indigo wash, rationed vermilion. Values are the
+        // handoff's design tokens verbatim.
 
-        /// <summary>Muted slate for secondary text (labels above readouts).</summary>
-        public static readonly Color TextMuted = new(0.65f, 0.72f, 0.80f, 1f);
+        /// <summary>Primary text — near-black ink (#2E2820). HUD panels supply a paper backing.</summary>
+        public static readonly Color TextPrimary = new(0.180f, 0.157f, 0.125f, 1f);
 
-        /// <summary>Project accent — hazard orange. Player team, primary action colour.</summary>
-        public static readonly Color Accent = new(0.95f, 0.55f, 0.10f, 1f);
+        /// <summary>Faded ink (#6E6350) for annotations / secondary labels.</summary>
+        public static readonly Color TextMuted = new(0.431f, 0.388f, 0.314f, 1f);
 
-        /// <summary>Cautious yellow — "you're taking damage but not in immediate danger."</summary>
-        public static readonly Color Warning = new(0.92f, 0.74f, 0.20f, 1f);
+        /// <summary>Project accent — indigo wash (#4A6E7E). Player team, secondary state colour.</summary>
+        public static readonly Color Accent = new(0.290f, 0.431f, 0.494f, 1f);
 
-        /// <summary>Alert red — enemy team, low HP, scrap-cap full, timer expiring.</summary>
-        public static readonly Color Danger = new(0.85f, 0.20f, 0.20f, 1f);
+        /// <summary>Cautious burnt ochre — "you're taking damage but not in immediate danger."</summary>
+        public static readonly Color Warning = new(0.659f, 0.455f, 0.165f, 1f);
 
-        /// <summary>Healthy green — HP bar full, friendly side annotations.</summary>
-        public static readonly Color Healthy = new(0.20f, 0.65f, 0.35f, 1f);
+        /// <summary>Vermilion (#C33D1F) — enemy team, low HP, timer expiring. STRICTLY RATIONED: small marks only, never large fills.</summary>
+        public static readonly Color Danger = new(0.765f, 0.239f, 0.122f, 1f);
 
-        /// <summary>Standard semi-opaque panel background.</summary>
-        public static readonly Color PanelBg = new(0f, 0f, 0f, 0.55f);
+        /// <summary>Healthy moss-ink green — HP bar full, friendly side annotations.</summary>
+        public static readonly Color Healthy = new(0.290f, 0.431f, 0.322f, 1f);
 
-        /// <summary>Slightly heavier panel background for prominent panels (scoreboard).</summary>
-        public static readonly Color PanelBgHeavy = new(0f, 0f, 0f, 0.7f);
+        /// <summary>Standard panel backing — translucent paper, not black. "Never a solid box."</summary>
+        public static readonly Color PanelBg = new(0.965f, 0.941f, 0.878f, 0.72f);
 
-        /// <summary>Thin highlight line — sits at panel top edges to imply chrome.</summary>
-        public static readonly Color PanelEdge = new(0.95f, 0.55f, 0.10f, 0.55f);
+        /// <summary>Heavier paper backing for prominent panels (scoreboard).</summary>
+        public static readonly Color PanelBgHeavy = new(0.945f, 0.914f, 0.831f, 0.90f);
+
+        /// <summary>Thin rule at panel edges — frame-line ink, rgba(46,40,32,0.5).</summary>
+        public static readonly Color PanelEdge = new(0.180f, 0.157f, 0.125f, 0.5f);
+
+        /// <summary>Solid ink (#26211A) — brush fills, primary buttons.</summary>
+        public static readonly Color Ink = new(0.149f, 0.129f, 0.102f, 1f);
+
+        /// <summary>Cream text (#F1E9D4) — the only text colour used on ink surfaces.</summary>
+        public static readonly Color CreamText = new(0.945f, 0.914f, 0.831f, 1f);
 
         // -----------------------------------------------------------------
         // Hex-string colour tags for rich-text <color=...> usage.
         // -----------------------------------------------------------------
 
-        public const string TagAccent = "#F28C1A";
-        public const string TagDanger = "#D93333";
-        public const string TagMuted  = "#A5B2C0";
-        public const string TagHealthy = "#34A655";
+        public const string TagAccent = "#4A6E7E";
+        public const string TagDanger = "#C33D1F";
+        public const string TagMuted  = "#6E6350";
+        public const string TagHealthy = "#4A6E52";
 
         // -----------------------------------------------------------------
         // Shared font
@@ -86,17 +93,12 @@ namespace Robogame.Core
             get
             {
                 if (s_font != null) return s_font;
-                string[] candidates =
-                {
-                    "Consolas",
-                    "Menlo",
-                    "DejaVu Sans Mono",
-                    "Courier New",
-                };
-                // The string[] overload picks the first OS-available font.
-                // 16 here is just a baseline — GUIStyles override fontSize
-                // per-style at render time.
-                s_font = Font.CreateDynamicFontFromOSFont(candidates, 16);
+                // TRACE[DOC:research/ui-design-handoff]: Yuji Syuku is THE UI
+                // face (labels, numerals, hotkeys). The old OS-monospace stack
+                // traded style for stable readout columns; the design accepts
+                // proportional digits. InkKit falls back to LegacyRuntime.ttf
+                // if the TTF is missing, so this never returns null.
+                s_font = InkKit.Display;
                 return s_font;
             }
         }

@@ -131,7 +131,7 @@ namespace Robogame.Gameplay
             rt.offsetMin = new Vector2(8f, 0f);
             rt.offsetMax = new Vector2(-8f, 0f);
             var t = go.AddComponent<Text>();
-            t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            t.font = Robogame.Core.InkKit.Display;
             t.fontSize = 13;
             t.fontStyle = FontStyle.Bold;
             t.alignment = TextAnchor.MiddleRight;

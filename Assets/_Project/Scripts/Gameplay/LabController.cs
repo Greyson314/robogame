@@ -70,7 +70,7 @@ namespace Robogame.Gameplay
         private static readonly Color s_btnHi    = UguiPalette.Accent;
         private static readonly Color s_btnPress = UguiPalette.AccentPressed;
 
-        private static Font UIFont => Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        private static Font UIFont => Robogame.Core.InkKit.Display;
 
         private void Awake()
         {
