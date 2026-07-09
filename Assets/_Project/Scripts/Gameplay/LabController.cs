@@ -250,7 +250,11 @@ namespace Robogame.Gameplay
             var canvas = _root.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 110; // above the variant panel (96)
-            _root.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
+            // Match the Settings/Pause scaling so the HUD isn't tiny above 1080p.
+            var scaler = _root.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
             _root.AddComponent<GraphicRaycaster>();
 
             // Full-screen dim backdrop (also eats clicks behind the panel).

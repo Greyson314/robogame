@@ -317,8 +317,9 @@ namespace Robogame.Gameplay
 
             // Colour is set per draw (alert vs normal); alignment is fixed.
             _timerCentreStyle = new GUIStyle(_timerStyle) { alignment = TextAnchor.MiddleCenter };
-            // Warmup pill: label-sized, not countdown-sized.
-            _warmupStyle = new GUIStyle(_timerCentreStyle) { fontSize = 14 };
+            // Warmup pill: smaller than the 24pt countdown so it reads as a
+            // state note, but still legible (14 was too small in practice).
+            _warmupStyle = new GUIStyle(_timerCentreStyle) { fontSize = 18 };
 
             _leftTargetStyle = new GUIStyle(_targetStyle) { alignment = TextAnchor.MiddleRight };
             _leftTargetStyle.normal.textColor = HudStyles.TextMuted;

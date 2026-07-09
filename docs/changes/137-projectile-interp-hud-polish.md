@@ -51,7 +51,29 @@ white → now Danger vermilion.
   wouldn't reach already-serialized scenes; they belong to the user's own
   style pass.
 
+## 5. UI scale sanity (follow-up in same session)
+
+User report: variant sliders, Warmup, and settings reset buttons "very
+small". Root cause for the uGUI side: the build-HUD canvases
+(VariantConfigPanel, BuildHotbar, BuildEditMode, BuildMirrorMode,
+PlacementFeedbackHud, LabController, SceneTransitionHud) used
+`ConstantPixelSize` while Settings/Pause/MainMenu use
+`ScaleWithScreenSize(1920×1080, match 0.5)` — above 1080p the build HUD
+rendered proportionally smaller. All seven now use the same
+ScaleWithScreenSize config. None of them did raw `Screen.width/height`
+layout math, so anchors carry the change.
+
+Point fixes: Warmup pill 14 → 18 pt (14 overshot); settings per-row "↺"
+reset buttons 40×32 → 44×36 with the glyph at 26 pt (was the button
+default 18 pt).
+
+Known remainder: the IMGUI HUDs (ObjectiveHud, VehicleStatsHud,
+ScoreboardOverlay, ...) still draw in raw screen pixels — no global IMGUI
+scale exists. Only Warmup was flagged, so no IMGUI scaling system was
+invented; if the whole combat HUD reads small on high-res, that's a
+follow-up (GUI.matrix scale per OnGUI).
+
 ## Verification
 
 EditMode + PlayMode suites via run-tests.sh; Unity console compile check.
-(Results recorded in the commit message.)
+(Results recorded in the commit messages.)

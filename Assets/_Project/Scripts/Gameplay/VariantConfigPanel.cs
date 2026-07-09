@@ -685,7 +685,13 @@ namespace Robogame.Gameplay
             var canvas = _root.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 96;
-            _root.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
+            // ScaleWithScreenSize so the build HUD keeps the same apparent
+            // size as the Settings/Pause menus on high-res displays —
+            // ConstantPixelSize rendered it tiny above 1080p.
+            var scaler = _root.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
             _root.AddComponent<GraphicRaycaster>();
 
             // Top-right anchored panel, sized for the foil section's full

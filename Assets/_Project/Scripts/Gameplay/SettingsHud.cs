@@ -694,8 +694,10 @@ namespace Robogame.Gameplay
             valueText.verticalOverflow = VerticalWrapMode.Overflow;
             valueText.text = FormatValue(slider.value);
 
-            var resetBtn = AddButton(rowGO.transform, "↺", new Vector2(-8f, 0f), new Vector2(40f, 32f),
+            var resetBtn = AddButton(rowGO.transform, "↺", new Vector2(-8f, 0f), new Vector2(44f, 36f),
                 anchor: new Vector2(1f, 0.5f), pivot: new Vector2(1f, 0.5f));
+            // The ↺ glyph renders small at the button's default 18pt — bump it.
+            resetBtn.GetComponentInChildren<Text>().fontSize = 26;
             string capturedKey = spec.Key;
             resetBtn.onClick.AddListener(() =>
             {
@@ -744,8 +746,10 @@ namespace Robogame.Gameplay
             toggleRT.anchoredPosition = new Vector2(-60f, 0f);
             Toggle toggle = BuildToggle(toggleGO, spec);
 
-            var resetBtn = AddButton(rowGO.transform, "↺", new Vector2(-8f, 0f), new Vector2(40f, 32f),
+            var resetBtn = AddButton(rowGO.transform, "↺", new Vector2(-8f, 0f), new Vector2(44f, 36f),
                 anchor: new Vector2(1f, 0.5f), pivot: new Vector2(1f, 0.5f));
+            // The ↺ glyph renders small at the button's default 18pt — bump it.
+            resetBtn.GetComponentInChildren<Text>().fontSize = 26;
             string capturedKey = spec.Key;
             resetBtn.onClick.AddListener(() =>
             {
