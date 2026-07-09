@@ -56,6 +56,14 @@ rulers, compass band, part panel, hotbar pips) is **pass 2 — not started**.
   failures in DrillBlock/DigZone + PerfRenderProbe present with UI-only
   diff — believed pre-existing from the drill-orientation session (see
   final run in session notes).
+- Live MCP style check (play mode, screenshots): found and fixed — Yuji
+  Syuku's tall CJK line box exceeds small rects and legacy `Text`
+  truncates the whole line (all panel text now sets
+  `verticalOverflow = Overflow`); title underline struck through the
+  wordmark (Yuji glyphs render low in their line box — geometric text
+  bottom ≠ visual bottom, underline/tagline moved down); secondary wash
+  underlines invisible at 0.35 alpha with the thin Underline sprite
+  (now BarFill @ 0.65). Menu + settings verified visually; compile clean.
 
 ## Known unknowns / follow-ups
 
