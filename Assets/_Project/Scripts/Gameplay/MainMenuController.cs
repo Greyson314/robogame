@@ -155,7 +155,10 @@ namespace Robogame.Gameplay
             tuRT.anchorMax = new Vector2(0.5f, 1f);
             tuRT.pivot = new Vector2(0.5f, 1f);
             tuRT.sizeDelta = new Vector2(560f, 14f);
-            tuRT.anchoredPosition = new Vector2(0f, -168f);
+            // Sits clear below the wordmark — Yuji's glyphs render low in
+            // their line box, so the geometric text bottom is not the
+            // visual bottom.
+            tuRT.anchoredPosition = new Vector2(0f, -200f);
             tuRT.localRotation = Quaternion.Euler(0f, 0f, -0.5f);
             var ulImg = underline.AddComponent<Image>();
             ulImg.sprite = InkKit.Underline;
@@ -163,15 +166,15 @@ namespace Robogame.Gameplay
             ulImg.raycastTarget = false;
 
             // …with two small vermilion splats off its right end.
-            AddSplat(column.transform, new Vector2(296f, -166f), 13f);
-            AddSplat(column.transform, new Vector2(316f, -174f), 8f);
+            AddSplat(column.transform, new Vector2(296f, -198f), 13f);
+            AddSplat(column.transform, new Vector2(316f, -206f), 8f);
 
             // Tagline — annotation voice, Cardo italic.
             if (!string.IsNullOrEmpty(_tagline))
             {
                 var tag = AddText(column.transform, _tagline, 24, InkKit.Annotation, FontStyle.Italic, TextAnchor.MiddleCenter,
                     anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
-                    offsetMin: new Vector2(0f, -236f), offsetMax: new Vector2(0f, -192f),
+                    offsetMin: new Vector2(0f, -272f), offsetMax: new Vector2(0f, -228f),
                     color: HudStyles.TextMuted);
                 tag.rectTransform.pivot = new Vector2(0.5f, 1f);
             }
@@ -190,15 +193,16 @@ namespace Robogame.Gameplay
                 onClick: HandleExit);
 
             // Bottom-left: control hint + mirror-written flavor line.
+            // 56px inset keeps them clear of the corner registration marks.
             AddText(canvasGO.transform, "Esc — Open Settings",
                 18, InkKit.Display, FontStyle.Normal, TextAnchor.LowerLeft,
                 anchorMin: new Vector2(0f, 0f), anchorMax: new Vector2(0f, 0f),
-                offsetMin: new Vector2(24f, 44f), offsetMax: new Vector2(360f, 68f),
+                offsetMin: new Vector2(56f, 44f), offsetMax: new Vector2(400f, 68f),
                 color: HudStyles.TextMuted);
             var flavor = AddText(canvasGO.transform, "the frame remembers every fall",
                 17, InkKit.Annotation, FontStyle.Italic, TextAnchor.LowerLeft,
                 anchorMin: new Vector2(0f, 0f), anchorMax: new Vector2(0f, 0f),
-                offsetMin: new Vector2(24f, 18f), offsetMax: new Vector2(360f, 40f),
+                offsetMin: new Vector2(56f, 18f), offsetMax: new Vector2(400f, 40f),
                 color: HudStyles.TextMuted);
             // Mirror writing — flavor lines only. TRACE[DOC:research/ui-design-handoff]
             flavor.rectTransform.localScale = new Vector3(-1f, 1f, 1f);
@@ -210,7 +214,7 @@ namespace Robogame.Gameplay
             AddText(canvasGO.transform, $"v{version}  ·  {platform}",
                 17, InkKit.Annotation, FontStyle.Italic, TextAnchor.LowerRight,
                 anchorMin: new Vector2(1f, 0f), anchorMax: new Vector2(1f, 0f),
-                offsetMin: new Vector2(-360f, 18f), offsetMax: new Vector2(-24f, 40f),
+                offsetMin: new Vector2(-400f, 18f), offsetMax: new Vector2(-56f, 40f),
                 color: HudStyles.TextMuted);
         }
 
@@ -322,6 +326,11 @@ namespace Robogame.Gameplay
             t.fontStyle = style;
             t.color = color;
             t.alignment = anchor;
+            // Yuji Syuku's CJK line metrics overrun small rects and legacy
+            // Text truncates the whole line by default — every menu string
+            // is short static copy, so overflow is always safe here.
+            t.horizontalOverflow = HorizontalWrapMode.Overflow;
+            t.verticalOverflow = VerticalWrapMode.Overflow;
             return t;
         }
 
@@ -377,11 +386,14 @@ namespace Robogame.Gameplay
             wrt.anchorMin = new Vector2(0.5f, 0f);
             wrt.anchorMax = new Vector2(0.5f, 0f);
             wrt.pivot = new Vector2(0.5f, 0f);
-            wrt.sizeDelta = new Vector2(200f, 12f);
-            wrt.anchoredPosition = new Vector2(0f, 6f);
+            wrt.sizeDelta = new Vector2(210f, 14f);
+            wrt.anchoredPosition = new Vector2(0f, 4f);
             var washImg = wash.AddComponent<Image>();
-            washImg.sprite = InkKit.Underline;
-            Color washIdle = UguiPalette.Accent; washIdle.a = 0.35f;
+            // BarFill (not Underline): the wash behind a secondary button is
+            // a bold swipe, and the thin Underline sprite all but vanished
+            // at this size against the paper.
+            washImg.sprite = InkKit.BarFill;
+            Color washIdle = UguiPalette.Accent; washIdle.a = 0.65f;
             washImg.color = washIdle;
             washImg.raycastTarget = false;
 

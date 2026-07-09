@@ -307,6 +307,7 @@ namespace Robogame.Gameplay
             titleText.fontSize = 34;
             titleText.fontStyle = FontStyle.Bold;
             titleText.alignment = TextAnchor.MiddleCenter;
+            titleText.verticalOverflow = VerticalWrapMode.Overflow;
             titleText.color = UguiPalette.Text;
 
             BuildButton(panel.transform, "ResumeButton", "Resume", row: 0, HandleResumeClicked);
@@ -326,6 +327,7 @@ namespace Robogame.Gameplay
             hintText.fontSize = 13;
             hintText.fontStyle = FontStyle.Italic;
             hintText.alignment = TextAnchor.MiddleCenter;
+            hintText.verticalOverflow = VerticalWrapMode.Overflow;
             hintText.color = UguiPalette.TextDim;
 
             var group = canvasGO.AddComponent<CanvasGroup>();
@@ -361,6 +363,7 @@ namespace Robogame.Gameplay
             text.font = UIFont;
             text.fontSize = 18;
             text.alignment = TextAnchor.MiddleCenter;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
             text.color = UguiPalette.Text;
 
             btn.onClick.AddListener(onClick);

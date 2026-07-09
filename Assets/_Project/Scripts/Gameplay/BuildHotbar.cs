@@ -430,6 +430,7 @@ namespace Robogame.Gameplay
             detailGO.transform.SetParent(_root.transform, worldPositionStays: false);
             _detailText = detailGO.AddComponent<Text>();
             _detailText.alignment = TextAnchor.MiddleCenter;
+            _detailText.verticalOverflow = VerticalWrapMode.Overflow;
             _detailText.fontSize = 14;
             _detailText.color = UguiPalette.TextDim;
             _detailText.font = Robogame.Core.InkKit.Display;
@@ -446,6 +447,7 @@ namespace Robogame.Gameplay
             cpuGO.transform.SetParent(_root.transform, worldPositionStays: false);
             _cpuReadout = cpuGO.AddComponent<Text>();
             _cpuReadout.alignment = TextAnchor.MiddleCenter;
+            _cpuReadout.verticalOverflow = VerticalWrapMode.Overflow;
             _cpuReadout.fontSize = 18;
             _cpuReadout.color = UguiPalette.Text;
             _cpuReadout.font = Robogame.Core.InkKit.Display;
@@ -531,6 +533,7 @@ namespace Robogame.Gameplay
                 label.text = s_categoryLabel.TryGetValue(cat, out var s) ? s : cat.ToString();
                 label.fontSize = 14;
                 label.alignment = TextAnchor.MiddleCenter;
+                label.verticalOverflow = VerticalWrapMode.Overflow;
                 label.color = Color.white;
                 label.font = font;
                 var lrt = labelGO.GetComponent<RectTransform>();
@@ -591,6 +594,7 @@ namespace Robogame.Gameplay
                     num.text = (i + 1).ToString();
                     num.fontSize = 16;
                     num.alignment = TextAnchor.UpperLeft;
+                    num.verticalOverflow = VerticalWrapMode.Overflow;
                     num.color = UguiPalette.TextDim;
                     num.font = font;
                     var numRT = numGO.GetComponent<RectTransform>();
@@ -607,6 +611,7 @@ namespace Robogame.Gameplay
                 label.text = ShortLabel(def);
                 label.fontSize = 14;
                 label.alignment = TextAnchor.MiddleCenter;
+                label.verticalOverflow = VerticalWrapMode.Overflow;
                 label.color = Color.white;
                 label.font = font;
                 var lrt = labelGO.GetComponent<RectTransform>();
@@ -629,6 +634,7 @@ namespace Robogame.Gameplay
                     badge.fontSize = 11;
                     badge.fontStyle = FontStyle.Bold;
                     badge.alignment = TextAnchor.UpperRight;
+                    badge.verticalOverflow = VerticalWrapMode.Overflow;
                     badge.color = UguiPalette.Accent;
                     badge.font = font;
                     var brt = badgeGO.GetComponent<RectTransform>();

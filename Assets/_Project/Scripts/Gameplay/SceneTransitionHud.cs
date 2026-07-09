@@ -160,6 +160,7 @@ namespace Robogame.Gameplay
             labelGO.transform.SetParent(btnGO.transform, worldPositionStays: false);
             _label = labelGO.AddComponent<Text>();
             _label.alignment = TextAnchor.MiddleCenter;
+            _label.verticalOverflow = VerticalWrapMode.Overflow;
             _label.fontSize = _fontSize;
             _label.color = UguiPalette.Text;
             _label.font = Robogame.Core.InkKit.Display;
@@ -221,6 +222,7 @@ namespace Robogame.Gameplay
             labelGO.transform.SetParent(go.transform, worldPositionStays: false);
             var text = labelGO.AddComponent<Text>();
             text.alignment = TextAnchor.MiddleCenter;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
             text.fontSize = _fontSize - 2;
             text.color = UguiPalette.Text;
             text.font = Robogame.Core.InkKit.Display;
@@ -264,6 +266,7 @@ namespace Robogame.Gameplay
             captionGO.transform.SetParent(ddGO.transform, worldPositionStays: false);
             var caption = captionGO.AddComponent<Text>();
             caption.alignment = TextAnchor.MiddleLeft;
+            caption.verticalOverflow = VerticalWrapMode.Overflow;
             caption.fontSize = _fontSize;
             caption.color = UguiPalette.Text;
             caption.font = Robogame.Core.InkKit.Display;
@@ -279,6 +282,7 @@ namespace Robogame.Gameplay
             arrowGO.transform.SetParent(ddGO.transform, worldPositionStays: false);
             var arrow = arrowGO.AddComponent<Text>();
             arrow.alignment = TextAnchor.MiddleRight;
+            arrow.verticalOverflow = VerticalWrapMode.Overflow;
             arrow.fontSize = _fontSize;
             arrow.color = UguiPalette.Text;
             arrow.font = Robogame.Core.InkKit.Display;
@@ -353,6 +357,7 @@ namespace Robogame.Gameplay
             itemLabel.transform.SetParent(item.transform, worldPositionStays: false);
             var itemText = itemLabel.AddComponent<Text>();
             itemText.alignment = TextAnchor.MiddleLeft;
+            itemText.verticalOverflow = VerticalWrapMode.Overflow;
             itemText.fontSize = _fontSize - 2;
             itemText.color = UguiPalette.Text;
             itemText.font = Robogame.Core.InkKit.Display;
@@ -608,6 +613,7 @@ namespace Robogame.Gameplay
             textGO.transform.SetParent(go.transform, worldPositionStays: false);
             var text = textGO.AddComponent<Text>();
             text.alignment = TextAnchor.MiddleLeft;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
             text.fontSize = _fontSize - 2;
             text.color = UguiPalette.Text;
             text.supportRichText = false;
@@ -624,6 +630,7 @@ namespace Robogame.Gameplay
             phGO.transform.SetParent(go.transform, worldPositionStays: false);
             var ph = phGO.AddComponent<Text>();
             ph.alignment = TextAnchor.MiddleLeft;
+            ph.verticalOverflow = VerticalWrapMode.Overflow;
             ph.fontSize = _fontSize - 2;
             ph.color = new Color(1f, 1f, 1f, 0.4f);
             ph.fontStyle = FontStyle.Italic;

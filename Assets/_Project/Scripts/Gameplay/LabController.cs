@@ -407,12 +407,14 @@ namespace Robogame.Gameplay
             var text = textGo.AddComponent<Text>();
             text.font = UIFont; text.fontSize = 15; text.color = Color.white;
             text.alignment = TextAnchor.MiddleLeft; text.supportRichText = false;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
 
             var placeholderGo = NewChild("Placeholder", go.transform);
             Stretch(placeholderGo.GetComponent<RectTransform>(), 8f);
             var placeholder = placeholderGo.AddComponent<Text>();
             placeholder.font = UIFont; placeholder.fontSize = 15; placeholder.fontStyle = FontStyle.Italic;
             placeholder.color = s_dim; placeholder.alignment = TextAnchor.MiddleLeft;
+            placeholder.verticalOverflow = VerticalWrapMode.Overflow;
             placeholder.text = "name your mix…";
 
             var field = go.AddComponent<InputField>();
@@ -470,6 +472,7 @@ namespace Robogame.Gameplay
             var t = go.AddComponent<Text>();
             t.text = text; t.font = UIFont; t.fontSize = size; t.fontStyle = style;
             t.color = color; t.alignment = anchor;
+            t.verticalOverflow = VerticalWrapMode.Overflow;
             return t;
         }
     }

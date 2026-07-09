@@ -1331,6 +1331,7 @@ namespace Robogame.Gameplay
             t.fontStyle = style;
             t.color = color;
             t.alignment = anchor;
+            t.verticalOverflow = VerticalWrapMode.Overflow;
             return t;
         }
     }

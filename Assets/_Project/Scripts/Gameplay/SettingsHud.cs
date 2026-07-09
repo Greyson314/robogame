@@ -321,6 +321,7 @@ namespace Robogame.Gameplay
             placeholder.fontStyle = FontStyle.Italic;
             placeholder.color = s_textDimColor;
             placeholder.alignment = TextAnchor.MiddleLeft;
+            placeholder.verticalOverflow = VerticalWrapMode.Overflow;
 
             var textGO = NewChild("Text", host.transform);
             var textRT = textGO.GetComponent<RectTransform>();
@@ -333,6 +334,7 @@ namespace Robogame.Gameplay
             text.fontSize = 16;
             text.color = s_textColor;
             text.alignment = TextAnchor.MiddleLeft;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
             text.supportRichText = false;
 
             var input = host.AddComponent<InputField>();
@@ -433,6 +435,7 @@ namespace Robogame.Gameplay
             labelText.fontSize = 18;
             labelText.color = s_textColor;
             labelText.alignment = TextAnchor.MiddleLeft;
+            labelText.verticalOverflow = VerticalWrapMode.Overflow;
 
             var btn = AddButton(rowGO.transform, buttonLabel, new Vector2(-12f, 0f), new Vector2(180f, 32f),
                 anchor: new Vector2(1f, 0.5f), pivot: new Vector2(1f, 0.5f));
@@ -488,6 +491,7 @@ namespace Robogame.Gameplay
             labelText.fontSize = 18;
             labelText.color = s_textColor;
             labelText.alignment = TextAnchor.MiddleLeft;
+            labelText.verticalOverflow = VerticalWrapMode.Overflow;
 
             var btn = AddButton(rowGO.transform, "", new Vector2(-12f, 0f), new Vector2(180f, 32f),
                 anchor: new Vector2(1f, 0.5f), pivot: new Vector2(1f, 0.5f));
@@ -564,6 +568,7 @@ namespace Robogame.Gameplay
             chevText.fontStyle = FontStyle.Bold;
             chevText.color = s_groupColor;
             chevText.alignment = TextAnchor.MiddleCenter;
+            chevText.verticalOverflow = VerticalWrapMode.Overflow;
 
             // Group-name label.
             var labelGO = NewChild("Label", go.transform);
@@ -579,6 +584,7 @@ namespace Robogame.Gameplay
             labelText.fontStyle = FontStyle.Normal;
             labelText.color = s_groupColor;
             labelText.alignment = TextAnchor.MiddleLeft;
+            labelText.verticalOverflow = VerticalWrapMode.Overflow;
 
             // Section reset button — resets every Tweakable in this group.
             var resetBtn = AddButton(go.transform, "Reset", new Vector2(-12f, 0f), new Vector2(120f, 28f),
@@ -662,6 +668,7 @@ namespace Robogame.Gameplay
             labelText.fontSize = 18;
             labelText.color = s_textColor;
             labelText.alignment = TextAnchor.MiddleLeft;
+            labelText.verticalOverflow = VerticalWrapMode.Overflow;
 
             var sliderGO = NewChild("Slider", rowGO.transform);
             var sliderRT = sliderGO.GetComponent<RectTransform>();
@@ -684,6 +691,7 @@ namespace Robogame.Gameplay
             valueText.fontSize = 18;
             valueText.color = s_textColor;
             valueText.alignment = TextAnchor.MiddleRight;
+            valueText.verticalOverflow = VerticalWrapMode.Overflow;
             valueText.text = FormatValue(slider.value);
 
             var resetBtn = AddButton(rowGO.transform, "↺", new Vector2(-8f, 0f), new Vector2(40f, 32f),
@@ -724,6 +732,7 @@ namespace Robogame.Gameplay
             labelText.fontSize = 18;
             labelText.color = s_textColor;
             labelText.alignment = TextAnchor.MiddleLeft;
+            labelText.verticalOverflow = VerticalWrapMode.Overflow;
 
             // Toggle on the right (with reset button further right).
             var toggleGO = NewChild("Toggle", rowGO.transform);
@@ -884,6 +893,7 @@ namespace Robogame.Gameplay
             stateText.fontStyle = FontStyle.Normal;
             stateText.color = s_textDimColor;
             stateText.alignment = TextAnchor.MiddleRight;
+            stateText.verticalOverflow = VerticalWrapMode.Overflow;
 
             // Toggle component drives the visual state via onValueChanged.
             // targetGraphic = the host's invisible click image, so the
@@ -972,6 +982,7 @@ namespace Robogame.Gameplay
             actionText.fontSize = 16;
             actionText.color = s_textColor;
             actionText.alignment = TextAnchor.MiddleLeft;
+            actionText.verticalOverflow = VerticalWrapMode.Overflow;
 
             var keyGO = NewChild("Keys", rowGO.transform);
             var keyRT = keyGO.GetComponent<RectTransform>();
@@ -986,6 +997,7 @@ namespace Robogame.Gameplay
             keyText.fontStyle = FontStyle.Bold;
             keyText.color = s_groupColor;
             keyText.alignment = TextAnchor.MiddleRight;
+            keyText.verticalOverflow = VerticalWrapMode.Overflow;
 
             // Stub spec so the row shares the visibility / search pipeline
             // even though there's nothing to tweak. Keys field carries the
@@ -1111,6 +1123,7 @@ namespace Robogame.Gameplay
             t.fontStyle = style;
             t.color = s_textColor;
             t.alignment = anchor;
+            t.verticalOverflow = VerticalWrapMode.Overflow;
             return t;
         }
 
@@ -1157,6 +1170,7 @@ namespace Robogame.Gameplay
             t.fontStyle = FontStyle.Normal;
             t.color = s_textColor;
             t.alignment = TextAnchor.MiddleCenter;
+            t.verticalOverflow = VerticalWrapMode.Overflow;
             t.raycastTarget = false;
             return btn;
         }

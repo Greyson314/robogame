@@ -176,6 +176,7 @@ namespace Robogame.Gameplay
             t.fontSize = 13;
             t.fontStyle = FontStyle.Bold;
             t.alignment = TextAnchor.MiddleCenter;
+            t.verticalOverflow = VerticalWrapMode.Overflow;
             return t;
         }
     }

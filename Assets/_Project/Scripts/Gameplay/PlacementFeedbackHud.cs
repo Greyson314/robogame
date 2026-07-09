@@ -135,6 +135,7 @@ namespace Robogame.Gameplay
             t.fontSize = 13;
             t.fontStyle = FontStyle.Bold;
             t.alignment = TextAnchor.MiddleRight;
+            t.verticalOverflow = VerticalWrapMode.Overflow;
             t.color = UguiPalette.Danger; // placement error → unified error red
             return t;
         }
