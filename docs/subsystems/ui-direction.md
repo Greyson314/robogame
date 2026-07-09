@@ -6,8 +6,9 @@
 > visible colour is a palette token, never an ad-hoc literal.
 
 > **Current look (July 2026): "inventor + painter"** — ink on paper, indigo
-> wash, strictly rationed vermilion, Yuji Syuku + Cardo Italic type, brush
-> shapes from the runtime-generated
+> wash, strictly rationed vermilion, Averia Libre (primary) + Space Mono
+> (secondary; italicized for annotations — user pick over the handoff's
+> Yuji Syuku / Cardo pairing), brush shapes from the runtime-generated
 > [`InkKit`](../../Assets/_Project/Scripts/Core/InkKit.cs). Canonical spec:
 > [research/ui-design-handoff.md](../research/ui-design-handoff.md); rollout
 > log: [changes/134](../changes/134-inventor-ui-pass-1.md) (pass 1: tokens,

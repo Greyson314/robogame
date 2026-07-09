@@ -155,8 +155,8 @@ namespace Robogame.Gameplay
             tuRT.anchorMax = new Vector2(0.5f, 1f);
             tuRT.pivot = new Vector2(0.5f, 1f);
             tuRT.sizeDelta = new Vector2(560f, 14f);
-            // Sits clear below the wordmark — Yuji's glyphs render low in
-            // their line box, so the geometric text bottom is not the
+            // Sits clear below the wordmark — some faces render glyphs low
+            // in their line box, so the geometric text bottom is not the
             // visual bottom.
             tuRT.anchoredPosition = new Vector2(0f, -200f);
             tuRT.localRotation = Quaternion.Euler(0f, 0f, -0.5f);
@@ -326,9 +326,10 @@ namespace Robogame.Gameplay
             t.fontStyle = style;
             t.color = color;
             t.alignment = anchor;
-            // Yuji Syuku's CJK line metrics overrun small rects and legacy
-            // Text truncates the whole line by default — every menu string
-            // is short static copy, so overflow is always safe here.
+            // Legacy Text truncates the whole line when a font's line box
+            // overruns a small rect (bit us hard with Yuji Syuku's CJK
+            // metrics) — every menu string is short static copy, so
+            // overflow is always safe here.
             t.horizontalOverflow = HorizontalWrapMode.Overflow;
             t.verticalOverflow = VerticalWrapMode.Overflow;
             return t;

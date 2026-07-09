@@ -19,7 +19,7 @@ namespace Robogame.Core
     /// re-skins the whole HUD.
     /// </para>
     /// <para>
-    /// Font: Yuji Syuku via <see cref="InkKit.Display"/> — the single UI
+    /// Font: Averia Libre via <see cref="InkKit.Display"/> — the single UI
     /// face of the inventor + painter direction (labels, numerals,
     /// hotkeys). Cached as a static; the null-check tolerates domain
     /// reload because Unity's fake-null reports destroyed fonts as null.
@@ -93,8 +93,9 @@ namespace Robogame.Core
             get
             {
                 if (s_font != null) return s_font;
-                // TRACE[DOC:research/ui-design-handoff]: Yuji Syuku is THE UI
-                // face (labels, numerals, hotkeys). The old OS-monospace stack
+                // TRACE[DOC:research/ui-design-handoff]: one UI face for
+                // labels, numerals, hotkeys (Averia Libre — user pick over
+                // the handoff's Yuji Syuku). The old OS-monospace stack
                 // traded style for stable readout columns; the design accepts
                 // proportional digits. InkKit falls back to LegacyRuntime.ttf
                 // if the TTF is missing, so this never returns null.

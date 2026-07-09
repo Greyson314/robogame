@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 14668aa4957542a47b178fbdf26253e2
+guid: a665d34d2500ba849bea98b07f838a73
 TrueTypeFontImporter:
   externalObjects: {}
   serializedVersion: 4
@@ -9,7 +9,7 @@ TrueTypeFontImporter:
   characterPadding: 1
   includeFontData: 1
   fontNames:
-  - Cardo
+  - Averia Libre
   fallbackFontReferences: []
   customCharacters: 
   fontRenderingMode: 0

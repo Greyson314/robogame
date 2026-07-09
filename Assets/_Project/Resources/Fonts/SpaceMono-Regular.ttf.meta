@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: b5039d2174dc5b348a73b4b94e876e8e
+guid: f6b2e18697e8e864f84888534cbb940b
 TrueTypeFontImporter:
   externalObjects: {}
   serializedVersion: 4
@@ -9,7 +9,7 @@ TrueTypeFontImporter:
   characterPadding: 1
   includeFontData: 1
   fontNames:
-  - Yuji Syuku
+  - Space Mono
   fallbackFontReferences: []
   customCharacters: 
   fontRenderingMode: 0

@@ -155,8 +155,8 @@ namespace Robogame.Gameplay
         // Panel construction
         // -----------------------------------------------------------------
 
-        // TRACE[DOC:research/ui-design-handoff]: Yuji Syuku for UI text,
-        // Cardo italic for annotations/placeholders.
+        // TRACE[DOC:research/ui-design-handoff]: Display face for UI text,
+        // Annotation face (italicized) for annotations/placeholders.
         private static Font UIFont => InkKit.Display;
         private static Font AnnotationFont => InkKit.Annotation;
 

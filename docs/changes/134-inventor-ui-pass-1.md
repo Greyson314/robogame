@@ -17,6 +17,9 @@ rulers, compass band, part panel, hotbar pips) is **pass 2 — not started**.
   `Assets/_Project/Resources/Fonts/` (Google Fonts, OFL). Every UGUI panel
   and the IMGUI `HudStyles.Font` now use Yuji Syuku. Note: Yuji TTF is
   8.4 MB (CJK); subset before shipping if build size matters.
+  **Superseded same session:** user picked Averia Libre (primary) +
+  Space Mono (secondary) — Yuji/Cardo TTFs deleted, `InkKit` loaders
+  repointed; the 8.4 MB subsetting concern evaporates (108 KB + 99 KB).
 - **`HudStyles` + `UguiPalette` retokened** — ink/paper/indigo/vermilion
   replaces slate/hazard-orange. Team semantics: Accent(player) = indigo,
   Danger(enemy) = vermilion, Healthy = moss-ink, Warning = burnt ochre.

@@ -47,13 +47,14 @@ namespace Robogame.Core
         private static Font s_display;
         private static Font s_annotation;
 
-        /// <summary>Yuji Syuku — display + all UI text, labels, numerals, hotkeys.</summary>
+        /// <summary>Averia Libre — display + all UI text, labels, numerals, hotkeys.
+        /// (User pick, supersedes the handoff's Yuji Syuku.)</summary>
         public static Font Display
         {
             get
             {
                 if (s_display == null)
-                    s_display = Resources.Load<Font>("Fonts/YujiSyuku-Regular");
+                    s_display = Resources.Load<Font>("Fonts/AveriaLibre-Regular");
                 // Fallback keeps the UI alive if the TTF ever goes missing.
                 if (s_display == null)
                     s_display = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -61,13 +62,15 @@ namespace Robogame.Core
             }
         }
 
-        /// <summary>Cardo Italic — annotations, part numbers, flavor lines. Lining numerals.</summary>
+        /// <summary>Space Mono — annotations, part numbers, flavor lines, readouts.
+        /// (User pick, supersedes the handoff's Cardo Italic; call sites keep
+        /// FontStyle.Italic for the annotation voice.)</summary>
         public static Font Annotation
         {
             get
             {
                 if (s_annotation == null)
-                    s_annotation = Resources.Load<Font>("Fonts/Cardo-Italic");
+                    s_annotation = Resources.Load<Font>("Fonts/SpaceMono-Regular");
                 if (s_annotation == null)
                     s_annotation = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                 return s_annotation;
