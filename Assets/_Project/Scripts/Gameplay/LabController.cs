@@ -268,11 +268,11 @@ namespace Robogame.Gameplay
             prt.anchoredPosition = Vector2.zero;
             panel.AddComponent<Image>().color = s_panelBg;
 
-            AddText(panel.transform, "LABORATORY  —  EXPLOSIVES", new Vector2(20f, -16f), new Vector2(-20f, -44f),
+            AddText(panel.transform, "Laboratory — Explosives", new Vector2(20f, -16f), new Vector2(-20f, -44f),
                 new Vector2(0f, 1f), new Vector2(1f, 1f), 22, FontStyle.Bold, TextAnchor.MiddleLeft, s_accent);
 
             // Close button (top-right).
-            BuildButton(panel.transform, "CLOSE", new Vector2(1f, 1f), new Vector2(-16f, -14f),
+            BuildButton(panel.transform, "Close", new Vector2(1f, 1f), new Vector2(-16f, -14f),
                 new Vector2(90f, 30f), () => SetOpen(false));
 
             BuildLeftList(panel.transform);
@@ -299,7 +299,7 @@ namespace Robogame.Gameplay
             crt.anchoredPosition = Vector2.zero;
             crt.sizeDelta = new Vector2(0f, 1f);
 
-            AddText(panel, "SAVED MIXES", new Vector2(20f, 0f), new Vector2(260f, 22f),
+            AddText(panel, "Saved mixes", new Vector2(20f, 0f), new Vector2(260f, 22f),
                 new Vector2(0f, 0f), new Vector2(0f, 0f), 12, FontStyle.Bold, TextAnchor.MiddleLeft, s_dim)
                 .rectTransform.anchoredPosition = new Vector2(20f, 36f);
         }
@@ -314,13 +314,13 @@ namespace Robogame.Gameplay
             rt.offsetMax = new Vector2(-20f, -56f);
 
             // Name input.
-            AddText(col.transform, "NAME", new Vector2(0f, -2f), new Vector2(80f, -28f),
+            AddText(col.transform, "Name", new Vector2(0f, -2f), new Vector2(80f, -28f),
                 new Vector2(0f, 1f), new Vector2(0f, 1f), 13, FontStyle.Bold, TextAnchor.MiddleLeft, s_dim);
             _nameField = BuildInputField(col.transform, new Vector2(0f, -30f), new Vector2(360f, 30f));
 
-            _dmgSlider  = BuildSliderRow(col.transform, "DAMAGE",    slot: 1, OnDmgChanged,  out _dmgValue);
-            _sizeSlider = BuildSliderRow(col.transform, "SIZE",      slot: 2, OnSizeChanged, out _sizeValue);
-            _kbSlider   = BuildSliderRow(col.transform, "KNOCKBACK", slot: 3, OnKbChanged,   out _kbValue);
+            _dmgSlider  = BuildSliderRow(col.transform, "Damage",    slot: 1, OnDmgChanged,  out _dmgValue);
+            _sizeSlider = BuildSliderRow(col.transform, "Size",      slot: 2, OnSizeChanged, out _sizeValue);
+            _kbSlider   = BuildSliderRow(col.transform, "Knockback", slot: 3, OnKbChanged,   out _kbValue);
 
             _cpuReadout = AddText(col.transform, "", new Vector2(0f, 0f), new Vector2(0f, 22f),
                 new Vector2(0f, 1f), new Vector2(1f, 1f), 13, FontStyle.Italic, TextAnchor.MiddleLeft, s_dim);
@@ -328,9 +328,9 @@ namespace Robogame.Gameplay
             _cpuReadout.rectTransform.anchoredPosition = new Vector2(0f, -30f - 4 * 56f);
 
             // Action row.
-            BuildButton(col.transform, "SAVE",   new Vector2(0f, 0f), new Vector2(0f, 8f),   new Vector2(120f, 34f), Save);
-            BuildButton(col.transform, "NEW",    new Vector2(0f, 0f), new Vector2(132f, 8f), new Vector2(110f, 34f), NewConcoction);
-            BuildButton(col.transform, "DELETE", new Vector2(0f, 0f), new Vector2(254f, 8f), new Vector2(110f, 34f), DeleteCurrent);
+            BuildButton(col.transform, "Save",   new Vector2(0f, 0f), new Vector2(0f, 8f),   new Vector2(120f, 34f), Save);
+            BuildButton(col.transform, "New",    new Vector2(0f, 0f), new Vector2(132f, 8f), new Vector2(110f, 34f), NewConcoction);
+            BuildButton(col.transform, "Delete", new Vector2(0f, 0f), new Vector2(254f, 8f), new Vector2(110f, 34f), DeleteCurrent);
         }
 
         private Slider BuildSliderRow(Transform parent, string label, int slot,

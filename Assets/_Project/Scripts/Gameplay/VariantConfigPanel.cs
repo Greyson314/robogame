@@ -259,27 +259,28 @@ namespace Robogame.Gameplay
 
             if (_titleText != null)
             {
-                // "EDITING" prefix + accent colour when a placed instance is
-                // bound (middle-click picker), so the player knows the sliders
+                // "Editing" prefix + danger colour when a placed instance is
+                // bound (Edit-mode click), so the player knows the sliders
                 // drive that one block, not the next-placement defaults.
                 bool editing = _session != null && _session.EditingInstance != null;
-                string lead = editing ? "EDITING" : "VARIANT";
-                // Title is normally accent-orange; flip to white while
-                // instance-editing so the mode change reads at a glance.
-                _titleText.color = editing ? Color.white : s_accent;
+                string lead = editing ? "Editing" : "Variant";
+                // Danger (vermilion) while instance-editing — white was
+                // unreadable on the cream panel, and the mode change should
+                // still read at a glance.
+                _titleText.color = editing ? UguiPalette.Danger : s_accent;
                 if (foil) _titleText.text = blockId == BlockIds.AeroFin
-                    ? $"{lead} — TAIL FIN"
-                    : $"{lead} — AERO WING";
-                else if (rope) _titleText.text = $"{lead} — ROPE";
-                else if (rotor) _titleText.text = $"{lead} — ROTOR";
-                else if (hover) _titleText.text = $"{lead} — HOVER BLADE";
+                    ? $"{lead} — Tail fin"
+                    : $"{lead} — Aero wing";
+                else if (rope) _titleText.text = $"{lead} — Rope";
+                else if (rotor) _titleText.text = $"{lead} — Rotor";
+                else if (hover) _titleText.text = $"{lead} — Hover blade";
                 else if (explosive) _titleText.text = blockId == BlockIds.Mortar
-                    ? $"{lead} — MORTAR"
-                    : $"{lead} — BOMB BAY";
+                    ? $"{lead} — Mortar"
+                    : $"{lead} — Bomb bay";
                 else if (weaponAmmo) _titleText.text = blockId == BlockIds.Cannon
-                    ? $"{lead} — CANNON"
+                    ? $"{lead} — Cannon"
                     : $"{lead} — SMG";
-                else _titleText.text = $"{(editing ? "EDITING" : "MODULE")} — {ModuleKinds.Label(ModuleKinds.ForBlockId(blockId) ?? ModuleKind.EmpBurst)}";
+                else _titleText.text = $"{(editing ? "Editing" : "Module")} — {ModuleKinds.Label(ModuleKinds.ForBlockId(blockId) ?? ModuleKind.EmpBurst)}";
             }
             _foilSection.SetActive(foil);
             _ropeSection.SetActive(rope);
@@ -668,7 +669,7 @@ namespace Robogame.Gameplay
             _foilAdvancedExpanded = !_foilAdvancedExpanded;
             if (_foilAdvanced != null) _foilAdvanced.SetActive(_foilAdvancedExpanded);
             if (_foilAdvancedToggleText != null)
-                _foilAdvancedToggleText.text = _foilAdvancedExpanded ? "ADVANCED ▲" : "ADVANCED ▼";
+                _foilAdvancedToggleText.text = _foilAdvancedExpanded ? "Advanced ▲" : "Advanced ▼";
         }
 
         // -----------------------------------------------------------------
@@ -698,7 +699,7 @@ namespace Robogame.Gameplay
             prt.anchoredPosition = new Vector2(-24f, -24f);
             panel.AddComponent<Image>().color = s_panelBg;
 
-            _titleText = AddText(panel.transform, "VARIANT", new Vector2(12f, -12f), new Vector2(-12f, -36f),
+            _titleText = AddText(panel.transform, "Variant", new Vector2(12f, -12f), new Vector2(-12f, -36f),
                 anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
                 size: 18, style: FontStyle.Bold, anchor: TextAnchor.MiddleLeft, color: s_accent);
 
@@ -709,6 +710,8 @@ namespace Robogame.Gameplay
             _moduleSection = BuildModuleSection(panel.transform);
             _explosiveSection = BuildExplosiveSection(panel.transform);
             _weaponSection = BuildWeaponSection(panel.transform);
+
+            BuildTipStrip(panel.transform);
 
             _foilSection.SetActive(false);
             _ropeSection.SetActive(false);
@@ -732,7 +735,7 @@ namespace Robogame.Gameplay
             rt.offsetMin = new Vector2(12f, 12f);
             rt.offsetMax = new Vector2(-12f, -40f);
 
-            AddText(section.transform, "CONCOCTION", new Vector2(0f, -4f), new Vector2(0f, 20f),
+            AddText(section.transform, "Concoction", new Vector2(0f, -4f), new Vector2(0f, 20f),
                 anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
                 size: 13, style: FontStyle.Bold, anchor: TextAnchor.MiddleLeft, color: s_dim);
 
@@ -751,7 +754,7 @@ namespace Robogame.Gameplay
             _concoctionCaptionButton.onClick.AddListener(ToggleConcoctionList);
             _concoctionCaptionText = AddText(capGo.transform, "(none) ▼", new Vector2(10f, 0f), new Vector2(-10f, 0f),
                 anchorMin: Vector2.zero, anchorMax: Vector2.one,
-                size: 14, style: FontStyle.Bold, anchor: TextAnchor.MiddleLeft, color: Color.white);
+                size: 14, style: FontStyle.Bold, anchor: TextAnchor.MiddleLeft, color: UguiPalette.Ink);
 
             // Live CPU surcharge readout for the current pick on this block.
             _concoctionCpuReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 20f),
@@ -832,7 +835,7 @@ namespace Robogame.Gameplay
 
             AddText(go.transform, label, new Vector2(8f, 0f), new Vector2(-8f, 0f),
                 anchorMin: Vector2.zero, anchorMax: Vector2.one,
-                size: 13, style: FontStyle.Normal, anchor: TextAnchor.MiddleLeft, color: Color.white);
+                size: 13, style: FontStyle.Normal, anchor: TextAnchor.MiddleLeft, color: UguiPalette.Ink);
         }
 
         private void SelectConcoction(string id)
@@ -896,7 +899,8 @@ namespace Robogame.Gameplay
                 min: BlockOccupancy.HoverBladeMinSize,
                 max: BlockOccupancy.HoverBladeMaxSize,
                 def: BlockOccupancy.HoverBladeDefaultSize,
-                onChanged: OnHoverSizeChanged, out _hoverSizeValue);
+                onChanged: OnHoverSizeChanged, out _hoverSizeValue,
+                tip: "Blade footprint in cells (N×N). Lift scales with the square of the size — see the readout below.");
             _hoverSizeSlider.wholeNumbers = true;
 
             _hoverReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
@@ -923,7 +927,8 @@ namespace Robogame.Gameplay
             // in HandleSelectedBlockChanged. Writing it caches ConfigValue,
             // which rides the blueprint and trades power for cooldown.
             _modulePowerSlider = BuildLabeledSlider(section.transform, "Power", slot: 0,
-                min: 0f, max: 1f, def: 0f, onChanged: OnModulePowerChanged, out _modulePowerValue);
+                min: 0f, max: 1f, def: 0f, onChanged: OnModulePowerChanged, out _modulePowerValue,
+                tip: "Module strength. Higher power means a stronger effect but a longer cooldown (see readout below).");
 
             _moduleReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
                 anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
@@ -950,7 +955,8 @@ namespace Robogame.Gameplay
             _weaponAmmoSlider = BuildLabeledSlider(section.transform, "Ammo ×", slot: 0,
                 min: WeaponAmmoDefaults.MinMultiplier, max: WeaponAmmoDefaults.MaxMultiplier,
                 def: WeaponAmmoDefaults.DefaultMultiplier,
-                onChanged: OnWeaponAmmoChanged, out _weaponAmmoValue);
+                onChanged: OnWeaponAmmoChanged, out _weaponAmmoValue,
+                tip: "Clip-size multiplier for this weapon. Bigger clips cost extra CPU and mass (see readout below).");
 
             _weaponReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
                 anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
@@ -1040,13 +1046,16 @@ namespace Robogame.Gameplay
 
             _foilSpanSlider      = BuildLabeledSlider(section.transform, "Span (m)",      slot: 1,
                 AeroSurfaceBlock.MinSpan,      AeroSurfaceBlock.MaxSpan,      AeroSurfaceBlock.DefaultSpan,
-                OnFoilSpanChanged,      out _foilSpanValue);
+                OnFoilSpanChanged,      out _foilSpanValue,
+                tip: "Wingtip-to-wingtip length. Lift scales with span × chord (wing area); longer wings also make a bigger target.");
             _foilThicknessSlider = BuildLabeledSlider(section.transform, "Thickness (m)", slot: 2,
                 AeroSurfaceBlock.MinThickness, AeroSurfaceBlock.MaxThickness, AeroSurfaceBlock.DefaultThickness,
-                OnFoilThicknessChanged, out _foilThicknessValue);
+                OnFoilThicknessChanged, out _foilThicknessValue,
+                tip: "Vertical depth of the wing body. Shape and hitbox only — lift comes from span × chord.");
             _foilChordSlider     = BuildLabeledSlider(section.transform, "Chord (m)",     slot: 3,
                 AeroSurfaceBlock.MinChord,     AeroSurfaceBlock.MaxChord,     AeroSurfaceBlock.DefaultChord,
-                OnFoilChordChanged,     out _foilChordValue);
+                OnFoilChordChanged,     out _foilChordValue,
+                tip: "Front-to-back width of the wing. Lift scales with span × chord (wing area).");
 
             // Live lift readout — sits under the chord slider.
             const float primaryBottom = 56f * 4f; // = 4 slots' worth of vertical
@@ -1072,7 +1081,7 @@ namespace Robogame.Gameplay
             var btn = toggleGo.AddComponent<Button>();
             btn.targetGraphic = img;
             btn.onClick.AddListener(ToggleFoilAdvanced);
-            _foilAdvancedToggleText = AddText(toggleGo.transform, "ADVANCED ▼",
+            _foilAdvancedToggleText = AddText(toggleGo.transform, "Advanced ▼",
                 Vector2.zero, Vector2.zero,
                 anchorMin: Vector2.zero, anchorMax: Vector2.one,
                 size: 12, style: FontStyle.Bold, anchor: TextAnchor.MiddleCenter, color: s_dim);
@@ -1089,14 +1098,16 @@ namespace Robogame.Gameplay
 
             _foilPitchPrimary = BuildLabeledSlider(_foilAdvanced.transform, "Pitch", slot: 0,
                 min: -18f, max: 18f, def: 0f,
-                onChanged: OnFoilPitchChanged, out _foilPitchValue);
+                onChanged: OnFoilPitchChanged, out _foilPitchValue,
+                tip: "Fixed mounting tilt (degrees). Positive pitch angles the wing into the airflow for lift at speed; past the stall angle lift collapses.");
             UpdateFoilPitchValue(0f);
 
             // Teeter — chord-axis tilt (tip up/down). Visual-only in v1, so
             // a wider range than pitch is safe: no stall consequence.
             _foilTeeterSlider = BuildLabeledSlider(_foilAdvanced.transform, "Teeter", slot: 1,
                 min: -45f, max: 45f, def: 0f,
-                onChanged: OnFoilTeeterChanged, out _foilTeeterValue);
+                onChanged: OnFoilTeeterChanged, out _foilTeeterValue,
+                tip: "Tilts the wing along its chord axis, raising or drooping the tip. Cosmetic for now — no effect on lift.");
 
             _foilAdvanced.SetActive(false);
             _foilAdvancedExpanded = false;
@@ -1115,7 +1126,8 @@ namespace Robogame.Gameplay
 
             _ropeSegmentSlider = BuildLabeledSlider(section.transform, "Length (cells)", 0,
                 RopeBlock.MinLengthCells, RopeBlock.MaxLengthCells, RopeBlock.DefaultLengthCells,
-                OnRopeSegmentCountChanged, out _ropeSegmentValue);
+                OnRopeSegmentCountChanged, out _ropeSegmentValue,
+                tip: "Rest length of the rope, in build-grid cells.");
 
             return section;
         }
@@ -1133,11 +1145,13 @@ namespace Robogame.Gameplay
 
             _rotorCollectiveSlider = BuildLabeledSlider(section.transform, "Collective", slot: 1,
                 min: 0f, max: 18f, def: 0f,
-                onChanged: OnRotorCollectiveChanged, out _rotorCollectiveValue);
+                onChanged: OnRotorCollectiveChanged, out _rotorCollectiveValue,
+                tip: "Blade pitch applied to every foil the rotor adopts. More collective = more lift per revolution, at more drag.");
 
             _rotorRpmSlider = BuildLabeledSlider(section.transform, "Max RPM", slot: 2,
                 min: RotorDefaults.MinRpm, max: RotorDefaults.MaxRpm, def: RotorDefaults.DefaultRpm,
-                onChanged: OnRotorRpmChanged, out _rotorRpmValue);
+                onChanged: OnRotorRpmChanged, out _rotorRpmValue,
+                tip: "Top rotor speed. Faster spin means more blade lift and a higher CPU price (see readout below).");
 
             _rotorReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
                 anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
@@ -1196,10 +1210,51 @@ namespace Robogame.Gameplay
             if (_root != null) _root.SetActive(visible);
         }
 
+        // Shared tooltip surface for the slider "?" chips — a strip docked
+        // to the bottom of the panel, hidden until a chip is hovered. One
+        // strip serves every section; HoverTip enter/exit drives it.
+        private GameObject _tipStrip;
+        private Text _tipStripText;
+
+        private void BuildTipStrip(Transform panel)
+        {
+            _tipStrip = NewChild("TipStrip", panel);
+            var rt = _tipStrip.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 0f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.sizeDelta = new Vector2(0f, 64f);
+            rt.anchoredPosition = Vector2.zero;
+            var img = _tipStrip.AddComponent<Image>();
+            img.color = UguiPalette.Backdrop;
+            img.raycastTarget = false; // never eat clicks aimed at sliders
+            _tipStripText = AddText(_tipStrip.transform, "", new Vector2(10f, 6f), new Vector2(-10f, -6f),
+                anchorMin: Vector2.zero, anchorMax: Vector2.one,
+                size: 12, style: FontStyle.Normal, anchor: TextAnchor.UpperLeft, color: UguiPalette.Text);
+            _tipStripText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _tipStripText.raycastTarget = false;
+            _tipStrip.SetActive(false);
+        }
+
+        private void ShowTip(string tip)
+        {
+            if (_tipStrip == null || string.IsNullOrEmpty(tip)) return;
+            _tipStripText.text = tip;
+            _tipStrip.SetActive(true);
+        }
+
+        private void HideTip()
+        {
+            if (_tipStrip != null) _tipStrip.SetActive(false);
+        }
+
         // Labeled slider row at vertical slot `index` (0 = top of section,
-        // grows downward at 56px steps).
+        // grows downward at 56px steps). `tip` (optional) adds a "?" chip
+        // between the label and the slider; hovering it shows the text in
+        // the shared bottom strip.
         private Slider BuildLabeledSlider(Transform parent, string label, int slot,
-            float min, float max, float def, UnityEngine.Events.UnityAction<float> onChanged, out Text valueText)
+            float min, float max, float def, UnityEngine.Events.UnityAction<float> onChanged, out Text valueText,
+            string tip = null)
         {
             var row = NewChild($"Row_{label}", parent);
             var rt = row.GetComponent<RectTransform>();
@@ -1209,9 +1264,34 @@ namespace Robogame.Gameplay
             rt.sizeDelta = new Vector2(0f, 50f);
             rt.anchoredPosition = new Vector2(0f, -slot * 56f);
 
+            // Ink, not white — the panel background is cream (session 132
+            // palette); white labels were unreadable on it.
             AddText(row.transform, label, new Vector2(0f, 0f), new Vector2(140f, 0f),
                 anchorMin: new Vector2(0f, 0f), anchorMax: new Vector2(0f, 1f),
-                size: 14, style: FontStyle.Normal, anchor: TextAnchor.MiddleLeft, color: Color.white);
+                size: 14, style: FontStyle.Normal, anchor: TextAnchor.MiddleLeft, color: UguiPalette.Text);
+
+            if (!string.IsNullOrEmpty(tip))
+            {
+                var tipGo = NewChild("TipChip", row.transform);
+                var tipRT = tipGo.GetComponent<RectTransform>();
+                tipRT.anchorMin = new Vector2(0f, 0.5f);
+                tipRT.anchorMax = new Vector2(0f, 0.5f);
+                tipRT.pivot = new Vector2(0.5f, 0.5f);
+                tipRT.sizeDelta = new Vector2(16f, 16f);
+                tipRT.anchoredPosition = new Vector2(108f, 0f);
+                var chipText = tipGo.AddComponent<Text>();
+                chipText.text = "?";
+                chipText.font = UIFont;
+                chipText.fontSize = 12;
+                chipText.fontStyle = FontStyle.Bold;
+                chipText.color = s_dim;
+                chipText.alignment = TextAnchor.MiddleCenter;
+                chipText.raycastTarget = true; // hover target
+                var hover = tipGo.AddComponent<HoverTip>();
+                hover.Tip = tip;
+                hover.Show = ShowTip;
+                hover.Hide = HideTip;
+            }
 
             valueText = AddText(row.transform, def.ToString("F2"), new Vector2(-8f, 0f), new Vector2(-8f, 0f),
                 anchorMin: new Vector2(1f, 0f), anchorMax: new Vector2(1f, 1f),
@@ -1234,7 +1314,8 @@ namespace Robogame.Gameplay
             bgRT.anchorMax = new Vector2(1f, 0.6f);
             bgRT.offsetMin = Vector2.zero;
             bgRT.offsetMax = Vector2.zero;
-            bg.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.18f);
+            // Ink-tinted track — the old white@0.18 vanished on the cream panel.
+            bg.AddComponent<Image>().color = UguiPalette.FrameLine;
 
             var fillArea = NewChild("Fill Area", sliderHost.transform);
             var faRT = fillArea.GetComponent<RectTransform>();
@@ -1260,7 +1341,7 @@ namespace Robogame.Gameplay
             var handleRT = handle.GetComponent<RectTransform>();
             handleRT.sizeDelta = new Vector2(16f, 22f);
             var handleImg = handle.AddComponent<Image>();
-            handleImg.color = Color.white;
+            handleImg.color = UguiPalette.Ink; // white handle was invisible on cream
 
             var slider = sliderHost.AddComponent<Slider>();
             slider.targetGraphic = handleImg;
@@ -1305,7 +1386,7 @@ namespace Robogame.Gameplay
 
             AddText(go.transform, label, Vector2.zero, Vector2.zero,
                 anchorMin: Vector2.zero, anchorMax: Vector2.one,
-                size: 12, style: FontStyle.Bold, anchor: TextAnchor.MiddleCenter, color: Color.white);
+                size: 12, style: FontStyle.Bold, anchor: TextAnchor.MiddleCenter, color: UguiPalette.Ink);
         }
 
         private static GameObject NewChild(string name, Transform parent)

@@ -55,18 +55,18 @@ namespace Robogame.Block
             _ => BlockIds.ModuleEmp,
         };
 
-        /// <summary>Short uppercase label for HUD tiles.</summary>
+        /// <summary>Short label for HUD tiles (EMP stays an acronym).</summary>
         public static string Label(ModuleKind kind) => kind switch
         {
-            ModuleKind.Spring => "SPRING",
+            ModuleKind.Spring => "Spring",
             ModuleKind.EmpBurst => "EMP",
-            ModuleKind.SpeedBurst => "BOOST",
-            ModuleKind.DiscShield => "SHIELD",
-            ModuleKind.Smoke => "SMOKE",
-            ModuleKind.Invisibility => "CLOAK",
-            ModuleKind.Mines => "MINE",
-            ModuleKind.Repair => "REPAIR",
-            _ => "MODULE",
+            ModuleKind.SpeedBurst => "Boost",
+            ModuleKind.DiscShield => "Shield",
+            ModuleKind.Smoke => "Smoke",
+            ModuleKind.Invisibility => "Cloak",
+            ModuleKind.Mines => "Mine",
+            ModuleKind.Repair => "Repair",
+            _ => "Module",
         };
     }
 }

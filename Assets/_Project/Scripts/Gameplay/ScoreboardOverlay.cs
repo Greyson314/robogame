@@ -130,11 +130,11 @@ namespace Robogame.Gameplay
             GUI.color = saved;
 
             float cy = y + 6f;
-            GUI.Label(new Rect(x, cy, _panelWidth, headerH - 6f), "SCOREBOARD", _headerStyle);
+            GUI.Label(new Rect(x, cy, _panelWidth, headerH - 6f), "Scoreboard", _headerStyle);
             cy += headerH;
 
             // Column headers (numbers right-aligned over their columns).
-            DrawRow(x, cy, colHeadH, "", "K", "D", "DMG", "SCRAP", _colHeadStyle, _colHeadStyle);
+            DrawRow(x, cy, colHeadH, "", "K", "D", "Dmg", "Scrap", _colHeadStyle, _colHeadStyle);
             cy += colHeadH;
 
             if (_stats != null)
@@ -221,7 +221,7 @@ namespace Robogame.Gameplay
             _lastFooterLives = lives;
 
             _scratch.Clear();
-            _scratch.Append("TIME  ").Append(secs / 60).Append(':');
+            _scratch.Append("Time  ").Append(secs / 60).Append(':');
             int ss = secs % 60;
             if (ss < 10) _scratch.Append('0');
             _scratch.Append(ss).Append("      LIVES  ").Append(lives);

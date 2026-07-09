@@ -119,11 +119,13 @@ namespace Robogame.Gameplay
         private void UpdateButtonVisual()
         {
             if (_buttonText != null)
-                _buttonText.text = Enabled ? "EDIT: ON   [E]" : "EDIT BLOCK   [E]";
+                _buttonText.text = Enabled ? "Edit: on   [E]" : "Edit block   [E]";
             if (_buttonImage != null)
                 _buttonImage.color = Enabled ? UguiPalette.Accent : UguiPalette.ButtonIdle;
+            // Cream text on the accent (on) state, ink on the cream idle
+            // button — white-on-cream was unreadable.
             if (_buttonText != null)
-                _buttonText.color = Enabled ? Color.black : Color.white;
+                _buttonText.color = Enabled ? UguiPalette.CreamText : UguiPalette.Ink;
         }
 
         // -----------------------------------------------------------------

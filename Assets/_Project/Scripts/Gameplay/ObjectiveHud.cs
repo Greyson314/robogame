@@ -77,6 +77,7 @@ namespace Robogame.Gameplay
         private GUIStyle _leftScoreStyle;    // player scrap, right-aligned
         private GUIStyle _rightScoreStyle;   // enemy scrap, left-aligned
         private GUIStyle _timerCentreStyle;  // timer pill (colour set per draw)
+        private GUIStyle _warmupStyle;       // "Warmup" pill — smaller than the countdown
         private GUIStyle _leftTargetStyle;   // "/ target" under player score
         private GUIStyle _rightTargetStyle;  // "/ target" under enemy score
         private bool _stylesBuilt;
@@ -162,7 +163,7 @@ namespace Robogame.Gameplay
                 _lastEnemyKills = ek;
                 _scratch.Clear();
                 _scratch
-                    .Append("FRAGS  ")
+                    .Append("Frags  ")
                     .Append("<color=").Append(HudStyles.TagAccent).Append('>').Append(pk).Append("</color>")
                     .Append("  —  ")
                     .Append("<color=").Append(HudStyles.TagDanger).Append('>').Append(ek).Append("</color>");
@@ -215,11 +216,11 @@ namespace Robogame.Gameplay
             float headerY = y + 6f;
             float headerH = 18f;
             GUI.Label(new Rect(x + padX, headerY, _panelWidth * 0.5f - padX, headerH),
-                "YOU", _headerStyle);
-            // Manually right-align "ENEMY" because the header style has a
-            // separate alignment instance reused for "YOU".
+                "You", _headerStyle);
+            // Manually right-align "Enemy" because the header style has a
+            // separate alignment instance reused for "You".
             GUI.Label(new Rect(x + _panelWidth * 0.5f, headerY, _panelWidth * 0.5f - padX, headerH),
-                "ENEMY", _headerRightStyle);
+                "Enemy", _headerRightStyle);
 
             // Row 2: scrap totals (big), timer centred between them.
             float scoreY = headerY + headerH + 4f;
@@ -236,18 +237,20 @@ namespace Robogame.Gameplay
                 playerScrap.ToString(), _leftScoreStyle);
 
             // Timer centred in a fixed-width pill between the two scores.
-            // During warmup the pill reads "WARMUP" instead of the (pinned
-            // at 0:00 under manual-start) countdown.
+            // During warmup the pill reads "Warmup" (smaller, label-sized —
+            // it's a state note, not a number to glance at) instead of the
+            // (pinned at 0:00 under manual-start) countdown.
             float timerSecsRemaining = _match.TimeRemaining;
             bool timerAlert = _match.State == MatchState.InProgress
                               && timerSecsRemaining > 0f
                               && timerSecsRemaining < _timerLowSeconds;
             Color timerColor = warmup ? HudStyles.Accent
                                       : (timerAlert ? HudStyles.Danger : HudStyles.TextPrimary);
-            _timerCentreStyle.normal.textColor = timerColor;
+            GUIStyle timerStyle = warmup ? _warmupStyle : _timerCentreStyle;
+            timerStyle.normal.textColor = timerColor;
             const float timerW = 120f;
             GUI.Label(new Rect(x + halfW - timerW * 0.5f, scoreY, timerW, scoreH),
-                warmup ? "WARMUP" : _renderedTimer, _timerCentreStyle);
+                warmup ? "Warmup" : _renderedTimer, timerStyle);
 
             // Enemy scrap — right half, left-aligned to the centreline.
             GUI.Label(new Rect(x + halfW + 60f, scoreY, halfW - padX - 60f, scoreH),
@@ -314,6 +317,8 @@ namespace Robogame.Gameplay
 
             // Colour is set per draw (alert vs normal); alignment is fixed.
             _timerCentreStyle = new GUIStyle(_timerStyle) { alignment = TextAnchor.MiddleCenter };
+            // Warmup pill: label-sized, not countdown-sized.
+            _warmupStyle = new GUIStyle(_timerCentreStyle) { fontSize = 14 };
 
             _leftTargetStyle = new GUIStyle(_targetStyle) { alignment = TextAnchor.MiddleRight };
             _leftTargetStyle.normal.textColor = HudStyles.TextMuted;

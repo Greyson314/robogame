@@ -534,7 +534,7 @@ namespace Robogame.Gameplay
                 label.fontSize = 14;
                 label.alignment = TextAnchor.MiddleCenter;
                 label.verticalOverflow = VerticalWrapMode.Overflow;
-                label.color = Color.white;
+                label.color = UguiPalette.Ink; // white was unreadable on the cream tab
                 label.font = font;
                 var lrt = labelGO.GetComponent<RectTransform>();
                 lrt.anchorMin = Vector2.zero;
@@ -612,7 +612,7 @@ namespace Robogame.Gameplay
                 label.fontSize = 14;
                 label.alignment = TextAnchor.MiddleCenter;
                 label.verticalOverflow = VerticalWrapMode.Overflow;
-                label.color = Color.white;
+                label.color = UguiPalette.Ink; // white was unreadable on the cream slot
                 label.font = font;
                 var lrt = labelGO.GetComponent<RectTransform>();
                 lrt.anchorMin = Vector2.zero;
@@ -685,8 +685,8 @@ namespace Robogame.Gameplay
         }
 
         private static Color SlotColor(bool selected) => selected
-            ? UguiPalette.Accent      // hazard orange when active
-            : UguiPalette.ButtonIdle; // dark panel otherwise
+            ? UguiPalette.Accent      // accent when active
+            : UguiPalette.ButtonIdle; // cream button otherwise
 
         private static Color TabColor(bool active) => active
             ? UguiPalette.Accent

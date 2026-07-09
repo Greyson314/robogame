@@ -202,8 +202,8 @@ namespace Robogame.Gameplay
 
         private static string SideLabel(MatchSide side) => side switch
         {
-            MatchSide.Player => "YOU",
-            MatchSide.Enemy => "ENEMY",
+            MatchSide.Player => "You",
+            MatchSide.Enemy => "Enemy",
             _ => "—",
         };
 

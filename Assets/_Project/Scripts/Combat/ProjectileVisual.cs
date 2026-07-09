@@ -15,8 +15,8 @@ namespace Robogame.Combat
     /// <see cref="ProjectileSpec"/> is the same one Overwatch uses
     /// for predicted projectiles (Tim Ford, GDC 2017): the visual
     /// can lerp / extrapolate independently of the authoritative
-    /// physics state. For v1 we render at the exact step position;
-    /// per-frame lerp between fixed-tick states is a future polish.
+    /// physics state. ProjectileWorld.Update lerps between the last
+    /// two fixed-tick states each render frame (bomb-jitter fix).
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]

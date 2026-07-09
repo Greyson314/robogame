@@ -144,6 +144,10 @@ namespace Robogame.Combat
         {
             public ProjectileSpec Spec;
             public Vector3 Pos;
+            // Position at the previous fixed step — Update() lerps the
+            // visual between PrevPos and Pos so rendering stays smooth at
+            // frame rates that aren't multiples of the 50 Hz sim tick.
+            public Vector3 PrevPos;
             public Vector3 Vel;
             public float AgeRemaining;
             public ProjectileVisual Visual;
@@ -220,6 +224,7 @@ namespace Robogame.Combat
             ref Live p = ref _alive[_count++];
             p.Spec = spec;
             p.Pos = spec.Origin;
+            p.PrevPos = spec.Origin;
             p.Vel = spec.InitialVelocity;
             p.AgeRemaining = Mathf.Max(0.05f, spec.MaxLifetime);
 
@@ -284,9 +289,27 @@ namespace Robogame.Combat
                     }
                 }
 
+                p.PrevPos = p.Pos;
                 p.Pos += step;
                 p.Vel += p.Spec.GravityWorld * dt;
-                if (p.Visual != null) p.Visual.SyncTo(p.Pos, p.Vel);
+            }
+        }
+
+        // Render interpolation. The sim advances in FixedUpdate (50 Hz);
+        // snapping visuals to raw step positions made slow near-camera
+        // projectiles (falling bombs) visibly stutter at render rates
+        // that aren't multiples of the tick. Same scheme as Rigidbody
+        // interpolation: render up to one tick in the past, lerped
+        // between the last two sim states. Alloc-free loop.
+        private void Update()
+        {
+            float fdt = Time.fixedDeltaTime;
+            float alpha = fdt > 0f ? Mathf.Clamp01((Time.time - Time.fixedTime) / fdt) : 1f;
+            for (int i = 0; i < _count; i++)
+            {
+                ref Live p = ref _alive[i];
+                if (p.Visual == null) continue;
+                p.Visual.SyncTo(Vector3.LerpUnclamped(p.PrevPos, p.Pos, alpha), p.Vel);
             }
         }
 
