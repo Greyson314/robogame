@@ -8,9 +8,10 @@
 //   • SetEditingInstance with the same reference is idempotent — no event fires.
 //   • Event fires on a meaningful transition (A → B), not on a no-op (A → A).
 //   • PropagateVariantToLiveBlocks scope: when EditingInstance != null, only
-//     the bound block receives the variant change; when null, all matching
-//     blocks receive it. This is the core behavioral contract of the feature —
-//     "retune one rotor's RPM without touching the others."
+//     the bound block receives the variant change; when null, NO placed block
+//     does — the variant cache only shapes the next placement. This is the
+//     core behavioral contract — "retune one rotor's RPM without touching
+//     the others" (session 125, tightened by the span-isolation session).
 //
 // WHY EDITMODE
 //   BuildSession is pure C#. No MonoBehaviour, no scene, no Start/Update.
@@ -241,11 +242,22 @@ namespace Robogame.Tests.EditMode.Blueprints
         //
         // BlockEditor.PropagateVariantToLiveBlocks is private and requires a
         // full MonoBehaviour + scene setup. We verify the filtering LOGIC by
-        // running the same conditional loop the method uses, driven by
-        // BuildSession.EditingInstance. This tests the invariant (which blocks
-        // get updated) rather than the method's exact internal plumbing, and
-        // runs fast in EditMode without a scene.
+        // running the same conditional the method uses, driven by
+        // BuildSession.EditingInstance. Since the span-isolation session the
+        // contract is: variant changes touch placed blocks ONLY through a
+        // bound EditingInstance; with none bound the variant cache is
+        // "next placement" state and no placed block moves.
         // -----------------------------------------------------------------------
+
+        // Mirrors the guard in BlockEditor.PropagateVariantToLiveBlocks:
+        // resolve the bound instance, apply only to it, only on id match.
+        private static void SimulatePropagation(BuildSession session, string blockId, float newConfig)
+        {
+            BlockBehaviour target = session.EditingInstance;
+            if (target == null || target.Definition == null) return;
+            if (target.Definition.Id != blockId) return;
+            target.ConfigValue = newConfig;
+        }
 
         /// <summary>
         /// When EditingInstance is non-null, only the bound block must receive
@@ -262,17 +274,8 @@ namespace Robogame.Tests.EditMode.Blueprints
 
             session.SetEditingInstance(blockA);
 
-            // Simulate the propagation loop from PropagateVariantToLiveBlocks.
             const float newConfig = 360f;
-            BlockBehaviour only = session.EditingInstance; // == blockA
-
-            foreach (BlockBehaviour block in new[] { blockA, blockB })
-            {
-                if (block.Definition == null) continue;
-                if (block.Definition.Id != BlockIds.Rotor) continue;
-                if (only != null && block != only) continue; // instance-edit filter
-                block.ConfigValue = newConfig;
-            }
+            SimulatePropagation(session, BlockIds.Rotor, newConfig);
 
             Assert.AreEqual(newConfig, blockA.ConfigValue,
                 "Bound instance (blockA) must receive the variant config update.");
@@ -285,53 +288,45 @@ namespace Robogame.Tests.EditMode.Blueprints
         }
 
         /// <summary>
-        /// When EditingInstance is null (normal placement mode), all blocks of
-        /// the matching type receive the variant update. This is the pre-session-125
-        /// "live mid-edit" feature that must be preserved for blocks that have NOT
-        /// been individually picked.
+        /// When EditingInstance is null (normal placement mode), NO placed
+        /// block receives the variant update — the cache only shapes the next
+        /// placement. This retires the session-96 all-blocks live propagation:
+        /// changing one foil's span must never rewrite every foil on the bot
+        /// (span-isolation session).
         /// </summary>
         [Test]
-        public void PropagateVariantScope_WhenNoInstanceBound_AllMatchingBlocksUpdate()
+        public void PropagateVariantScope_WhenNoInstanceBound_NoPlacedBlockUpdates()
         {
             var session = new BuildSession();
             // EditingInstance is null by default.
             BlockBehaviour blockA = MakeBlock(BlockIds.Rotor);
             BlockBehaviour blockB = MakeBlock(BlockIds.Rotor);
-            BlockBehaviour blockC = MakeBlock(BlockIds.Aero); // different type — must not update
 
             Assert.IsNull(session.EditingInstance,
                 "Precondition: EditingInstance must be null for this test.");
 
             const float newConfig = 480f;
-            BlockBehaviour only = session.EditingInstance; // null
+            SimulatePropagation(session, BlockIds.Rotor, newConfig);
 
-            foreach (BlockBehaviour block in new[] { blockA, blockB, blockC })
-            {
-                if (block.Definition == null) continue;
-                if (block.Definition.Id != BlockIds.Rotor) continue;
-                if (only != null && block != only) continue; // no-op filter when only == null
-                block.ConfigValue = newConfig;
-            }
-
-            Assert.AreEqual(newConfig, blockA.ConfigValue,
-                "blockA must receive the update when EditingInstance is null (all-blocks mode).");
-            Assert.AreEqual(newConfig, blockB.ConfigValue,
-                "blockB must receive the update when EditingInstance is null (all-blocks mode).");
-            Assert.AreNotEqual(newConfig, blockC.ConfigValue,
-                "blockC (Aero type) must not receive a Rotor variant update.");
+            Assert.AreNotEqual(newConfig, blockA.ConfigValue,
+                "No placed block may update when EditingInstance is null — " +
+                "the variant cache is next-placement state only.");
+            Assert.AreNotEqual(newConfig, blockB.ConfigValue,
+                "No placed block may update when EditingInstance is null — " +
+                "the variant cache is next-placement state only.");
 
             Object.DestroyImmediate(blockA.gameObject);
             Object.DestroyImmediate(blockB.gameObject);
-            Object.DestroyImmediate(blockC.gameObject);
         }
 
         /// <summary>
-        /// Clearing EditingInstance (SetEditingInstance(null)) restores the
-        /// all-blocks propagation behavior. The Escape-key / block-type-switch
-        /// exit path must not leave a stale single-block filter active.
+        /// Clearing EditingInstance (SetEditingInstance(null)) ends live
+        /// editing entirely: the previously bound block must stop receiving
+        /// updates too. The Escape-key / block-type-switch exit path must not
+        /// leave a stale single-block binding active.
         /// </summary>
         [Test]
-        public void BuildSession_ClearInstanceEdit_RestoresAllBlockPropagation()
+        public void BuildSession_ClearInstanceEdit_StopsAllLivePropagation()
         {
             var session = new BuildSession();
             BlockBehaviour blockA = MakeBlock(BlockIds.Rotor);
@@ -342,28 +337,41 @@ namespace Robogame.Tests.EditMode.Blueprints
             session.SetEditingInstance(null);
 
             Assert.IsNull(session.EditingInstance,
-                "EditingInstance must be null after clearing — all-blocks propagation must resume.");
+                "EditingInstance must be null after clearing.");
 
-            // Simulate propagation with the now-null instance.
             const float newConfig = 120f;
-            BlockBehaviour only = session.EditingInstance; // null after clear
+            SimulatePropagation(session, BlockIds.Rotor, newConfig);
 
-            foreach (BlockBehaviour block in new[] { blockA, blockB })
-            {
-                if (block.Definition == null) continue;
-                if (block.Definition.Id != BlockIds.Rotor) continue;
-                if (only != null && block != only) continue;
-                block.ConfigValue = newConfig;
-            }
-
-            Assert.AreEqual(newConfig, blockA.ConfigValue,
-                "blockA must receive updates after instance-edit is cleared.");
-            Assert.AreEqual(newConfig, blockB.ConfigValue,
-                "blockB must receive updates after instance-edit is cleared — " +
-                "stale instance filter must not persist after SetEditingInstance(null).");
+            Assert.AreNotEqual(newConfig, blockA.ConfigValue,
+                "The previously bound block must stop receiving updates after " +
+                "instance-edit is cleared.");
+            Assert.AreNotEqual(newConfig, blockB.ConfigValue,
+                "Unbound blocks must never receive live updates.");
 
             Object.DestroyImmediate(blockA.gameObject);
             Object.DestroyImmediate(blockB.gameObject);
+        }
+
+        /// <summary>
+        /// A bound instance of a DIFFERENT type must not receive another
+        /// type's variant change — the id filter still applies inside
+        /// instance-edit mode.
+        /// </summary>
+        [Test]
+        public void PropagateVariantScope_BoundInstanceOfOtherType_DoesNotUpdate()
+        {
+            var session = new BuildSession();
+            BlockBehaviour aero = MakeBlock(BlockIds.Aero);
+
+            session.SetEditingInstance(aero);
+
+            const float newConfig = 480f;
+            SimulatePropagation(session, BlockIds.Rotor, newConfig);
+
+            Assert.AreNotEqual(newConfig, aero.ConfigValue,
+                "A Rotor variant change must not touch a bound Aero instance.");
+
+            Object.DestroyImmediate(aero.gameObject);
         }
     }
 }

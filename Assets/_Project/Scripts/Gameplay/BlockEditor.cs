@@ -59,49 +59,38 @@ namespace Robogame.Gameplay
             }
         }
 
-        // VariantConfigPanel writes pitch / dims into the session cache —
-        // historically that only affected NEXT placements, leaving placed
-        // blocks visually stale until re-placed (foil-rotation-plan §10A
-        // "the slider feels inert until the rotor is re-placed"). This
-        // walks the active chassis grid on every variant change and
-        // pushes the new value through SetPitch / SetDims, whose
-        // PitchChanged / DimsChanged events drive each block's visual
-        // refresh. Cheap: O(blocks of matching id), invoked only on a
-        // human-rate slider drag.
+        // VariantConfigPanel writes pitch / dims into the session cache.
+        // A placed block updates ONLY when it is bound for per-instance
+        // editing (session 125 Edit mode); with no instance bound the cache
+        // is purely "next placement" state, previewed by the ghost. The
+        // pre-125 fallback — pushing the cache onto every placed block of
+        // the type (session-96 live-mid-edit) — was retired because it made
+        // per-block tuning impossible: changing one wing's span silently
+        // rewrote every wing on the bot.
         private void PropagateVariantToLiveBlocks(string blockId)
         {
-            if (_grid == null || _session == null || string.IsNullOrEmpty(blockId)) return;
+            if (_session == null || string.IsNullOrEmpty(blockId)) return;
+            BlockBehaviour block = _session.EditingInstance;
+            if (block == null || block.Definition == null) return;
+            if (block.Definition.Id != blockId) return;
             float worldPitch = _session.GetVariantPitch(blockId);
             float worldTeeter = _session.GetVariantTeeter(blockId);
             Vector3 dims = _session.GetVariantDims(blockId);
             float config = _session.GetVariantConfig(blockId);
-            // Instance-edit (session 125): when a block is bound for
-            // per-instance editing, a slider change targets only THAT block,
-            // not every block of its type. In normal placement mode
-            // (EditingInstance == null) the change still propagates to all
-            // matching blocks (the session-96 live-mid-edit feature).
-            BlockBehaviour only = _session.EditingInstance;
-            foreach (var kvp in _grid.Blocks)
-            {
-                BlockBehaviour block = kvp.Value;
-                if (block == null || block.Definition == null) continue;
-                if (block.Definition.Id != blockId) continue;
-                if (only != null && block != only) continue;
-                // The cache holds WORLD-INTENT angles; placed blocks store
-                // local-frame. Normalize per block's own mount-up — the
-                // same conversion placement does. (Previously the raw
-                // world value was pushed, silently flipping the sign on
-                // lateral-mounted foils relative to what placement wrote.)
-                block.SetPitch(BlockOrientation.NormalizePitchForUp(block.Definition, worldPitch, block.Up));
-                block.SetTeeter(BlockOrientation.NormalizePitchForUp(block.Definition, worldTeeter, block.Up));
-                block.SetDims(dims);
-                // ConfigValue (rotor RPM / thruster max thrust / module
-                // power) is read live by its consumer each tick or at
-                // fire time — a plain field write is enough, no Changed
-                // event. 0 means "use authored default", same convention
-                // the pitch/dims paths follow.
-                block.ConfigValue = config;
-            }
+            // The cache holds WORLD-INTENT angles; placed blocks store
+            // local-frame. Normalize per block's own mount-up — the
+            // same conversion placement does. (Previously the raw
+            // world value was pushed, silently flipping the sign on
+            // lateral-mounted foils relative to what placement wrote.)
+            block.SetPitch(BlockOrientation.NormalizePitchForUp(block.Definition, worldPitch, block.Up));
+            block.SetTeeter(BlockOrientation.NormalizePitchForUp(block.Definition, worldTeeter, block.Up));
+            block.SetDims(dims);
+            // ConfigValue (rotor RPM / thruster max thrust / module
+            // power) is read live by its consumer each tick or at
+            // fire time — a plain field write is enough, no Changed
+            // event. 0 means "use authored default", same convention
+            // the pitch/dims paths follow.
+            block.ConfigValue = config;
         }
 
         public VariantConfigPanel VariantPanel { get => _variantPanel; set => _variantPanel = value; }
@@ -688,9 +677,10 @@ namespace Robogame.Gameplay
             }
 
             // Bind BEFORE writing the caches: SetVariant* fires VariantChanged
-            // → PropagateVariantToLiveBlocks, which (with an instance bound)
-            // targets only this block. Setting it after would propagate the
-            // bound block's values onto every other block of the same type.
+            // → PropagateVariantToLiveBlocks, which targets only the bound
+            // block (values echo back onto itself, a no-op). Binding after
+            // would make the cache loads inert and the panel refresh see a
+            // half-bound state.
             _session.SetEditingInstance(b);
             HighlightInstance(b);
             LoadBlockSettingsIntoCache(def, b);
@@ -810,9 +800,8 @@ namespace Robogame.Gameplay
             if (outcome.PrimarySucceeded)
             {
                 // Placing a fresh block leaves instance-edit — the player is
-                // back to authoring, and a slider drag should resume
-                // propagating to all (or to the next pick), not the
-                // just-deselected instance.
+                // back to authoring, and a slider drag should shape the
+                // next placement, not the just-deselected instance.
                 if (_session.EditingInstance != null) ClearInstanceEdit();
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.BlockPlace);
             }

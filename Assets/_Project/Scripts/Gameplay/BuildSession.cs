@@ -63,12 +63,14 @@ namespace Robogame.Gameplay
 
         /// <summary>
         /// The single placed block currently bound for per-instance editing
-        /// (set by the middle-click picker), or null in normal placement
-        /// mode. When set, a variant-slider change applies to THIS block
-        /// only instead of propagating to every block of its type — so the
-        /// player can retune one rotor's RPM without touching the others,
-        /// and without deleting/orphaning it. Session 125. Unity's null
-        /// check covers the block being destroyed while bound.
+        /// (set by the Edit-mode click), or null in normal placement mode.
+        /// When set, a variant-slider change applies to THIS block only;
+        /// when null, no placed block is touched — the variant cache only
+        /// shapes the next placement. So the player can retune one rotor's
+        /// RPM without touching the others, and without deleting/orphaning
+        /// it. Session 125; propagate-to-all fallback retired by the
+        /// span-isolation session. Unity's null check covers the block
+        /// being destroyed while bound.
         /// </summary>
         public BlockBehaviour EditingInstance { get; private set; }
 
