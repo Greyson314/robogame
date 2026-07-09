@@ -82,7 +82,11 @@ namespace Robogame.Tests.PlayMode.Perf
             {
                 Renderer r = all[i];
                 if (r == null || !r.enabled) continue;
-                if (!r.gameObject.name.StartsWith("Block_")) continue;
+                // Chassis renderers = anything under a BlockBehaviour. The
+                // old Block_* name filter rotted when the inventor model
+                // wiring (session 132) hid host meshes and moved the visible
+                // renderers onto "BlockModel" FBX children.
+                if (r.GetComponentInParent<Robogame.Block.BlockBehaviour>() == null) continue;
                 blockRenderers.Add(r);
                 if (!hasBounds) { b = r.bounds; hasBounds = true; }
                 else b.Encapsulate(r.bounds);

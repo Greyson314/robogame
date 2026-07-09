@@ -129,22 +129,25 @@ run_platform() {
         # the assertion message (without the full stack trace).
         echo ""
         echo "Failed tests:"
-        # Use Python for proper XML parsing — grep regex on multi-line XML is fragile.
-        python3 - "$results" <<'PY'
-import sys
-import xml.etree.ElementTree as ET
-tree = ET.parse(sys.argv[1])
-for tc in tree.iter("test-case"):
-    if tc.attrib.get("result") == "Failed":
-        name = tc.attrib.get("fullname", tc.attrib.get("name", "?"))
-        failure = tc.find("failure")
-        if failure is not None:
-            msg = (failure.findtext("message") or "").strip().split("\n")[0]
-        else:
-            msg = "(no failure message)"
-        print(f"  - {name}")
-        print(f"    {msg}")
-PY
+        # grep/awk only — this machine has no Python (the Windows App
+        # Execution Alias shim silently ate the old python3 parse). NUnit3
+        # writes each <test-case ...> opening tag on one line, so a
+        # line-oriented pull of fullname= is reliable; the first non-empty
+        # CDATA line after that case's <message> is the assertion text.
+        grep -o '<test-case[^>]*result="Failed"[^>]*>' "$results" \
+            | grep -oP 'fullname="\K[^"]+' \
+            | while IFS= read -r name; do
+                echo "  - $name"
+                msg=$(awk -v n="fullname=\"$name\"" '
+                    index($0, n) { intc = 1 }
+                    intc && /<message>/ { inmsg = 1 }
+                    inmsg {
+                        gsub(/.*<!\[CDATA\[|\]\]>.*|<message>|<\/message>/, "")
+                        sub(/^[ \t]+/, "")
+                        if (length($0)) { print; exit }
+                    }' "$results")
+                echo "    ${msg:-(no failure message)}"
+              done
         return 1
     fi
 

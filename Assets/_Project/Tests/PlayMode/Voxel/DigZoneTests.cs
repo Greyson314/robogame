@@ -64,6 +64,17 @@ namespace Robogame.Tests.PlayMode.Voxel
             // OnEnable_RegistersWithDigField / DrillBlock auto-poll /
             // TerrainCratering tests all assume an empty registry at start.
             DigField.ResetForTesting();
+
+            // Camera isolation: DrillBlock's cone-aim follows Camera.main
+            // when one exists, so a camera leaked by an earlier suite (e.g.
+            // PerfRenderProbe failing mid-Arena without teardown) silently
+            // re-aims every glide test along that camera's forward — the
+            // glide tests then "dig" toward the camera and fail. No test
+            // here renders anything, so disable every stray camera up front.
+            Camera[] strayCams = Object.FindObjectsByType<Camera>(
+                FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            for (int i = 0; i < strayCams.Length; i++)
+                if (strayCams[i] != null) strayCams[i].enabled = false;
         }
 
         [TearDown]
