@@ -24,7 +24,7 @@ user preference); make the edit mode the cursor-freeing state instead.
   duration (sliders work without Alt), mouse-look/flight suspend via the
   existing lock-state gates, click-to-relock is disabled while held.
   Placement keeps the locked reticle; Alt hold still works there.
-- **Tune-mode legibility** — button renamed "Tune part [T]" (rebound
+- **Tune-mode legibility** — button renamed "Tuning Mode [T]" (rebound
   E → T: E is the free-cam's fly-up key, so the old binding jolted the
   camera on every toggle); hint row
   under it while active; hover highlight (faint orange shell, one reused

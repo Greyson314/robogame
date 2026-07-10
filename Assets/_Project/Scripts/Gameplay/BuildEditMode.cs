@@ -148,7 +148,7 @@ namespace Robogame.Gameplay
         private void UpdateButtonVisual()
         {
             if (_buttonText != null)
-                _buttonText.text = Enabled ? "Tuning: on   [T]" : "Tune part   [T]";
+                _buttonText.text = Enabled ? "Tuning Mode: on   [T]" : "Tuning Mode   [T]";
             if (_buttonImage != null)
                 _buttonImage.color = Enabled ? UguiPalette.Accent : UguiPalette.ButtonIdle;
             // Cream text on the accent (on) state, ink on the cream idle
