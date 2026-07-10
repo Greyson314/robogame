@@ -74,10 +74,14 @@ namespace Robogame.Player
         /// <summary>
         /// Sticky external cursor-free request — the Tune-part mode sets
         /// this while active so the player works the variant panel with a
-        /// live cursor, no Alt chord. While true: cursor stays unlocked,
-        /// mouse-look and flight stay suspended (both already gate on the
-        /// lock state), and the click-to-relock path is disabled. Clearing
-        /// it re-locks unless a modal owns the cursor.
+        /// live cursor, no Alt chord. While true: the cursor rests
+        /// unlocked, but holding right-mouse over the world re-captures it
+        /// for camera drag (WASD flight rides the same lock) and release
+        /// hands it back — so tuning never costs the look-around (session
+        /// 138 playtest). WASD also flies with the cursor free, unless a
+        /// text field owns the keyboard. The click-to-relock path is
+        /// disabled. Clearing the hold re-locks unless a modal owns the
+        /// cursor.
         /// </summary>
         public bool ExternalCursorHold
         {
@@ -176,6 +180,28 @@ namespace Robogame.Player
                 Cursor.visible = false;
             }
 
+            // Tune-mode look-around: with the external hold active, a
+            // right-mouse HOLD over the world captures the cursor for
+            // camera drag (rotation + WASD reuse the locked-state gates
+            // below); release restores the free cursor. A right-CLICK
+            // (no drag) is BlockEditor's deselect — it discriminates by
+            // accumulated delta, so the capture here doesn't eat it.
+            if (m != null && _externalCursorHold)
+            {
+                if (m.rightButton.wasPressedThisFrame
+                    && !Robogame.Core.HudPointerGuard.AnyModalOpen
+                    && !Robogame.Core.HudPointerGuard.PointerOverHud(m.position.ReadValue()))
+                {
+                    Cursor.lockState = CursorLockMode.Locked;
+                    Cursor.visible = false;
+                }
+                else if (!m.rightButton.isPressed && Cursor.lockState == CursorLockMode.Locked)
+                {
+                    Cursor.lockState = CursorLockMode.None;
+                    Cursor.visible = true;
+                }
+            }
+
             float dt = Time.unscaledDeltaTime;
 
             // -----------------------------------------------------------------
@@ -200,7 +226,12 @@ namespace Robogame.Player
             // also fly the camera.
             // -----------------------------------------------------------------
             if (kb == null) return;
-            if (Cursor.lockState != CursorLockMode.Locked) return;
+            // Fly while the cursor is captured, and ALSO while tune mode
+            // holds it free (the panel is mouse-driven; WASD stays camera
+            // movement) — unless a text field owns the keyboard.
+            bool canFly = Cursor.lockState == CursorLockMode.Locked
+                || (_externalCursorHold && !Robogame.Core.UguiNav.IsTextInputFocused());
+            if (!canFly) return;
 
             Vector3 inLocal = Vector3.zero;
             if (kb.wKey.isPressed) inLocal += Vector3.forward;

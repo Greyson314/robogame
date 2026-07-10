@@ -63,6 +63,30 @@ user preference); make the edit mode the cursor-freeing state instead.
   the two highlight shells are collider-less primitives, hover shell
   reused across frames per invariant #6).
 
+## Round 2 — user playtest notes (same session)
+
+- **WASD flickered HUD buttons** — the default InputSystemUIInputModule
+  binds WASD to UI Navigate; once anything is clicked, selection walks
+  the buttons. New `HudEventSystem.DisableKeyboardNavigation` nulls the
+  module's move action; called from all four `EnsureEventSystem` copies.
+  (`UguiNav.IsTextInputFocused` lives in Core — text-field-only hotkey
+  guards; the old any-selection checks left T/R dead after any click.)
+- **Tuning mode kept the look-around** — hold right-mouse over the world
+  to capture the cursor and drag-look (WASD flight rides the same lock);
+  release restores the free cursor. WASD also flies with the cursor free
+  unless a text field is focused.
+- **Deselect without leaving the mode** — right-CLICK (≤8px accumulated
+  delta, cursor-lock-safe) or left-click on empty space unbinds the
+  tuned part; the mode stays on. Re-clicking another part re-targets.
+- **Glow** — highlight shells now fit the part's full rendered bounds
+  (whole wing span, not one cell) and the hover shell breathes
+  (alpha 0.12–0.24). The per-object outline render feature stays off —
+  it was reverted once already for tanking FPS at real block counts.
+- Verified live via bridge: navigate action confirmed null in play mode,
+  bounds-fitted glow screenshot-confirmed, console clean. (Headless
+  cursor warp doesn't register in an unfocused editor — real hover needs
+  a human hand; logic path is shared with the verified bind path.)
+
 ## Deferred / parked (user's back-pocket list)
 
 - Thruster L/R facing constraint (decide the mechanic first).

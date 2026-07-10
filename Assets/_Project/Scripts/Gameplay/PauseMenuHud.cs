@@ -267,6 +267,7 @@ namespace Robogame.Gameplay
             if (legacy != null) Destroy(legacy);
             if (es.GetComponent<InputSystemUIInputModule>() == null)
                 es.gameObject.AddComponent<InputSystemUIInputModule>();
+            HudEventSystem.DisableKeyboardNavigation(es);
         }
 
         private void BuildPanel()

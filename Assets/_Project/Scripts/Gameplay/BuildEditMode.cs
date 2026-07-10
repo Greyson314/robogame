@@ -132,9 +132,10 @@ namespace Robogame.Gameplay
         private void Update()
         {
             if (_buildMode == null || !_buildMode.IsActive) return;
-            // Don't eat the keystroke while a text field is focused.
-            bool typing = UnityEngine.EventSystems.EventSystem.current != null
-                && UnityEngine.EventSystems.EventSystem.current.currentSelectedGameObject != null;
+            // Don't eat the keystroke while a text field is focused. Text
+            // fields ONLY — the old any-selection check left T dead after
+            // every button/slider click, because UGUI selection persists.
+            bool typing = UguiNav.IsTextInputFocused();
             Keyboard kb = Keyboard.current;
             if (kb != null && !typing && kb[_toggleKey].wasPressedThisFrame) Toggle();
         }
@@ -200,7 +201,7 @@ namespace Robogame.Gameplay
             hrt.anchorMin = new Vector2(0.5f, 1f);
             hrt.anchorMax = new Vector2(0.5f, 1f);
             hrt.pivot = new Vector2(0.5f, 1f);
-            hrt.sizeDelta = new Vector2(420f, 22f);
+            hrt.sizeDelta = new Vector2(660f, 22f);
             hrt.anchoredPosition = new Vector2(0f, -82f);
             var hintBg = _hintRoot.AddComponent<Image>();
             hintBg.color = UguiPalette.Backdrop;
@@ -213,7 +214,7 @@ namespace Robogame.Gameplay
             // Backdrop with dark Text.
             _hintText.color = UguiPalette.Text;
             _hintText.raycastTarget = false;
-            _hintText.text = "Click a glowing part to tune it  •  T or Esc exits";
+            _hintText.text = "Click a glowing part to tune  •  right-click deselects  •  hold right-mouse to look  •  T exits";
             _hintRoot.SetActive(false);
         }
 

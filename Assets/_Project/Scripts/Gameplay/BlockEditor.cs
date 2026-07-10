@@ -603,7 +603,9 @@ namespace Robogame.Gameplay
             // Works without a hover target so the player can pre-rotate. Skipped
             // while a UI text field is focused so it doesn't eat keystrokes.
             Keyboard kb = Keyboard.current;
-            bool typing = EventSystem.current != null && EventSystem.current.currentSelectedGameObject != null;
+            // Text-field-only guard — the old any-selection check left R
+            // dead after every button/slider click (selection persists).
+            bool typing = Robogame.Core.UguiNav.IsTextInputFocused();
             if (kb != null && kb.rKey.wasPressedThisFrame && _session != null && !typing)
             {
                 _session.CyclePlaceYaw();
@@ -631,20 +633,60 @@ namespace Robogame.Gameplay
                 if (wasClick && _hasTarget) TryPickBlock();
             }
 
-            if (!_hasTarget) return;
-
-            // EDIT mode (the explicit toggle button): a left-click binds the
+            // TUNE mode (the explicit toggle button): a left-click binds the
             // pointed block to the variant panel for in-place editing instead
             // of placing. Place / remove are suppressed so a tweak-click can't
-            // accidentally drop or delete a block.
+            // accidentally drop or delete a block. Runs BEFORE the
+            // has-target gate so empty-space clicks can deselect.
             if (_editMode != null && _editMode.Enabled)
             {
-                if (mouse.leftButton.wasPressedThisFrame) TryBindInstanceForEdit();
+                HandleTuneClicks(mouse);
                 return;
             }
 
+            if (!_hasTarget) return;
+
             if (mouse.leftButton.wasPressedThisFrame)   TryPlace();
             if (mouse.rightButton.wasPressedThisFrame)  TryRemove();
+        }
+
+        // Right-click-vs-right-drag discrimination for tune mode. By
+        // accumulated mouse DELTA, not cursor travel — BuildFreeCam locks
+        // the cursor during a right-drag look, which freezes the position.
+        private float _tuneRightAccumPx;
+        private bool _tuneRightActive;
+
+        // Tune-mode clicks: left on a tunable part binds it (re-targeting
+        // works mid-session); left on empty space or a plain right-click
+        // unbinds WITHOUT leaving the mode; right-drag is the camera look.
+        private void HandleTuneClicks(Mouse mouse)
+        {
+            if (mouse.leftButton.wasPressedThisFrame)
+            {
+                if (_hasTarget) TryBindInstanceForEdit();
+                else DeselectTunedInstance();
+            }
+
+            if (mouse.rightButton.wasPressedThisFrame)
+            {
+                _tuneRightActive = true;
+                _tuneRightAccumPx = 0f;
+            }
+            if (_tuneRightActive && mouse.rightButton.isPressed)
+                _tuneRightAccumPx += mouse.delta.ReadValue().magnitude;
+            if (mouse.rightButton.wasReleasedThisFrame && _tuneRightActive)
+            {
+                _tuneRightActive = false;
+                const float clickSlopPx = 8f;
+                if (_tuneRightAccumPx <= clickSlopPx) DeselectTunedInstance();
+            }
+        }
+
+        private void DeselectTunedInstance()
+        {
+            if (_session == null || _session.EditingInstance == null) return;
+            ClearInstanceEdit();
+            Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.UiBack);
         }
 
         // Middle-click vs middle-drag discrimination state (see HandleClicks).
@@ -778,14 +820,42 @@ namespace Robogame.Gameplay
                 mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 mr.receiveShadows = false;
             }
-            Transform t = _instanceHighlight.transform;
-            t.SetParent(block.transform, worldPositionStays: false);
-            t.localPosition = Vector3.zero;
-            t.localRotation = Quaternion.identity;
-            // Slightly larger than a cell so it reads as a shell around the
-            // block rather than z-fighting its faces.
+            FitShellToBlock(_instanceHighlight, block);
+        }
+
+        // Fit a highlight shell to the block's full RENDERED bounds — a
+        // wing glows across its whole span, a rotor across its disc. The
+        // old cell-sized shell read as a faint box at the mount point,
+        // not a glow on the part (session 138 playtest). World-axis AABB
+        // is fine for a glow read; the chassis is parked in build mode.
+        // Parented afterwards (preserving world pose) so it tracks the
+        // block and dies with it. Allocation only on hover/bind changes,
+        // never per frame.
+        private void FitShellToBlock(GameObject shell, BlockBehaviour block)
+        {
+            Transform t = shell.transform;
+            t.SetParent(null, worldPositionStays: false);
+            Bounds b = default;
+            bool has = false;
+            Renderer[] rends = block.GetComponentsInChildren<Renderer>();
+            for (int i = 0; i < rends.Length; i++)
+            {
+                Renderer r = rends[i];
+                if (r == null) continue;
+                // Never measure our own shells — a shell inside the bounds
+                // pass would inflate itself by 8% per refit.
+                GameObject go = r.gameObject;
+                if (go == shell || go == _instanceHighlight || go == _hoverHighlight) continue;
+                if (!has) { b = r.bounds; has = true; }
+                else b.Encapsulate(r.bounds);
+            }
             float cell = _grid != null ? _grid.CellSize : 1f;
-            t.localScale = Vector3.one * (cell * 1.12f);
+            if (!has) b = new Bounds(block.transform.position, Vector3.one * cell);
+            t.SetPositionAndRotation(b.center, Quaternion.identity);
+            // 8% swell + a small absolute pad so thin parts (wing sheets)
+            // still get a visible halo instead of a coplanar z-fight.
+            t.localScale = b.size * 1.08f + Vector3.one * 0.08f;
+            t.SetParent(block.transform, worldPositionStays: true);
         }
 
         // -----------------------------------------------------------------
@@ -798,10 +868,15 @@ namespace Robogame.Gameplay
 
         private GameObject _hoverHighlight;
         private BlockBehaviour _hoverBlock;
-        private static Material s_hoverMat;
+        // Per-editor material instance (not the static shared one) so the
+        // pulse below can animate alpha without touching other shells.
+        private Material _hoverMat;
+        private static readonly Color s_hoverBase = new Color(1f, 0.62f, 0.10f, 0.14f);
 
         private void DriveHoverHighlight()
         {
+            PulseHoverHighlight();
+
             BlockBehaviour target = null;
             if (_hasTarget && _grid != null)
             {
@@ -821,8 +896,8 @@ namespace Robogame.Gameplay
                 return;
             }
 
-            if (s_hoverMat == null)
-                s_hoverMat = Robogame.Core.RuntimeMaterials.UnlitTransparent(new Color(1f, 0.62f, 0.10f, 0.10f));
+            if (_hoverMat == null)
+                _hoverMat = Robogame.Core.RuntimeMaterials.UnlitTransparent(s_hoverBase);
             if (_hoverHighlight == null)
             {
                 _hoverHighlight = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -832,18 +907,24 @@ namespace Robogame.Gameplay
                 var mr = _hoverHighlight.GetComponent<MeshRenderer>();
                 if (mr != null)
                 {
-                    mr.sharedMaterial = s_hoverMat;
+                    mr.sharedMaterial = _hoverMat;
                     mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                     mr.receiveShadows = false;
                 }
             }
-            Transform t = _hoverHighlight.transform;
-            t.SetParent(target.transform, worldPositionStays: false);
-            t.localPosition = Vector3.zero;
-            t.localRotation = Quaternion.identity;
-            float cellSize = _grid != null ? _grid.CellSize : 1f;
-            t.localScale = Vector3.one * (cellSize * 1.10f);
+            FitShellToBlock(_hoverHighlight, target);
             _hoverHighlight.SetActive(true);
+        }
+
+        // Slow alpha breathe on the hover shell so tunable parts read as
+        // "glowing" rather than faintly boxed. One material color write
+        // per frame while tune mode is on — no allocation.
+        private void PulseHoverHighlight()
+        {
+            if (_hoverMat == null || _hoverHighlight == null || !_hoverHighlight.activeSelf) return;
+            Color c = s_hoverBase;
+            c.a = 0.12f + 0.12f * Mathf.PingPong(Time.unscaledTime * 1.6f, 1f);
+            _hoverMat.color = c;
         }
 
         private void HideHoverHighlight()
