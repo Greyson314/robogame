@@ -1,7 +1,7 @@
 # artgen/inv_wing_anim.py — animated study: bat-wing aerofoil "swimming".
 # Builds a fresh copy of the inv_wing bat-wing study, joins it into one
-# mesh, rigs a 3-bone chain from the root boss out along the mid-fan
-# direction, and keys a looping traveling-wave flap: root leads, tip
+# mesh, rigs a 3-bone chain from the root boss out along the LEADING
+# spar, and keys a looping traveling-wave flap: root leads, tip
 # lags, with a quarter-cycle feathering twist so the membrane sculls
 # instead of just hinging. Reads mechanical because the chain is three
 # rigid panels with narrow hinge blends, not a smooth spline.
@@ -23,7 +23,11 @@ import inv_wing
 PFX = "InvSwim_"
 
 PIVOT_2D = inv_wing.ORIGIN          # fan origin = attach point (root-local)
-CHAIN_ANG = radians(-46.0)          # mid-fan direction the chain runs along
+# Chain runs along the LEADING spar (0°), not the mid-fan (-46°): the
+# hinge axes stay perpendicular to the leading finger, so it bends
+# cleanly instead of skewing sideways (user critique, session 139).
+# Trailing spars inherit the wave through the membrane.
+CHAIN_ANG = radians(0.0)
 JOINTS = [0.0, 0.5, 1.05, 1.75]     # hinge radii from the pivot
 BLEND = 0.09                        # half-width of each hinge's weight blend
 PINNED = ("Boss", "Mount", "Whip")  # root hardware: full Base weight

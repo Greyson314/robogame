@@ -15,8 +15,11 @@ other studies.
 How it works:
 
 - **Rig.** A static `Base` stub plus a 3-bone chain (`Flap0..2`) from
-  the root boss out along the mid-fan direction (−46° from +X), hinge
-  joints at radii 0.5 / 1.05 from the pivot.
+  the root boss out along the leading spar (0°), hinge joints at radii
+  0.5 / 1.05 from the pivot. First cut ran the chain down the mid-fan
+  (−46°); user flagged the leading finger as crooked — oblique hinge
+  axes made it skew, not hinge. Aligning the chain with the leading
+  spar fixed it; the trailing fan inherits the wave via the membrane.
 - **Skinning.** Procedural radial weights — distance from the fan
   origin in the wing plane, hat functions per segment with narrow
   (±0.09) blend zones at the hinges. Three near-rigid panels with
@@ -71,6 +74,7 @@ static study *after* if you want both in the scene.)
   Wing needs its own block def (it is NOT `BlockDef_Aero` — that stays
   the foil). Wing-frame bake like `export_foil()` applies. Unity-side
   animation hookup: always-on until "powered" exists.
-- Chain axis is a single −46° ray; the leading spar (0°) gets a mix of
-  flap and twist from it. Looks right; a per-spar rig would be the
-  upgrade if a closer look ever demands it.
+- Chain axis is a single ray along the leading spar; trailing spars
+  (up to −92° off-axis) take oblique hinge bends, hidden well by the
+  membrane. A per-spar rig would be the upgrade if a closer look ever
+  demands it.
