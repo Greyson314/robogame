@@ -46,7 +46,19 @@ user preference); make the edit mode the cursor-freeing state instead.
 ## Verification
 
 - EditMode: `MechanismOwnerCellTests` (6 tests) on the redirect rules.
-- Full headless suite + Unity console check via qa-verifier.
+- Headless rig: EditMode 385/386, PlayMode 120/121, 0 failures (the
+  stragglers are a pre-existing inconclusive + a pre-existing skip).
+- Live MCP play-mode smoke (bridge over direct HTTP :8080, session was
+  launched without the UnityMCP registration — now added to `.mcp.json`):
+  build-mode frame + labels, tuning-mode cursor free/relock, panel
+  content-sizing (aero 398 / rope 166 / rotor 310 / advanced 514), all
+  observed in-editor; console clean.
+- Live screenshots caught three fixups: the BUILD MODE tag overprinted
+  the FPS/net dev lines (moved to y −64), the tuning hint was
+  cream-on-cream (→ ink on Backdrop), and the variant panel TITLE had
+  never rendered — its offsetMin/offsetMax y-values were swapped since
+  the panel was built, giving the rect negative height. Swapping them
+  restores "Variant — X" and the red "Tuning — X" bound-state signal.
 - perf-checker skipped: zero physics objects added (UI + input routing;
   the two highlight shells are collider-less primitives, hover shell
   reused across frames per invariant #6).

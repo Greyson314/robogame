@@ -208,7 +208,10 @@ namespace Robogame.Gameplay
             _hintText = AddText(_hintRoot.transform);
             _hintText.fontSize = 12;
             _hintText.fontStyle = FontStyle.Normal;
-            _hintText.color = UguiPalette.CreamText;
+            // Ink on the light Backdrop — CreamText here was cream-on-cream
+            // (live screenshot, session 138); TipStrip pairs the same
+            // Backdrop with dark Text.
+            _hintText.color = UguiPalette.Text;
             _hintText.raycastTarget = false;
             _hintText.text = "Click a glowing part to tune it  •  T or Esc exits";
             _hintRoot.SetActive(false);

@@ -22,7 +22,9 @@ namespace Robogame.Gameplay
     [DisallowMultipleComponent]
     public sealed class BuildModeFrame : MonoBehaviour
     {
-        private const float BarThickness = 4f;
+        // 6px: the 4px first cut was nearly invisible at 2560-wide (live
+        // screenshot check, session 138).
+        private const float BarThickness = 6f;
 
         [SerializeField] private BuildModeController _buildMode;
 
@@ -76,7 +78,6 @@ namespace Robogame.Gameplay
             // No GraphicRaycaster on purpose — chrome only, never clickable.
 
             Color accent = UguiPalette.Accent;
-            accent.a = 0.85f;
 
             // Four hairline bars hugging the screen edges.
             AddBar("Top",    anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f), pivot: new Vector2(0.5f, 1f), size: new Vector2(0f, BarThickness), accent);
@@ -84,8 +85,11 @@ namespace Robogame.Gameplay
             AddBar("Left",   anchorMin: new Vector2(0f, 0f), anchorMax: new Vector2(0f, 1f), pivot: new Vector2(0f, 0.5f), size: new Vector2(BarThickness, 0f), accent);
             AddBar("Right",  anchorMin: new Vector2(1f, 0f), anchorMax: new Vector2(1f, 1f), pivot: new Vector2(1f, 0.5f), size: new Vector2(BarThickness, 0f), accent);
 
-            // Corner tag — top-left, clear of the mirror banner (top-center),
-            // variant panel (top-right) and the CenterOverlay legend (mid-left).
+            // Corner tag — top-left, but dropped BELOW the FpsCounter /
+            // NetDevHud IMGUI lines that own the very corner (the first cut
+            // at -14 overprinted "FPS: 320" — live screenshot, session 138).
+            // Still clear of the mirror banner (top-center), variant panel
+            // (top-right) and the CenterOverlay legend (mid-left).
             var tag = new GameObject("Tag", typeof(RectTransform));
             tag.transform.SetParent(_root.transform, worldPositionStays: false);
             var trt = tag.GetComponent<RectTransform>();
@@ -93,7 +97,7 @@ namespace Robogame.Gameplay
             trt.anchorMax = new Vector2(0f, 1f);
             trt.pivot = new Vector2(0f, 1f);
             trt.sizeDelta = new Vector2(150f, 26f);
-            trt.anchoredPosition = new Vector2(BarThickness + 8f, -(BarThickness + 8f));
+            trt.anchoredPosition = new Vector2(BarThickness + 8f, -64f);
             var tagBg = tag.AddComponent<Image>();
             tagBg.color = accent;
             tagBg.raycastTarget = false;

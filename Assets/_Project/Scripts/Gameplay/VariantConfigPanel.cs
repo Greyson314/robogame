@@ -754,7 +754,11 @@ namespace Robogame.Gameplay
             _panelRT.anchoredPosition = new Vector2(-24f, -24f);
             panel.AddComponent<Image>().color = s_panelBg;
 
-            _titleText = AddText(panel.transform, "Variant", new Vector2(12f, -12f), new Vector2(-12f, -36f),
+            // offsetMin is the BOTTOM edge, offsetMax the TOP — the old
+            // (-12, -36) order gave the rect a negative height, so the
+            // title (including the red "Tuning —" state signal) never
+            // rendered at all. Caught by the session-138 live screenshot.
+            _titleText = AddText(panel.transform, "Variant", new Vector2(12f, -36f), new Vector2(-12f, -12f),
                 anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
                 size: 18, style: FontStyle.Bold, anchor: TextAnchor.MiddleLeft, color: s_accent);
 
