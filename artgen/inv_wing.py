@@ -4,7 +4,9 @@
 # membrane stretched between them, deep scallops on the outer edge.
 # The bones sit centred in the membrane and are fatter than it, so the
 # skeleton reads from both faces. Spans ~2 blocks: components are sized
-# to their mechanic, not to one cell; the mount is the root corner.
+# to their mechanic, not to one cell. SIDE-mounted (session 139): the
+# mount is a foil-style brass disc on the root face (-X), per the
+# Foils-vs-Wings philosophy — wings hang off a block's side like foils.
 
 from math import cos, sin, pi, tau, radians
 
@@ -98,7 +100,8 @@ def build(loc=(0.0, -5.0, 0.5)):
              parent=root)
 
     # Root boss where the fan converges: turned walnut disc + cord
-    # whipping + brass mount plate below (the one block-sized part).
+    # whipping + brass side-mount disc on the root face (-X), matching
+    # the foil's mount language.
     il.lathe(f"{PFX}Boss",
              [(0.055, -0.055), (0.105, -0.03), (0.115, 0.02),
               (0.08, 0.06), (0.03, 0.08)],
@@ -106,6 +109,8 @@ def build(loc=(0.0, -5.0, 0.5)):
     il.torus(f"{PFX}Whip", 0.108, 0.012, [m["cord"]],
              center=(ox, oy, -0.01), axis='Z', segs=16, sides=5,
              parent=root)
-    il.box(f"{PFX}Mount", (ox, oy, -0.085), (0.20, 0.20, 0.026),
-           [m["brass"]], parent=root)
+    il.lathe(f"{PFX}Mount",
+             [(0.10, 0.0), (0.10, -0.028), (0.045, -0.048)],
+             [m["brass"]], segs=14, axis='X', center=(ox - 0.11, oy, 0.0),
+             parent=root)
     return root

@@ -1,4 +1,4 @@
-# 138 — Bat-wing aerofoil "swimming" animation study (Blender)
+# 139 — Bat-wing aerofoil "swimming" animation study (Blender)
 
 **Intent.** Animate the bat-wing aerofoil study (`artgen/inv_wing.py`)
 with a "swimming through the air" motion — flapping, but mechanical —
@@ -31,6 +31,21 @@ How it works:
   tip — the membrane sculls, which is the "swimming" read. Keys every
   2 frames, frame 49 == frame 1, clean loop.
 
+## Current philosophy: Foils vs Wings (user call, this session)
+
+Two distinct aero parts going forward:
+
+- **Foils** — look and act like the current foils (`inv_foil.py` →
+  `Foil_Inv.fbx` on `BlockDef_Aero`). Unchanged.
+- **Wings** — the bat-wing shape (`inv_wing.py`). Still side-mounted
+  like foils. Flapping (this swim animation) plays **when powered** —
+  future feature; until powered-state exists, the animation is simply
+  always on.
+
+To match, `inv_wing.py` was changed from its under-boss brass plate to
+a foil-style brass side-mount disc on the root face (−X). The animated
+study inherits it automatically (it builds from `inv_wing`).
+
 ## Naming gotcha
 
 The copy uses prefix `InvSwim_`, not `InvWingAnim_`:
@@ -52,8 +67,10 @@ static study *after* if you want both in the scene.)
 ## Known limits / next steps
 
 - Study only — not exported. If it graduates, the keys bake to FBX
-  (armature + baked action) via the usual `inv_export` path; Unity-side
-  hookup (when/why the wing swims) is undesigned.
+  (armature + baked action) via the usual `inv_export` path, and the
+  Wing needs its own block def (it is NOT `BlockDef_Aero` — that stays
+  the foil). Wing-frame bake like `export_foil()` applies. Unity-side
+  animation hookup: always-on until "powered" exists.
 - Chain axis is a single −46° ray; the leading spar (0°) gets a mix of
   flap and twist from it. Looks right; a per-spar rig would be the
   upgrade if a closer look ever demands it.
