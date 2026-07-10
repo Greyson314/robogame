@@ -407,6 +407,36 @@ namespace Robogame.Gameplay
         }
 
         /// <summary>
+        /// If <paramref name="cell"/> hosts a rotor's auto-placed mechanism
+        /// cube, return the owning rotor's cell; otherwise return
+        /// <paramref name="cell"/> unchanged. The mechanism cube's host
+        /// mesh is always hidden (see <c>RotorBlock</c>), so what the
+        /// player SEES at that cell is the rotor's upper mast — cursor
+        /// verbs that target "the block the player is looking at"
+        /// (eyedropper, instance-edit bind, removal) should route through
+        /// this so the invisible cube never swallows the click.
+        /// Ownership test: a cube at <c>rotor.cell + rotor.Up</c> IS the
+        /// mechanism cube by placement semantics — the auto-companion
+        /// cascade either placed it there or adopted a pre-existing cube
+        /// in that cell (see <see cref="AutoPlaceCompanionsOf"/>).
+        /// </summary>
+        public static Vector3Int ResolveMechanismOwnerCell(
+            IReadOnlyDictionary<Vector3Int, BlockBehaviour> blocks, Vector3Int cell)
+        {
+            if (blocks == null) return cell;
+            if (!blocks.TryGetValue(cell, out BlockBehaviour b) || b == null) return cell;
+            if (b.Definition == null || b.Definition.Id != BlockIds.Cube) return cell;
+            for (int i = 0; i < s_cascadeFaces.Length; i++)
+            {
+                Vector3Int d = s_cascadeFaces[i];
+                if (!blocks.TryGetValue(cell - d, out BlockBehaviour r) || r == null) continue;
+                if (r.Definition == null || r.Definition.Id != BlockIds.Rotor) continue;
+                if (r.Up == d) return cell - d;
+            }
+            return cell;
+        }
+
+        /// <summary>
         /// If <paramref name="cell"/> hosts a rotor whose mechanism cube
         /// would be orphaned by its removal, return the mechanism cell so
         /// removal can cascade. Returns null when the rotor has dependents

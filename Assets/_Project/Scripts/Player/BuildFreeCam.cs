@@ -69,6 +69,36 @@ namespace Robogame.Player
         // True while the hold-to-free key keeps the cursor deliberately
         // unlocked (rotation already self-gates on the actual lock state).
         private bool _uiCursorHeld;
+        private bool _externalCursorHold;
+
+        /// <summary>
+        /// Sticky external cursor-free request — the Tune-part mode sets
+        /// this while active so the player works the variant panel with a
+        /// live cursor, no Alt chord. While true: cursor stays unlocked,
+        /// mouse-look and flight stay suspended (both already gate on the
+        /// lock state), and the click-to-relock path is disabled. Clearing
+        /// it re-locks unless a modal owns the cursor.
+        /// </summary>
+        public bool ExternalCursorHold
+        {
+            get => _externalCursorHold;
+            set
+            {
+                if (_externalCursorHold == value) return;
+                _externalCursorHold = value;
+                if (!isActiveAndEnabled) return;
+                if (value)
+                {
+                    Cursor.lockState = CursorLockMode.None;
+                    Cursor.visible = true;
+                }
+                else if (!_uiCursorHeld && !Robogame.Core.HudPointerGuard.AnyModalOpen)
+                {
+                    Cursor.lockState = CursorLockMode.Locked;
+                    Cursor.visible = false;
+                }
+            }
+        }
 
         private void OnEnable()
         {
@@ -81,8 +111,9 @@ namespace Robogame.Player
             // is the input target. Mouse delta drives the camera; the
             // cursor itself doesn't show. Hotbar navigation is via
             // keyboard (1..N for slots, Q/E for category cycling).
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+            // An external hold (Tune mode active at swap-in) wins.
+            Cursor.lockState = _externalCursorHold ? CursorLockMode.None : CursorLockMode.Locked;
+            Cursor.visible = _externalCursorHold;
             _uiCursorHeld = false;
         }
 
@@ -137,6 +168,7 @@ namespace Robogame.Player
             if (m != null && m.leftButton.wasPressedThisFrame
                 && Cursor.lockState != CursorLockMode.Locked
                 && !_uiCursorHeld
+                && !_externalCursorHold
                 && !Robogame.Core.HudPointerGuard.AnyModalOpen
                 && !Robogame.Core.HudPointerGuard.PointerOverHud(m.position.ReadValue()))
             {

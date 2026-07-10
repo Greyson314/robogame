@@ -19,7 +19,8 @@ namespace Robogame.Gameplay
     /// so "free my mouse" cost two Escapes and a settings flash.
     /// TRACE[LOG-128]. The ladder is now: Escape in settings → back to
     /// this menu; Escape here → resume (re-capturing the cursor if we
-    /// took it); Escape in gameplay → open this menu.
+    /// took it); Escape while build-mode part tuning is on → exit tune
+    /// mode; Escape in gameplay → open this menu.
     /// </para>
     /// <para>
     /// Self-bootstraps on a DontDestroyOnLoad root (same pattern as
@@ -85,6 +86,20 @@ namespace Robogame.Gameplay
                 // our own gate if we're still open underneath.
                 if (_open) ApplyPauseGate();
                 return;
+            }
+
+            // Next rung down the ladder: build-mode part tuning. Escape
+            // closes the tune mode (its SetEnabled plays the back cue and
+            // re-locks the cursor) before it ever opens the pause menu.
+            // Lookup only runs on Escape-press frames, so no per-frame cost.
+            if (!_open)
+            {
+                BuildEditMode tune = FindAnyObjectByType<BuildEditMode>();
+                if (tune != null && tune.Enabled)
+                {
+                    tune.SetEnabled(false);
+                    return;
+                }
             }
 
             if (_open)

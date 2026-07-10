@@ -126,12 +126,22 @@ namespace Robogame.Gameplay
             }
         }
 
-        // Turning the Edit-Block toggle OFF drops any bound instance + its
-        // highlight, returning to plain placement. Turning it on does nothing
-        // until the player clicks a block.
+        // Turning the Tune-part toggle OFF drops any bound instance + its
+        // highlight, returning to plain placement. Turning it on clears the
+        // placement ghost — in tune mode the hover highlight is the
+        // affordance, and a lingering ghost reads as "I can still place".
         private void HandleEditModeChanged(bool enabled)
         {
-            if (!enabled) ClearInstanceEdit();
+            if (!enabled)
+            {
+                ClearInstanceEdit();
+                HideHoverHighlight();
+            }
+            else
+            {
+                if (_ghostRenderer != null) _ghostRenderer.Clear();
+                if (_feedbackHud != null) _feedbackHud.Hide();
+            }
         }
 
         [Tooltip("Layer mask used by the targeting raycast. Default: everything.")]
@@ -275,6 +285,7 @@ namespace Robogame.Gameplay
             Unsubscribe();
             if (_session != null) _session.VariantChanged -= PropagateVariantToLiveBlocks;
             if (_editMode != null) _editMode.Changed -= HandleEditModeChanged;
+            HideHoverHighlight();
             if (_ghostRenderer != null) _ghostRenderer.Clear();
             if (_feedbackHud != null) _feedbackHud.Hide();
         }
@@ -316,6 +327,7 @@ namespace Robogame.Gameplay
         {
             _grid = null;
             ClearInstanceEdit();
+            HideHoverHighlight();
             if (_ghostRenderer != null) _ghostRenderer.Clear();
             if (_feedbackHud != null) _feedbackHud.Hide();
         }
@@ -335,11 +347,22 @@ namespace Robogame.Gameplay
                 if (_grid == null) return;
             }
             UpdateTarget();
-            // Drive the ghost renderer + feedback HUD with the freshly
-            // picked target. The renderer figures out whether to rebuild
-            // meshes itself.
-            DriveGhostRenderer();
-            DriveFeedbackHud();
+            if (_editMode != null && _editMode.Enabled)
+            {
+                // Tune mode: no placement ghost / error HUD (cleared on the
+                // mode transition) — the hover highlight marks what's
+                // clickable instead.
+                DriveHoverHighlight();
+            }
+            else
+            {
+                HideHoverHighlight();
+                // Drive the ghost renderer + feedback HUD with the freshly
+                // picked target. The renderer figures out whether to rebuild
+                // meshes itself.
+                DriveGhostRenderer();
+                DriveFeedbackHud();
+            }
             HandleClicks();
         }
 
@@ -638,7 +661,11 @@ namespace Robogame.Gameplay
         private void TryPickBlock()
         {
             if (_session == null || _grid == null) return;
-            if (!_grid.Blocks.TryGetValue(_targetHitCell, out BlockBehaviour b) || b == null) return;
+            // Route mechanism-cube hits to the owning rotor — the cube is
+            // invisible; what the player sees at that cell is the rotor's
+            // upper mast, so the pick must land on the rotor.
+            Vector3Int pickCell = BuildSession.ResolveMechanismOwnerCell(_grid.Blocks, _targetHitCell);
+            if (!_grid.Blocks.TryGetValue(pickCell, out BlockBehaviour b) || b == null) return;
             BlockDefinition def = b.Definition;
             if (def == null) return;
 
@@ -666,7 +693,9 @@ namespace Robogame.Gameplay
         private void TryBindInstanceForEdit()
         {
             if (_session == null || _grid == null) return;
-            if (!_grid.Blocks.TryGetValue(_targetHitCell, out BlockBehaviour b) || b == null) return;
+            // Same mechanism-cube → rotor routing as the eyedropper.
+            Vector3Int pickCell = BuildSession.ResolveMechanismOwnerCell(_grid.Blocks, _targetHitCell);
+            if (!_grid.Blocks.TryGetValue(pickCell, out BlockBehaviour b) || b == null) return;
             BlockDefinition def = b.Definition;
             if (def == null) return;
 
@@ -759,6 +788,74 @@ namespace Robogame.Gameplay
             t.localScale = Vector3.one * (cell * 1.12f);
         }
 
+        // -----------------------------------------------------------------
+        // Tune-mode hover highlight — a fainter shell than the bound-
+        // instance one, marking the tunable block under the cursor as
+        // clickable. One shell object reused across hovers (invariant #6:
+        // no per-frame allocations); it only reparents when the hovered
+        // block changes.
+        // -----------------------------------------------------------------
+
+        private GameObject _hoverHighlight;
+        private BlockBehaviour _hoverBlock;
+        private static Material s_hoverMat;
+
+        private void DriveHoverHighlight()
+        {
+            BlockBehaviour target = null;
+            if (_hasTarget && _grid != null)
+            {
+                Vector3Int cell = BuildSession.ResolveMechanismOwnerCell(_grid.Blocks, _targetHitCell);
+                if (_grid.Blocks.TryGetValue(cell, out BlockBehaviour b) && b != null
+                    && b.Definition != null && VariantConfigPanel.IsVariableBlock(b.Definition.Id))
+                    target = b;
+            }
+            // The bound instance already wears the stronger edit shell —
+            // don't stack a second one on it.
+            if (target != null && _session != null && target == _session.EditingInstance) target = null;
+            if (target == _hoverBlock && (target == null || _hoverHighlight != null)) return;
+            _hoverBlock = target;
+            if (target == null)
+            {
+                HideHoverHighlight();
+                return;
+            }
+
+            if (s_hoverMat == null)
+                s_hoverMat = Robogame.Core.RuntimeMaterials.UnlitTransparent(new Color(1f, 0.62f, 0.10f, 0.10f));
+            if (_hoverHighlight == null)
+            {
+                _hoverHighlight = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                _hoverHighlight.name = "TuneHoverHighlight";
+                Collider col = _hoverHighlight.GetComponent<Collider>();
+                if (col != null) Destroy(col);
+                var mr = _hoverHighlight.GetComponent<MeshRenderer>();
+                if (mr != null)
+                {
+                    mr.sharedMaterial = s_hoverMat;
+                    mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    mr.receiveShadows = false;
+                }
+            }
+            Transform t = _hoverHighlight.transform;
+            t.SetParent(target.transform, worldPositionStays: false);
+            t.localPosition = Vector3.zero;
+            t.localRotation = Quaternion.identity;
+            float cellSize = _grid != null ? _grid.CellSize : 1f;
+            t.localScale = Vector3.one * (cellSize * 1.10f);
+            _hoverHighlight.SetActive(true);
+        }
+
+        private void HideHoverHighlight()
+        {
+            _hoverBlock = null;
+            if (_hoverHighlight == null) return;
+            // Detach so a later host-block destroy can't take the reusable
+            // shell down with it.
+            _hoverHighlight.transform.SetParent(null, worldPositionStays: false);
+            _hoverHighlight.SetActive(false);
+        }
+
         private void TryPlace()
         {
             if (!_validPlacement) return;
@@ -814,12 +911,16 @@ namespace Robogame.Gameplay
         private void TryRemove()
         {
             if (_session == null || _grid == null) return;
-            if (!_grid.HasBlock(_targetHitCell)) return;
+            // Mechanism-cube → rotor routing: right-click on the invisible
+            // cube region (the rotor's upper mast) removes the rotor — the
+            // session's cascade then co-removes the cube.
+            Vector3Int removeCell = BuildSession.ResolveMechanismOwnerCell(_grid.Blocks, _targetHitCell);
+            if (!_grid.HasBlock(removeCell)) return;
 
             _session.SetMirrorEnabled(_mirrorMode != null && _mirrorMode.Enabled);
             _session.SetMirrorAxis(_mirrorMode != null ? _mirrorMode.Axis : Robogame.Block.MirrorAxis.X);
 
-            BuildSession.RemoveOutcome outcome = _session.TryRemove(_targetHitCell);
+            BuildSession.RemoveOutcome outcome = _session.TryRemove(removeCell);
             if (outcome.PrimarySucceeded)
             {
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.BlockRemove);

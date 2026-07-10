@@ -181,7 +181,7 @@ namespace Robogame.Gameplay
             BuildPresetDropdown(canvasGO.transform);
             _newButton    = BuildSmallButton(canvasGO.transform, "NewRobotButton",    "+ New Robot",  row: 1, HandleNewClicked);
             _saveButton   = BuildSmallButton(canvasGO.transform, "SaveRobotButton",   "Save Robot",   row: 2, HandleSaveClicked);
-            _buildButton  = BuildSmallButton(canvasGO.transform, "BuildModeButton",   "Build Mode",   row: 3, HandleBuildClicked);
+            _buildButton  = BuildSmallButton(canvasGO.transform, "BuildModeButton",   "Build ▶",      row: 3, HandleBuildClicked);
             _deleteButton = BuildSmallButton(canvasGO.transform, "DeleteRobotButton", "Delete",       row: 4, HandleDeleteClicked);
             TintDestructive(_deleteButton);
             _waterButton  = BuildSmallButton(canvasGO.transform, "WaterArenaButton",  "Water Arena ▶", row: 6, HandleWaterClicked);
@@ -506,7 +506,11 @@ namespace Robogame.Gameplay
         {
             if (_buildLabel == null) return;
             bool active = _subscribedBuildMode != null && _subscribedBuildMode.IsActive;
-            _buildLabel.text = active ? "Drive Mode" : "Build Mode";
+            // The garage's non-build state is the HANGAR — a parked
+            // showcase with the loadout strip (presets / save / launch),
+            // not a driveable mode. "Drive Mode" mislabeled it; driving
+            // happens by launching into an arena.
+            _buildLabel.text = active ? "◀ Hangar" : "Build ▶";
         }
 
         private void HandleBuildClicked()

@@ -104,6 +104,51 @@ namespace Robogame.Gameplay
         private bool _suppressCallbacks;
         private bool _foilAdvancedExpanded;
 
+        // ----- Content-sized panel -----
+        // The panel grows/shrinks to the active section instead of holding
+        // one fixed worst-case height. Heights are the sum of each
+        // section's hand-anchored rows (56px slider slots, 36px preset
+        // rows, 22px readouts, ...) — update them when a section gains or
+        // loses a row. The tip-strip band is always reserved at the bottom
+        // so a hover tip never covers the last slider.
+        private RectTransform _panelRT;
+        private int _concoctionRows;
+        private const float PanelWidth   = 360f;
+        private const float TitleBandH   = 40f;  // top margin + title row
+        private const float FooterGapH   = 12f;
+        private const float TipStripH    = 64f;
+        private const float FoilContentCollapsedH = 282f;
+        private const float FoilContentExpandedH  = 398f;
+        private const float RopeContentH   = 50f;
+        private const float RotorContentH  = 194f;
+        private const float ScalarContentH = 82f;  // hover / module / weapon: one slider + readout
+        private const float ExplosiveContentH = 86f;
+        private const float ConcoctionRowH = 28f;
+
+        // Resize the panel so `contentHeight` px of section content fits
+        // between the title band and the reserved tip-strip footer.
+        private void SetContentHeight(float contentHeight)
+        {
+            if (_panelRT == null) return;
+            _panelRT.sizeDelta = new Vector2(PanelWidth, TitleBandH + contentHeight + FooterGapH + TipStripH);
+        }
+
+        // Content height of the currently-active section in its current
+        // expansion state — single source for section switches, the foil
+        // Advanced toggle, and the concoction list open/close.
+        private float ActiveContentHeight()
+        {
+            string id = _activeBlockId;
+            if (string.IsNullOrEmpty(id)) return RopeContentH;
+            if (id == BlockIds.Aero || id == BlockIds.AeroFin)
+                return _foilAdvancedExpanded ? FoilContentExpandedH : FoilContentCollapsedH;
+            if (id == BlockIds.Rope) return RopeContentH;
+            if (id == BlockIds.Rotor) return RotorContentH;
+            if (ConcoctionRegistry.IsConcoctableBlock(id))
+                return ExplosiveContentH + (_concoctionListOpen ? _concoctionRows * ConcoctionRowH : 0f);
+            return ScalarContentH;
+        }
+
         // Visual constants — Robogame orange used for active-state accents
         // throughout the build HUD.
         private static readonly Color s_accent = UguiPalette.Accent;
@@ -263,7 +308,7 @@ namespace Robogame.Gameplay
                 // bound (Edit-mode click), so the player knows the sliders
                 // drive that one block, not the next-placement defaults.
                 bool editing = _session != null && _session.EditingInstance != null;
-                string lead = editing ? "Editing" : "Variant";
+                string lead = editing ? "Tuning" : "Variant";
                 // Danger (vermilion) while instance-editing — white was
                 // unreadable on the cream panel, and the mode change should
                 // still read at a glance.
@@ -280,7 +325,7 @@ namespace Robogame.Gameplay
                 else if (weaponAmmo) _titleText.text = blockId == BlockIds.Cannon
                     ? $"{lead} — Cannon"
                     : $"{lead} — SMG";
-                else _titleText.text = $"{(editing ? "Editing" : "Module")} — {ModuleKinds.Label(ModuleKinds.ForBlockId(blockId) ?? ModuleKind.EmpBurst)}";
+                else _titleText.text = $"{(editing ? "Tuning" : "Module")} — {ModuleKinds.Label(ModuleKinds.ForBlockId(blockId) ?? ModuleKind.EmpBurst)}";
             }
             _foilSection.SetActive(foil);
             _ropeSection.SetActive(rope);
@@ -368,6 +413,7 @@ namespace Robogame.Gameplay
                 UpdateWeaponReadout(mult);
             }
             _suppressCallbacks = false;
+            SetContentHeight(ActiveContentHeight());
         }
 
         // -----------------------------------------------------------------
@@ -670,6 +716,7 @@ namespace Robogame.Gameplay
             if (_foilAdvanced != null) _foilAdvanced.SetActive(_foilAdvancedExpanded);
             if (_foilAdvancedToggleText != null)
                 _foilAdvancedToggleText.text = _foilAdvancedExpanded ? "Advanced ▲" : "Advanced ▼";
+            SetContentHeight(ActiveContentHeight());
         }
 
         // -----------------------------------------------------------------
@@ -694,15 +741,17 @@ namespace Robogame.Gameplay
             scaler.matchWidthOrHeight = 0.5f;
             _root.AddComponent<GraphicRaycaster>();
 
-            // Top-right anchored panel, sized for the foil section's full
-            // expanded layout (the rope / rotor sections leave whitespace).
+            // Top-right anchored panel. Height is set per active section by
+            // SetContentHeight — a one-slider rope panel used to float in
+            // 400px of dead cream, and the fully-expanded foil section
+            // collided with the tip strip; sizing to content fixes both.
             var panel = NewChild("Panel", _root.transform);
-            var prt = panel.GetComponent<RectTransform>();
-            prt.anchorMin = new Vector2(1f, 1f);
-            prt.anchorMax = new Vector2(1f, 1f);
-            prt.pivot = new Vector2(1f, 1f);
-            prt.sizeDelta = new Vector2(340f, 460f);
-            prt.anchoredPosition = new Vector2(-24f, -24f);
+            _panelRT = panel.GetComponent<RectTransform>();
+            _panelRT.anchorMin = new Vector2(1f, 1f);
+            _panelRT.anchorMax = new Vector2(1f, 1f);
+            _panelRT.pivot = new Vector2(1f, 1f);
+            _panelRT.sizeDelta = new Vector2(PanelWidth, 460f);
+            _panelRT.anchoredPosition = new Vector2(-24f, -24f);
             panel.AddComponent<Image>().color = s_panelBg;
 
             _titleText = AddText(panel.transform, "Variant", new Vector2(12f, -12f), new Vector2(-12f, -36f),
@@ -791,12 +840,14 @@ namespace Robogame.Gameplay
             PopulateConcoctionList();
             _concoctionListOpen = true;
             if (_concoctionList != null) _concoctionList.SetActive(true);
+            SetContentHeight(ActiveContentHeight());
         }
 
         private void CloseConcoctionList()
         {
             _concoctionListOpen = false;
             if (_concoctionList != null) _concoctionList.SetActive(false);
+            SetContentHeight(ActiveContentHeight());
         }
 
         // Rebuild the option buttons from the live registry: "(none)" + every
@@ -809,7 +860,8 @@ namespace Robogame.Gameplay
 
             var options = ConcoctionRegistry.GetAll();
             int rows = options.Count + 1; // +1 for "(none)"
-            const float rowH = 28f;
+            _concoctionRows = rows;       // panel height tracks the open list
+            const float rowH = ConcoctionRowH;
             var listRT = _concoctionList.GetComponent<RectTransform>();
             listRT.sizeDelta = new Vector2(0f, rows * rowH);
 

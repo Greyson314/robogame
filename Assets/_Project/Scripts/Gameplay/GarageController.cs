@@ -58,6 +58,7 @@ namespace Robogame.Gameplay
         private BlockGhostRenderer _ghostRenderer;
         private PlacementFeedbackHud _feedbackHud;
         private CenterOverlay _centerOverlay;
+        private BuildModeFrame _buildFrame;
         // Plain-C# build-mode model. Owns the variant cache + mirror
         // state + place/remove verbs so the MonoBehaviour drivers stay
         // thin and EditMode tests can drive build-mode logic without
@@ -343,10 +344,11 @@ namespace Robogame.Gameplay
             _mirrorMode.Session = _buildSession;
             _editor.MirrorMode = _mirrorMode;
 
-            // Edit-Block toggle (button + E hotkey). When on, a left-click
+            // Tune-part toggle (button + T hotkey). When on, a left-click
             // binds the pointed block to the variant panel for in-place
-            // retuning instead of placing. Replaces the session-125
-            // middle-click instance-edit.
+            // retuning instead of placing, and the free-cam lends the HUD
+            // the cursor. Replaces the session-125 middle-click
+            // instance-edit.
             if (_editMode == null) _editMode = gameObject.AddComponent<BuildEditMode>();
             _editMode.BuildMode = _buildMode;
             _editor.EditMode = _editMode;
@@ -365,6 +367,11 @@ namespace Robogame.Gameplay
             if (_centerOverlay == null) _centerOverlay = gameObject.AddComponent<CenterOverlay>();
             _centerOverlay.Garage = this;
             _centerOverlay.BuildMode = _buildMode;
+
+            // Screen-edge frame + "BUILD MODE" tag — the strong mode
+            // signifier separating build from the hangar state (138 UX pass).
+            if (_buildFrame == null) _buildFrame = gameObject.AddComponent<BuildModeFrame>();
+            _buildFrame.BuildMode = _buildMode;
             // Module abilities are now per-block (the block type IS the
             // ability), so there's no chassis-level module picker — the
             // per-module power slider lives in the VariantConfigPanel.
