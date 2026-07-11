@@ -1,22 +1,20 @@
 # artgen/inv_capycube.py — inventor study: command block with capybara pilot.
-# v7: crow-style pass (reference: user's Crow_rig.blend — smooth-shaded
-# subsurf blobs, satin Principled colors, dimensional glossy eye with a
-# warm iris ring). The capy meshes go smooth + subsurf level 2; the fur
-# drops the weave bump for a satin toy finish; the painted-facet eyes
-# are replaced by geometry (gloss-black dome seated in a brown iris
-# torus). Nostril slits stay facet-painted — subsurf melts them into
-# soft ovals. v6 (full-facet painted face, flat-shaded) is in git if
-# the style gets dialed back. Cockpit cube untouched: still paper-punk.
+# v6: full-facet painted face (user call, reverting v5's shaped eye
+# decals — git has them if wanted back). One pure-black side facet per
+# side = the eyes; two dark facet-pairs flanking the nose top = nostril
+# slits. All via make_object's face_mat_idx. The head reads as an
+# extension of the body loaf (no neck step), both carry a subtle
+# scalloped "fluff" modulation, and the ears are thin, slightly pointed
+# flaps angled notably outward.
 # Layout: 1x1x2. Bottom cell is a planked structure cube with an inset
 # open-air cockpit well (coaming rail + rolled linen pad). Top cell is
 # nothing but the capybara. Cyan spark = flush deck binnacle.
 # Root local z: bottom cell -0.5..0.5, top cell 0.5..1.5.
 #
-# Facet-painting note: the nose windows below are tuned to the ring
+# Facet-painting note: feature windows below are tuned to the ring
 # spec (n=34 head sections). If you change ring counts or sizes, expect
 # to re-tune the windows — they select facets by center position.
 
-import bmesh
 import bpy
 from math import tau, pi, cos, sin
 
@@ -30,31 +28,16 @@ PFX = "InvCapyCube_"
 
 FUR = (0.23, 0.125, 0.055, 1.0)        # tawny capybara brown (linear)
 FUR_LIGHT = (0.31, 0.185, 0.09, 1.0)   # paws
-BLACK = (0.005, 0.005, 0.006, 1.0)     # painted nose slits
-EYE = (0.008, 0.008, 0.008, 1.0)       # gloss eyeball (crow: rough 0.43 body,
-IRIS = (0.152, 0.041, 0.016, 1.0)      # eye glossier; iris warm brown)
+BLACK = (0.005, 0.005, 0.006, 1.0)     # painted eyes / nose slits
 
 
 def fur_materials():
-    # Crow-style satin: flat Principled color, no weave bump. The weave
-    # nodes are name-idempotent and persist on re-run in a live session,
-    # so an existing InvCapyFur gets its bump link torn down explicitly.
-    fur = pl.get_material("InvCapyFur", FUR, roughness=0.50)
-    _unweave(fur)
-    fur_l = pl.get_material("InvCapyFurLight", FUR_LIGHT, roughness=0.50)
-    _unweave(fur_l)
-    black = pl.get_material("InvCapyBlack", BLACK, roughness=0.60)
-    eye = pl.get_material("InvCapyEye", EYE, roughness=0.15)
-    iris = pl.get_material("InvCapyIris", IRIS, roughness=0.55)
-    return fur, fur_l, black, eye, iris
-
-
-def _unweave(mat):
-    bsdf = mat.node_tree.nodes.get("Principled BSDF")
-    if bsdf:
-        for link in list(bsdf.inputs["Normal"].links):
-            mat.node_tree.links.remove(link)
-    return mat
+    fur = pl.get_material("InvCapyFur", FUR, roughness=0.93)
+    il._weave(fur, scale=90.0, strength=0.18)
+    fur_l = pl.get_material("InvCapyFurLight", FUR_LIGHT, roughness=0.93)
+    il._weave(fur_l, scale=90.0, strength=0.18)
+    black = pl.get_material("InvCapyBlack", BLACK, roughness=0.75)
+    return fur, fur_l, black
 
 
 def _rring_xz(y, w, h, cz, n=34, exp=0.48, fluff=0.0, lobes=7, ph=0.0,
@@ -124,30 +107,17 @@ def _ear(name, s, mats, parent):
                             + ydir * (sin(a * tau / 10) * hd))
                       for a in range(10)])
     pv, pf = pl.loft(rings)
-    return _crow(pl.make_object(name, pv, pf, mats, parent=parent))
+    return _strip_bevel(pl.make_object(name, pv, pf, mats, parent=parent))
 
 
-def _crow(obj, levels=2):
-    """Crow-style finish for the organic capy meshes: drop make_object's
-    hairline EdgeSoften bevel (ring bands are narrower than the bevel
-    width — applying it at export explodes the geometry), then smooth
-    shading + a subsurf. The exporter runs use_mesh_modifiers=True, so
-    the subsurf bakes into the FBX; levels/render_levels kept equal so
-    viewport, render, and export all see the same mesh."""
+def _strip_bevel(obj):
+    """Remove make_object's hairline EdgeSoften bevel. On the organic
+    meshes (head, ears) ring bands are narrower than the bevel width —
+    applying the modifier at export explodes the geometry and inverts
+    the face-plate shading (rendered as a black void in Unity). Organic
+    shapes don't want the crisp-edge bevel anyway."""
     for mod in list(obj.modifiers):
         obj.modifiers.remove(mod)
-    # weld coincident verts: il.torus closes its hoop with a duplicated
-    # ring, and subsurf pulls unwelded seams open into a visible crack
-    bm = bmesh.new()
-    bm.from_mesh(obj.data)
-    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
-    bm.to_mesh(obj.data)
-    bm.free()
-    for p in obj.data.polygons:
-        p.use_smooth = True
-    sub = obj.modifiers.new("CrowSmooth", "SUBSURF")
-    sub.levels = levels
-    sub.render_levels = levels
     return obj
 
 
@@ -156,7 +126,7 @@ def build(loc=(10.4, -5.0, 0.5)):
     m = il.materials()
     oak_ax, oak_bx = il.oak_grain('X')
     oak_ay, oak_by = il.oak_grain('Y')
-    fur, fur_l, black, eye, iris = fur_materials()
+    fur, fur_l, black = fur_materials()
     spark = inv_cpu.spark_material()
     root = il.root_empty(PFX + "Root", loc)
 
@@ -226,63 +196,58 @@ def build(loc=(10.4, -5.0, 0.5)):
 
     # ---- the capybara ---------------------------------------------------
     # body loaf with a soft fluff scallop; wide at the top so the head
-    # reads as its continuation, not a separate ball on a neck. Crow
-    # pass: rings inflated ~7% (subsurf pulls the loft inward) and the
-    # fluff pushed up so the smoothed lobes read plush, not faceted.
+    # reads as its continuation, not a separate ball on a neck
     body_rings = [
-        _rring_xy(0.20, 0.38, 0.42, -0.02, fluff=0.030, ph=0.3),
-        _rring_xy(0.30, 0.54, 0.58, -0.02, fluff=0.030, ph=1.1),
-        _rring_xy(0.44, 0.58, 0.62, -0.02, fluff=0.032, ph=1.9),
-        _rring_xy(0.58, 0.54, 0.58, -0.02, fluff=0.032, ph=2.7),
-        _rring_xy(0.70, 0.47, 0.51, -0.02, fluff=0.030, ph=3.5),
-        _rring_xy(0.78, 0.37, 0.43, -0.02, fluff=0.024, ph=4.3),
+        _rring_xy(0.20, 0.36, 0.40, -0.02, fluff=0.02, ph=0.3),
+        _rring_xy(0.30, 0.50, 0.54, -0.02, fluff=0.02, ph=1.1),
+        _rring_xy(0.44, 0.54, 0.58, -0.02, fluff=0.022, ph=1.9),
+        _rring_xy(0.58, 0.50, 0.54, -0.02, fluff=0.022, ph=2.7),
+        _rring_xy(0.70, 0.44, 0.48, -0.02, fluff=0.02, ph=3.5),
+        _rring_xy(0.78, 0.34, 0.40, -0.02, fluff=0.016, ph=4.3),
     ]
     pv, pf = pl.loft(body_rings)
-    _crow(pl.make_object(f"{PFX}CapyBody", pv, pf, [fur], parent=root))
+    _strip_bevel(pl.make_object(f"{PFX}CapyBody", pv, pf, [fur], parent=root))
 
     # head: wide boxy loaf sunk into the body top, sloping into a blunt
     # face plate. Rear rings carry a light fluff; face rings stay clean
-    # so the painted nose windows land where computed. Head dims stay at
-    # the v6 spec — the nose windows are tuned to them.
-    fluff_by_ring = {0: (0.022, 0.5), 1: (0.022, 1.3), 2: (0.018, 2.1)}
+    # so the painted-facet windows land where computed.
+    fluff_by_ring = {0: (0.015, 0.5), 1: (0.015, 1.3), 2: (0.012, 2.1)}
+    # eye-trim rows: split the side facet so the eye is ~35% shorter,
+    # trimmed from the BOTTOM. Bottom edge target = 9.6% of half-height
+    # (in |sin t|^exp units) -> |sin t| = 0.096^(1/0.48) -> t = 0.0075 rad.
+    # Right side bottom is just below t=0, left side bottom just past pi.
+    trim = 0.0075
+    extra_ts = (tau - trim, pi + trim)
     head_rings = []
     for ri, (y, w, h, cz) in enumerate(HEAD_SPEC):
         a, ph = fluff_by_ring.get(ri, (0.0, 0.0))
-        head_rings.append(_rring_xz(y, w, h, cz, fluff=a, ph=ph))
+        head_rings.append(_rring_xz(y, w, h, cz, fluff=a, ph=ph,
+                                    extra_ts=extra_ts))
     pv, pf = pl.loft(head_rings)
-    # paint the nose onto the mesh: slot 0 = fur, slot 1 = black
+    # paint the face onto the mesh: slot 0 = fur, slot 1 = black
     fmi = {}
     for n_f, f in enumerate(pf):
         cx = sum(pv[i][0] for i in f) / len(f)
         cy = sum(pv[i][1] for i in f) / len(f)
         cz = sum(pv[i][2] for i in f) / len(f)
+        # eyes: the upper part of the split side facet at mid-skull
+        # (the sliver below the trim row stays fur)
+        if abs(cx) > 0.19 and -0.05 < cy < 0.11 \
+                and 0.0 < cz - (HZ + 0.005) < 0.055:
+            fmi[n_f] = 1
         # nose: two vertical slit facet-pairs on the nose front, one
         # facet-column of fur left between them
         if cy > 0.345 and cz > HZ - 0.01 and 0.044 < abs(cx) < 0.064:
             fmi[n_f] = 1
-    _crow(pl.make_object(f"{PFX}CapyHead", pv, pf, [fur, black],
-                         face_mat_idx=fmi, parent=root))
-
-    # eyes: crow-style dimensional — a gloss-black ball proud of the
-    # head side, seated in a warm-brown iris torus (the crow's single
-    # strongest style carrier). Head side surface sits near |x|=0.21 at
-    # eye height; ball centre is embedded 0.02 inside it.
-    for i, s in enumerate((1, -1)):
-        ball = [(0.003, -0.058), (0.028, -0.051), (0.045, -0.037),
-                (0.055, -0.018), (0.058, 0.0), (0.055, 0.018),
-                (0.045, 0.037), (0.028, 0.051), (0.003, 0.058)]
-        _crow(il.lathe(f"{PFX}CapyEye{i}", ball, [eye], segs=16, axis='X',
-                       center=(s * 0.185, 0.045, HZ + 0.035), parent=root))
-        _crow(il.torus(f"{PFX}CapyIris{i}", 0.054, 0.013, [iris],
-                       center=(s * 0.205, 0.045, HZ + 0.035), axis='X',
-                       segs=20, sides=8, parent=root))
+    _strip_bevel(pl.make_object(f"{PFX}CapyHead", pv, pf, [fur, black],
+                                face_mat_idx=fmi, parent=root))
 
     # ears: thin pointed flaps, notably outward-facing
     for i, s in enumerate((1, -1)):
         _ear(f"{PFX}CapyEar{i}", s, [fur], parent=root)
         # round paws resting on the front pad
-        _crow(pl.disc_ball(f"{PFX}CapyPaw{i}", 0.052,
-                           (s * 0.15, 0.385, 0.60), [fur_l],
-                           parent=root, bands=6, segs=10))
+        pl.disc_ball(f"{PFX}CapyPaw{i}", 0.052,
+                     (s * 0.15, 0.385, 0.60), [fur_l],
+                     parent=root, bands=6, segs=10)
 
     return root
