@@ -72,6 +72,7 @@ namespace Robogame.Combat
         [SerializeField] private Transform _yoke;
         [SerializeField] private Transform _muzzle;
         [SerializeField] private WeaponMount _mount;
+        private WeaponVisualKick _visualKick;
 
         public Transform Muzzle => _muzzle;
 
@@ -117,6 +118,7 @@ namespace Robogame.Combat
                 return false;
             _yoke = yoke;
             _muzzle = muzzle;
+            _visualKick = WeaponVisualKick.Attach(yoke, muzzle, 0.10f);
             return true;
         }
 
@@ -183,6 +185,7 @@ namespace Robogame.Combat
         private void FireCannon()
         {
             if (_muzzle == null) return;
+            if (_visualKick != null) _visualKick.Kick();
 
             float speed = ResolveMuzzleSpeed();
             float damage = ResolveDamage();

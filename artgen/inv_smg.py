@@ -112,18 +112,22 @@ def build(loc=(7.0, -5.0, 0.0)):
              center=(-0.33, 0.02, CZ + 0.085), axis='Z', segs=12,
              sides=5, parent=body)
 
-    # RIGHT: exposed brass drive gear + the crank that spins it.
-    gear_pts = [(y + 0.06, z + CZ) for y, z in
-                pl.gear_profile(10, 0.048, 0.068)]
-    pl.card_panel(f"{PFX}DriveGear", gear_pts, 0.03, 'X', 0.175,
-                  [m["brass"], m["brass"]], parent=body)
-    il.rod(f"{PFX}CrankAxle", (0.15, 0.06, CZ), (0.27, 0.06, CZ),
-           0.017, [m["brass"]], parent=body)
-    il.rod(f"{PFX}CrankArm", (0.265, 0.06, CZ - 0.02),
-           (0.265, 0.06, CZ + 0.17), 0.022, [m["wood_dark"]],
-           parent=body)
-    il.rod(f"{PFX}CrankGrip", (0.26, 0.06, CZ + 0.155),
-           (0.37, 0.06, CZ + 0.155), 0.018, [m["brass"]], parent=body)
+    # RIGHT: exposed brass drive gear + the crank that spins it. All
+    # crank parts hang off a "Crank" pivot empty on the axle axis so
+    # Unity can spin the node while firing (session 139); coordinates
+    # below are pivot-relative (pivot sits at y=0.06, z=CZ).
+    crank = il.root_empty(f"{PFX}Crank", (0, 0, 0))
+    crank.parent = body
+    crank.location = (0.0, 0.06, CZ)
+    pl.card_panel(f"{PFX}DriveGear", pl.gear_profile(10, 0.048, 0.068),
+                  0.03, 'X', 0.175, [m["brass"], m["brass"]],
+                  parent=crank)
+    il.rod(f"{PFX}CrankAxle", (0.15, 0.0, 0.0), (0.27, 0.0, 0.0),
+           0.017, [m["brass"]], parent=crank)
+    il.rod(f"{PFX}CrankArm", (0.265, 0.0, -0.02),
+           (0.265, 0.0, 0.17), 0.022, [m["wood_dark"]], parent=crank)
+    il.rod(f"{PFX}CrankGrip", (0.26, 0.0, 0.155),
+           (0.37, 0.0, 0.155), 0.018, [m["brass"]], parent=crank)
 
     # Brass sight bead riding the barrel, near the muzzle.
     pl.card_panel(f"{PFX}SightBead", pl.ngon_pts(6, 0.018, cy=-0.55),

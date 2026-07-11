@@ -67,6 +67,12 @@ namespace Robogame.Combat
         // TRACE[ADR-0003]: shared cooldown + ammo + dry-click gate (phase D)
         private WeaponFireGate _gate;
 
+        // Session-139 visual pass (attached by WeaponBlock after the model
+        // builds, so resolve lazily at first shot rather than in Awake).
+        private bool _visualsResolved;
+        private WeaponVisualKick _visualKick;
+        private WeaponCrankSpin _crank;
+
         // Tracer tint for the trail. Warm cream → tracer feel.
         private static readonly Color s_tracerHead = new Color(1f, 0.85f, 0.35f, 1f);
 
@@ -118,6 +124,15 @@ namespace Robogame.Combat
 
         private void Fire()
         {
+            if (!_visualsResolved)
+            {
+                _visualsResolved = true;
+                _crank = GetComponent<WeaponCrankSpin>();
+                _visualKick = _muzzle != null ? _muzzle.GetComponentInParent<WeaponVisualKick>() : null;
+            }
+            if (_visualKick != null) _visualKick.Kick();
+            if (_crank != null) _crank.NotifyFired();
+
             float headline = ResolveDamage();
             // Index 0 of the splash profile is the direct-hit damage —
             // overwrite each fire so a tweaked WeaponDefinition damage

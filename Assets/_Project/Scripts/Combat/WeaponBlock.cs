@@ -71,6 +71,11 @@ namespace Robogame.Combat
                 return false;
             _yoke = yoke;
             _muzzle = muzzle;
+            // Session-139 visual pass: light recoil + crank-organ spin
+            // while firing (ProjectileGun.Fire drives both; the crank
+            // attach is a no-op for models without an InvSMG_Crank node).
+            WeaponVisualKick.Attach(yoke, muzzle, 0.035f);
+            WeaponCrankSpin.Attach(gameObject, yoke, "InvSMG_Crank");
             return true;
         }
 

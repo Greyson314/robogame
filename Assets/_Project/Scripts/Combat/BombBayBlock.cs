@@ -70,6 +70,8 @@ namespace Robogame.Combat
 
         public Transform DropPoint { get; private set; }
 
+        private BombBayDoors _doors;
+
         private void Awake()
         {
             _input = GetComponentInParent<IInputSource>();
@@ -86,7 +88,13 @@ namespace Robogame.Combat
             // bomb bay drops rather than aims. Hides the host cube when present.
             BombDefinition def = ResolveDef();
             if (def != null && def.TurretModel != null)
-                WeaponModelRig.BuildStatic(this, def.TurretModel, def.TurretModelScale, def.TurretModelOffset);
+            {
+                GameObject inst = WeaponModelRig.BuildStatic(this, def.TurretModel, def.TurretModelScale, def.TurretModelOffset);
+                // Session-139 visual pass: trapdoors swing on each drop
+                // (no-op when the model has no Door1/Door-1 nodes).
+                if (inst != null)
+                    _doors = BombBayDoors.Attach(gameObject, inst.transform);
+            }
         }
 
         private BombDefinition ResolveDef()
@@ -109,6 +117,7 @@ namespace Robogame.Combat
 
         private void DropOne()
         {
+            if (_doors != null) _doors.Drop();
             BombDefinition def = ResolveDef();
             float damage     = def != null ? def.Damage           : _damage;
             float radius     = def != null ? def.Radius           : _radius;

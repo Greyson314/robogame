@@ -67,8 +67,49 @@ inv_wing.build(loc=(0.0, 0.0, 1.0))       # optional static side-by-side
 (`inv_wing_anim.build` calls `inv_wing.build` internally, so run the
 static study *after* if you want both in the scene.)
 
+## Animation pass (same session, after the wing)
+
+Proper pass over the ripe-for-animation roster. Two tiers:
+
+**Blender object-level studies** (`artgen/inv_anims.py` — whole-object
+keys on hinge-origin nodes, no armatures, so they port as procedural
+transform drivers, not skinned meshes): thruster bellows pump + crank
+rev (48 f loop), bomb-bay trapdoor snap/hold/slam (48 f one-shot),
+capybara idle — breath, head wander, ear twitches (240 f loop).
+Gotcha logged in `_reparent`: fresh objects/empties evaluate late, so
+`matrix_world` reads/writes around a parent swap need
+`view_layer.update()` on BOTH sides or children silently keep identity
+locals (the ears-on-the-moon bug).
+
+**Unity procedural drivers** (visual-only, sleep while idle, zero
+per-frame allocs, attach idempotently at model build):
+
+- `WeaponVisualKick` — recoil punch on the yoke's mesh children,
+  exponential recovery. The muzzle chain is excluded so ShootPoint
+  never moves: fire origin stays deterministic. Cannon 0.10, mortar
+  0.12, SMG 0.035 (yoke-local units).
+- `WeaponCrankSpin` — spins the SMG's new `InvSMG_Crank` FBX pivot
+  node (re-exported `SMG_Inv.fbx`) while firing, with spin-up/down.
+  SMG stays procedural per user call; move to Blender only if it
+  reads badly.
+- `BombBayDoors` — swings `Door1`/`Door-1` nodes on each drop;
+  keyframes mirror the Blender study. Re-drop mid-close re-opens from
+  the hold pose (no pop at short drop intervals).
+
+Hooks: `CannonBlock`/`MortarBlock` fire methods, `ProjectileGun.Fire`
+(lazy component resolve), `BombBayBlock.DropOne`.
+
+Descoped: winch/rope-spool reel spin — rope rest length is fixed at
+runtime, no reel signal exists to drive it.
+
 ## Known limits / next steps
 
+- Door-swing direction and crank-spin axis signs in Unity's converted
+  frame are code-guessed and need one live-fire look; flip the sign
+  constants in `BombBayDoors`/`WeaponCrankSpin` if backwards.
+- Thruster bellows + capybara idle are Blender studies only; their
+  Unity port (same object-driver pattern) waits on user review of the
+  motion, and the bellows wants a thrust-active signal.
 - Study only — not exported. If it graduates, the keys bake to FBX
   (armature + baked action) via the usual `inv_export` path, and the
   Wing needs its own block def (it is NOT `BlockDef_Aero` — that stays
