@@ -87,6 +87,24 @@ user preference); make the edit mode the cursor-freeing state instead.
   cursor warp doesn't register in an unfocused editor — real hover needs
   a human hand; logic path is shared with the verified bind path.)
 
+## Round 3 — cursor-model refinement (user notes)
+
+- **Hangar is free-mouse** — `FollowCamera.HangarMode` (set by
+  `GarageController.BindFollowCamera`; arenas never set it): no
+  click-to-capture, no mouse-look; instead a small parallax lean
+  (±5° yaw / ±3° pitch, inspector-tunable) around the seeded framing as
+  the cursor crosses the screen. Scroll zoom stays; ADS off.
+- **Tuning mode keeps the reticle until a part is bound** — the cursor
+  hold moved from the mode toggle to the session's
+  `EditingInstanceChanged` event (BlockEditor drives
+  `BuildFreeCam.ExternalCursorHold`): aim locked → click a glowing part
+  → cursor frees for sliders → deselect re-locks. Highlight/panel
+  teardown rides the same event so the Escape rung (now two-stage:
+  deselect, then exit mode) cleans up identically.
+- Live-verified via bridge: hangar `lock=None`, tune-on `lock=Locked`,
+  bind `None`, unbind `Locked` + highlight destroyed, build→hangar
+  restores free cursor. Console clean.
+
 ## Deferred / parked (user's back-pocket list)
 
 - Thruster L/R facing constraint (decide the mechanic first).

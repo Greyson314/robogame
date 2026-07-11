@@ -27,13 +27,13 @@ namespace Robogame.Gameplay
     /// block is now an explicit, discoverable mode behind this button.
     /// </para>
     /// <para>
-    /// Tune mode is also the build flow's "cursor state": while on, the
-    /// free-fly cam's cursor lock is suspended (<see
-    /// cref="Robogame.Player.BuildFreeCam.ExternalCursorHold"/>) so the
-    /// player drags variant sliders with a live cursor instead of the
-    /// two-hand Alt chord. Placement keeps the locked-cursor reticle.
-    /// Escape backs out of Tune mode before it opens the pause menu —
-    /// see <see cref="PauseMenuHud"/>'s one-level-at-a-time ladder.
+    /// Cursor flow (session 138 round 3): tune mode itself keeps the
+    /// locked-cursor reticle — the player AIMS at a glowing part exactly
+    /// like placement. Binding a part frees the cursor for the sliders
+    /// (<see cref="Robogame.Player.BuildFreeCam.ExternalCursorHold"/>,
+    /// driven by <see cref="BlockEditor"/> off the session's bind event);
+    /// deselecting re-locks. Escape is a ladder: bound part → deselect;
+    /// tune mode → exit; then <see cref="PauseMenuHud"/> opens.
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
@@ -76,23 +76,14 @@ namespace Robogame.Gameplay
             if (Enabled == enabled) return;
             Enabled = enabled;
             UpdateButtonVisual();
-            ApplyCursorHold(enabled);
+            // Cursor policy lives in BlockEditor.HandleEditingInstanceChanged:
+            // the reticle stays locked while aiming in tune mode; the cursor
+            // frees only while a part is bound (session 138 round 3).
             // Mode flips read better with an ear cue — one place for it so
-            // the E key, the HUD button, and the Escape back-out all sound
+            // the T key, the HUD button, and the Escape back-out all sound
             // the same.
             AudioRouter.PlayUI(enabled ? AudioCue.UiClick : AudioCue.UiBack);
             Changed?.Invoke(Enabled);
-        }
-
-        // Tune mode lends the cursor to the HUD for its whole duration —
-        // the variant panel is the point of the mode. Routed through the
-        // free-cam so its click-to-relock / Alt paths stay coherent.
-        private static void ApplyCursorHold(bool held)
-        {
-            Camera cam = Camera.main;
-            if (cam == null) return;
-            var freeCam = cam.GetComponent<Robogame.Player.BuildFreeCam>();
-            if (freeCam != null) freeCam.ExternalCursorHold = held;
         }
 
         private void Awake()
@@ -214,7 +205,7 @@ namespace Robogame.Gameplay
             // Backdrop with dark Text.
             _hintText.color = UguiPalette.Text;
             _hintText.raycastTarget = false;
-            _hintText.text = "Click a glowing part to tune  •  right-click deselects  •  hold right-mouse to look  •  T exits";
+            _hintText.text = "Aim at a glowing part and click to tune  •  right-click deselects  •  T exits";
             _hintRoot.SetActive(false);
         }
 

@@ -53,9 +53,47 @@ namespace Robogame.Gameplay
             set
             {
                 if (_session == value) return;
-                if (_session != null) _session.VariantChanged -= PropagateVariantToLiveBlocks;
+                if (_session != null)
+                {
+                    _session.VariantChanged -= PropagateVariantToLiveBlocks;
+                    _session.EditingInstanceChanged -= HandleEditingInstanceChanged;
+                }
                 _session = value;
-                if (_session != null) _session.VariantChanged += PropagateVariantToLiveBlocks;
+                if (_session != null)
+                {
+                    _session.VariantChanged += PropagateVariantToLiveBlocks;
+                    _session.EditingInstanceChanged += HandleEditingInstanceChanged;
+                }
+            }
+        }
+
+        // Cursor policy for tune mode: the reticle stays LOCKED while the
+        // player aims (the Minecraft/Space Engineers feel is deliberate —
+        // see session 138 round 3); the cursor frees only while a part is
+        // actually bound, because that's when the sliders need it. Driven
+        // off the session event so every unbind path (click, Escape rung,
+        // mode exit, build exit) releases the hold consistently.
+        private void HandleEditingInstanceChanged(BlockBehaviour bound)
+        {
+            Camera cam = Camera.main;
+            if (cam != null)
+            {
+                var freeCam = cam.GetComponent<Robogame.Player.BuildFreeCam>();
+                if (freeCam != null) freeCam.ExternalCursorHold = bound != null;
+            }
+            // Unbinding tears down the highlight + panel title here (not
+            // only in ClearInstanceEdit) so external callers that clear
+            // straight through the session — e.g. the Escape rung in
+            // PauseMenuHud — get the full cleanup too.
+            if (bound == null)
+            {
+                if (_instanceHighlight != null)
+                {
+                    Destroy(_instanceHighlight);
+                    _instanceHighlight = null;
+                }
+                if (_variantPanel != null && _hotbar != null)
+                    _variantPanel.RefreshForBlock(_hotbar.SelectedBlockId);
             }
         }
 
@@ -283,7 +321,11 @@ namespace Robogame.Gameplay
         private void OnDisable()
         {
             Unsubscribe();
-            if (_session != null) _session.VariantChanged -= PropagateVariantToLiveBlocks;
+            if (_session != null)
+            {
+                _session.VariantChanged -= PropagateVariantToLiveBlocks;
+                _session.EditingInstanceChanged -= HandleEditingInstanceChanged;
+            }
             if (_editMode != null) _editMode.Changed -= HandleEditModeChanged;
             HideHoverHighlight();
             if (_ghostRenderer != null) _ghostRenderer.Clear();
@@ -299,6 +341,8 @@ namespace Robogame.Gameplay
             if (_session == null) return;
             _session.VariantChanged -= PropagateVariantToLiveBlocks;
             _session.VariantChanged += PropagateVariantToLiveBlocks;
+            _session.EditingInstanceChanged -= HandleEditingInstanceChanged;
+            _session.EditingInstanceChanged += HandleEditingInstanceChanged;
         }
 
         private void Subscribe()

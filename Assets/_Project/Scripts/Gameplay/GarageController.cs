@@ -419,6 +419,10 @@ namespace Robogame.Gameplay
             FollowCamera follow = mainCam.GetComponent<FollowCamera>();
             if (follow == null) follow = mainCam.gameObject.AddComponent<FollowCamera>();
             follow.Target = chassis.transform;
+            // The hangar is a loadout screen: free cursor, parallax lean
+            // instead of captured mouse-look. Arena scenes bind their own
+            // FollowCamera and never set this.
+            follow.HangarMode = true;
 
             if (mainCam.GetComponent<AimReticle>() == null)
                 mainCam.gameObject.AddComponent<AimReticle>();

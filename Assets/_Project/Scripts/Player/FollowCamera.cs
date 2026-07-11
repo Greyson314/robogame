@@ -165,6 +165,41 @@ namespace Robogame.Player
 
         public Transform Target { get => _target; set => _target = value; }
 
+        [Header("Hangar parallax")]
+        [Tooltip("Max yaw lean (deg) as the cursor crosses the screen in hangar mode.")]
+        [SerializeField, Min(0f)] private float _hangarParallaxYawDeg = 5f;
+        [Tooltip("Max pitch lean (deg) as the cursor crosses the screen in hangar mode.")]
+        [SerializeField, Min(0f)] private float _hangarParallaxPitchDeg = 3f;
+
+        private bool _hangarMode;
+        private float _hangarYawBase;
+        private float _hangarPitchBase;
+
+        /// <summary>
+        /// Free-mouse showcase mode for the garage hangar. The cursor is
+        /// never captured — the hangar is a loadout screen, not gameplay —
+        /// and instead of mouse-look the camera takes a small parallax
+        /// lean around its seeded framing as the cursor moves, so the
+        /// parked bot still reads as dimensional. Scroll zoom stays live;
+        /// ADS is off. Set by <c>GarageController.BindFollowCamera</c>;
+        /// arena scenes leave it false (session 138 round 3).
+        /// </summary>
+        public bool HangarMode
+        {
+            get => _hangarMode;
+            set
+            {
+                if (_hangarMode == value) return;
+                _hangarMode = value;
+                if (value)
+                {
+                    _hangarYawBase = _yaw;
+                    _hangarPitchBase = _pitch;
+                    if (_cursorWasLocked) ReleaseCursor();
+                }
+            }
+        }
+
         /// <summary>
         /// Optional source of the camera's "up" axis. Receives the target's
         /// world position and returns the world-space up vector the orbit
@@ -248,6 +283,10 @@ namespace Robogame.Player
 
             // Snap the transform on enable so we never lurch from the origin.
             SnapToDesired();
+            // Re-seed the hangar parallax anchor — re-enabling (e.g. after
+            // build mode) must lean around the fresh framing, not a stale one.
+            _hangarYawBase = _yaw;
+            _hangarPitchBase = _pitch;
 
             // Click-to-capture by default — only auto-lock when explicitly
             // configured. Auto-locking on Play tends to make the editor's
@@ -309,6 +348,8 @@ namespace Robogame.Player
                 // Reseed yaw to the new chassis facing so we don't snap-pan.
                 _yaw = robot.transform.eulerAngles.y;
                 _smoothYaw = _yaw;
+                _hangarYawBase = _yaw;
+                _hangarPitchBase = _pitch;
                 SnapToDesired();
                 // Stale renderer refs from the destroyed chassis can't
                 // be re-enabled later — drop the cache so the next ADS
@@ -324,6 +365,33 @@ namespace Robogame.Player
 
         private void Update()
         {
+            // --- Hangar showcase: free cursor, parallax lean, no capture ---
+            if (_hangarMode)
+            {
+                Mouse hm = Mouse.current;
+                if (hm == null) return;
+                // Scroll zoom stays useful for inspecting the parked bot.
+                float hScroll = hm.scroll.ReadValue().y;
+                if (Mathf.Abs(hScroll) > 0.01f
+                    && !Robogame.Core.HudPointerGuard.PointerOverHud(hm.position.ReadValue()))
+                {
+                    s_distanceMultiplier = Mathf.Clamp(
+                        s_distanceMultiplier - Mathf.Sign(hScroll) * _zoomStep,
+                        _zoomMin, _zoomMax);
+                }
+                // Parallax around the seeded framing: cursor at a screen
+                // edge leans the orbit a few degrees toward it.
+                Vector2 pos = hm.position.ReadValue();
+                float nx = Screen.width  > 0 ? Mathf.Clamp01(pos.x / Screen.width)  - 0.5f : 0f;
+                float ny = Screen.height > 0 ? Mathf.Clamp01(pos.y / Screen.height) - 0.5f : 0f;
+                _yaw   = _hangarYawBase + nx * 2f * _hangarParallaxYawDeg;
+                _pitch = Mathf.Clamp(
+                    _hangarPitchBase - ny * 2f * _hangarParallaxPitchDeg,
+                    _minPitch, _maxPitch);
+                _adsActive = false;
+                return;
+            }
+
             // --- Cursor capture / release ---
             if (_lockCursor)
             {

@@ -88,16 +88,27 @@ namespace Robogame.Gameplay
                 return;
             }
 
-            // Next rung down the ladder: build-mode part tuning. Escape
-            // closes the tune mode (its SetEnabled plays the back cue and
-            // re-locks the cursor) before it ever opens the pause menu.
-            // Lookup only runs on Escape-press frames, so no per-frame cost.
+            // Next rungs down the ladder: build-mode part tuning. First
+            // Escape drops the bound part (the session event re-locks the
+            // cursor + clears the highlight), the next one exits tune mode
+            // — only then does the pause menu open. Lookups run only on
+            // Escape-press frames, so no per-frame cost.
             if (!_open)
             {
                 BuildEditMode tune = FindAnyObjectByType<BuildEditMode>();
                 if (tune != null && tune.Enabled)
                 {
-                    tune.SetEnabled(false);
+                    var garage = FindAnyObjectByType<GarageController>();
+                    BuildSession session = garage != null ? garage.BuildSession : null;
+                    if (session != null && session.EditingInstance != null)
+                    {
+                        session.SetEditingInstance(null);
+                        AudioRouter.PlayUI(AudioCue.UiBack);
+                    }
+                    else
+                    {
+                        tune.SetEnabled(false);
+                    }
                     return;
                 }
             }
