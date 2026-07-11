@@ -64,11 +64,9 @@ namespace Robogame.Gameplay
         private bool _anyDirty;
         private int _framesSinceEnable;
 
-        private static bool IsArenaScene()
-        {
-            string n = SceneManager.GetActiveScene().name;
-            return n == "Arena" || n == "WaterArena" || n == "PlanetArena";
-        }
+        // Scene list lives in Core.SceneKind now — shared with the Wing's
+        // flap-animation gate so both agree when a new arena ships.
+        private static bool IsArenaScene() => Robogame.Core.SceneKind.IsArena();
 
         private void OnEnable() => _framesSinceEnable = 0;
 

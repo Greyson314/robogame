@@ -33,6 +33,7 @@ namespace Robogame.Block
             { BlockIds.Thruster,   'T' },
             { BlockIds.Aero,       'A' },
             { BlockIds.AeroFin,    'F' },
+            { BlockIds.Wing,       'w' },   // 'W' is Wheel
             { BlockIds.Rudder,     'R' },
             { BlockIds.Weapon,     'G' },
             { BlockIds.BombBay,    'B' },
@@ -96,7 +97,7 @@ namespace Robogame.Block
             }
 
             sb.Append("Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  ")
-              .Append("A=Aero  F=AeroFin  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  ")
+              .Append("A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  ")
               .Append("h=Hook  m=Mace\n");
             return sb.ToString();
         }

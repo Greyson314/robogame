@@ -15,6 +15,7 @@ namespace Robogame.Movement
             (block.Definition.Id == BlockIds.Thruster ||
              block.Definition.Id == BlockIds.Aero ||
              block.Definition.Id == BlockIds.AeroFin ||
+             block.Definition.Id == BlockIds.Wing ||
              block.Definition.Id == BlockIds.Rudder);
 
         protected override void Bind(BlockBehaviour block)
@@ -39,6 +40,20 @@ namespace Robogame.Movement
                     // → lateral yaw force, canard → pitch force, etc.
                     // Vertical=true is what enables both behaviours.
                     aero.Vertical = true;
+                    break;
+                }
+                case BlockIds.Wing:
+                {
+                    // Same lift path + mount convention as the foils —
+                    // the Wing differs in authored shape (WingDefaults,
+                    // resolved per-id inside AeroSurfaceBlock) and in the
+                    // flap animation, which WingFlapAnimator gates to
+                    // arena scenes only.
+                    AeroSurfaceBlock wing = block.GetComponent<AeroSurfaceBlock>();
+                    if (wing == null) wing = block.gameObject.AddComponent<AeroSurfaceBlock>();
+                    wing.Vertical = true;
+                    if (block.GetComponent<WingFlapAnimator>() == null)
+                        block.gameObject.AddComponent<WingFlapAnimator>();
                     break;
                 }
                 case BlockIds.Rudder:

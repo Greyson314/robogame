@@ -27,6 +27,7 @@ namespace Robogame.Block
         {
             BlockIds.Aero,
             BlockIds.AeroFin,
+            BlockIds.Wing,
             BlockIds.Rope,
             BlockIds.Rotor,
             BlockIds.HoverBlade,

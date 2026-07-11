@@ -19,6 +19,12 @@ namespace Robogame.Block
         public const string Thruster   = "block.movement.thruster";
         public const string Aero       = "block.movement.aero";
         public const string AeroFin    = "block.movement.aero.fin";
+        // Wing (session 140): the bat-wing aero part. Side-mounted like a
+        // foil and rides the same AeroSurfaceBlock lift path, but carries
+        // its own authored shape (WingDefaults) and a skinned flap
+        // animation that plays in arenas only — see WingFlapAnimator.
+        // Foils-vs-Wings philosophy: docs/changes/139 §"Current philosophy".
+        public const string Wing       = "block.movement.wing";
         public const string Rudder     = "block.movement.rudder";
         public const string Weapon     = "block.weapon.hitscan";
         public const string BombBay    = "block.weapon.bombbay";

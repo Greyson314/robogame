@@ -119,7 +119,7 @@ STATICS = [
     # (module, build attr, root object name, out name)
     ("inv_cube", "build", "InvCube_Root", "Cube_Inv"),
     ("inv_rotor", "build", "InvRotor_Root", "Rotor_Inv"),
-    ("inv_wing", "build", "InvWing_Root", "Wing_Inv"),
+    # wing exports via export_wing_anim (rigged + baked flap action);
     # fin exports via export_fin (Wing-frame bake); thruster via
     # export_thruster (180° spin — study nozzle follows the weapon
     # forward convention but a thruster exhausts AFT).
@@ -175,6 +175,62 @@ def export_foil():
                   @ Matrix.Rotation(-pi / 2, 4, 'Y'))
     pl.export_tree(root, os.path.join(BLOCKS_DIR, "Foil_Inv.fbx"))
     inv_foil.build()
+
+
+def export_wing_anim():
+    # Rigged bat-wing with the baked flap loop (session 140 — Wing
+    # block graduation). Same Wing-frame bake as export_foil, but the
+    # frame change goes into BOTH the joined mesh and the armature rest
+    # bones (rigid rotation keeps the bone-local pose keys valid).
+    # Children sit at identity locals under the root, so no location
+    # shuffle. After the bake the rest-pose bbox is measured and the
+    # tree recentred so bbox centre == root — the runtime WingModel rig
+    # scales by 1/WingDefaults and expects the mesh to fill its cube
+    # symmetrically with the mount at the -Y face. The measured dims
+    # are printed: they ARE the WingDefaults constants (Unity side),
+    # re-derive them on any reshape of inv_wing.
+    import inv_wing_anim
+    importlib.reload(inv_wing_anim)
+    root = inv_wing_anim.build(loc=(0.0, 0.0, 0.0))
+    mesh = bpy.data.objects[inv_wing_anim.PFX + "Mesh"]
+    rig = bpy.data.objects[inv_wing_anim.PFX + "Rig"]
+
+    def xform(m):
+        mesh.data.transform(m)
+        pl.transform_armature_data(rig, m)
+        bpy.context.view_layer.update()
+
+    xform(Matrix.Rotation(pi, 4, 'Z') @ Matrix.Rotation(-pi / 2, 4, 'Y'))
+    lo = Vector(tuple(min(v.co[i] for v in mesh.data.vertices) for i in range(3)))
+    hi = Vector(tuple(max(v.co[i] for v in mesh.data.vertices) for i in range(3)))
+    xform(Matrix.Translation(-(lo + hi) / 2))
+    size = hi - lo  # Blender frame: X=camber/thickness, Y=chord, Z=span
+
+    # Flap sweep along the camber axis (Blender X here): evaluate the
+    # posed mesh across the cycle for the swept thickness extent that
+    # BlockOccupancy's Wing entry must reserve.
+    scn = bpy.context.scene
+    sweep_lo, sweep_hi = 1e9, -1e9
+    for f in range(scn.frame_start, scn.frame_end + 1, 2):
+        scn.frame_set(f)
+        ev = mesh.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        for v in ev.to_mesh().vertices:
+            sweep_lo = min(sweep_lo, v.co.x)
+            sweep_hi = max(sweep_hi, v.co.x)
+        ev.to_mesh_clear()
+    scn.frame_set(1)
+    print(f"WingDefaults (Unity): span={size.z:.3f} thickness={size.x:.3f} "
+          f"chord={size.y:.3f} sweptThickness=[{sweep_lo:.3f}, {sweep_hi:.3f}]")
+
+    # Bake one extra frame: keys run 1..49 with 49 == 1, so a 1..49
+    # bake gives Unity a seamlessly loopable clip (1..48 would drop the
+    # closing interval and pop once per cycle).
+    saved_end = scn.frame_end
+    scn.frame_end = inv_wing_anim.CYCLE + 1
+    pl.export_tree(root, os.path.join(BLOCKS_DIR, "Wing_Inv.fbx"),
+                   armature=rig)
+    scn.frame_end = saved_end
+    inv_wing_anim.build()
 
 
 def export_fin():
@@ -244,6 +300,7 @@ def export_all():
     export_capycube()
     export_foil()
     export_fin()
+    export_wing_anim()
     export_thruster()
     export_drill()
     export_statics()

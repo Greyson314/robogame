@@ -56,6 +56,10 @@ namespace Robogame.Tools.Editor
             CreateOrUpdate("BlockDef_Thruster",   BlockIds.Thruster,   "Thruster",       BlockCategory.Movement,  maxHealth:  70f, mass: 2f,   cpuCost: 30, tint: w);
             CreateOrUpdate("BlockDef_Aero",       BlockIds.Aero,       "Wing Section",   BlockCategory.Movement,  maxHealth:  50f, mass: 0.6f, cpuCost: 10, tint: w);
             CreateOrUpdate("BlockDef_AeroFin",    BlockIds.AeroFin,    "Tail Fin",       BlockCategory.Movement,  maxHealth:  50f, mass: 0.5f, cpuCost: 8,  tint: w);
+            // Wing (session 140): the animated bat-wing aero part. Bigger
+            // authored footprint than the foil (~2 cells span) → heavier,
+            // tougher, pricier. Same AeroSurfaceBlock lift path.
+            CreateOrUpdate("BlockDef_Wing",       BlockIds.Wing,       "Wing",           BlockCategory.Movement,  maxHealth:  70f, mass: 1.2f, cpuCost: 18, tint: w);
             CreateOrUpdate("BlockDef_Rudder",     BlockIds.Rudder,     "Rudder",         BlockCategory.Movement,  maxHealth:  60f, mass: 0.8f, cpuCost: 15, tint: w);
             CreateOrUpdate("BlockDef_Weapon",     BlockIds.Weapon,     "Hitscan Gun",    BlockCategory.Weapon,    maxHealth:  60f, mass: 1.5f, cpuCost: 20, tint: w, componentData: smgDef);
             CreateOrUpdate("BlockDef_BombBay",    BlockIds.BombBay,    "Bomb Bay",       BlockCategory.Weapon,    maxHealth: 110f, mass: 3.0f, cpuCost: 40, tint: w, componentData: bombDef);

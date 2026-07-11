@@ -59,6 +59,9 @@ namespace Robogame.Gameplay
                 case BlockIds.AeroFin:
                     BuildWing(root.transform, dims: dims, cellPos: targetCell, pitchDeg: pitchDeg, teeterDeg: teeterDeg);
                     break;
+                case BlockIds.Wing:
+                    BuildBatWing(root.transform, dims: dims, cellPos: targetCell, pitchDeg: pitchDeg, teeterDeg: teeterDeg);
+                    break;
                 case BlockIds.Rudder:
                     BuildRudder(root.transform);
                     break;
@@ -159,6 +162,65 @@ namespace Robogame.Gameplay
             AeroSurfaceBlock.ComputeWingPose(cellPos, span, pitchDeg, teeterDeg, rotorMode: false,
                 out Vector3 pos, out Quaternion rot);
             Spawn(parent, PrimitiveType.Cube, pos, rot, size);
+        }
+
+        // Name marker for the Wing's flap-sweep envelope child. ApplyToAll
+        // skips it so the valid/invalid tint swap never recolours the
+        // envelope — it keeps its own amber "reserved airspace" material.
+        private const string EnvelopeName = "GhostEnvelope";
+
+        private static void BuildBatWing(Transform parent, Vector3 dims, Vector3Int cellPos, float pitchDeg, float teeterDeg)
+        {
+            // Rest-pose slab: same pose/scale rig as the foil ghost, with
+            // the Wing's own defaults resolved per id.
+            AeroShape.ResolveDims(BlockIds.Wing, dims, out float span, out float thickness, out float chord);
+            Vector3 size = AeroSurfaceBlock.ComputeFoilMeshScale(span, thickness, chord, rotorMode: false);
+            AeroSurfaceBlock.ComputeWingPose(cellPos, span, pitchDeg, teeterDeg, rotorMode: false,
+                out Vector3 pos, out Quaternion rot);
+            Spawn(parent, PrimitiveType.Cube, pos, rot, size);
+
+            // Flap-sweep envelope: the airspace the flap animation visits
+            // and BlockOccupancy therefore reserves. Deliberately drawn in
+            // the OCCUPANCY frame (no pitch/teeter, ComputeWingShift
+            // centring) — this shows the volume that gates neighbouring
+            // placements, exactly, so the player is never surprised by an
+            // invalid cell. Mirrors ComputeFoilSweptBoundsLocal's Wing arm.
+            float sweptX = Mathf.Max(thickness, 2f * span * WingDefaults.SweepHalfExtentPerSpan);
+            float outward = Mathf.Max(0f, span * 0.5f - 0.5f);
+            GameObject env = Spawn(parent, PrimitiveType.Cube,
+                new Vector3(0f, outward, 0f), Quaternion.identity,
+                new Vector3(sweptX, span, chord));
+            env.name = EnvelopeName;
+            var mr = env.GetComponent<MeshRenderer>();
+            if (mr != null) mr.sharedMaterial = EnvelopeMaterial();
+        }
+
+        // Shared translucent amber for every wing ghost's envelope. Static
+        // cache with the mandatory domain-reload reset (statics survive
+        // domain reload, the Material object doesn't).
+        private static Material s_envelopeMat;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics() => s_envelopeMat = null;
+
+        private static Material EnvelopeMaterial()
+        {
+            if (s_envelopeMat != null) return s_envelopeMat;
+            Shader sh = Shader.Find("Universal Render Pipeline/Unlit");
+            if (sh == null) sh = Shader.Find("Unlit/Color");
+            if (sh == null) sh = Shader.Find("Standard");
+            var m = new Material(sh) { name = "Mat_GhostEnvelope" };
+            if (m.HasProperty("_Surface")) m.SetFloat("_Surface", 1f);
+            if (m.HasProperty("_Blend"))   m.SetFloat("_Blend",   0f);
+            if (m.HasProperty("_ZWrite"))  m.SetFloat("_ZWrite",  0f);
+            m.renderQueue = 3000;
+            m.SetOverrideTag("RenderType", "Transparent");
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            Color c = new Color(0.95f, 0.70f, 0.15f, 0.18f); // amber, fainter than the tint mats
+            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
+            if (m.HasProperty("_Color"))     m.SetColor("_Color", c);
+            s_envelopeMat = m;
+            return m;
         }
 
         private static void BuildWeapon(Transform parent)
@@ -346,7 +408,12 @@ namespace Robogame.Gameplay
             if (root == null || mat == null) return;
             var renderers = root.GetComponentsInChildren<MeshRenderer>(includeInactive: true);
             for (int i = 0; i < renderers.Length; i++)
+            {
+                // The Wing's sweep envelope keeps its own material — it
+                // communicates "reserved airspace", not placement validity.
+                if (renderers[i].gameObject.name == EnvelopeName) continue;
                 renderers[i].sharedMaterial = mat;
+            }
         }
     }
 }

@@ -60,7 +60,8 @@ namespace Robogame.Block
         public static bool UsesWorldIntentPitch(BlockDefinition def)
         {
             if (def == null) return false;
-            return def.Id == BlockIds.Aero || def.Id == BlockIds.AeroFin;
+            return def.Id == BlockIds.Aero || def.Id == BlockIds.AeroFin
+                || def.Id == BlockIds.Wing;
         }
 
         /// <summary>

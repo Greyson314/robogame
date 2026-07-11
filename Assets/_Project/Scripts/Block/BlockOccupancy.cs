@@ -51,8 +51,8 @@ namespace Robogame.Block
         public static Bounds ComputeSweptBoundsLocal(
             string blockId, Vector3Int gridPos, Vector3Int up, Vector3 dims, float cellSize)
         {
-            if (blockId == BlockIds.Aero || blockId == BlockIds.AeroFin)
-                return ComputeFoilSweptBoundsLocal(gridPos, up, dims, cellSize);
+            if (blockId == BlockIds.Aero || blockId == BlockIds.AeroFin || blockId == BlockIds.Wing)
+                return ComputeFoilSweptBoundsLocal(blockId, gridPos, up, dims, cellSize);
             if (blockId == BlockIds.HoverBlade)
                 return ComputeHoverBladeSweptBoundsLocal(gridPos, up, dims, cellSize);
             return DefaultUnitCellBoundsLocal(gridPos, cellSize);
@@ -129,17 +129,10 @@ namespace Robogame.Block
         // FoilBlockData ScriptableObject sidecar (per §3.5).
         // -----------------------------------------------------------------
 
-        private static void ResolveFoilDims(Vector3 raw, out float span, out float thickness, out float chord)
-        {
-            span      = raw.x > 0f ? raw.x : FoilDefaults.DefaultSpan;
-            thickness = raw.y > 0f ? raw.y : FoilDefaults.DefaultThickness;
-            chord     = raw.z > 0f ? raw.z : FoilDefaults.DefaultChord;
-        }
-
         private static Bounds ComputeFoilSweptBoundsLocal(
-            Vector3Int gridPos, Vector3Int up, Vector3 dims, float cellSize)
+            string blockId, Vector3Int gridPos, Vector3Int up, Vector3 dims, float cellSize)
         {
-            ResolveFoilDims(dims, out float span, out float thickness, out float chord);
+            AeroShape.ResolveDims(blockId, dims, out float span, out float thickness, out float chord);
 
             // Build-mode foils use the "vertical-treatment" geometry:
             // span along foil-local +Y (the mount-up direction so the
@@ -149,6 +142,16 @@ namespace Robogame.Block
             // placed via the build editor — only the build path runs
             // through this dispatcher.
             Vector3 halfExtentsLocal = new Vector3(thickness, span, chord) * 0.5f;
+
+            // The Wing's flap animation sweeps the membrane along the
+            // camber (foil-local +X) axis. The flap is visual-only — no
+            // physics object ever moves — but placement must reserve the
+            // swept airspace so neighbouring parts can't sit inside the
+            // flap arc. Sweep distance is angular, so it scales with
+            // span. Foils are rigid: no inflation.
+            if (blockId == BlockIds.Wing)
+                halfExtentsLocal.x = Mathf.Max(
+                    halfExtentsLocal.x, span * WingDefaults.SweepHalfExtentPerSpan);
 
             // Outward shift along foil-local +Y (mount-normal direction)
             // for span > 1. OrientationFromUp(up) rotates this to the

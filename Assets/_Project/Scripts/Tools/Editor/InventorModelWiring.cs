@@ -94,6 +94,14 @@ namespace Robogame.Tools.Editor
             // Fin binds AeroSurfaceBlock too — same WingModel rig.
             changed += WireBlock("BlockDefinitions/BlockDef_AeroFin.asset",
                                  "Fin_Inv.fbx", isStatic: false);
+            // Wing: rigged bat-wing with the baked flap loop (session
+            // 140). Component-driven like the foil (AeroSurfaceBlock
+            // hangs it under the Wing rig at inverse-WingDefaults scale);
+            // WingFlapAnimator plays the clip in arenas only. Import
+            // settings (Legacy rig + looping clip) are enforced by
+            // WingModelImportSettings.
+            changed += WireBlock("BlockDefinitions/BlockDef_Wing.asset",
+                                 "Wing_Inv.fbx", isStatic: false);
             // Rudder blade never rotates (steering is force-only) and the
             // thruster's moving parts are the flame/plume, which stay on
             // the procedural rig — both take the generic static path;

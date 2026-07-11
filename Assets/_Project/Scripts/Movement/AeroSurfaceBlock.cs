@@ -215,11 +215,27 @@ namespace Robogame.Movement
         // produces 2× lift. Default dims (span=1, chord=DefaultChord)
         // give scale=1, preserving every shipped chassis's behaviour.
         // Per-block driven, not Tweakable-driven — see PHYSICS_PLAN §5.
+        //
+        // The denominator stays FoilDefaults for EVERY aero id: it is the
+        // global "one unit of lift" area, so a Wing (authored ~2× the
+        // foil's planform) correctly produces ~2× a default foil's lift
+        // at its own default dims. Only the zero-Dims FALLBACK in
+        // ResolveDims is per-id.
         private void RecomputeAreaScale()
         {
             Vector3 dims = _block != null ? _block.Dims : Vector3.zero;
-            ResolveDims(dims, out float span, out _, out float chord);
-            _liftAreaScale = (span * chord) / (DefaultSpan * DefaultChord);
+            AeroShape.ResolveDims(ShapeId(), dims, out float span, out _, out float chord);
+            _liftAreaScale = (span * chord) / (FoilDefaults.DefaultSpan * FoilDefaults.DefaultChord);
+        }
+
+        // Which aero family this instance renders/resolves as — the Wing
+        // shares this component with foils but carries its own authored
+        // shape constants (WingDefaults). Falls back to the foil id when
+        // no BlockBehaviour/definition is present (bare-component tests).
+        private string ShapeId()
+        {
+            BlockBehaviour bb = _block != null ? _block : GetComponent<BlockBehaviour>();
+            return bb != null && bb.Definition != null ? bb.Definition.Id : BlockIds.Aero;
         }
 
         // Cache pitch in radians so FixedUpdate's lift hot path avoids the
@@ -437,9 +453,27 @@ namespace Robogame.Movement
             if (_wingModel == null)
             {
                 Transform existing = _wingMesh.Find("WingModel");
-                _wingModel = existing != null
-                    ? existing
-                    : Instantiate(asset, _wingMesh).transform;
+                if (existing != null)
+                {
+                    _wingModel = existing;
+                }
+                else
+                {
+                    // The model rides under a WRAPPER, not directly as
+                    // _wingModel: the Wing's baked flap clip keys the FBX
+                    // ROOT node (path ""), so legacy playback stomps that
+                    // node's local TRS to the authored origin pose every
+                    // frame — parenting the FBX root here directly would
+                    // erase the inverse-defaults scale below the moment
+                    // the flap plays. The wrapper owns pose + scale; the
+                    // stomp pins the FBX root to identity, which IS its
+                    // authored frame. Foils have no animation but share
+                    // the wrapper so there is one code path.
+                    var wrapper = new GameObject("WingModel");
+                    wrapper.transform.SetParent(_wingMesh, worldPositionStays: false);
+                    Instantiate(asset, wrapper.transform);
+                    _wingModel = wrapper.transform;
+                }
                 _wingModel.name = "WingModel";
                 // The model replaces the primitive slab visually.
                 MeshRenderer slab = _wingMesh.GetComponent<MeshRenderer>();
@@ -475,8 +509,12 @@ namespace Robogame.Movement
                     _wingMesh.TransformDirection(Vector3.right));
                 if (camberChassis.y < -0.01f) sx = -1f;
             }
-            _wingModel.localScale = new Vector3(
-                sx / DefaultThickness, 1f / DefaultSpan, 1f / DefaultChord);
+            // Inverse of the id's AUTHORED dims: the FBX is exported at
+            // true metres matching its defaults (FoilDefaults for foils,
+            // WingDefaults for the Wing), so this child scale turns the
+            // Wing cube's absolute scale into ratio scaling.
+            AeroShape.Defaults(ShapeId(), out float ds, out float dt, out float dc);
+            _wingModel.localScale = new Vector3(sx / dt, 1f / ds, 1f / dc);
         }
 
         /// <summary>
@@ -633,7 +671,7 @@ namespace Robogame.Movement
             if (_wingMesh == null) return;
             BlockBehaviour bb = GetComponent<BlockBehaviour>();
             Vector3 dims = bb != null ? bb.Dims : Vector3.zero;
-            ResolveDims(dims, out float span, out float thickness, out float chord);
+            AeroShape.ResolveDims(ShapeId(), dims, out float span, out float thickness, out float chord);
             _wingMesh.localScale = ComputeFoilMeshScale(span, thickness, chord, _rotorMode);
             Vector3Int gridPos = bb != null ? bb.GridPosition : Vector3Int.zero;
             float pitchDeg  = bb != null ? bb.PitchDeg  : 0f;

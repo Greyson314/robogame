@@ -115,6 +115,14 @@ namespace Robogame.Tools.Editor
             // (a multi-spring bot fires several at once on one Space tap) and
             // jittered so the stack doesn't sound like one mechanical note.
             new CueRow(AudioCue.SpringLaunch,      "8BIT/Powerups/8BIT_RETRO_Powerup_Spawn_Quick_Climbing_mono.wav",                                            AudioBus.Sfx,   spatial: 1f, vol: 0.35f, jitter: 0.08f, solo: false),
+            // WingFlapLoop — looped while a Wing block's flap animation
+            // plays (arena only; WingFlapAnimator starts/stops it with the
+            // clip). Canvas-in-wind reads as the linen membrane sculling
+            // air. Quiet — it's ambience under the flap visual, not a
+            // motor. Not solo: each wing carries its own loop and a
+            // multi-wing bat build should sound fuller than a one-wing
+            // one. Pitch jitter breaks phase-lock between paired wings.
+            new CueRow(AudioCue.WingFlapLoop,      "FABRIC_CLOTHING/FABRIC_Flag_or_Fabric_in_Wind_loop_mono.wav",                                               AudioBus.Sfx,   spatial: 1f, vol: 0.35f, jitter: 0.06f, solo: false),
 
             // Weapon ammo / reload — subtle player-state cues. The user
             // (session 101) asked for sounds on running-out-of-ammo and

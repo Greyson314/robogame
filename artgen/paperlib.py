@@ -254,11 +254,30 @@ def scale_tree(root, s):
     bpy.context.view_layer.update()
 
 
-def export_tree(root, path, yoke=None, muzzle=None):
+def transform_armature_data(obj, mat):
+    """Rigidly transform an armature object's REST bones by `mat`.
+    Armature data has no object-mode transform() (unlike Mesh), so this
+    round-trips through edit mode and uses EditBone.transform. Pose keys
+    are bone-local, so they stay valid under a rigid rest-frame change."""
+    prev_active = bpy.context.view_layer.objects.active
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode='EDIT')
+    for eb in obj.data.edit_bones:
+        eb.transform(mat)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.context.view_layer.objects.active = prev_active
+
+
+def export_tree(root, path, yoke=None, muzzle=None, armature=None):
     """Export root's tree as FBX, renaming yoke/muzzle to the WeaponModelRig
     convention names (Turret / ShootPoint) for the duration of the export.
     In-scene the empties keep per-weapon names, since Blender object names
-    are global and three weapons coexist in the scene."""
+    are global and three weapons coexist in the scene.
+
+    armature: pass the rig object of a skinned tree to include ARMATURE
+    data and bake its pose action into the FBX (session 140, wing flap).
+    Without it the export args are exactly the historical static set —
+    existing callers are untouched."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     renames = []
 
@@ -300,6 +319,11 @@ def export_tree(root, path, yoke=None, muzzle=None):
             if o.type == 'MESH' and o.data.name not in seen:
                 o.data.transform(mat)
                 seen.add(o.data.name)
+            elif o.type == 'ARMATURE' and o.data.name not in seen:
+                # Rest bones must ride the same frame change as the mesh
+                # they deform, or the skinning detaches.
+                transform_armature_data(o, mat)
+                seen.add(o.data.name)
             o.matrix_basis = mat @ o.matrix_basis @ inv
         bpy.context.view_layer.update()
 
@@ -314,7 +338,7 @@ def export_tree(root, path, yoke=None, muzzle=None):
             sel(c)
 
     sel(root)
-    bpy.ops.export_scene.fbx(
+    kwargs = dict(
         filepath=path,
         use_selection=True,
         object_types={"MESH", "EMPTY"},
@@ -325,6 +349,22 @@ def export_tree(root, path, yoke=None, muzzle=None):
         axis_up="Z",
         add_leaf_bones=False,
     )
+    if armature is not None:
+        # The FBX exporter treats Armature modifiers as skin bindings
+        # (it never applies them as geometry, use_mesh_modifiers or
+        # not), so the mesh exports in rest pose with weights and the
+        # flap lives entirely in the baked action.
+        kwargs["object_types"] = {"MESH", "EMPTY", "ARMATURE"}
+        kwargs.update(
+            bake_anim=True,
+            bake_anim_use_all_bones=True,
+            bake_anim_use_nla_strips=False,
+            bake_anim_use_all_actions=False,
+            bake_anim_force_startend_keying=True,
+            bake_anim_step=1.0,
+            bake_anim_simplify_factor=0.0,
+        )
+    bpy.ops.export_scene.fbx(**kwargs)
     _convert(conv.inverted())
     root.location = saved_loc
     for obj, name in reversed(renames):

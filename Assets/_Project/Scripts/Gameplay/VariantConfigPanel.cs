@@ -140,7 +140,7 @@ namespace Robogame.Gameplay
         {
             string id = _activeBlockId;
             if (string.IsNullOrEmpty(id)) return RopeContentH;
-            if (id == BlockIds.Aero || id == BlockIds.AeroFin)
+            if (id == BlockIds.Aero || id == BlockIds.AeroFin || id == BlockIds.Wing)
                 return _foilAdvancedExpanded ? FoilContentExpandedH : FoilContentCollapsedH;
             if (id == BlockIds.Rope) return RopeContentH;
             if (id == BlockIds.Rotor) return RotorContentH;
@@ -291,7 +291,11 @@ namespace Robogame.Gameplay
         private void HandleSelectedBlockChanged(string blockId)
         {
             _activeBlockId = blockId;
-            bool foil = blockId == BlockIds.Aero || blockId == BlockIds.AeroFin;
+            // The Wing shares the whole foil section (same three dims +
+            // pitch/teeter); only its slider bounds and zero-dim
+            // fallbacks differ (WingDefaults) — see ApplyFoilSliderBounds.
+            bool foil = blockId == BlockIds.Aero || blockId == BlockIds.AeroFin
+                || blockId == BlockIds.Wing;
             bool rope = blockId == BlockIds.Rope;
             bool rotor = blockId == BlockIds.Rotor;
             bool hover = blockId == BlockIds.HoverBlade;
@@ -315,7 +319,9 @@ namespace Robogame.Gameplay
                 _titleText.color = editing ? UguiPalette.Danger : s_accent;
                 if (foil) _titleText.text = blockId == BlockIds.AeroFin
                     ? $"{lead} — Tail fin"
-                    : $"{lead} — Aero wing";
+                    : blockId == BlockIds.Wing
+                        ? $"{lead} — Wing"
+                        : $"{lead} — Aero wing";
                 else if (rope) _titleText.text = $"{lead} — Rope";
                 else if (rotor) _titleText.text = $"{lead} — Rotor";
                 else if (hover) _titleText.text = $"{lead} — Hover blade";
@@ -338,12 +344,12 @@ namespace Robogame.Gameplay
             _suppressCallbacks = true;
             if (foil)
             {
+                ApplyFoilSliderBounds(blockId);
                 Vector3 cached = GetDimsForBlock(blockId);
                 float pitch = GetPitchForBlock(blockId);
                 float teeter = GetTeeterForBlock(blockId);
-                float span      = cached.x > 0f ? cached.x : AeroSurfaceBlock.DefaultSpan;
-                float thickness = cached.y > 0f ? cached.y : AeroSurfaceBlock.DefaultThickness;
-                float chord     = cached.z > 0f ? cached.z : AeroSurfaceBlock.DefaultChord;
+                AeroShape.ResolveDims(blockId, cached,
+                    out float span, out float thickness, out float chord);
                 _foilSpanSlider.value      = span;
                 _foilThicknessSlider.value = thickness;
                 _foilChordSlider.value     = chord;
@@ -618,8 +624,7 @@ namespace Robogame.Gameplay
             string id = _activeBlockId;
             Vector3 cached = GetDimsForBlock(id);
             float pitch = GetPitchForBlock(id);
-            float span  = cached.x > 0f ? cached.x : AeroSurfaceBlock.DefaultSpan;
-            float chord = cached.z > 0f ? cached.z : AeroSurfaceBlock.DefaultChord;
+            AeroShape.ResolveDims(id, cached, out float span, out _, out float chord);
             float lift = EstimateFoilLift(span, chord, pitch, CruiseSpeedMs);
             bool stall = Mathf.Abs(pitch) > BlueprintValidator.PitchSoftLimitDeg;
             _foilReadout.text = stall
@@ -1083,6 +1088,32 @@ namespace Robogame.Gameplay
             if (_moduleReadout == null) return;
             float cd = ModuleTuning.CooldownFor(_moduleKind, power);
             _moduleReadout.text = $"{power:F1} power  •  {cd:F1}s cooldown";
+        }
+
+        // The foil section UI is shared by the whole aero family; the
+        // slider BOUNDS are per-id (FoilDefaults vs WingDefaults), so
+        // they're re-applied on every aero-family selection. Bounds go
+        // in before values (HandleSelectedBlockChanged) so Unity's
+        // slider clamping can't mangle a cached value.
+        private void ApplyFoilSliderBounds(string id)
+        {
+            bool wing = id == BlockIds.Wing;
+            SetSliderRange(_foilSpanSlider,
+                wing ? WingDefaults.MinSpan : AeroSurfaceBlock.MinSpan,
+                wing ? WingDefaults.MaxSpan : AeroSurfaceBlock.MaxSpan);
+            SetSliderRange(_foilThicknessSlider,
+                wing ? WingDefaults.MinThickness : AeroSurfaceBlock.MinThickness,
+                wing ? WingDefaults.MaxThickness : AeroSurfaceBlock.MaxThickness);
+            SetSliderRange(_foilChordSlider,
+                wing ? WingDefaults.MinChord : AeroSurfaceBlock.MinChord,
+                wing ? WingDefaults.MaxChord : AeroSurfaceBlock.MaxChord);
+        }
+
+        private static void SetSliderRange(Slider s, float min, float max)
+        {
+            if (s == null) return;
+            s.minValue = min;
+            s.maxValue = max;
         }
 
         private GameObject BuildFoilSection(Transform parent)
