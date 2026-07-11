@@ -585,12 +585,14 @@ namespace Robogame.Combat
             switch (kind)
             {
                 case ProjectileKind.SmgPellet:
-                    VfxSpawner.Spawn(VfxKind.HitSpark, pos, normal, scale: 0.85f);
+                    if (spec.TintImpact) VfxSpawner.Spawn(VfxKind.HitSpark, pos, normal, 0.85f, spec.VisualTint);
+                    else VfxSpawner.Spawn(VfxKind.HitSpark, pos, normal, scale: 0.85f);
                     AudioRouter.PlayOneShot(impactCue, pos);
                     break;
 
                 case ProjectileKind.Cannonball:
-                    VfxSpawner.Spawn(VfxKind.HitSpark, pos, normal, scale: 1.4f);
+                    if (spec.TintImpact) VfxSpawner.Spawn(VfxKind.HitSpark, pos, normal, 1.4f, spec.VisualTint);
+                    else VfxSpawner.Spawn(VfxKind.HitSpark, pos, normal, scale: 1.4f);
                     AudioRouter.PlayOneShot(impactCue, pos);
                     break;
 
@@ -606,7 +608,8 @@ namespace Robogame.Combat
                         UnityEngine.Object.Instantiate(lib.BombExplosion, pos, Quaternion.identity);
                     }
                     float shockScale = Mathf.Clamp(spec.SplashRadius * 0.5f, 0.6f, 3.0f);
-                    VfxSpawner.Spawn(VfxKind.BombShockwave, pos, Quaternion.identity, shockScale);
+                    if (spec.TintImpact) VfxSpawner.Spawn(VfxKind.BombShockwave, pos, Quaternion.identity, shockScale, spec.VisualTint);
+                    else VfxSpawner.Spawn(VfxKind.BombShockwave, pos, Quaternion.identity, shockScale);
                     AudioRouter.PlayOneShot(impactCue, pos);
                     // Phase 3c: if the bomb detonated inside a dig zone,
                     // emit a SphereSubtract crater. No-op outside any zone.

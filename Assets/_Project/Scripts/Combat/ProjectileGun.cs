@@ -134,13 +134,32 @@ namespace Robogame.Combat
             if (_crank != null) _crank.NotifyFired();
 
             float headline = ResolveDamage();
+            float speed = ResolveMuzzleSpeed();
+            float spreadDeg = ResolveSpread();
+            float knockback = ResolveKnockback();
+
+            // Player concoction (session 141): payload chemistry scales
+            // damage / speed / spread / knockback and dyes the tracer +
+            // impact spark with the recipe's mixed pigment. Empty /
+            // unknown id → baseline stats, authored tracer colour. Size
+            // has no stat to bite on here (no splash) — documented no-op.
+            Color tint = s_tracerHead;
+            bool tintImpact = false;
+            if (_block != null && Robogame.Block.ConcoctionRegistry.TryGet(
+                    _block.ConcoctionId, out Robogame.Block.Concoction concoction))
+            {
+                headline  *= concoction.DamageMultiplier;
+                speed     *= concoction.SpeedMultiplier;
+                spreadDeg *= concoction.SpreadMultiplier;
+                knockback *= concoction.KnockbackMultiplier;
+                tint = concoction.MixedColor;
+                tintImpact = true;
+            }
+
             // Index 0 of the splash profile is the direct-hit damage —
             // overwrite each fire so a tweaked WeaponDefinition damage
             // value doesn't drift the splash falloff ratios.
             if (_splashRings.Length > 0) _splashRings[0] = headline;
-
-            float speed = ResolveMuzzleSpeed();
-            float spreadDeg = ResolveSpread();
 
             Vector3 origin = _muzzle.position;
             Vector3 dir = ApplySpread(_muzzle.forward, _muzzle.right, _muzzle.up, spreadDeg);
@@ -158,11 +177,12 @@ namespace Robogame.Combat
                 SplashRadius = 0f,
                 HitMask = _hitMask,
                 Owner = _ownerRobot,
-                Knockback = ResolveKnockback(),
+                Knockback = knockback,
                 KnockbackSmoothed = true,              // rapid fire → debt buffer
                 ShowTrail = true,
                 ShowMesh = false,
-                VisualTint = s_tracerHead,
+                VisualTint = tint,
+                TintImpact = tintImpact,
                 VisualMeshDiameter = 0f,
                 ImpactAudioOverride = AudioCue.ProjectileImpact,
             };

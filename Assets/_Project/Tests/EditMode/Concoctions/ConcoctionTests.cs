@@ -53,15 +53,18 @@ namespace Robogame.Tests.EditMode.Concoctions
         [Test]
         public void CpuSurcharge_AllMin_IsZero()
         {
-            var c = new Concoction("id", "weak", 0f, 0f, 0f);
+            // v2 (session 141): "all-min" means all FIVE levers — the two
+            // added levers default to neutral 0.5, which is NOT free.
+            var c = new Concoction("id", "weak", 0f, 0f, 0f, 0f, 0f);
             Assert.AreEqual(0, c.CpuSurcharge(40));
         }
 
         [Test]
         public void CpuSurcharge_AllMax_IsOnePointFiveBase()
         {
-            var c = new Concoction("id", "max", 1f, 1f, 1f);
-            // base * (1+1+1) * 0.5 = base * 1.5
+            var c = new Concoction("id", "max", 1f, 1f, 1f, 1f, 1f);
+            // v2: base * (1+1+1+1+1) * 0.3 = base * 1.5 — same anchor the
+            // v1 3-lever formula (× 0.5) priced at all-max. See ADR-0005.
             Assert.AreEqual(60, c.CpuSurcharge(40));
         }
 

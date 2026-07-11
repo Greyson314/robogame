@@ -58,6 +58,12 @@ namespace Robogame.Core
         private sealed class KindPool
         {
             public ParticleSystem Template;
+            // Authored startColor, captured at pool creation. Every spawn
+            // re-stamps startColor (the tint or this original) because
+            // pooled instances keep whatever the previous burst set —
+            // without the reset a tinted concoction impact would bleed its
+            // colour into the next untinted spark.
+            public ParticleSystem.MinMaxGradient TemplateStartColor;
             public readonly List<Live> Live = new(MaxConcurrentPerKind);
             public readonly Stack<ParticleSystem> Free = new(MaxConcurrentPerKind);
         }
@@ -137,6 +143,30 @@ namespace Robogame.Core
         }
 
         /// <summary>Forward + scale convenience — same orientation contract as the (kind, pos, forward) overload.</summary>
+        /// <summary>
+        /// Tinted spawn — multiplies the burst's start colour with
+        /// <paramref name="tint"/> replacing the authored value for THIS
+        /// burst only (pooled instances are re-stamped every spawn).
+        /// Session 141: concoction pigment on impact sparks/shockwaves.
+        /// </summary>
+        public static void Spawn(VfxKind kind, Vector3 position, Vector3 forward, float scale, Color tint)
+        {
+            Quaternion rot = forward.sqrMagnitude > 1e-6f
+                ? Quaternion.LookRotation(forward.normalized, Vector3.up)
+                : Quaternion.identity;
+            EnsureBootstrap();
+            if (s_instance == null) return;
+            s_instance.SpawnInternal(kind, position, rot, Mathf.Max(0.05f, scale), tint);
+        }
+
+        /// <summary>Tinted spawn (rotation form) — see the forward-vector overload.</summary>
+        public static void Spawn(VfxKind kind, Vector3 position, Quaternion rotation, float scale, Color tint)
+        {
+            EnsureBootstrap();
+            if (s_instance == null) return;
+            s_instance.SpawnInternal(kind, position, rotation, Mathf.Max(0.05f, scale), tint);
+        }
+
         public static void Spawn(VfxKind kind, Vector3 position, Vector3 forward, float scale)
         {
             Quaternion rot = forward.sqrMagnitude > 1e-6f
@@ -149,7 +179,7 @@ namespace Robogame.Core
         // Internals
         // -----------------------------------------------------------------
 
-        private void SpawnInternal(VfxKind kind, Vector3 position, Quaternion rotation, float scale)
+        private void SpawnInternal(VfxKind kind, Vector3 position, Quaternion rotation, float scale, Color? tint = null)
         {
             KindPool pool = GetOrCreatePool(kind);
             if (pool == null || pool.Template == null) return;
@@ -158,6 +188,15 @@ namespace Robogame.Core
             Transform t = ps.transform;
             t.SetPositionAndRotation(position, rotation);
             t.localScale = new Vector3(scale, scale, scale);
+
+            // Re-stamp startColor on EVERY spawn (tint or the authored
+            // template colour) — pooled instances keep the previous
+            // burst's value otherwise. Root system only; child systems
+            // keep their authored accents.
+            ParticleSystem.MainModule mainMod = ps.main;
+            mainMod.startColor = tint.HasValue
+                ? new ParticleSystem.MinMaxGradient(tint.Value)
+                : pool.TemplateStartColor;
 
             ps.gameObject.SetActive(true);
             // Always reset before play — pooled instances inherit state
@@ -182,6 +221,8 @@ namespace Robogame.Core
         {
             if (_poolsByKind.TryGetValue(kind, out KindPool existing)) return existing;
             var pool = new KindPool { Template = BuildKindPrefab(kind) };
+            if (pool.Template != null)
+                pool.TemplateStartColor = pool.Template.main.startColor;
             _poolsByKind[kind] = pool;
             _poolList.Add(pool);
             return pool;

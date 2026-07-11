@@ -28,13 +28,17 @@ namespace Robogame.Block
         public static int Count => s_byId.Count;
 
         /// <summary>
-        /// Whether a block type accepts a concoction. Phase-1 scope: the two
-        /// explosive weapons with a splash radius (Bomb, Mortar). Single source
-        /// of truth shared by the variant-panel dropdown, the CPU surcharge, and
-        /// the fire-time application — widen this one predicate to add a block.
+        /// Whether a block type accepts a concoction. Session-141 scope:
+        /// every ammunition weapon — the splash pair (Bomb, Mortar) plus the
+        /// ammo-configurable turrets (SMG, Cannon), whose ammo-multiplier
+        /// config now STACKS with the concoction surcharge (see
+        /// <c>CpuBudget.EffectiveCpuCostCore</c>). Single source of truth
+        /// shared by the variant-panel dropdown, the CPU surcharge, and the
+        /// fire-time application — widen this one predicate to add a block.
         /// </summary>
         public static bool IsConcoctableBlock(string blockId)
-            => blockId == BlockIds.BombBay || blockId == BlockIds.Mortar;
+            => blockId == BlockIds.BombBay || blockId == BlockIds.Mortar
+            || blockId == BlockIds.Weapon || blockId == BlockIds.Cannon;
 
         /// <summary>Register (or overwrite) one concoction. Clamped on the way in.</summary>
         public static void Register(Concoction concoction)

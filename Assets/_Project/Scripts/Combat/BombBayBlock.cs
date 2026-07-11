@@ -125,15 +125,21 @@ namespace Robogame.Combat
             float knockback  = def != null ? def.KnockbackImpulse : _knockbackImpulse;
 
             // Player concoction (ADR-0004): scale damage / explosion-size /
-            // knockback by the recipe chosen for this block in the garage.
-            // Resolved from the session registry (server-loaded + clamped); an
-            // empty / unknown id leaves the baseline stats untouched. Scaling
-            // SplashRadius also scales the shockwave VFX + crater downstream.
+            // knockback / drop-speed by the recipe chosen for this block in
+            // the garage. Resolved from the session registry (server-loaded +
+            // clamped); an empty / unknown id leaves the baseline stats
+            // untouched. Scaling SplashRadius also scales the shockwave VFX +
+            // crater downstream; the recipe's pigment dyes bomb + blast.
+            Color tint = s_bombTint;
+            bool tintImpact = false;
             if (_block != null && ConcoctionRegistry.TryGet(_block.ConcoctionId, out Concoction concoction))
             {
-                damage    *= concoction.DamageMultiplier;
-                radius    *= concoction.SizeMultiplier;
-                knockback *= concoction.KnockbackMultiplier;
+                damage     *= concoction.DamageMultiplier;
+                radius     *= concoction.SizeMultiplier;
+                knockback  *= concoction.KnockbackMultiplier;
+                startSpeed *= concoction.SpeedMultiplier;
+                tint = concoction.MixedColor;
+                tintImpact = true;
             }
 
             Vector3 dropWorld = DropPoint.position;
@@ -178,7 +184,8 @@ namespace Robogame.Combat
                 KnockbackSmoothed = false,          // explosion — always immediate
                 ShowTrail = false,
                 ShowMesh = true,
-                VisualTint = s_bombTint,
+                VisualTint = tint,
+                TintImpact = tintImpact,
                 VisualMeshDiameter = _bombRadius * 2f,
                 ImpactAudioOverride = AudioCue.BombExplosion,
             };

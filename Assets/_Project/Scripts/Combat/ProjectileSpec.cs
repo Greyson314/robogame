@@ -73,6 +73,11 @@ namespace Robogame.Combat
         public bool ShowMesh;               // bomb / cannonball yes
         public Color VisualTint;
         public float VisualMeshDiameter;    // metres; ignored if ShowMesh is false
+        // Session 141: true when VisualTint is a concoction's mixed pigment
+        // rather than the weapon's authored default — the impact FX then
+        // inherit the tint so the payload chemistry reads at the point of
+        // damage, not just in flight.
+        public bool TintImpact;
 
         // Audio hint. ProjectileWorld plays this on impact dispatch
         // alongside the kind-specific VFX. Optional; if 0 / None,

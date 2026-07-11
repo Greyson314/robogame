@@ -68,11 +68,22 @@ namespace Robogame.Block
             int baseCost = Mathf.Max(0, defCpuCost);
             if (blockId == BlockIds.Rotor) return RotorDefaults.CpuCostFor(baseCost, blockConfig);
             // Ammo-configurable turrets (SMG / Cannon): config scales the
-            // clip and the price together — see WeaponAmmoDefaults.
+            // clip and the price together — see WeaponAmmoDefaults. Since
+            // session 141 these are ALSO concoctable, so the two surcharges
+            // stack. The concoction surcharge is computed on the block's
+            // BASE cost (not the ammo-scaled price) so the two knobs price
+            // independently — doubling your clip doesn't quietly double
+            // the cost of your payload chemistry.
             if (WeaponAmmoDefaults.IsAmmoConfigurable(blockId))
-                return WeaponAmmoDefaults.CpuCostFor(baseCost, blockConfig);
-            if (concoctionId.Length == 0 || !ConcoctionRegistry.IsConcoctableBlock(blockId)) return baseCost;
-            return ConcoctionRegistry.TryGet(concoctionId, out Concoction c) ? baseCost + c.CpuSurcharge(baseCost) : baseCost;
+                return WeaponAmmoDefaults.CpuCostFor(baseCost, blockConfig)
+                     + ConcoctionSurcharge(blockId, concoctionId, baseCost);
+            return baseCost + ConcoctionSurcharge(blockId, concoctionId, baseCost);
+        }
+
+        private static int ConcoctionSurcharge(string blockId, string concoctionId, int baseCost)
+        {
+            if (string.IsNullOrEmpty(concoctionId) || !ConcoctionRegistry.IsConcoctableBlock(blockId)) return 0;
+            return ConcoctionRegistry.TryGet(concoctionId, out Concoction c) ? c.CpuSurcharge(baseCost) : 0;
         }
 
         public static int Capacity(IReadOnlyList<ChassisBlueprint.Entry> entries, BlockDefinitionLibrary lib)

@@ -158,7 +158,18 @@ namespace Robogame.Combat
             return _block.Definition.GetComponentData<MortarDefinition>();
         }
         private float ResolveFireInterval() { var d = ResolveDef(); return d != null ? d.FireInterval     : _fireInterval; }
-        private float ResolveMuzzleSpeed()  { var d = ResolveDef(); return d != null ? d.MuzzleSpeed      : _muzzleSpeed; }
+        private float ResolveMuzzleSpeed()
+        {
+            var d = ResolveDef();
+            float s = d != null ? d.MuzzleSpeed : _muzzleSpeed;
+            // Concoction speed lever (session 141) applies HERE, not at the
+            // fire site: the arc preview and the fired shell both read this
+            // resolver, so the preview can never lie about where a faster
+            // shell lands.
+            if (_block != null && ConcoctionRegistry.TryGet(_block.ConcoctionId, out Concoction c))
+                s *= c.SpeedMultiplier;
+            return s;
+        }
         private float ResolveDamage()       { var d = ResolveDef(); return d != null ? d.Damage           : _damage; }
         private float ResolveSplashRadius() { var d = ResolveDef(); return d != null ? d.SplashRadius      : _splashRadius; }
         private float ResolveRecoil()       { var d = ResolveDef(); return d != null ? d.RecoilImpulse     : _recoilImpulse; }
@@ -273,12 +284,18 @@ namespace Robogame.Combat
             // Player concoction (ADR-0004): scale the explosive stats by the
             // recipe chosen for this block. Empty / unknown id → 1× (baseline).
             // Scaling SplashRadius also scales the shockwave VFX + crater.
+            // Speed applies inside ResolveMuzzleSpeed (arc preview parity);
+            // the recipe's pigment dyes the shell + blast (session 141).
             float dmgMult = 1f, sizeMult = 1f, knockMult = 1f;
+            Color tint = s_shellTint;
+            bool tintImpact = false;
             if (_block != null && ConcoctionRegistry.TryGet(_block.ConcoctionId, out Concoction concoction))
             {
                 dmgMult = concoction.DamageMultiplier;
                 sizeMult = concoction.SizeMultiplier;
                 knockMult = concoction.KnockbackMultiplier;
+                tint = concoction.MixedColor;
+                tintImpact = true;
             }
 
             ProjectileSpec spec = new ProjectileSpec
@@ -298,7 +315,8 @@ namespace Robogame.Combat
                 KnockbackSmoothed = false,                  // explosion — always immediate
                 ShowTrail = false,
                 ShowMesh = true,
-                VisualTint = s_shellTint,
+                VisualTint = tint,
+                TintImpact = tintImpact,
                 VisualMeshDiameter = ResolveShellRadius() * 2f,
                 ImpactAudioOverride = AudioCue.BombExplosion,
             };

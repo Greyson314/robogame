@@ -191,6 +191,24 @@ namespace Robogame.Combat
             float damage = ResolveDamage();
             float radius = ResolveBallRadius();
             float recoil = ResolveRecoilImpulse();
+            float knockback = ResolveKnockback();
+
+            // Player concoction (session 141): damage / size (ball
+            // calibre — visual + cast radius together) / speed /
+            // knockback, plus the recipe's pigment on ball + spark.
+            // Spread has no stat here — documented no-op.
+            Color tint = s_ballTint;
+            bool tintImpact = false;
+            if (_block != null && Robogame.Block.ConcoctionRegistry.TryGet(
+                    _block.ConcoctionId, out Robogame.Block.Concoction concoction))
+            {
+                damage    *= concoction.DamageMultiplier;
+                radius    *= concoction.SizeMultiplier;
+                speed     *= concoction.SpeedMultiplier;
+                knockback *= concoction.KnockbackMultiplier;
+                tint = concoction.MixedColor;
+                tintImpact = true;
+            }
 
             Vector3 origin = _muzzle.position;
             Vector3 dir = _muzzle.forward;
@@ -214,11 +232,12 @@ namespace Robogame.Combat
                 SplashRadius = 0f,                  // direct contact — single-target
                 HitMask = _hitMask,
                 Owner = _ownerRobot,
-                Knockback = ResolveKnockback(),
+                Knockback = knockback,
                 KnockbackSmoothed = false,          // single heavy hit → instant stagger
                 ShowTrail = false,
                 ShowMesh = true,
-                VisualTint = s_ballTint,
+                VisualTint = tint,
+                TintImpact = tintImpact,
                 VisualMeshDiameter = radius * 2f,
                 ImpactAudioOverride = AudioCue.ProjectileImpact,
             };

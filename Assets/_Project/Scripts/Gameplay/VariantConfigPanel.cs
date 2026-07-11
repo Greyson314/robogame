@@ -90,6 +90,7 @@ namespace Robogame.Gameplay
         // surcharge the chosen recipe adds to this block.
         private Button _concoctionCaptionButton;
         private Text _concoctionCaptionText;
+        private Image _concoctionCaptionChip;
         private GameObject _concoctionList;
         private Text _concoctionCpuReadout;
         private bool _concoctionListOpen;
@@ -145,7 +146,13 @@ namespace Robogame.Gameplay
             if (id == BlockIds.Rope) return RopeContentH;
             if (id == BlockIds.Rotor) return RotorContentH;
             if (ConcoctionRegistry.IsConcoctableBlock(id))
-                return ExplosiveContentH + (_concoctionListOpen ? _concoctionRows * ConcoctionRowH : 0f);
+            {
+                float h = ExplosiveContentH + (_concoctionListOpen ? _concoctionRows * ConcoctionRowH : 0f);
+                // Combined mode (SMG / Cannon since session 141): the ammo
+                // slider section stacks above the concoction chooser.
+                if (WeaponAmmoDefaults.IsAmmoConfigurable(id)) h += ScalarContentH;
+                return h;
+            }
             return ScalarContentH;
         }
 
@@ -325,12 +332,15 @@ namespace Robogame.Gameplay
                 else if (rope) _titleText.text = $"{lead} — Rope";
                 else if (rotor) _titleText.text = $"{lead} — Rotor";
                 else if (hover) _titleText.text = $"{lead} — Hover blade";
-                else if (explosive) _titleText.text = blockId == BlockIds.Mortar
-                    ? $"{lead} — Mortar"
-                    : $"{lead} — Bomb bay";
+                // weaponAmmo wins the title over explosive: SMG / Cannon are
+                // BOTH since session 141 (combined ammo + concoction panel)
+                // and must not read as "Bomb bay".
                 else if (weaponAmmo) _titleText.text = blockId == BlockIds.Cannon
                     ? $"{lead} — Cannon"
                     : $"{lead} — SMG";
+                else if (explosive) _titleText.text = blockId == BlockIds.Mortar
+                    ? $"{lead} — Mortar"
+                    : $"{lead} — Bomb bay";
                 else _titleText.text = $"{(editing ? "Tuning" : "Module")} — {ModuleKinds.Label(ModuleKinds.ForBlockId(blockId) ?? ModuleKind.EmpBurst)}";
             }
             _foilSection.SetActive(foil);
@@ -403,20 +413,30 @@ namespace Robogame.Gameplay
                 UpdateValueText(_modulePowerValue, power, "F1");
                 UpdateModuleReadout(power);
             }
-            else if (explosive)
+            else
             {
-                CloseConcoctionList();
-                RefreshConcoctionCaption();
-            }
-            else if (weaponAmmo)
-            {
-                // Config cache 0 = "use default" — display 1.0× without
-                // writing the cache (rotor-RPM pattern), so an untouched
-                // turret keeps the 0 sentinel in its blueprint entry.
-                float mult = WeaponAmmoDefaults.ResolveMultiplier(GetConfigForBlock(blockId));
-                _weaponAmmoSlider.value = mult;
-                UpdateValueText(_weaponAmmoValue, mult, "F2");
-                UpdateWeaponReadout(mult);
+                // Explosive + weaponAmmo are no longer exclusive (SMG /
+                // Cannon carry both since session 141) — refresh each
+                // independently and stack the concoction section below the
+                // ammo slider in combined mode.
+                if (explosive)
+                {
+                    var ert = _explosiveSection != null ? _explosiveSection.GetComponent<RectTransform>() : null;
+                    if (ert != null)
+                        ert.offsetMax = new Vector2(-12f, weaponAmmo ? -40f - ScalarContentH : -40f);
+                    CloseConcoctionList();
+                    RefreshConcoctionCaption();
+                }
+                if (weaponAmmo)
+                {
+                    // Config cache 0 = "use default" — display 1.0× without
+                    // writing the cache (rotor-RPM pattern), so an untouched
+                    // turret keeps the 0 sentinel in its blueprint entry.
+                    float mult = WeaponAmmoDefaults.ResolveMultiplier(GetConfigForBlock(blockId));
+                    _weaponAmmoSlider.value = mult;
+                    UpdateValueText(_weaponAmmoValue, mult, "F2");
+                    UpdateWeaponReadout(mult);
+                }
             }
             _suppressCallbacks = false;
             SetContentHeight(ActiveContentHeight());
@@ -816,7 +836,10 @@ namespace Robogame.Gameplay
             _concoctionCaptionButton = capGo.AddComponent<Button>();
             _concoctionCaptionButton.targetGraphic = capImg;
             _concoctionCaptionButton.onClick.AddListener(ToggleConcoctionList);
-            _concoctionCaptionText = AddText(capGo.transform, "(none) ▼", new Vector2(10f, 0f), new Vector2(-10f, 0f),
+            // Pigment chip: the recipe's mixed colour, the same swatch the
+            // Lab shows — hidden while "(none)" is picked.
+            _concoctionCaptionChip = BuildChip(capGo.transform, new Vector2(8f, 0f), 18f);
+            _concoctionCaptionText = AddText(capGo.transform, "(none) ▼", new Vector2(32f, 0f), new Vector2(-10f, 0f),
                 anchorMin: Vector2.zero, anchorMax: Vector2.one,
                 size: 14, style: FontStyle.Bold, anchor: TextAnchor.MiddleLeft, color: UguiPalette.Ink);
 
@@ -874,12 +897,12 @@ namespace Robogame.Gameplay
             var listRT = _concoctionList.GetComponent<RectTransform>();
             listRT.sizeDelta = new Vector2(0f, rows * rowH);
 
-            AddConcoctionOption("(none)", string.Empty, 0, rowH);
+            AddConcoctionOption("(none)", string.Empty, 0, rowH, null);
             for (int i = 0; i < options.Count; i++)
-                AddConcoctionOption(options[i].DisplayName, options[i].Id, i + 1, rowH);
+                AddConcoctionOption(options[i].DisplayName, options[i].Id, i + 1, rowH, options[i]);
         }
 
-        private void AddConcoctionOption(string label, string id, int row, float rowH)
+        private void AddConcoctionOption(string label, string id, int row, float rowH, Concoction recipe)
         {
             var go = NewChild($"Opt_{row}", _concoctionList.transform);
             var img = go.AddComponent<Image>();
@@ -900,9 +923,29 @@ namespace Robogame.Gameplay
             rt.sizeDelta = new Vector2(-4f, rowH - 2f);
             rt.anchoredPosition = new Vector2(0f, -row * rowH - 1f);
 
-            AddText(go.transform, label, new Vector2(8f, 0f), new Vector2(-8f, 0f),
+            float labelInset = 8f;
+            if (recipe != null)
+            {
+                Image chip = BuildChip(go.transform, new Vector2(6f, 0f), 14f);
+                chip.color = recipe.MixedColor;
+                labelInset = 26f;
+            }
+            AddText(go.transform, label, new Vector2(labelInset, 0f), new Vector2(-8f, 0f),
                 anchorMin: Vector2.zero, anchorMax: Vector2.one,
                 size: 13, style: FontStyle.Normal, anchor: TextAnchor.MiddleLeft, color: UguiPalette.Ink);
+        }
+
+        // Small square pigment swatch, vertically centred, left-anchored.
+        private static Image BuildChip(Transform parent, Vector2 anchoredPos, float size)
+        {
+            var go = NewChild("Chip", parent);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0.5f);
+            rt.anchorMax = new Vector2(0f, 0.5f);
+            rt.pivot = new Vector2(0f, 0.5f);
+            rt.sizeDelta = new Vector2(size, size);
+            rt.anchoredPosition = anchoredPos;
+            return go.AddComponent<Image>();
         }
 
         private void SelectConcoction(string id)
@@ -920,9 +963,18 @@ namespace Robogame.Gameplay
             string blockId = _activeBlockId;
             string id = _session != null ? _session.GetVariantConcoctionId(blockId) : string.Empty;
             string name = "(none)";
+            Concoction picked = null;
             if (!string.IsNullOrEmpty(id) && ConcoctionRegistry.TryGet(id, out Concoction c))
+            {
+                picked = c;
                 name = string.IsNullOrEmpty(c.DisplayName) ? "Concoction" : c.DisplayName;
+            }
             if (_concoctionCaptionText != null) _concoctionCaptionText.text = name + "  ▼";
+            if (_concoctionCaptionChip != null)
+            {
+                _concoctionCaptionChip.gameObject.SetActive(picked != null);
+                if (picked != null) _concoctionCaptionChip.color = picked.MixedColor;
+            }
 
             if (_concoctionCpuReadout != null)
             {
@@ -936,7 +988,7 @@ namespace Robogame.Gameplay
                     int baseCpu = ResolveBaseCpu(blockId);
                     int surcharge = cc.CpuSurcharge(baseCpu);
                     _concoctionCpuReadout.text =
-                        $"dmg ×{cc.DamageMultiplier:0.0}  size ×{cc.SizeMultiplier:0.0}  kb ×{cc.KnockbackMultiplier:0.0}  •  +{surcharge} CPU";
+                        $"dmg ×{cc.DamageMultiplier:0.0}  size ×{cc.SizeMultiplier:0.0}  kb ×{cc.KnockbackMultiplier:0.0}  spd ×{cc.SpeedMultiplier:0.0}  spr ×{cc.SpreadMultiplier:0.0}  •  +{surcharge} CPU";
                 }
             }
         }
