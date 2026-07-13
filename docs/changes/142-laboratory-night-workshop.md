@@ -56,6 +56,20 @@ Spec copied to
   inline this session; perf-checker skipped (zero physics objects,
   UI-only; per-frame Lab work stays alloc-free and gated on `IsOpen`).
 
+## Follow-up (same session, user-directed)
+
+- Panel scaled ×1.22 (fills ~⅔ of the screen), deeper elevation:
+  two-layer panel drop shadow biased downward, top-edge catchlight,
+  stronger sheen/pool, darker well + deeper inset, heavier plate shadow.
+- **Background de-blueprinted** per user request (their day job is
+  blueprint aesthetics): chalk drafting grid + corner registration
+  ticks removed from the Lab ground. Replaced with three procedural
+  fog banks (`LabKit.FogA/FogB`, wispy flattened blobs) rolling on
+  slow sine swells + vertical bob — a looping 2.5D haze with no
+  binary assets. Sines, not a wrap-conveyor, so ultrawide never sees
+  a bank teleport. Note: registration ticks remain part of the paper
+  screens' language; only the Lab drops them.
+
 ## Known limits / next steps
 
 - Screenshot MCP inline previews lift linear→sRGB (washed); the PNGs on

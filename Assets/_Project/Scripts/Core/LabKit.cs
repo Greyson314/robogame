@@ -36,6 +36,7 @@ namespace Robogame.Core
             s_circle = null; s_ring = null; s_border = null; s_brassBar = null;
             s_brassKnob = null; s_cork = null; s_ticks = null; s_fadeV = null;
             s_tubeFill = null; s_tubeOutline = null; s_miniVial = null;
+            s_fogA = null; s_fogB = null;
         }
 
         // -----------------------------------------------------------------
@@ -126,6 +127,16 @@ namespace Robogame.Core
 
         /// <summary>Little stoppered-vial swatch for journal rows (rounded 3/3/5/5), white.</summary>
         public static Sprite MiniVial => s_miniVial ??= BakeMiniVial();
+
+        private static Sprite s_fogA, s_fogB;
+
+        /// <summary>Soft white fog bank (clumped radial blobs, fully feathered
+        /// edges) — tint faint and drift for the 2.5D background haze.</summary>
+        public static Sprite FogA => s_fogA ??= BakeFog("Lab_FogA", seed: 5);
+
+        /// <summary>Second fog bank with a different clump layout, so layered
+        /// drift never reads as one repeating card.</summary>
+        public static Sprite FogB => s_fogB ??= BakeFog("Lab_FogB", seed: 29);
 
         // -----------------------------------------------------------------
         // Texture helpers (see remarks re: duplication from InkKit)
@@ -440,6 +451,53 @@ namespace Robogame.Core
             tex.SetPixels32(px);
             tex.Apply(false, true);
             return ToSprite(tex, edgeOnly ? "Lab_TubeOutline" : "Lab_TubeFill");
+        }
+
+        /// <summary>Fog bank: a dozen overlapping soft blobs summed, then a
+        /// global edge feather so instances blend seamlessly while drifting.</summary>
+        private static Sprite BakeFog(string name, int seed)
+        {
+            const int w = 192, h = 96;
+            var rng = new System.Random(seed);
+            const int blobs = 9;
+            var bx = new float[blobs]; var by = new float[blobs];
+            var br = new float[blobs]; var ba = new float[blobs];
+            for (int i = 0; i < blobs; i++)
+            {
+                bx[i] = 0.1f + 0.8f * (float)rng.NextDouble();
+                by[i] = 0.25f + 0.5f * (float)rng.NextDouble();
+                // Wide, weak clumps that overlap into a continuous bank
+                // instead of reading as separate bokeh dots.
+                br[i] = 0.28f + 0.30f * (float)rng.NextDouble();
+                ba[i] = 0.20f + 0.30f * (float)rng.NextDouble();
+            }
+            var tex = NewTex(w, h);
+            var px = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+            {
+                for (int x = 0; x < w; x++)
+                {
+                    float fx = (x + 0.5f) / w, fy = (y + 0.5f) / h;
+                    float a = 0f;
+                    for (int i = 0; i < blobs; i++)
+                    {
+                        // Flatten vertically (×2.2) so clumps smear into
+                        // horizontal wisps rather than circles.
+                        float dx = (fx - bx[i]) * (w / (float)h) * 0.75f;
+                        float dy = (fy - by[i]) * 2.2f;
+                        float d = Mathf.Sqrt(dx * dx + dy * dy) / br[i];
+                        if (d < 1f) { float f = 1f - d; a += ba[i] * f * f; }
+                    }
+                    // Feather to zero at the sprite edge in both axes.
+                    float ex = Mathf.Clamp01(Mathf.Min(fx, 1f - fx) / 0.18f);
+                    float ey = Mathf.Clamp01(Mathf.Min(fy, 1f - fy) / 0.25f);
+                    a = Mathf.Clamp01(a) * ex * ex * ey * ey;
+                    px[y * w + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+                }
+            }
+            tex.SetPixels32(px);
+            tex.Apply(false, true);
+            return ToSprite(tex, name, fullRect: true);
         }
 
         private static Sprite BakeMiniVial()

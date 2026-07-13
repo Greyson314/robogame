@@ -98,6 +98,15 @@ namespace Robogame.Gameplay
         private float _fillTarget = 0.5f, _fillCurrent = 0.5f;
         private float _vialPulse;
 
+        // Background fog: three parallax banks rolling on slow sine swells
+        // (near = bigger, brighter, wider swing). Sines never pop the way a
+        // wrap-around conveyor would on an ultrawide screen.
+        private readonly Image[] _fog = new Image[3];
+        private static readonly float[] s_fogBaseX = { -700f, 150f, -250f };
+        private static readonly float[] s_fogY = { 120f, -40f, -210f };   // offset from screen centre
+        private static readonly float[] s_fogAmp = { 90f, 150f, 240f };   // lateral swing, px
+        private static readonly float[] s_fogRate = { 0.15f, 0.11f, 0.08f }; // rad/s
+
         // Journal-row visuals for the selected recipe: its swatch wears the
         // LIVE mix colour and its label chases the name field, so slider
         // drags / typing restyle it without a list rebuild.
@@ -183,6 +192,17 @@ namespace Robogame.Gameplay
             {
                 float s = 1f + 0.10f * _vialPulse;
                 _vialRoot.localScale = new Vector3(s, s, 1f);
+            }
+
+            // Fog roll: each bank swells laterally on its own slow sine and
+            // bobs a little vertically — endless, seamless 2.5D drift.
+            for (int i = 0; i < _fog.Length; i++)
+            {
+                Image f = _fog[i];
+                if (f == null) continue;
+                f.rectTransform.anchoredPosition = new Vector2(
+                    s_fogBaseX[i] + Mathf.Sin(Time.time * s_fogRate[i] + i * 1.7f) * s_fogAmp[i],
+                    s_fogY[i] + Mathf.Sin(Time.time * 0.11f + i * 2.1f) * 14f);
             }
 
             // Bubbles: rise 64px from the tube floor and fade (labBubble).
@@ -580,29 +600,44 @@ namespace Robogame.Gameplay
             prt.pivot = new Vector2(0.5f, 0.5f);
             prt.sizeDelta = new Vector2(1060f, 560f);
             prt.anchoredPosition = Vector2.zero;
+            // The layout is authored at the handoff's 1060×560; a uniform
+            // scale grows the whole bench to fill more of the screen.
+            prt.localScale = new Vector3(1.22f, 1.22f, 1f);
 
-            // Drop shadow onto the soot ground, then the wood face + 1px
-            // border — the face is a CHILD added after the shadow because
+            // Two-layer drop shadow onto the soot ground (wide ambient +
+            // tighter contact, biased downward), then the wood face + 1px
+            // border — the face is a CHILD added after the shadows because
             // uGUI children always draw over their parent's own graphic.
-            var shadow = AddImage(panel.transform, LabKit.Glow, LabKit.Shade(0.55f), raycast: false);
+            var shadow = AddImage(panel.transform, LabKit.Glow, LabKit.Shade(0.6f), raycast: false);
             Stretch(shadow.rectTransform);
-            shadow.rectTransform.offsetMin = new Vector2(-90f, -110f);
-            shadow.rectTransform.offsetMax = new Vector2(90f, 70f);
+            shadow.rectTransform.offsetMin = new Vector2(-110f, -150f);
+            shadow.rectTransform.offsetMax = new Vector2(110f, 70f);
+            var contact = AddImage(panel.transform, LabKit.Glow, LabKit.Shade(0.5f), raycast: false);
+            Stretch(contact.rectTransform);
+            contact.rectTransform.offsetMin = new Vector2(-35f, -70f);
+            contact.rectTransform.offsetMax = new Vector2(35f, 25f);
             var face = AddImage(panel.transform, LabKit.Wood, Color.white, raycast: true);
             Stretch(face.rectTransform);
             var border = AddImage(panel.transform, LabKit.Border, LabKit.WoodBorder, raycast: false);
             Stretch(border.rectTransform);
             border.type = Image.Type.Sliced;
 
-            // Top-left sheen + bottom-right pooled dark (panel light overlay).
-            var sheen = AddImage(panel.transform, LabKit.Glow, LabKit.Bone(0.05f), raycast: false);
+            // Top-left sheen + bottom-right pooled dark (panel light overlay),
+            // plus a hairline top-edge catchlight so the slab reads raised.
+            var sheen = AddImage(panel.transform, LabKit.Glow, LabKit.Bone(0.07f), raycast: false);
             sheen.rectTransform.anchorMin = new Vector2(0.3f, 1f);
             sheen.rectTransform.anchorMax = new Vector2(0.3f, 1f);
             sheen.rectTransform.sizeDelta = new Vector2(760f, 330f);
-            var pool = AddImage(panel.transform, LabKit.Glow, LabKit.Shade(0.30f), raycast: false);
+            var pool = AddImage(panel.transform, LabKit.Glow, LabKit.Shade(0.38f), raycast: false);
             pool.rectTransform.anchorMin = new Vector2(0.9f, 0f);
             pool.rectTransform.anchorMax = new Vector2(0.9f, 0f);
             pool.rectTransform.sizeDelta = new Vector2(640f, 430f);
+            var catchlight = AddImage(panel.transform, null, LabKit.Bone(0.10f), raycast: false);
+            catchlight.rectTransform.anchorMin = new Vector2(0f, 1f);
+            catchlight.rectTransform.anchorMax = new Vector2(1f, 1f);
+            catchlight.rectTransform.pivot = new Vector2(0.5f, 1f);
+            catchlight.rectTransform.offsetMin = new Vector2(1f, -2f);
+            catchlight.rectTransform.offsetMax = new Vector2(-1f, -1f);
 
             BuildScrews(panel.transform);
             BuildHeader(panel.transform);
@@ -625,16 +660,26 @@ namespace Robogame.Gameplay
             PlaceBlotch(ground.transform, 0.84f, 0.84f, 620f, 420f, LabKit.Brass(0.05f));
             PlaceBlotch(ground.transform, 0.70f, 0.10f, 400f, 300f, LabKit.Shade(0.35f));
 
-            // Chalk drafting grid — same 28px cell as the paper screens.
-            var grid = AddImage(ground.transform, InkKit.GridTile, LabKit.Bone(0.045f), raycast: false);
-            Stretch(grid.rectTransform);
-            grid.type = Image.Type.Tiled;
+            // 2.5D fog banks (no drafting grid / registration marks here —
+            // the night workshop keeps its haze, not the blueprint chrome).
+            // Far → near: smaller/dimmer/cooler back, bigger/brighter front.
+            _fog[0] = BuildFogBank(ground.transform, LabKit.FogA, new Vector2(1500f, 460f),
+                new Vector2(s_fogBaseX[0], s_fogY[0]), LabKit.IndigoWash(0.10f));
+            _fog[1] = BuildFogBank(ground.transform, LabKit.FogB, new Vector2(1900f, 560f),
+                new Vector2(s_fogBaseX[1], s_fogY[1]), LabKit.Bone(0.055f));
+            _fog[2] = BuildFogBank(ground.transform, LabKit.FogA, new Vector2(2400f, 680f),
+                new Vector2(s_fogBaseX[2], s_fogY[2]), LabKit.Bone(0.085f));
+        }
 
-            // Registration ticks: L-shaped chalk marks at the four corners.
-            BuildCornerTick(ground.transform, 0f, 1f);
-            BuildCornerTick(ground.transform, 1f, 1f);
-            BuildCornerTick(ground.transform, 0f, 0f);
-            BuildCornerTick(ground.transform, 1f, 0f);
+        private static Image BuildFogBank(Transform parent, Sprite sprite, Vector2 size, Vector2 pos, Color tint)
+        {
+            var img = AddImage(parent, sprite, tint, raycast: false);
+            var rt = img.rectTransform;
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = size;
+            rt.anchoredPosition = pos;
+            return img;
         }
 
         private void PlaceBlotch(Transform parent, float ax, float ay, float w, float h, Color color)
@@ -643,26 +688,6 @@ namespace Robogame.Gameplay
             var rt = img.rectTransform;
             rt.anchorMin = new Vector2(ax, ay); rt.anchorMax = new Vector2(ax, ay);
             rt.sizeDelta = new Vector2(w, h);
-        }
-
-        private void BuildCornerTick(Transform parent, float ax, float ay)
-        {
-            float sx = ax > 0.5f ? -1f : 1f;
-            float sy = ay > 0.5f ? -1f : 1f;
-            var corner = NewChild("Tick", parent);
-            var rt = corner.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(ax, ay); rt.anchorMax = new Vector2(ax, ay);
-            rt.pivot = new Vector2(ax, ay);
-            rt.sizeDelta = new Vector2(18f, 18f);
-            rt.anchoredPosition = new Vector2(14f * sx, 14f * sy);
-            var barH = AddImage(corner.transform, null, LabKit.Bone(0.4f), raycast: false);
-            barH.rectTransform.anchorMin = new Vector2(0f, ay); barH.rectTransform.anchorMax = new Vector2(1f, ay);
-            barH.rectTransform.pivot = new Vector2(0.5f, ay);
-            barH.rectTransform.sizeDelta = new Vector2(0f, 1f);
-            var barV = AddImage(corner.transform, null, LabKit.Bone(0.4f), raycast: false);
-            barV.rectTransform.anchorMin = new Vector2(ax, 0f); barV.rectTransform.anchorMax = new Vector2(ax, 1f);
-            barV.rectTransform.pivot = new Vector2(ax, 0.5f);
-            barV.rectTransform.sizeDelta = new Vector2(1f, 0f);
         }
 
         // Four brass screw heads, each slot at its own lazy angle.
@@ -739,7 +764,7 @@ namespace Robogame.Gameplay
             wRT.offsetMin = new Vector2(36f, 40f);
             wRT.offsetMax = new Vector2(276f, -136f);
             var wellBg = well.AddComponent<Image>();
-            wellBg.color = LabKit.Shade(0.28f);
+            wellBg.color = LabKit.Shade(0.34f);
             var wellBorder = AddImage(well.transform, LabKit.Border, LabKit.Shade(0.55f), raycast: false);
             Stretch(wellBorder.rectTransform);
             wellBorder.type = Image.Type.Sliced;
@@ -747,10 +772,10 @@ namespace Robogame.Gameplay
             var lip = AddImage(well.transform, null, LabKit.Bone(0.14f), raycast: false);
             lip.rectTransform.anchorMin = new Vector2(0f, 0f); lip.rectTransform.anchorMax = new Vector2(1f, 0f);
             lip.rectTransform.sizeDelta = new Vector2(0f, 1f);
-            var inset = AddImage(well.transform, LabKit.FadeV, LabKit.Shade(0.40f), raycast: false);
+            var inset = AddImage(well.transform, LabKit.FadeV, LabKit.Shade(0.55f), raycast: false);
             inset.rectTransform.anchorMin = new Vector2(0f, 1f); inset.rectTransform.anchorMax = new Vector2(1f, 1f);
             inset.rectTransform.pivot = new Vector2(0.5f, 1f);
-            inset.rectTransform.sizeDelta = new Vector2(0f, 8f);
+            inset.rectTransform.sizeDelta = new Vector2(0f, 12f);
             // FadeV is opaque-top; flip so the shade hugs the well's top edge.
             inset.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 180f);
 
@@ -783,10 +808,10 @@ namespace Robogame.Gameplay
             pRT.pivot = new Vector2(0.5f, 1f);
             pRT.sizeDelta = new Vector2(0f, 286f);
             pRT.anchoredPosition = Vector2.zero;
-            var plateShadow = AddImage(plate.transform, LabKit.Glow, LabKit.Shade(0.45f), raycast: false);
+            var plateShadow = AddImage(plate.transform, LabKit.Glow, LabKit.Shade(0.6f), raycast: false);
             Stretch(plateShadow.rectTransform);
-            plateShadow.rectTransform.offsetMin = new Vector2(-30f, -46f);
-            plateShadow.rectTransform.offsetMax = new Vector2(30f, 18f);
+            plateShadow.rectTransform.offsetMin = new Vector2(-34f, -58f);
+            plateShadow.rectTransform.offsetMax = new Vector2(34f, 14f);
             var plateFace = AddImage(plate.transform, LabKit.Plate, Color.white, raycast: false);
             Stretch(plateFace.rectTransform);
             var plateBorder = AddImage(plate.transform, LabKit.Border, LabKit.Bone(0.12f), raycast: false);
