@@ -628,7 +628,7 @@ namespace Robogame.Gameplay
             sheen.rectTransform.anchorMin = new Vector2(0.3f, 1f);
             sheen.rectTransform.anchorMax = new Vector2(0.3f, 1f);
             sheen.rectTransform.sizeDelta = new Vector2(760f, 330f);
-            var pool = AddImage(panel.transform, LabKit.Glow, LabKit.Shade(0.38f), raycast: false);
+            var pool = AddImage(panel.transform, LabKit.Glow, LabKit.Shade(0.28f), raycast: false);
             pool.rectTransform.anchorMin = new Vector2(0.9f, 0f);
             pool.rectTransform.anchorMax = new Vector2(0.9f, 0f);
             pool.rectTransform.sizeDelta = new Vector2(640f, 430f);

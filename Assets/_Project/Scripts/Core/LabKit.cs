@@ -197,9 +197,11 @@ namespace Robogame.Core
 
         private static Sprite BakeWood()
         {
-            Color top = new(0.165f, 0.141f, 0.106f); // #2A241B
-            Color mid = new(0.149f, 0.125f, 0.098f); // #262019
-            Color bot = new(0.133f, 0.110f, 0.082f); // #221C15
+            // Warmer and a step lighter than the handoff's near-black wood —
+            // user pass: the modal ground should read solid, rich brown.
+            Color top = new(0.243f, 0.188f, 0.125f); // #3E3020
+            Color mid = new(0.216f, 0.165f, 0.106f); // #372A1B
+            Color bot = new(0.184f, 0.137f, 0.086f); // #2F2316
             const int size = 256;
             var rng = new System.Random(41);
             var tex = NewTex(size, size);
