@@ -1,0 +1,51 @@
+<!-- @dsCard group="Foundations" name="Elevation (night workshop)" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Elevation — Robogame Design System</title>
+<link href="https://fonts.googleapis.com/css2?family=Averia+Libre:ital,wght@0,400;0,700;1,400&family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"Averia Libre",serif;color:#E8E1D2;
+    background:radial-gradient(120% 130% at 50% 38%, #1B1712, #131009);
+    min-height:100vh;padding:40px;display:flex;justify-content:center;align-items:center}
+  .wrap{width:760px;max-width:100%;display:grid;grid-template-columns:1fr 1fr;gap:26px}
+  .cell{background:linear-gradient(168deg,#2A241B,#221C15);border:1px solid #4A3F2E;padding:26px}
+  .cell h2{font-size:15px;font-weight:400;padding-bottom:4px}
+  .cell .d{font-family:"Space Mono",monospace;font-style:italic;font-size:11px;
+    color:rgba(232,225,210,0.4);padding-bottom:16px;line-height:1.6}
+  .well{height:64px;border:1px solid rgba(0,0,0,0.55);border-bottom-color:rgba(232,225,210,0.08);
+    background:rgba(0,0,0,0.28);
+    box-shadow:inset 0 3px 8px rgba(0,0,0,0.55), inset 0 -1px 0 rgba(232,225,210,0.05)}
+  .plate{height:64px;background:linear-gradient(178deg,#2F2820,#28221A);
+    border:1px solid rgba(0,0,0,0.5);border-top-color:rgba(232,225,210,0.14);
+    box-shadow:0 8px 20px rgba(0,0,0,0.45), 0 2px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(232,225,210,0.08)}
+  .sunken{height:40px;background:rgba(0,0,0,0.35);
+    border:1px solid rgba(0,0,0,0.6);border-top-color:rgba(0,0,0,0.75);
+    border-bottom-color:rgba(232,225,210,0.1);
+    box-shadow:inset 0 2px 5px rgba(0,0,0,0.5)}
+  .physical{width:110px;height:44px;background:#E8E1D2;margin:10px auto 0;
+    border-radius:46% 54% 51% 49% / 62% 55% 45% 38%;
+    box-shadow:0 5px 14px rgba(0,0,0,0.5);transition:all .15s;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;color:#26211A;font-size:17px}
+  .physical:hover{transform:translateY(2px);box-shadow:0 2px 6px rgba(0,0,0,0.5), 0 0 14px #7FDCC8AA}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="cell"><h2>Recessed well</h2>
+    <div class="d">dark border, lighter bottom edge · inset 0 3px 8px — the concoctions list sinks into the bench</div>
+    <div class="well"></div></div>
+  <div class="cell"><h2>Raised plate</h2>
+    <div class="d">top-lit 178° gradient, top border lighter than sides · drop shadow — the switchboard sits proud</div>
+    <div class="plate"></div></div>
+  <div class="cell"><h2>Sunken input / track</h2>
+    <div class="d">dark top border + inset shadow — name field and slider tracks are milled slots</div>
+    <div class="sunken"></div></div>
+  <div class="cell"><h2>Physical button</h2>
+    <div class="d">rests on a drop shadow, depresses on hover (translateY 2px, shadow shrinks, galvanic glow)</div>
+    <div class="physical">Save</div></div>
+</div>
+</body>
+</html>

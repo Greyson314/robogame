@@ -1,0 +1,78 @@
+/* ============================================================
+   Robogame Design System — canonical tokens
+   Source of truth: docs/research/ui-design-handoff.md (paper system)
+   + docs/research/ui-design-handoff-laboratory.md (Lab night-workshop
+   scope, session 142). Fonts are the locked user pick (Averia Libre +
+   Space Mono italic), superseding the handoffs' Yuji Syuku pairing —
+   see docs/subsystems/ui-direction.md.
+   ============================================================ */
+
+:root {
+  /* ---- Type (locked pick) ---- */
+  --font-display: "Averia Libre", serif;      /* display + all UI text */
+  --font-annot: "Space Mono", monospace;      /* italic — annotations, part nos., figures */
+
+  /* ---- Paper system (menus, settings, HUD) ---- */
+  --paper-center: #F6F0E0;
+  --paper-mid: #EDE4CC;
+  --paper-edge: #E1D5B6;
+  --grid-line: rgba(51, 44, 33, 0.03);        /* 28px drafting grid */
+  --ink: #26211A;
+  --ink-text: #2E2820;
+  --ink-faded: #6E6350;
+  --frame-line: rgba(46, 40, 32, 0.5);
+  --indigo-wash: #4A6E7E;
+  --cream-text: #F1E9D4;
+  --indigo-text: #5B7280;
+
+  /* ---- Vermilion — STRICTLY RATIONED on every screen ---- */
+  --vermilion: #C33D1F;
+  --vermilion-hi: #D9552F;                    /* wax-seal gradient top */
+  --vermilion-lo: #8F2B14;                    /* wax-seal gradient base */
+
+  /* ---- Laboratory scope (night workshop — Lab screen ONLY) ---- */
+  --lab-ground-deep: #131009;
+  --lab-ground: #1B1712;
+  --lab-wood-hi: #2A241B;
+  --lab-wood: #221C15;
+  --lab-wood-border: #4A3F2E;
+  --lab-plate-hi: #2F2820;
+  --lab-plate-lo: #28221A;
+  --lab-ink-press: #14100C;                   /* Save text on hover */
+  --bone: #E8E1D2;                            /* primary text on dark */
+  --bone-88: rgba(232, 225, 210, 0.88);
+  --bone-65: rgba(232, 225, 210, 0.65);
+  --bone-50: rgba(232, 225, 210, 0.50);
+  --bone-40: rgba(232, 225, 210, 0.40);
+  --bone-12: rgba(232, 225, 210, 0.12);
+  --bone-06: rgba(232, 225, 210, 0.06);
+  --brass-hi: #D8B36A;
+  --brass: #9C7A3E;
+  --brass-mid: #8A6B33;
+  --brass-lo: #6B5226;
+  --brass-deep: #4A3A1C;
+  --brass-shadow: #3A2E14;
+  --lab-indigo-selected: rgba(74, 110, 126, 0.32);
+  --lab-indigo-hover: rgba(74, 110, 126, 0.18);
+  --galvanic: #7FDCC8;                        /* fixed cyan default in-game */
+  --galvanic-green: #A4E06B;                  /* unwired option */
+  --galvanic-violet: #B9A6F0;                 /* unwired option */
+  --galvanic-glow: #7FDCC8AA;
+
+  /* ---- Lab elevation set ---- */
+  --shadow-panel: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(232, 225, 210, 0.06);
+  --shadow-plate: 0 8px 20px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(232, 225, 210, 0.08);
+  --shadow-well: inset 0 3px 8px rgba(0, 0, 0, 0.55), inset 0 -1px 0 rgba(232, 225, 210, 0.05);
+  --shadow-sunken: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+  --shadow-track: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+
+  /* ---- Shape signatures ---- */
+  --radius-brush-blob: 46% 54% 51% 49% / 62% 55% 45% 38%;   /* Save button */
+  --radius-wax-seal: 48% 52% 55% 45%;                        /* rotate -12deg */
+  --radius-vial-bottom: 0 0 18px 18px;
+
+  /* ---- Structure ---- */
+  --grid-cell: 28px;
+  --lab-panel-w: 1060px;
+  --lab-body-cols: 240px 1fr 220px;
+}

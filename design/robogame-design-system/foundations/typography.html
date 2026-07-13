@@ -1,0 +1,41 @@
+<!-- @dsCard group="Foundations" name="Typography" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Typography — Robogame Design System</title>
+<link href="https://fonts.googleapis.com/css2?family=Averia+Libre:ital,wght@0,400;0,700;1,400&family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"Averia Libre",serif;color:#E8E1D2;
+    background:radial-gradient(120% 130% at 50% 38%, #1B1712, #131009);
+    min-height:100vh;padding:40px;display:flex;justify-content:center}
+  .wrap{width:720px;max-width:100%}
+  h1{font-size:26px;font-weight:400;letter-spacing:1px}
+  .sub{font-family:"Space Mono",monospace;font-style:italic;font-size:12px;
+    color:rgba(232,225,210,0.4);padding:4px 0 26px;line-height:1.7}
+  .spec{display:grid;grid-template-columns:150px 1fr;gap:10px 22px;align-items:baseline;
+    border-top:1px solid rgba(232,225,210,0.12);padding:14px 0}
+  .tag{font-family:"Space Mono",monospace;font-size:11px;color:rgba(232,225,210,0.4)}
+  .annot{font-family:"Space Mono",monospace;font-style:italic}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Typography</h1>
+  <div class="sub">two families only. Averia Libre — display + all UI text.
+    Space Mono italic — annotations, batch numbers, figures, formulas.
+    locked user pick (ui-direction.md); supersedes the handoffs' Yuji Syuku / Xanh Mono pairing.
+    numerals are never oldstyle — digits sit on the text line.</div>
+
+  <div class="spec"><span class="tag">display · 34px</span><span style="font-size:34px;letter-spacing:1px">The Laboratory</span></div>
+  <div class="spec"><span class="tag">name input · 19px</span><span style="font-size:19px">Standard Mixture</span></div>
+  <div class="spec"><span class="tag">readout · 18px tabular</span><span style="font-size:18px;font-variant-numeric:tabular-nums">62% · 35% · 100%</span></div>
+  <div class="spec"><span class="tag">save · 17px</span><span style="font-size:17px">Save</span></div>
+  <div class="spec"><span class="tag">labels · 16px</span><span style="font-size:16px">Damage — Knockback — Spread</span></div>
+  <div class="spec"><span class="tag">rows / close · 15px</span><span style="font-size:15px">Pepper Fog · Close</span></div>
+  <div class="spec"><span class="tag">annotation · 13px it.</span><span class="annot" style="font-size:13px;color:rgba(232,225,210,0.5)">fig. 1</span></div>
+  <div class="spec"><span class="tag">batch · 12px it.</span><span class="annot" style="font-size:12px;color:rgba(232,225,210,0.4)">no. 12 — rib-and-membrane, ash + linen</span></div>
+</div>
+</body>
+</html>

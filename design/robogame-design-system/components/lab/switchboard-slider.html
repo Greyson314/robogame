@@ -1,0 +1,73 @@
+<!-- @dsCard group="Laboratory" name="Switchboard slider" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Switchboard slider — Robogame Design System</title>
+<link href="https://fonts.googleapis.com/css2?family=Averia+Libre:ital,wght@0,400;0,700;1,400&family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root{--bone:#E8E1D2;--galvanic:#7FDCC8;--galvanic-glow:#7FDCC8AA}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"Averia Libre",serif;color:var(--bone);
+    background:radial-gradient(120% 130% at 50% 38%, #1B1712, #131009);
+    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px}
+  .plate{background:linear-gradient(178deg,#2F2820,#28221A);
+    border:1px solid rgba(0,0,0,0.5);border-top-color:rgba(232,225,210,0.14);
+    box-shadow:0 8px 20px rgba(0,0,0,0.45), 0 2px 4px rgba(0,0,0,0.4), inset 0 1px 0 rgba(232,225,210,0.08);
+    padding:22px 24px;width:520px;max-width:100%}
+  .caption{font-family:"Space Mono",monospace;font-style:italic;font-size:12px;
+    color:rgba(232,225,210,0.4);padding-bottom:14px}
+  .srow{display:grid;grid-template-columns:96px 1fr 58px;gap:16px;align-items:center}
+  .srow label{font-size:16px}
+  .track{position:relative;height:34px;cursor:ew-resize;touch-action:none}
+  .bar{position:absolute;left:0;right:0;top:15px;height:4px;
+    background:linear-gradient(180deg,#4A3A1C,#6B5226 60%,#9C7A3E);
+    border:1px solid rgba(0,0,0,0.6);box-shadow:inset 0 1px 2px rgba(0,0,0,0.6)}
+  .ticks{position:absolute;left:0;right:0;top:12px;height:10px;
+    background-image:linear-gradient(90deg, rgba(232,225,210,0.35) 1px, transparent 1px);
+    background-size:10% 100%;opacity:.5;pointer-events:none}
+  .fill{position:absolute;left:0;top:15px;height:4px;background:var(--bone);transition:background .15s}
+  .pip{position:absolute;top:12.5px;width:9px;height:9px;border-radius:50%;background:var(--bone);
+    transform:translateX(-50%);box-shadow:0 1px 3px rgba(0,0,0,0.6);
+    transition:background .15s, box-shadow .15s;pointer-events:none}
+  .srow.active .pip,.srow.active .fill{background:var(--galvanic);box-shadow:0 0 8px var(--galvanic-glow)}
+  .srow.active .val{color:var(--galvanic)}
+  .val{font-size:18px;font-variant-numeric:tabular-nums;text-align:right;color:rgba(232,225,210,0.88)}
+</style>
+</head>
+<body>
+<div class="plate">
+  <div class="caption">brass track · ink ticks every 10% · 9px pip · drag = galvanic accent + glow</div>
+  <div id="rows"></div>
+</div>
+<script>
+const seed = [["Damage",62],["Knockback",35]];
+const rows = document.getElementById("rows");
+seed.forEach(([s,v]) => {
+  const row = document.createElement("div");
+  row.className = "srow";
+  row.innerHTML = `<label>${s}</label>
+    <div class="track"><div class="bar"></div><div class="ticks"></div>
+      <div class="fill"></div><div class="pip"></div></div><div class="val"></div>`;
+  rows.appendChild(row);
+  let val = v, active = false;
+  const track = row.querySelector(".track");
+  const paint = () => {
+    row.classList.toggle("active", active);
+    row.querySelector(".fill").style.width = val + "%";
+    row.querySelector(".pip").style.left = val + "%";
+    row.querySelector(".val").textContent = val + "%";
+  };
+  const move = e => {
+    const r = track.getBoundingClientRect();
+    val = Math.max(0, Math.min(100, Math.round((e.clientX - r.left) / r.width * 100)));
+    paint();
+  };
+  track.addEventListener("pointerdown", e => {active = true; track.setPointerCapture(e.pointerId); move(e)});
+  track.addEventListener("pointermove", e => {if (active) move(e)});
+  track.addEventListener("pointerup", () => {active = false; paint()});
+  paint();
+});
+</script>
+</body>
+</html>

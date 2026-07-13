@@ -1,0 +1,74 @@
+<!-- @dsCard group="Foundations" name="Laboratory palette" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Laboratory palette — Robogame Design System</title>
+<link href="https://fonts.googleapis.com/css2?family=Averia+Libre:ital,wght@0,400;0,700;1,400&family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"Averia Libre",serif;color:#E8E1D2;
+    background:radial-gradient(120% 130% at 50% 38%, #1B1712, #131009);
+    min-height:100vh;padding:40px;display:flex;justify-content:center}
+  .wrap{width:760px;max-width:100%}
+  h1{font-size:26px;font-weight:400;letter-spacing:1px;padding-bottom:4px}
+  .sub{font-family:"Space Mono",monospace;font-style:italic;font-size:12px;
+    color:rgba(232,225,210,0.4);padding-bottom:22px}
+  h2{font-size:15px;font-weight:400;color:rgba(232,225,210,0.75);padding:18px 0 8px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
+  .chip{border:1px solid rgba(232,225,210,0.12)}
+  .chip .c{height:52px}
+  .chip .l{padding:6px 8px;font-family:"Space Mono",monospace;font-size:10.5px;
+    color:rgba(232,225,210,0.65);line-height:1.5}
+  .chip .l b{display:block;font-family:"Averia Libre",serif;font-weight:400;font-size:12.5px;color:#E8E1D2}
+  .warn{font-family:"Space Mono",monospace;font-style:italic;font-size:11.5px;
+    color:#C33D1F;padding-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Laboratory palette</h1>
+  <div class="sub">night-workshop scope — the Lab screen only. nothing else may use these
+    (docs/subsystems/ui-direction.md). everything else stays on the paper system.</div>
+
+  <h2>Ground &amp; wood</h2>
+  <div class="grid">
+    <div class="chip"><div class="c" style="background:#131009"></div><div class="l"><b>ground deep</b>#131009</div></div>
+    <div class="chip"><div class="c" style="background:#1B1712"></div><div class="l"><b>ground</b>#1B1712</div></div>
+    <div class="chip"><div class="c" style="background:#2A241B"></div><div class="l"><b>wood hi</b>#2A241B</div></div>
+    <div class="chip"><div class="c" style="background:#221C15"></div><div class="l"><b>wood</b>#221C15</div></div>
+    <div class="chip"><div class="c" style="background:#4A3F2E"></div><div class="l"><b>wood border</b>#4A3F2E</div></div>
+    <div class="chip"><div class="c" style="background:linear-gradient(178deg,#2F2820,#28221A)"></div><div class="l"><b>plate</b>#2F2820→#28221A</div></div>
+  </div>
+
+  <h2>Bone (text on dark)</h2>
+  <div class="grid">
+    <div class="chip"><div class="c" style="background:#E8E1D2"></div><div class="l"><b>bone</b>#E8E1D2</div></div>
+    <div class="chip"><div class="c" style="background:rgba(232,225,210,0.65)"></div><div class="l"><b>bone 65</b>rgba ·.65</div></div>
+    <div class="chip"><div class="c" style="background:rgba(232,225,210,0.4)"></div><div class="l"><b>bone 40</b>rgba ·.40</div></div>
+    <div class="chip"><div class="c" style="background:rgba(232,225,210,0.12)"></div><div class="l"><b>bone 12</b>rgba ·.12</div></div>
+  </div>
+
+  <h2>Brass hardware</h2>
+  <div class="grid">
+    <div class="chip"><div class="c" style="background:#D8B36A"></div><div class="l"><b>brass hi</b>#D8B36A</div></div>
+    <div class="chip"><div class="c" style="background:#9C7A3E"></div><div class="l"><b>brass</b>#9C7A3E</div></div>
+    <div class="chip"><div class="c" style="background:#8A6B33"></div><div class="l"><b>brass mid</b>#8A6B33</div></div>
+    <div class="chip"><div class="c" style="background:#6B5226"></div><div class="l"><b>brass lo</b>#6B5226</div></div>
+    <div class="chip"><div class="c" style="background:#4A3A1C"></div><div class="l"><b>brass deep</b>#4A3A1C</div></div>
+  </div>
+
+  <h2>State</h2>
+  <div class="grid">
+    <div class="chip"><div class="c" style="background:#7FDCC8"></div><div class="l"><b>galvanic</b>#7FDCC8 · active/drag glow (fixed cyan in-game)</div></div>
+    <div class="chip"><div class="c" style="background:#A4E06B"></div><div class="l"><b>galvanic green</b>#A4E06B · unwired option</div></div>
+    <div class="chip"><div class="c" style="background:#B9A6F0"></div><div class="l"><b>galvanic violet</b>#B9A6F0 · unwired option</div></div>
+    <div class="chip"><div class="c" style="background:rgba(74,110,126,0.32)"></div><div class="l"><b>indigo selected</b>rgba(74,110,126,.32)</div></div>
+    <div class="chip"><div class="c" style="background:rgba(74,110,126,0.18)"></div><div class="l"><b>indigo hover</b>rgba(74,110,126,.18)</div></div>
+    <div class="chip"><div class="c" style="background:radial-gradient(circle at 38% 32%, #D9552F, #C33D1F 55%, #8F2B14)"></div><div class="l"><b>vermilion</b>#C33D1F seal + strike</div></div>
+  </div>
+  <div class="warn">vermilion is strictly rationed: on the Lab it appears exactly twice —
+    the wax seal and the armed Delete strike-through.</div>
+</div>
+</body>
+</html>

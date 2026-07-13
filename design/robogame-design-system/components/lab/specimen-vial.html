@@ -1,0 +1,85 @@
+<!-- @dsCard group="Laboratory" name="Specimen vial" -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Specimen vial — Robogame Design System</title>
+<link href="https://fonts.googleapis.com/css2?family=Averia+Libre:ital,wght@0,400;0,700;1,400&family=Space+Mono:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:"Averia Libre",serif;color:#E8E1D2;
+    background:radial-gradient(120% 130% at 50% 38%, #1B1712, #131009);
+    min-height:100vh;display:flex;align-items:center;justify-content:center;gap:64px;
+    padding:32px;perspective:700px;flex-wrap:wrap}
+  .spec{display:flex;flex-direction:column;align-items:center}
+  .vial{position:relative;width:70px;height:230px;transform:rotateX(4deg)}
+  .cork{position:absolute;top:0;left:17px;width:36px;height:20px;border-radius:3px 3px 2px 2px;
+    background:linear-gradient(180deg,#D8B36A,#9C7A3E 55%,#6B5226)}
+  .lip{position:absolute;top:19px;left:13px;width:44px;height:7px;border-radius:3px;
+    border:1px solid rgba(232,225,210,0.45);background:rgba(232,225,210,0.06)}
+  .tube{position:absolute;top:25px;left:17px;width:36px;height:190px;
+    border:2px solid rgba(232,225,210,0.35);border-top:0;border-radius:0 0 18px 18px;
+    background:linear-gradient(90deg, rgba(232,225,210,0.10) 0 4px, rgba(232,225,210,0.03) 10px, rgba(0,0,0,0.12));
+    overflow:hidden}
+  .liquid{position:absolute;left:0;right:0;bottom:0;animation:labFlicker 3.2s ease-in-out infinite}
+  .surface{position:absolute;left:2px;right:2px;height:6px;border-radius:50%}
+  .bub{position:absolute;border:1px solid rgba(232,225,210,0.55);border-radius:50%;
+    animation:labBubble linear infinite}
+  .bub.b1{width:5px;height:5px;left:8px;animation-duration:2.2s}
+  .bub.b2{width:4px;height:4px;left:18px;animation-duration:3.6s;animation-delay:.8s}
+  .bub.b3{width:6px;height:6px;left:24px;animation-duration:2.8s;animation-delay:1.6s}
+  @keyframes labBubble{0%{bottom:6%;opacity:0}15%{opacity:.8}100%{bottom:86%;opacity:0}}
+  @keyframes labFlicker{0%,100%{opacity:1}50%{opacity:.85}}
+  .groundshadow{position:absolute;bottom:-12px;left:2px;width:66px;height:14px;border-radius:50%;
+    background:radial-gradient(closest-side, rgba(0,0,0,0.5), transparent)}
+  .seal{position:absolute;right:-6px;top:120px;width:22px;height:22px;transform:rotate(-12deg);
+    border-radius:48% 52% 55% 45%;
+    background:radial-gradient(circle at 38% 32%, #D9552F, #C33D1F 55%, #8F2B14)}
+  .fig{padding-top:22px;font-family:"Space Mono",monospace;font-style:italic;
+    font-size:13px;color:rgba(232,225,210,0.5)}
+  .note{max-width:270px;font-family:"Space Mono",monospace;font-style:italic;font-size:12px;
+    line-height:1.7;color:rgba(232,225,210,0.5)}
+  .note b{color:#E8E1D2;font-family:"Averia Libre",serif;font-style:normal;font-weight:400;
+    font-size:16px;display:block;padding-bottom:6px}
+</style>
+</head>
+<body>
+<div class="spec">
+  <div class="vial">
+    <div class="groundshadow"></div>
+    <div class="tube" id="tube">
+      <div class="liquid" id="liquid"></div>
+      <div class="surface" id="surface"></div>
+      <div class="bub b1"></div><div class="bub b2"></div><div class="bub b3"></div>
+    </div>
+    <div class="cork"></div>
+    <div class="lip"></div>
+    <div class="seal"></div>
+  </div>
+  <div class="fig">fig.&nbsp;1</div>
+</div>
+<div class="note"><b>Specimen vial</b>
+  cork · rolled lip · masked liquid at Concoction.MixedColor · fill 30–70% from Size + Spread ·
+  surface ellipse · three rising bubbles · flicker · liquid-coloured glow ·
+  wax seal — the screen's one vermilion. this card cycles hues to show the reaction.</div>
+<script>
+let t = 0;
+function paint(){
+  t += 0.004;
+  const hue = Math.round((Math.sin(t) * 0.5 + 0.5) * 300);
+  const fill = 42 + Math.sin(t * 0.7) * 14;
+  const liq = `hsl(${hue},62%,52%)`, glow = `hsla(${hue},75%,60%,0.55)`,
+        dim = `hsla(${hue},62%,52%,0.22)`;
+  const l = document.getElementById("liquid");
+  l.style.height = fill + "%";
+  l.style.background = `linear-gradient(180deg, ${glow}, ${liq})`;
+  const s = document.getElementById("surface");
+  s.style.bottom = `calc(${fill}% - 3px)`;
+  s.style.background = `hsla(${hue},80%,72%,0.9)`;
+  document.getElementById("tube").style.boxShadow = `0 0 26px 2px ${glow}, inset 0 0 18px ${dim}`;
+  requestAnimationFrame(paint);
+}
+paint();
+</script>
+</body>
+</html>
