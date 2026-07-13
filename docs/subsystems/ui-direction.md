@@ -22,7 +22,8 @@ each with one source-of-truth theme helper:
 | Layer | Renderer | Theme helper | Used by |
 |-------|----------|--------------|---------|
 | **HUD overlays** | IMGUI (`OnGUI`) | [`HudStyles`](../../Assets/_Project/Scripts/Core/HudStyles.cs) | scoreboard, stats, kill feed, reticle, module bar, nameplates, damage numbers, dev HUDs |
-| **Menus / panels** | UGUI (procedural) | [`UguiPalette`](../../Assets/_Project/Scripts/Core/UguiPalette.cs) | main menu, settings, scene-transition, build hotbar, lab, variant panel, mirror banner |
+| **Menus / panels** | UGUI (procedural) | [`UguiPalette`](../../Assets/_Project/Scripts/Core/UguiPalette.cs) | main menu, settings, scene-transition, build hotbar, variant panel, mirror banner |
+| **Laboratory only** | UGUI (procedural) | [`LabKit`](../../Assets/_Project/Scripts/Core/LabKit.cs) | the Lab's sanctioned dark "night workshop" treatment — screen-scoped tokens + baked sprites; spec: [research/ui-design-handoff-laboratory.md](../research/ui-design-handoff-laboratory.md) (session 142). Not a third project palette — nothing else may use it. |
 
 `UguiPalette` **derives** its shared semantics (accent / text / danger / healthy)
 from `HudStyles`, so the HUD and the panels move together — there is never a
