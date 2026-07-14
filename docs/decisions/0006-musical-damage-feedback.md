@@ -1,6 +1,7 @@
 # 0006 — Musical damage feedback: Unity-native conductor + runtime MIDI stingers
 
-- **Status.** Proposed
+- **Status.** Accepted (2026-07-14; implemented in session 144 — see
+  amendment in § Decision)
 - **Date.** 2026-07-14
 
 ## Context
@@ -57,6 +58,20 @@ so "trombone, D minor, off-beat" is data, not an authored wav per
 weapon × key × intensity. Prototype on the free tier; Pro is ~$65.
 Each `WeaponDefinition` gains an `InstrumentId`; the conductor's
 track metadata supplies the legal pitch set.
+
+**Amendment (as implemented, session 144).** During implementation we
+found the codebase had already shipped the note-selection layer:
+`MusicalSfx` pitch-shifts root-recorded clips along a global major
+pentatonic (within one octave, explicitly sanctioned by audio.md).
+v1 therefore rides that pattern instead of importing MPTK: one
+offline-generated root-note clip per instrument × tier, pitch chosen
+by the director at play time. This is the "pre-rendered wavs"
+alternative upgraded by the existing pitch-shift machinery — the
+combinatorics objection collapses to 12 clips total. MPTK (whose
+import needs the user's Asset Store session anyway) remains the
+upgrade path if multi-key/multi-mode flexibility is ever wanted.
+Instrument identity derives from `ProjectileKind` rather than a new
+`WeaponDefinition` field — kinds and weapons are 1:1 today.
 
 Scope guards: the layer is **client-side cosmetic only** — quantize
 delays presentation, never damage state (invariant #3-safe for MP).

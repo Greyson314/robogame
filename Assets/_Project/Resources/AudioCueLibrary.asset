@@ -301,6 +301,102 @@ MonoBehaviour:
     PitchJitter: 0.12
     Phrase: 0
     Solo: 0
+  - Cue: 52
+    Clip: {fileID: 8300000, guid: c820d4f38e872c041bf7341849f7372e, type: 3}
+    Bus: 2
+    SpatialBlend: 0
+    Volume: 0.6
+    PitchJitter: 0
+    Phrase: 0
+    Solo: 0
+  - Cue: 53
+    Clip: {fileID: 8300000, guid: abfec0c85b2c91640ba442273f213522, type: 3}
+    Bus: 2
+    SpatialBlend: 0
+    Volume: 0.7
+    PitchJitter: 0
+    Phrase: 0
+    Solo: 0
+  - Cue: 54
+    Clip: {fileID: 8300000, guid: b6e18eb4ba246f44ba9b16c100e201c5, type: 3}
+    Bus: 2
+    SpatialBlend: 0
+    Volume: 0.85
+    PitchJitter: 0
+    Phrase: 0
+    Solo: 1
+  - Cue: 55
+    Clip: {fileID: 8300000, guid: 660d3a45fefff874ea5e2bc39ed4febb, type: 3}
+    Bus: 2
+    SpatialBlend: 0
+    Volume: 0.6
+    PitchJitter: 0
+    Phrase: 0
+    Solo: 0
+  - Cue: 56
+    Clip: {fileID: 8300000, guid: 8e9c7fb735b42dd449cdd9edc742fb7a, type: 3}
+    Bus: 2
+    SpatialBlend: 0
+    Volume: 0.7
+    PitchJitter: 0
+    Phrase: 0
+    Solo: 0
+  - Cue: 57
+    Clip: {fileID: 8300000, guid: a44efdc1accb3a2458ac38129fb1cf71, type: 3}
+    Bus: 2
+    SpatialBlend: 0
+    Volume: 0.85
+    PitchJitter: 0
+    Phrase: 0
+    Solo: 1
+  - Cue: 58
+    Clip: {fileID: 8300000, guid: 562f5bfae0b30844eb8d6c9d05adfa93, type: 3}
+    Bus: 2
+    SpatialBlend: 0
+    Volume: 0.6
+    PitchJitter: 0
+    Phrase: 0
+    Solo: 0
+  - Cue: 59
+    Clip: {fileID: 8300000, guid: 1c133a1c4236f934d85014ad3c096a98, type: 3}
+    Bus: 2
+    SpatialBlend: 0
+    Volume: 0.7
+    PitchJitter: 0
+    Phrase: 0
+    Solo: 0
+  - Cue: 60
+    Clip: {fileID: 8300000, guid: be758a10ae21c9a4180ffdeefe56147f, type: 3}
+    Bus: 2
+    SpatialBlend: 0
+    Volume: 0.85
+    PitchJitter: 0
+    Phrase: 0
+    Solo: 1
+  - Cue: 61
+    Clip: {fileID: 8300000, guid: fceeb537ec375774fa000d60e967005f, type: 3}
+    Bus: 2
+    SpatialBlend: 0
+    Volume: 0.65
+    PitchJitter: 0
+    Phrase: 0
+    Solo: 0
+  - Cue: 62
+    Clip: {fileID: 8300000, guid: ddd91d42e9dd08d4f8bed4c0625daf26, type: 3}
+    Bus: 2
+    SpatialBlend: 0
+    Volume: 0.75
+    PitchJitter: 0
+    Phrase: 0
+    Solo: 0
+  - Cue: 63
+    Clip: {fileID: 8300000, guid: 730c141cf5b15084e99cce0f50ea4cfc, type: 3}
+    Bus: 2
+    SpatialBlend: 0
+    Volume: 0.85
+    PitchJitter: 0
+    Phrase: 0
+    Solo: 1
   _masterGroup: {fileID: 0}
   _sfxGroup: {fileID: 0}
   _musicGroup: {fileID: 0}

@@ -1489,6 +1489,14 @@ namespace Robogame.Gameplay
             if (scoreboard == null) scoreboard = mainCam.gameObject.AddComponent<ScoreboardOverlay>();
             if (_match != null) scoreboard.Bind(_match, _stats);
 
+            // Musical damage feedback (ADR-0006) — start the combat
+            // backing track and bind the stinger director. Both are
+            // cosmetic no-ops until the music assets are scaffolded.
+            MusicalHitDirector musicDirector = mainCam.GetComponent<MusicalHitDirector>();
+            if (musicDirector == null) musicDirector = mainCam.gameObject.AddComponent<MusicalHitDirector>();
+            musicDirector.Bind(_match, LookupSide);
+            MusicConductor.StartCombatTrack();
+
             // World-space chassis nameplates — one central overlay walks
             // the cached Robot list every OnGUI event and renders a name
             // + HP bar above each non-local chassis.

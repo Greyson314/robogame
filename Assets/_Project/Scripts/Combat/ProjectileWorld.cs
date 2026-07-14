@@ -399,6 +399,7 @@ namespace Robogame.Combat
             if (Teams.IsFriendlyFire(spec.Owner, targetRobot)) return;
             target.TakeDamage(spec.Damage);
             DamageAttribution.Report(spec.Owner, targetRobot, spec.Damage);
+            MusicalHits.Report(spec.Owner, targetRobot, spec.Kind, spec.Damage);
             if (spec.Knockback > 0f)
                 ApplyKineticKnockback(targetRobot, travelDir, spec.Knockback, spec.KnockbackSmoothed);
             HitLanded?.Invoke(spec.Owner, hit.point);
@@ -418,6 +419,7 @@ namespace Robogame.Combat
                     if (Teams.IsFriendlyFire(spec.Owner, targetRobot)) return;
                     targetRobot.Grid.ApplySplashDamage(block.GridPosition, spec.SplashRings);
                     DamageAttribution.Report(spec.Owner, targetRobot, spec.SplashRings[0]);
+                    MusicalHits.Report(spec.Owner, targetRobot, spec.Kind, spec.SplashRings[0]);
                     if (spec.Knockback > 0f)
                         ApplyKineticKnockback(targetRobot, travelDir, spec.Knockback, spec.KnockbackSmoothed);
                     HitLanded?.Invoke(spec.Owner, hit.point);
@@ -468,6 +470,7 @@ namespace Robogame.Combat
                     {
                         DamageRobotInRadius(robot, worldPoint, r2, spec.Damage);
                         DamageAttribution.Report(spec.Owner, robot, spec.Damage);
+                        MusicalHits.Report(spec.Owner, robot, spec.Kind, spec.Damage);
                         hitAny = true;
                     }
                     if (spec.Knockback > 0f)

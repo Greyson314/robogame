@@ -102,5 +102,23 @@ namespace Robogame.Core
         // remaps every authored row below the insertion point.
         // -------------------------------------------------------------
         RoundClockTick,    // one tick per displayed second during the final-10s round countdown — short dry click, urgency without alarm
+
+        // Musical damage stingers (ADR-0006). One instrument per
+        // ProjectileKind, three intensity tiers each. Clips are recorded
+        // at the global scale root; MusicalHitDirector supplies explicit
+        // pentatonic pitch at play time, so Phrase stays None and
+        // jitter 0 on all of these.
+        StingerPluckNote,       // SMG — pizzicato pluck
+        StingerPluckFlourish,
+        StingerPluckPhrase,
+        StingerBrassNote,       // cannon — bright brass stab
+        StingerBrassFlourish,
+        StingerBrassPhrase,
+        StingerPianoNote,       // mortar — the inventor-doc piano
+        StingerPianoFlourish,
+        StingerPianoPhrase,
+        StingerTimpaniNote,     // bomb — deep timpani boom
+        StingerTimpaniFlourish,
+        StingerTimpaniPhrase,
     }
 }

@@ -156,6 +156,9 @@ splashes, and rotor whines. Strategy when needed (not before):
 
 - **No FMOD / Wwise.** AudioMixer covers our needs; adding a
   middleware integration is months of work for a cosmetic upgrade.
+  Rule tested and upheld by ADR-0006 (musical damage feedback shipped
+  Unity-native); FMOD is the single sanctioned escalation if authored
+  per-key music assets ever become the bottleneck.
 - **No procedural audio synthesis.** Authored clips only. Engine
   loops can be tuned via pitch shifting on a single source.
 - **No per-frame `Camera.main` lookups** for audio listener position
@@ -184,9 +187,9 @@ splashes, and rotor whines. Strategy when needed (not before):
   cross-fade per-bus volumes for the "match-end overlay ducks SFX
   6 dB" effect. Snapshots are the canonical way; needs
   experimentation.
-- **Music system.** Layered stems vs. continuous track, intensity
-  scaling, transition crossfades — all deferred. Probably its own
-  doc when it's a real concern.
+- **Music system.** v1 shipped (ADR-0006, session 144): combat
+  backing track + beat-quantised damage stingers — see
+  [music.md](music.md). Layered stems / intensity scaling still open.
 - **Voice chat.** Out of scope until MP. When it lands, voice gets
   its own bus + push-to-talk gating; not a row in `AudioCue`.
 

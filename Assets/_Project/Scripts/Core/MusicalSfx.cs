@@ -82,6 +82,22 @@ namespace Robogame.Core
             s_lastPlay = new float[s_cueCount];
         }
 
+        /// <summary>Number of degrees on the global scale (including the octave).</summary>
+        public static int ScaleSteps => s_scale.Length;
+
+        /// <summary>
+        /// Pitch multiplier for a specific scale degree — for callers
+        /// (e.g. the stinger director, ADR-0006) that walk the
+        /// pentatonic deliberately instead of via a per-cue policy.
+        /// Steps clamp to the octave.
+        /// </summary>
+        public static float ScalePitch(int step)
+        {
+            if (step < 0) step = 0;
+            if (step >= s_scale.Length) step = s_scale.Length - 1;
+            return s_scale[step];
+        }
+
         /// <summary>
         /// Pitch multiplier for the next play of a musical cue. Callers
         /// with <see cref="MusicalPhrase.None"/> should not be here —

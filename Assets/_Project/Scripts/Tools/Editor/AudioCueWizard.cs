@@ -34,6 +34,7 @@ namespace Robogame.Tools.Editor
         public const string LibraryFolder = "Assets/_Project/Resources";
         public const string LibraryAssetPath = LibraryFolder + "/AudioCueLibrary.asset";
         public const string UsfxRoot = "Assets/Universal Sound FX";
+        public const string GeneratedRoot = "Assets/_Project/Audio/Generated";
 
         // -----------------------------------------------------------------
         // Cue → clip mapping. Ordering follows the AudioCue enum so
@@ -186,6 +187,25 @@ namespace Robogame.Tools.Editor
             // footfall; jitter so successive steps sound varied rather
             // than mechanical-repeat.
             new CueRow(AudioCue.BotStep,           "HUMAN/Footsteps/_Metal_Footsteps/FOOTSTEP_Metal_Walk_01_RR06_mono.wav",                                     AudioBus.Sfx,   spatial: 1f, vol: 0.40f, jitter: 0.12f, solo: false),
+
+            // Musical damage stingers (ADR-0006). Generated placeholder
+            // clips (see docs/subsystems/music.md) rooted at the global
+            // scale root — Assets/-rooted paths bypass the USFX root.
+            // Music bus + 2D; jitter must stay 0 (the director supplies
+            // explicit pentatonic pitch). Phrases are solo so a double
+            // kill replaces the fanfare instead of doubling it.
+            new CueRow(AudioCue.StingerPluckNote,       GeneratedRoot + "/stinger_pluck_note.wav",       AudioBus.Music, spatial: 0f, vol: 0.60f, jitter: 0f, solo: false),
+            new CueRow(AudioCue.StingerPluckFlourish,   GeneratedRoot + "/stinger_pluck_flourish.wav",   AudioBus.Music, spatial: 0f, vol: 0.70f, jitter: 0f, solo: false),
+            new CueRow(AudioCue.StingerPluckPhrase,     GeneratedRoot + "/stinger_pluck_phrase.wav",     AudioBus.Music, spatial: 0f, vol: 0.85f, jitter: 0f, solo: true),
+            new CueRow(AudioCue.StingerBrassNote,       GeneratedRoot + "/stinger_brass_note.wav",       AudioBus.Music, spatial: 0f, vol: 0.60f, jitter: 0f, solo: false),
+            new CueRow(AudioCue.StingerBrassFlourish,   GeneratedRoot + "/stinger_brass_flourish.wav",   AudioBus.Music, spatial: 0f, vol: 0.70f, jitter: 0f, solo: false),
+            new CueRow(AudioCue.StingerBrassPhrase,     GeneratedRoot + "/stinger_brass_phrase.wav",     AudioBus.Music, spatial: 0f, vol: 0.85f, jitter: 0f, solo: true),
+            new CueRow(AudioCue.StingerPianoNote,       GeneratedRoot + "/stinger_piano_note.wav",       AudioBus.Music, spatial: 0f, vol: 0.60f, jitter: 0f, solo: false),
+            new CueRow(AudioCue.StingerPianoFlourish,   GeneratedRoot + "/stinger_piano_flourish.wav",   AudioBus.Music, spatial: 0f, vol: 0.70f, jitter: 0f, solo: false),
+            new CueRow(AudioCue.StingerPianoPhrase,     GeneratedRoot + "/stinger_piano_phrase.wav",     AudioBus.Music, spatial: 0f, vol: 0.85f, jitter: 0f, solo: true),
+            new CueRow(AudioCue.StingerTimpaniNote,     GeneratedRoot + "/stinger_timpani_note.wav",     AudioBus.Music, spatial: 0f, vol: 0.65f, jitter: 0f, solo: false),
+            new CueRow(AudioCue.StingerTimpaniFlourish, GeneratedRoot + "/stinger_timpani_flourish.wav", AudioBus.Music, spatial: 0f, vol: 0.75f, jitter: 0f, solo: false),
+            new CueRow(AudioCue.StingerTimpaniPhrase,   GeneratedRoot + "/stinger_timpani_phrase.wav",   AudioBus.Music, spatial: 0f, vol: 0.85f, jitter: 0f, solo: true),
         };
 
         private readonly struct CueRow
@@ -243,7 +263,11 @@ namespace Robogame.Tools.Editor
             for (int i = 0; i < s_rows.Length; i++)
             {
                 CueRow row = s_rows[i];
-                string clipPath = $"{UsfxRoot}/{row.PathRel}";
+                // Assets/-rooted rows (generated music clips) resolve as-is;
+                // everything else is USFX-relative.
+                string clipPath = row.PathRel.StartsWith("Assets/")
+                    ? row.PathRel
+                    : $"{UsfxRoot}/{row.PathRel}";
                 AudioClip clip = AssetDatabase.LoadAssetAtPath<AudioClip>(clipPath);
                 if (clip == null)
                 {
@@ -313,7 +337,10 @@ namespace Robogame.Tools.Editor
                 CueRow row = s_rows[i];
                 AudioCueLibrary.Entry entry = lib.Find(row.Cue);
                 if (entry == null) return true;
-                AudioClip expected = AssetDatabase.LoadAssetAtPath<AudioClip>($"{UsfxRoot}/{row.PathRel}");
+                string clipPath = row.PathRel.StartsWith("Assets/")
+                    ? row.PathRel
+                    : $"{UsfxRoot}/{row.PathRel}";
+                AudioClip expected = AssetDatabase.LoadAssetAtPath<AudioClip>(clipPath);
                 if (entry.Clip != expected) return true;
             }
             return false;

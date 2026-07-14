@@ -219,6 +219,52 @@ namespace Robogame.Core
             s_instance.PlayOneShotInternal(cue, Vector3.zero);
         }
 
+        /// <summary>
+        /// Schedule a 2D one-shot at an exact DSP time with an explicit
+        /// pitch — the stinger path (ADR-0006). The caller (the music
+        /// director) owns quantisation and note choice;
+        /// <paramref name="pitchMultiplier"/> bypasses both the jitter
+        /// and the per-cue <see cref="MusicalPhrase"/> policy.
+        /// </summary>
+        public static void PlayScheduled(AudioCue cue, double dspTime,
+            float pitchMultiplier, float volumeScale = 1f)
+        {
+            EnsureBootstrap();
+            if (s_instance == null) return;
+            s_instance.PlayScheduledInternal(cue, dspTime, pitchMultiplier, volumeScale);
+        }
+
+        private void PlayScheduledInternal(AudioCue cue, double dspTime,
+            float pitchMultiplier, float volumeScale)
+        {
+            AudioCueLibrary.Entry entry = ResolveEntry(cue);
+            if (entry == null || entry.Clip == null) { LogMissingOnce(cue); return; }
+            if (entry.Solo) StopMatchingOneShots(cue);
+
+            int idx = AcquireVoice();
+            AudioSource src = _voices[idx];
+            ConfigureSource(src, entry);
+            src.pitch = pitchMultiplier;
+            src.volume *= volumeScale;
+            src.transform.position = Vector3.zero;   // stingers are 2D
+            src.PlayScheduled(dspTime);
+
+            // TRACE[ADR-0006]: ExpireAt must include the DSP-side wait —
+            // the pool would otherwise reclaim the voice before its
+            // scheduled start.
+            double wait = dspTime - AudioSettings.dspTime;
+            if (wait < 0) wait = 0;
+            float life = entry.Clip.length / Mathf.Max(0.01f, src.pitch);
+            _voiceStates[idx] = new VoiceState
+            {
+                InUse = true,
+                Cue = cue,
+                Bus = entry.Bus,
+                BaseVolume = entry.Volume * volumeScale,
+                ExpireAt = Time.unscaledTime + (float)wait + life + 0.05f,
+            };
+        }
+
         private void PlayOneShotInternal(AudioCue cue, Vector3 worldPosition)
         {
             AudioCueLibrary.Entry entry = ResolveEntry(cue);
