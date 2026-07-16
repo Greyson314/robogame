@@ -174,28 +174,20 @@ def gen_track():
     drone = (drone + fifth) * swell
     mix += normalize(drone, 0.30)
 
-    # War drums: tom = swept sine + noise snap.
-    def tom(freq, dur, punch):
-        tt = t_axis(dur)
-        f = freq * (1 + 0.8 * np.exp(-tt * 25))
-        ph = 2 * np.pi * np.cumsum(f) / SR
-        d = np.sin(ph) * np.exp(-tt * (4.5 / dur) * 1.2)
-        rng = np.random.default_rng(int(freq * 13))
-        d += rng.uniform(-1, 1, len(tt)) * np.exp(-tt * 120) * punch
-        return d * env_ad(len(tt), 0.001, dur * 0.6)
-
+    # War timpani: tuned kettledrums on D/A (same timpani() voice as the bomb
+    # stingers) so the drum bed rings in key with the drone instead of thudding.
     drums = np.zeros(total_samples)
     for bar in range(bars):
         b0 = bar * beats_per_bar * spb
-        place(drums, tom(65, 0.8, 0.5) * 1.0, b0)                       # big downbeat
-        place(drums, tom(90, 0.45, 0.4) * 0.75, b0 + 2 * spb)           # beat 3
-        place(drums, tom(110, 0.3, 0.3) * 0.5, b0 + 1 * spb)            # beat 2
-        place(drums, tom(110, 0.3, 0.3) * 0.55, b0 + 3 * spb)           # beat 4
-        place(drums, tom(130, 0.2, 0.5) * 0.4, b0 + 3.5 * spb)          # & of 4 push
-        if bar % 4 == 3:                                                # fill into next phrase
-            for k in range(4):
-                place(drums, tom(100 + 30 * k, 0.18, 0.5) * (0.35 + 0.13 * k),
-                      b0 + (3.0 + 0.25 * k) * spb)
+        place(drums, timpani(D2, 1.6, sweep=1.6) * 1.0, b0)             # big downbeat, long ring
+        place(drums, timpani(A2, 1.0, sweep=1.4) * 0.7, b0 + 2 * spb)   # beat 3 on the fifth
+        place(drums, timpani(D3, 0.6, sweep=1.3) * 0.45, b0 + 1 * spb)  # beat 2
+        place(drums, timpani(D3, 0.6, sweep=1.3) * 0.5, b0 + 3 * spb)   # beat 4
+        place(drums, timpani(A3, 0.4, sweep=1.3) * 0.35, b0 + 3.5 * spb)  # & of 4 push
+        if bar % 4 == 3:                                                # timpani roll into next phrase
+            for k in range(8):
+                place(drums, timpani(D2, 0.35, sweep=1.25) * (0.25 + 0.09 * k),
+                      b0 + (3.0 + k / 8) * spb)
     mix += normalize(drums, 0.62)
 
     # Faint taiko rim ticks on off-beat 8ths — the grid players will sting against.
