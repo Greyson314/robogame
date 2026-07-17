@@ -1,0 +1,20 @@
+fileFormatVersion: 2
+guid: d0617ef3df5416c4d92d54b92a6e449d
+timeCreated: 1572417082
+licenseType: Store
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProDemos/Script/EuclideSeq/TextSlider.cs
+  uploadId: 945800

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: dde02ab2dd62ad1439b8e813843af04f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/FreeMVP/MatShadowAndTransparency.mat
+  uploadId: 945800

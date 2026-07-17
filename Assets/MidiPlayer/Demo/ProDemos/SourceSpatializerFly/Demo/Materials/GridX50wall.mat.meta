@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 195cc7d373fdfe046bcddfb8866811cb
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProDemos/SourceSpatializerFly/Demo/Materials/GridX50wall.mat
+  uploadId: 945800

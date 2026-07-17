@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 7537f1e0153a8594a887bab3381d350c
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProDemos/Script/EuclideSeq/Material/HitDisabled.mat
+  uploadId: 945800

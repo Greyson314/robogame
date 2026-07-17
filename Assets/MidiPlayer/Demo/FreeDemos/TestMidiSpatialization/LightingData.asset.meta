@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a76e1855cb615124f8881bfcf8056992
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 25800000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/FreeDemos/TestMidiSpatialization/LightingData.asset
+  uploadId: 945800

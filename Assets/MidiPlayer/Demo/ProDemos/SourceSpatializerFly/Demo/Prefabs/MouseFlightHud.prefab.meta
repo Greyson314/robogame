@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 16580bf03b0b2cd43a91d480153f3fa0
+timeCreated: 1546748880
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProDemos/SourceSpatializerFly/Demo/Prefabs/MouseFlightHud.prefab
+  uploadId: 945800

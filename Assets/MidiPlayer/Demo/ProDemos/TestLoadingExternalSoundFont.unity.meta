@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: c35399294880a0047900ad71a799e698
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProDemos/TestLoadingExternalSoundFont.unity
+  uploadId: 945800

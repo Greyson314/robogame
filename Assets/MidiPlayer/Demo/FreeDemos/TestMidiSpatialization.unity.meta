@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: c7a53b06f7a1b754a9694f2101fdc4c1
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/FreeDemos/TestMidiSpatialization.unity
+  uploadId: 945800

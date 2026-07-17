@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 9caac03f5ccbd5640be46fadf9127da7
+AssemblyDefinitionImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/MidiPlayer.Demo.asmdef
+  uploadId: 945800

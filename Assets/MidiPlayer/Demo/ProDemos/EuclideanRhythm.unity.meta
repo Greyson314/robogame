@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: dc8bb498192ce6649a5ad378dfbc429d
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProDemos/EuclideanRhythm.unity
+  uploadId: 945800

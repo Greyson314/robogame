@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 482a72f78627d5042a6c7ac933bb722b
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProDemos/SourceSpatializerFly/Demo/Scripts/Hud.cs
+  uploadId: 945800

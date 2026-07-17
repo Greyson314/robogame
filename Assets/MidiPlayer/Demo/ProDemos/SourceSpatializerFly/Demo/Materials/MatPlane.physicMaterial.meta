@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 930511e30cbf6864485f9e1ce108dfd0
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 13400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProDemos/SourceSpatializerFly/Demo/Materials/MatPlane.physicMaterial
+  uploadId: 945800

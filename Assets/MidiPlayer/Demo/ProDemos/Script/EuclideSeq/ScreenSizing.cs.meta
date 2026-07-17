@@ -1,0 +1,20 @@
+fileFormatVersion: 2
+guid: 1e4dcf93fce1b774096a9b6673a68aa5
+timeCreated: 1573022147
+licenseType: Store
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProDemos/Script/EuclideSeq/ScreenSizing.cs
+  uploadId: 945800

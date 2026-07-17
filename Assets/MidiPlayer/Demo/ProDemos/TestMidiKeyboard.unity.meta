@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 234c7dabb2152de4bb51e5fed70a245a
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProDemos/TestMidiKeyboard.unity
+  uploadId: 945800

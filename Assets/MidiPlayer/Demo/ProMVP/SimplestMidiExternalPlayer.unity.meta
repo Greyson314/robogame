@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8870b649ac1ff2247a4a9d23a0154eca
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProMVP/SimplestMidiExternalPlayer.unity
+  uploadId: 945800

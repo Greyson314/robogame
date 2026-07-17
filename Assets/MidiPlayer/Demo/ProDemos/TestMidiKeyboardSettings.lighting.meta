@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: a0a1c2efcf714484f805f9c936b1212c
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 4890085278179872738
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProDemos/TestMidiKeyboardSettings.lighting
+  uploadId: 945800

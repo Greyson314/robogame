@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 20dddf1c73edf8b43a45ac49c16cb892
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProDemos/SourceSpatializerFly/Demo/Scenes/DemoFlight.unity
+  uploadId: 945800

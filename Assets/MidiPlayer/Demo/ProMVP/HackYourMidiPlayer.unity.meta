@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 375a2da15e8b15e43b0337962b2fa824
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProMVP/HackYourMidiPlayer.unity
+  uploadId: 945800

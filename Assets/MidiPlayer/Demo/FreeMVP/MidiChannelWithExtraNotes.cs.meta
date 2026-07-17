@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: fe71df9f41a12e34888ae0673e4a55d9
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/FreeMVP/MidiChannelWithExtraNotes.cs
+  uploadId: 945800

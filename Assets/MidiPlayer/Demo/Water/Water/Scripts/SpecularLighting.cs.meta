@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: de2ab2b9ac93bb544b9552e49030371b
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/Water/Water/Scripts/SpecularLighting.cs
+  uploadId: 945800

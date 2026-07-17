@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: f781dbc56deff5949817d8d9b00d0fc3
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProDemos/TestOboe.unity
+  uploadId: 945800

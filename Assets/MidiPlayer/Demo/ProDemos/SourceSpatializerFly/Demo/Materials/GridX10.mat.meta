@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ef5066ddcad12b04dbaae7a32a4f2ed6
+timeCreated: 1508715831
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: -1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProDemos/SourceSpatializerFly/Demo/Materials/GridX10.mat
+  uploadId: 945800

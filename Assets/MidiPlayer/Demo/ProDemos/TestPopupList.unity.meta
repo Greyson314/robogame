@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 73e16144ea64a9442afecad7d719228d
+timeCreated: 1544685634
+licenseType: Store
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProDemos/TestPopupList.unity
+  uploadId: 945800

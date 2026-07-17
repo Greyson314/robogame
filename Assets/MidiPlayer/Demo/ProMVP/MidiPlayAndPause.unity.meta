@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 382382515bed64841a70c5a37d142e0a
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/ProMVP/MidiPlayAndPause.unity
+  uploadId: 945800

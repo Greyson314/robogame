@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: ceb63b2dd532dd441a67e70830492731
+timeCreated: 1528797105
+licenseType: Store
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 115331
+  packageName: Maestro - Midi Player Tool Kit - Pro
+  packageVersion: 2.20.0
+  assetPath: Assets/MidiPlayer/Demo/FreeDemos/SourceCatchMusic/Material/Played.mat
+  uploadId: 945800
