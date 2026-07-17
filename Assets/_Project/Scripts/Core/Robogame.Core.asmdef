@@ -1,7 +1,10 @@
 {
     "name": "Robogame.Core",
     "rootNamespace": "Robogame.Core",
-    "references": [],
+    "references": [
+        "FMODUnity",
+        "MidiPlayer.Run"
+    ],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,

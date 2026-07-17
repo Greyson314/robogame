@@ -77,6 +77,15 @@ namespace Robogame.Gameplay
         private int _lastOutgoingInstrument = 1;   // brass — the default kill voice
         private int _pentStep;                     // note-tier walk up the scale
 
+        // Combat heat → backing-track intensity (ADR-0007). Any musical
+        // hit in either direction adds heat; heat decays exponentially,
+        // so the track escalates while a brawl is live and cools when it
+        // ends. Purely cosmetic — nothing reads this back into gameplay.
+        private const float HeatHalfLifeSeconds = 4f;
+        private const float HeatPerKill = 80f;
+        private const float HeatAtFullIntensity = 90f;   // sustained-brawl damage scale
+        private float _heat;
+
         public void Bind(MatchController match, Func<Robot, MatchSide> sideLookup)
         {
             if (_match != null) _match.KillRegistered -= HandleKill;
@@ -113,16 +122,19 @@ namespace Robogame.Gameplay
             {
                 Accumulate(_outgoing, instrument, amount, OffbeatOffsetBeats);
                 _lastOutgoingInstrument = instrument;
+                _heat += amount;
             }
             else if (attackerSide == MatchSide.Enemy && victimSide == MatchSide.Player)
             {
                 Accumulate(_incoming, instrument, amount, OffbeatOffsetBeats);
+                _heat += amount;
             }
         }
 
         private void HandleKill(MatchSide killerSide, MatchSide victimSide)
         {
             if (!MusicConductor.IsPlaying) return;
+            _heat += HeatPerKill;
             // Player lands a kill → last-used instrument sings the full
             // phrase ON the beat (weight over syncopation). Player dies →
             // the dark mirror: timpani phrase, octave down.
@@ -160,6 +172,12 @@ namespace Robogame.Gameplay
         private void Update()
         {
             if (!MusicConductor.IsPlaying) return;
+
+            // Exponential heat decay: half-life form so the fall-off is
+            // frame-rate independent.
+            _heat *= Mathf.Pow(0.5f, Time.unscaledDeltaTime / HeatHalfLifeSeconds);
+            MusicConductor.SetIntensity(2f * (_heat / HeatAtFullIntensity));
+
             double now = AudioSettings.dspTime;
             Flush(_outgoing, now, incoming: false);
             Flush(_incoming, now, incoming: true);
@@ -176,19 +194,29 @@ namespace Robogame.Gameplay
                 AudioCue cue = s_cues[i, (int)tier];
 
                 // Note tier walks the pentatonic (a volley climbs the
-                // scale); flourish / phrase clips are baked runs in key
-                // and play at root. Incoming drops everything an octave.
-                float pitch;
-                if (incoming) pitch = IncomingPitch;
-                else if (tier == MusicMath.StingerTier.Note)
-                {
+                // scale); flourish / phrase are runs in key. Incoming
+                // drops everything an octave. Preferred voice is the
+                // MPTK soundfont synth (real timbres, ADR-0007); the
+                // baked-WAV pitch-shift path remains the fallback until
+                // a soundfont is imported.
+                if (tier == MusicMath.StingerTier.Note && !incoming)
                     _pentStep = (_pentStep + 1) % MusicalSfx.ScaleSteps;
-                    pitch = MusicalSfx.ScalePitch(_pentStep);
-                }
-                else pitch = 1f;
 
-                AudioRouter.PlayScheduled(cue, b.SlotDsp, pitch,
-                    incoming ? IncomingVolumeScale : 1f);
+                if (MusicMidi.IsAvailable)
+                {
+                    MusicMidi.PlayStinger(i, tier, _pentStep, incoming, b.SlotDsp,
+                        incoming ? IncomingVolumeScale : 1f);
+                }
+                else
+                {
+                    float pitch;
+                    if (incoming) pitch = IncomingPitch;
+                    else if (tier == MusicMath.StingerTier.Note) pitch = MusicalSfx.ScalePitch(_pentStep);
+                    else pitch = 1f;
+
+                    AudioRouter.PlayScheduled(cue, b.SlotDsp, pitch,
+                        incoming ? IncomingVolumeScale : 1f);
+                }
                 b = default;
             }
         }

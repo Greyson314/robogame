@@ -1,8 +1,9 @@
 # Robogame — Combat Music & Musical Damage Feedback
 
-> **Status.** v1 shipped (session 144, ADR-0006). Backing track +
-> beat-quantised instrument stingers live in arenas; clips are
-> generated placeholders awaiting a real audio pass.
+> **Status.** v2 shipped (session 145, ADR-0007): FMOD Core plays the
+> backing track as intensity-layer stems, beat grid re-anchored across
+> the two clocks. Stinger timbres remain generated placeholders until
+> a soundfont is imported for the MPTK path (built, gated, unheard).
 
 ## What this is
 
@@ -14,12 +15,25 @@ Rationale and alternatives: [ADR-0006](../decisions/0006-musical-damage-feedback
 
 ## Architecture
 
-- **`MusicConductor`** (Core) — owns the backing track. Starts it via
-  `PlayScheduled` so the grid is `startDsp + n × (60/BPM)` arithmetic
-  on `AudioSettings.dspTime`. `NextSlotDsp(subdivision, offset, lead)`
-  answers quantise queries; off-beat 8th = `(1, 0.5, …)`. Stops itself
-  on scene unload. Track metadata: `MusicTrackDefinition` at
-  `Resources/Music/CombatTrack.asset`.
+- **`MusicConductor`** (Core) — owns the backing track, two backends
+  (ADR-0007). Preferred: **FMOD Core** plays the intensity-layer stems
+  from `StreamingAssets/Music/` as channels released by one shared
+  `setDelay` tick (sample-locked); `SetIntensity(0..2)` fades layer 2
+  over 0→1 and layer 3 over 1→2 (fast rise, slow fall). Fallback:
+  single clip via `PlayScheduled` (v1). Either way the grid is
+  `startDsp + n × (60/BPM)` arithmetic on `AudioSettings.dspTime`;
+  in FMOD mode `startDsp` is the FMOD start tick mapped through
+  **`MusicClock`** (Core, pure) — the two-clocks offset estimator
+  (warmup mean, then clamped-innovation EMA; `MusicClockTests`).
+  `NextSlotDsp(subdivision, offset, lead)` answers quantise queries;
+  off-beat 8th = `(1, 0.5, …)`; returns −1 while the bridge warms up
+  (~8 frames). Stops on scene unload. Track metadata + stem list:
+  `MusicTrackDefinition` at `Resources/Music/CombatTrack.asset`.
+- **`MusicMidi`** (Core) — MPTK soundfont voice for stingers: one
+  synth channel per instrument (GM pizzicato/brass/piano/timpani),
+  runs as note tables in the same D pentatonic. Active only when
+  `MPTK_SoundFontLoaded`; otherwise the director stays on the WAV
+  path. ms-delay scheduling — synth-buffer accurate, not sample-exact.
 - **`MusicalHits`** (Combat) — static fan-in, sibling of
   `DamageAttribution` but carrying `ProjectileKind`. Reported from
   `ProjectileWorld`'s three damage paths (direct / ring / area).
@@ -50,12 +64,14 @@ cannon → brass, mortar → piano, bomb → timpani.
 
 ## Regenerating the placeholder assets
 
-Clips are synthesised offline (audio.md forbids *runtime* synthesis;
-authored clips are authored, however they were born):
+Clips are synthesised offline:
 [`artgen/gen_music_assets.py`](../../artgen/gen_music_assets.py)
-(python + numpy) writes WAVs into `Assets/_Project/Audio/Generated/`,
-then **Robogame → Scaffold → Music → Build Combat Music** wires the
-track asset and cue rows. Replacing placeholders with real recordings
+(python + numpy) writes stinger WAVs + the fallback track into
+`Assets/_Project/Audio/Generated/` and the three intensity stems
+(bed / strings / brass, identical sample-exact length) into
+`Assets/StreamingAssets/Music/`, then **Robogame → Scaffold → Music →
+Build Combat Music** wires the track asset (clip + stem list) and cue
+rows. Replacing placeholders with real recordings
 is a pure asset swap: drop in same-named files (or edit the wizard
 rows), respect the root-note contract, rebuild.
 
@@ -69,10 +85,17 @@ quantisation delays presentation, never damage.
 
 ## Known gaps / next steps
 
-- Placeholder timbre: synthesised approximations, not orchestral
-  samples. Swap path above; FMOD is the sanctioned escalation if
-  authored-per-key assets become the bottleneck (ADR-0006).
+- **No soundfont imported yet** — the MPTK stinger path is built but
+  dormant (and unheard). Import one via Maestro's SoundFont Setup
+  window (Menu → Maestro); `MusicMidi` activates itself. Until then
+  stingers stay on the placeholder WAVs.
+- MPTK note timing (ms-delay, synth-buffer accuracy) and synth CPU
+  cost are unverified with a live soundfont — profile on first use
+  (INV-7).
+- FMOD Studio desktop app isn't installed; authored events/banks
+  (transition regions, snapshots, per-arena reverb) are the upgrade
+  path from Core channels when it is (ADR-0007).
 - Tip weapons (hook/mace), rams and drills don't report musical hits
   yet — `MusicalHits.Report` at their damage sites when wanted.
 - Kill "wahoo!" cartoon animation hook (ADR-0006 Notes) — not built.
-- Track intensity layers / garage theme — out of scope for v1.
+- Garage theme — still out of scope.

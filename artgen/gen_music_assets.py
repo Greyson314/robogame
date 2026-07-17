@@ -13,6 +13,9 @@ import os
 
 SR = 44100
 OUT = r"C:\Users\Grey\Desktop\mutedtuple\robogame\Assets\_Project\Audio\Generated"
+# Intensity-layer stems live in StreamingAssets so FMOD Core can stream
+# them from disk at runtime (they are not Unity AudioClips).
+STREAM_OUT = r"C:\Users\Grey\Desktop\mutedtuple\robogame\Assets\StreamingAssets\Music"
 
 D1, D2, D3, D4, D5 = 36.708, 73.416, 146.832, 293.665, 587.330
 A2, A3, A4 = 110.0, 220.0, 440.0
@@ -33,9 +36,10 @@ def normalize(x, peak=0.85):
     m = np.max(np.abs(x))
     return x * (peak / m) if m > 0 else x
 
-def write_wav(name, data, stereo=False):
-    os.makedirs(OUT, exist_ok=True)
-    path = os.path.join(OUT, name)
+def write_wav(name, data, stereo=False, out_dir=None):
+    out_dir = out_dir or OUT
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, name)
     pcm = (np.clip(data, -1, 1) * 32767).astype(np.int16)
     with wave.open(path, "wb") as w:
         w.setnchannels(2 if stereo else 1)
@@ -99,6 +103,18 @@ def timpani(freq, dur=1.3, sweep=1.5):
     out += rng.uniform(-1, 1, len(t)) * np.exp(-t * 90) * 0.6
     return out * env_ad(len(t), 0.002, dur * 0.5)
 
+def strings(freq, dur, attack=0.06):
+    """Detuned saw ensemble with a soft bow attack — the layer-2 stem voice."""
+    t = t_axis(dur)
+    out = np.zeros_like(t)
+    rng = np.random.default_rng(int(freq * 3))
+    for det_cents in (-1.7, -0.6, 0.5, 1.4):
+        f = freq * (1 + det_cents / 1200)
+        ph = 2 * np.pi * f * t + rng.uniform(0, 2 * np.pi)
+        for h in range(1, 10):
+            out += np.sin(h * ph) / (h ** 1.3)
+    return out * env_ad(len(t), attack, dur * 0.7)
+
 INSTR = {"pluck": pluck, "brass": brass, "piano": piano, "timpani": timpani}
 ROOT = {"pluck": D4, "brass": D3, "piano": D4, "timpani": D2}
 
@@ -154,6 +170,12 @@ def gen_stingers():
 
 # ---------------------------------------------------------------- backing track
 
+def haas_stereo(mix):
+    """Tiny Haas offset for width; returns an (n, 2) stereo array."""
+    off = int(0.0006 * SR)
+    right = np.concatenate([np.zeros(off), mix[:-off]])
+    return np.column_stack([mix, right])
+
 def gen_track():
     bpm, bars, beats_per_bar = 100, 8, 4
     spb = 60.0 / bpm
@@ -197,12 +219,44 @@ def gen_track():
         tick = rng.uniform(-1, 1, int(0.03 * SR)) * env_ad(int(0.03 * SR), 0.001, 0.01)
         place(mix, tick * 0.05, at)
 
-    mix = normalize(mix, 0.8)
-    # Stereo: tiny Haas offset for width.
-    off = int(0.0006 * SR)
-    left = mix
-    right = np.concatenate([np.zeros(off), mix[:-off]])
-    write_wav("track_warpulse_100bpm.wav", np.column_stack([left, right]), stereo=True)
+    bed = normalize(mix, 0.8)
+    # Legacy single-file track — the conductor's Unity-AudioSource
+    # fallback when FMOD stems are unavailable. Identical to the bed.
+    write_wav("track_warpulse_100bpm.wav", haas_stereo(bed), stereo=True)
+    write_wav("stem_bed.wav", haas_stereo(bed), stereo=True, out_dir=STREAM_OUT)
+
+    # Layer 2 — low-string ostinato: driving 8ths on D2, answering A2 on
+    # beat 3, an F#2 pickup lifting into odd bars. Enters at intensity > 0.
+    st = np.zeros(total_samples)
+    F2s = D2 * 1.25992   # F#2, the pentatonic third
+    for bar in range(bars):
+        b0 = bar * beats_per_bar * spb
+        for eighth in range(beats_per_bar * 2):
+            at = b0 + eighth * spb * 0.5
+            on_beat = eighth % 2 == 0
+            freq = A2 if eighth in (4, 5) else D2
+            if bar % 2 == 1 and eighth == 7:
+                freq = F2s
+            gain = 0.9 if on_beat else 0.55
+            place(st, strings(freq, 0.26, attack=0.02) * gain, at)
+    write_wav("stem_strings.wav", haas_stereo(normalize(st, 0.55)), stereo=True, out_dir=STREAM_OUT)
+
+    # Layer 3 — brass stabs on beats 1 and 3 (D3 + A2 double-stop), with
+    # a held swell opening each 4-bar phrase. Enters at intensity > 1.
+    br = np.zeros(total_samples)
+    for bar in range(bars):
+        b0 = bar * beats_per_bar * spb
+        if bar % 4 == 0:
+            place(br, brass(D3, 1.6, attack=0.25) * 0.9, b0)
+            place(br, brass(A3, 1.6, attack=0.25) * 0.45, b0)
+        else:
+            place(br, brass(D3, 0.5) * 0.85, b0)
+            place(br, brass(A2, 0.5) * 0.5, b0)
+        place(br, brass(D3, 0.4) * 0.7, b0 + 2 * spb)
+        place(br, brass(A2, 0.4) * 0.45, b0 + 2 * spb)
+        if bar % 2 == 1:                                   # pickup 8th into the next bar
+            place(br, brass(A2, 0.25) * 0.5, b0 + 3.5 * spb)
+    write_wav("stem_brass.wav", haas_stereo(normalize(br, 0.6)), stereo=True, out_dir=STREAM_OUT)
 
 gen_stingers()
 gen_track()

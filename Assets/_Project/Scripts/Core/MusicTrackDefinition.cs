@@ -24,6 +24,11 @@ namespace Robogame.Core
 
         public AudioClip Clip;
 
+        [Tooltip("Intensity-layer stems, StreamingAssets-relative, quietest first (bed, +layer2, +layer3). " +
+                 "When present and readable, FMOD Core plays these sample-synced instead of the single Clip; " +
+                 "each must be rendered at exactly the same length as the Clip. Empty → Unity AudioSource fallback.")]
+        public string[] StemFiles;
+
         [Tooltip("Authored tempo. The beat grid is derived from this + the DSP start time; it is never re-measured from playback.")]
         [Min(20f)] public float Bpm = 100f;
 

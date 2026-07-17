@@ -49,6 +49,15 @@ namespace Robogame.Tools.Editor
             def.Bpm = Bpm;
             def.BeatsPerBar = BeatsPerBar;
             def.Volume = Volume;
+            // TRACE[ADR-0007]: intensity-layer stems for the FMOD backend,
+            // StreamingAssets-relative, quietest first. Same generator, same
+            // exact loop length as the fallback clip.
+            def.StemFiles = new[]
+            {
+                "Music/stem_bed.wav",
+                "Music/stem_strings.wav",
+                "Music/stem_brass.wav",
+            };
             EditorUtility.SetDirty(def);
             AssetDatabase.SaveAssets();
 

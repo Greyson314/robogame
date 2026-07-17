@@ -154,13 +154,17 @@ splashes, and rotor whines. Strategy when needed (not before):
 
 ### What we will NOT do
 
-- **No FMOD / Wwise.** AudioMixer covers our needs; adding a
-  middleware integration is months of work for a cosmetic upgrade.
-  Rule tested and upheld by ADR-0006 (musical damage feedback shipped
-  Unity-native); FMOD is the single sanctioned escalation if authored
-  per-key music assets ever become the bottleneck.
-- **No procedural audio synthesis.** Authored clips only. Engine
-  loops can be tuned via pitch shifting on a single source.
+- **No Wwise, and no FMOD *Studio bank authoring*.** Amended by
+  ADR-0007: the FMOD Unity runtime is in — FMOD Core plays the combat
+  backing track's intensity-layer stems (music.md). Authored FMOD
+  Studio events/banks stay out until the Studio desktop app is
+  actually installed and a need survives ADR review. SFX stay on the
+  AudioMixer.
+- **No procedural audio synthesis of SFX.** Authored clips only for
+  sound effects; engine loops can be tuned via pitch shifting on a
+  single source. Amended by ADR-0007 for *music*: sampler playback of
+  authored material (MPTK soundfont stingers, FMOD-played stems) is
+  sanctioned — the material is authored, the sampler just pitches it.
 - **No per-frame `Camera.main` lookups** for audio listener position
   (cf. performance.md § 2.4).
 

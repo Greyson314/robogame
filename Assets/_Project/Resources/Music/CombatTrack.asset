@@ -13,6 +13,10 @@ MonoBehaviour:
   m_Name: CombatTrack
   m_EditorClassIdentifier: Robogame.Core::Robogame.Core.MusicTrackDefinition
   Clip: {fileID: 8300000, guid: 98de9d4615382ce4aa8c4c9895d8abd5, type: 3}
+  StemFiles:
+  - Music/stem_bed.wav
+  - Music/stem_strings.wav
+  - Music/stem_brass.wav
   Bpm: 100
   BeatsPerBar: 4
   Volume: 0.55
