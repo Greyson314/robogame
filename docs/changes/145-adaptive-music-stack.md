@@ -54,5 +54,12 @@ ADR-0007 written and accepted.
   authoring deferred; Core channels deliver layering meanwhile.
 - To hear real stinger timbres: import a soundfont via Maestro's
   SoundFont Setup, then profile MPTK synth CPU + timing (INV-7).
-- Rotor-Tower perf soak still pending from 144; FMOD adds one native
-  mixer + 3 sample channels (predicted small; unprofiled).
+- Perf, measured in-arena with music + both layers active (INV-7):
+  CPU frame 3.0 ms / main thread 2.4 ms (budget < 8 ms); 1000
+  invocations of MusicConductor.Update + MusicalHitDirector.Update =
+  0 B allocated, ~1.1 µs per pair incl. reflection overhead. Within
+  budget. Rotor-Tower stress soak still pending from 144.
+- Editor Game-view Mute button didn't reach FMOD's native output
+  (integration's mirror needs a Studio master bank we don't load) —
+  conductor now mirrors `EditorUtility.audioMasterMute` onto the
+  music channel group, editor-only; verified live.

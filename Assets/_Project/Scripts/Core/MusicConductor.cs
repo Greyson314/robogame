@@ -63,6 +63,9 @@ namespace Robogame.Core
 
         private float _intensity;           // smoothed, 0..2
         private float _intensityTarget;
+#if UNITY_EDITOR
+        private bool _editorMuted;
+#endif
         private const float IntensityRiseSpeed = 1.5f;   // /s — escalate fast
         private const float IntensityFallSpeed = 0.35f;  // /s — cool down slow
 
@@ -234,6 +237,19 @@ namespace Robogame.Core
         private void Update()
         {
             if (!_playing || !_fmodMode || !_fmodHandlesLive) return;
+
+#if UNITY_EDITOR
+            // Mirror the Game view's Mute Audio button onto the FMOD group.
+            // FMOD's native output bypasses Unity's mute entirely, and the
+            // integration's own mirror (RuntimeManager) needs a Studio master
+            // bank we don't load (ADR-0007 runs bank-less Core channels).
+            bool muted = UnityEditor.EditorUtility.audioMasterMute;
+            if (muted != _editorMuted)
+            {
+                _editorMuted = muted;
+                _fmodGroup.setMute(muted);
+            }
+#endif
 
             ulong clock, parent;
             if (_fmodMaster.getDSPClock(out clock, out parent) == FMOD.RESULT.OK)
