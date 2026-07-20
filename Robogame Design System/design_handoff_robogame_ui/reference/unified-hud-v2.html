@@ -1,0 +1,133 @@
+<!-- @dsCard group="Unified" viewport="700x400" name="Unified HUD v2 — Combined" subtitle="Variant A layout + C's ammo pips & Fondamento secondary" -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&family=Cardo:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 700px; height: 400px; overflow: hidden;
+    background:
+      repeating-linear-gradient(0deg, rgba(51,44,33,0.035) 0 1px, transparent 1px 28px),
+      repeating-linear-gradient(90deg, rgba(51,44,33,0.025) 0 1px, transparent 1px 28px),
+      radial-gradient(ellipse at 45% 15%, #F6F0E0 0%, #EDE4CC 65%, #E1D5B6 100%);
+    color: #2E2820; font-family: 'Yuji Syuku', serif; position: relative;
+  }
+  a { color: #C33D1F; } a:hover { color: #2E2820; }
+  .anno { font-family: 'Cardo', serif; font-style: italic; font-size: 13.5px; color: #6E6350; }
+  .num { font-style: normal; letter-spacing: 0.02em; }
+  .reg { position: absolute; width: 12px; height: 12px; }
+  .reg::before, .reg::after { content: ""; position: absolute; background: #2E2820; opacity: 0.45; }
+  .reg::before { left: 6px; top: 0; width: 1px; height: 12px; }
+  .reg::after { top: 6px; left: 0; height: 1px; width: 12px; }
+  .vitals { position: absolute; left: 30px; top: 24px; width: 280px; }
+  .vitals label { font-size: 15px; letter-spacing: 0.08em; }
+  .washbar { position: relative; margin: 4px 0 11px; height: 20px; }
+  .washbar .marks { position: absolute; inset: 0; display: flex; border-bottom: 1px solid rgba(46,40,32,0.5); }
+  .washbar .marks i { flex: 1; border-right: 1px solid rgba(46,40,32,0.3); }
+  .washbar .marks i:last-child { border-right: 0; }
+  .washbar .wash { position: absolute; left: 0; bottom: 1px; height: 16px;
+    border-radius: 3px 45% 4px 50% / 55% 6px 60% 8px; transform: rotate(-0.4deg); }
+  .hull .wash { width: 58%; background: linear-gradient(90deg, rgba(33,29,23,0.92), rgba(33,29,23,0.65) 74%, rgba(33,29,23,0.2) 95%, rgba(33,29,23,0.05)); }
+  .wind .wash { width: 82%; background: linear-gradient(90deg, rgba(74,110,126,0.8), rgba(74,110,126,0.4) 82%, rgba(74,110,126,0.08)); }
+  .hull .needle { position: absolute; left: 58%; top: -3px; height: 24px; width: 2px; background: #C33D1F; }
+  .washpanel { position: absolute; right: 30px; top: 24px; width: 224px; padding: 13px 15px 11px;
+    background: linear-gradient(135deg, rgba(74,110,126,0.16), rgba(74,110,126,0.07) 70%, rgba(74,110,126,0.02));
+    border-radius: 4px 24px 5px 28px / 22px 6px 26px 7px; }
+  .washpanel .no { font-family: 'Cardo', serif; font-size: 12.5px; color: #5B7280; letter-spacing: 0.03em; }
+  .washpanel h3 { font-size: 20px; font-weight: normal; margin: 2px 0 1px; }
+  .washpanel .mirror { transform: scaleX(-1); display: inline-block; opacity: 0.6; margin-top: 5px; }
+  /* weapon cluster from variant C, left-aligned */
+  .weapon { position: absolute; left: 30px; top: 146px; }
+  .weapon h3 { font-size: 20px; font-weight: normal; }
+  .weapon .underline { width: 140px; height: 6px; margin: 3px 0 7px;
+    background: #26211A; border-radius: 2px 40% 3px 45% / 50% 4px 55% 5px; transform: rotate(-0.8deg); opacity: 0.9; }
+  .pips { display: flex; gap: 6px; margin-bottom: 5px; }
+  .pip { width: 13px; height: 13px; border-radius: 62% 38% 55% 45% / 48% 60% 40% 52%; background: #26211A; }
+  .pip.empty { background: transparent; border: 1.2px solid rgba(46,40,32,0.5); }
+  .weapon .cd { font-family: 'Cardo', serif; font-style: italic; font-size: 13.5px; color: #6E6350; }
+  .weapon .cd b { color: #4A6E7E; font-weight: normal; }
+  .compass { position: absolute; right: 30px; top: 146px; width: 190px; }
+  .compass .band { position: relative; height: 24px; border-top: 1px solid rgba(46,40,32,0.5);
+    border-bottom: 1px solid rgba(46,40,32,0.5); overflow: hidden;
+    display: flex; align-items: center; justify-content: space-between; padding: 0 14px;
+    font-family: 'Cardo', serif; font-size: 13px; color: #6E6350; }
+  .compass .tick { position: absolute; left: 50%; top: -4px; height: 32px; width: 2px; background: #C33D1F; }
+  .killfeed { position: absolute; left: 30px; top: 244px; width: 340px; }
+  .killfeed .row { font-size: 14px; margin-bottom: 3px; }
+  .killfeed .row .how { font-family: 'Cardo', serif; font-style: italic; font-size: 13px; color: #6E6350; }
+  .killfeed .row .splat { display: inline-block; width: 9px; height: 9px; margin: 0 4px -1px 0;
+    border-radius: 62% 38% 55% 45% / 48% 60% 40% 52%; background: #C33D1F; }
+  .hotbar { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
+    display: flex; gap: 10px; align-items: flex-end; }
+  .slot { position: relative; width: 58px; height: 58px; border: 1px dashed rgba(46,40,32,0.55);
+    display: grid; place-items: center; }
+  .slot .key { position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+    font-family: 'Yuji Syuku', serif; font-size: 11px; color: #6E6350; }
+  .slot .glyph { font-size: 22px; opacity: 0.85; }
+  .slot .qty { position: absolute; right: 4px; bottom: 2px; font-size: 12px; color: #6E6350; }
+  .slot.active { border: none; background: #26211A; color: #F1E9D4;
+    border-radius: 5px 22px 6px 26px / 20px 7px 24px 8px; transform: rotate(-1deg); }
+  .slot.active .qty { color: rgba(241,233,212,0.7); }
+  .slot.spent .glyph { opacity: 0.25; }
+  .slot.spent::after { content: ""; position: absolute; left: 8px; right: 8px; top: 50%; height: 3px;
+    background: rgba(195,61,31,0.8); border-radius: 2px 40% 3px 45% / 50% 4px 55% 5px; transform: rotate(-4deg); }
+</style>
+</head>
+<body>
+  <span class="reg" style="left:9px; top:9px;"></span>
+  <span class="reg" style="right:9px; top:9px;"></span>
+  <span class="reg" style="left:9px; bottom:9px;"></span>
+  <span class="reg" style="right:9px; bottom:9px;"></span>
+
+  <div class="vitals">
+    <label>Hull</label>
+    <div class="washbar hull">
+      <div class="marks"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="wash"></div>
+      <div class="needle"></div>
+    </div>
+    <label>Wind in the Membranes</label>
+    <div class="washbar wind">
+      <div class="marks"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="wash"></div>
+    </div>
+  </div>
+
+  <div class="washpanel">
+    <div class="no">Part No. <span class="num">131-B</span> — equipped</div>
+    <h3>Flapping Wing</h3>
+    <div class="anno">rib-and-membrane, ash + linen</div>
+    <div class="anno mirror">the sketch became the machine</div>
+  </div>
+
+  <div class="weapon">
+    <h3>Mortar Battery</h3>
+    <div class="underline"></div>
+    <div class="pips">
+      <span class="pip"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span>
+      <span class="pip empty"></span><span class="pip empty"></span><span class="pip empty"></span><span class="pip empty"></span>
+    </div>
+    <div class="cd">reloads in <b><span class="num">3s</span></b> — listen for the piano</div>
+  </div>
+
+  <div class="compass">
+    <div class="band"><span>SW</span><span>·</span><span>W</span><span>·</span><span>NW</span><div class="tick"></div></div>
+    <div class="anno" style="margin-top:4px; text-align:center;">bearing <span class="num">292</span></div>
+  </div>
+
+  <div class="killfeed">
+    <div class="row"><span class="splat"></span>Bartholomew <span class="how">— unmade by mortar volley</span></div>
+    <div class="row"><span class="splat" style="opacity:0.6;"></span>Wren <span class="how">— wings tattered, limping home</span></div>
+  </div>
+
+  <div class="hotbar">
+    <div class="slot"><span class="key">1</span><span class="glyph">⚙</span><span class="qty">2</span></div>
+    <div class="slot active"><span class="key">2</span><span class="glyph">🜁</span><span class="qty">4</span></div>
+    <div class="slot"><span class="key">3</span><span class="glyph">🜂</span><span class="qty">6</span></div>
+    <div class="slot spent"><span class="key">4</span><span class="glyph">🜃</span></div>
+  </div>
+</body>
+</html>

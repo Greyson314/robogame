@@ -1,0 +1,114 @@
+<!-- @dsCard group="Unified" viewport="700x400" name="HUD Variant C — Instrument Cluster" subtitle="Circular hull gauge, corner clusters · secondary font: Fondamento" -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&family=Fondamento:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 700px; height: 400px; overflow: hidden;
+    background:
+      repeating-linear-gradient(0deg, rgba(51,44,33,0.03) 0 1px, transparent 1px 28px),
+      radial-gradient(ellipse at 50% 20%, #F6F0E0 0%, #EDE4CC 65%, #E1D5B6 100%);
+    color: #2E2820; font-family: 'Yuji Syuku', serif; position: relative;
+  }
+  a { color: #C33D1F; } a:hover { color: #2E2820; }
+  .anno { font-family: 'Fondamento', cursive; font-style: italic; font-size: 13px; color: #6E6350; }
+  /* hull: circular ink-ring gauge, bottom-left */
+  .hullgauge { position: absolute; left: 30px; bottom: 26px; width: 116px; height: 116px; }
+  .hullgauge svg { transform: rotate(-90deg); }
+  .hullgauge .center { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+  .hullgauge .center .v { font-size: 27px; line-height: 1; }
+  .hullgauge .center .l { font-family: 'Fondamento', cursive; font-style: italic; font-size: 12px; color: #6E6350; }
+  /* wind: vertical wash column beside the ring */
+  .windcol { position: absolute; left: 162px; bottom: 26px; width: 30px; height: 116px; }
+  .windcol .frame { position: absolute; inset: 0 8px; border-left: 1px solid rgba(46,40,32,0.5); }
+  .windcol .frame i { position: absolute; left: -1px; width: 6px; border-top: 1px solid rgba(46,40,32,0.4); }
+  .windcol .wash { position: absolute; left: 10px; bottom: 0; width: 12px; height: 82%;
+    background: linear-gradient(0deg, rgba(74,110,126,0.8), rgba(74,110,126,0.25));
+    border-radius: 45% 3px 50% 4px / 6px 55% 8px 60%; }
+  .windcol .l { position: absolute; left: -6px; bottom: -20px; font-family: 'Fondamento', cursive;
+    font-style: italic; font-size: 12px; color: #6E6350; }
+  /* weapon cluster bottom-right: name + ammo pips + cooldown in one group */
+  .weapon { position: absolute; right: 30px; bottom: 30px; text-align: right; }
+  .weapon h3 { font-size: 22px; font-weight: normal; }
+  .weapon .underline { width: 150px; height: 6px; margin: 3px 0 8px auto;
+    background: #26211A; border-radius: 2px 40% 3px 45% / 50% 4px 55% 5px; transform: rotate(-0.8deg); opacity: 0.9; }
+  .pips { display: flex; gap: 6px; justify-content: flex-end; margin-bottom: 6px; }
+  .pip { width: 13px; height: 13px; border-radius: 62% 38% 55% 45% / 48% 60% 40% 52%; background: #26211A; }
+  .pip.empty { background: transparent; border: 1.2px solid rgba(46,40,32,0.5); }
+  .weapon .cd { font-family: 'Fondamento', cursive; font-style: italic; font-size: 13px; color: #6E6350; }
+  .weapon .cd b { color: #4A6E7E; font-weight: normal; }
+  /* compass: full-width top hairline with drifting labels */
+  .compass { position: absolute; left: 80px; right: 80px; top: 24px; }
+  .compass .band { position: relative; height: 20px; border-bottom: 1px solid rgba(46,40,32,0.45);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 40px;
+    font-family: 'Fondamento', cursive; font-size: 13px; color: #6E6350; }
+  .compass .band i { position: absolute; bottom: -1px; width: 1px; height: 6px; background: rgba(46,40,32,0.4); }
+  .compass .tick { position: absolute; left: 50%; top: -2px; height: 26px; width: 2px; background: #C33D1F; }
+  .compass .bearing { text-align: center; margin-top: 4px; }
+  /* part panel: mid-left wash panel */
+  .washpanel { position: absolute; left: 30px; top: 76px; width: 218px; padding: 12px 15px 10px;
+    background: linear-gradient(135deg, rgba(74,110,126,0.16), rgba(74,110,126,0.07) 70%, rgba(74,110,126,0.02));
+    border-radius: 4px 24px 5px 28px / 22px 6px 26px 7px; }
+  .washpanel .no { font-family: 'Fondamento', cursive; font-size: 12px; color: #5B7280; }
+  .washpanel h3 { font-size: 19px; font-weight: normal; margin: 1px 0 1px; }
+  /* kill feed mid-right */
+  .killfeed { position: absolute; right: 30px; top: 80px; text-align: right; }
+  .killfeed .row { font-size: 13.5px; margin-bottom: 3px; color: #4E463A; }
+  .killfeed .row .how { font-family: 'Fondamento', cursive; font-style: italic; font-size: 12.5px; color: #6E6350; }
+  .killfeed .row .splat { display: inline-block; width: 8px; height: 8px; margin: 0 0 -1px 5px;
+    border-radius: 62% 38% 55% 45% / 48% 60% 40% 52%; background: #C33D1F; }
+</style>
+</head>
+<body>
+  <div class="compass">
+    <div class="band">
+      <span>SW</span><span>W</span><span>NW</span>
+      <i style="left:25%;"></i><i style="left:37.5%;"></i><i style="left:62.5%;"></i><i style="left:75%;"></i>
+      <div class="tick"></div>
+    </div>
+    <div class="bearing anno">bearing 292 — west by northwest</div>
+  </div>
+
+  <div class="washpanel">
+    <div class="no">Part No. 131-B — equipped</div>
+    <h3>Flapping Wing</h3>
+    <div class="anno">rib-and-membrane, ash + linen</div>
+  </div>
+
+  <div class="killfeed">
+    <div class="row">Bartholomew <span class="how">— unmade by mortar volley</span><span class="splat"></span></div>
+    <div class="row">Wren <span class="how">— wings tattered, limping home</span><span class="splat" style="opacity:0.55;"></span></div>
+  </div>
+
+  <div class="hullgauge">
+    <svg width="116" height="116" viewBox="0 0 116 116">
+      <circle cx="58" cy="58" r="50" fill="none" stroke="rgba(46,40,32,0.22)" stroke-width="3" stroke-dasharray="2 6"></circle>
+      <circle cx="58" cy="58" r="50" fill="none" stroke="#26211A" stroke-width="7"
+        stroke-dasharray="314" stroke-dashoffset="132" stroke-linecap="round"></circle>
+    </svg>
+    <div class="center"><div><div class="v">58</div><div class="l">hull</div></div></div>
+  </div>
+
+  <div class="windcol">
+    <div class="frame">
+      <i style="top:0;"></i><i style="top:25%;"></i><i style="top:50%;"></i><i style="top:75%;"></i><i style="bottom:0;"></i>
+    </div>
+    <div class="wash"></div>
+    <div class="l">wind</div>
+  </div>
+
+  <div class="weapon">
+    <h3>Mortar Battery</h3>
+    <div class="underline"></div>
+    <div class="pips">
+      <span class="pip"></span><span class="pip"></span><span class="pip"></span><span class="pip"></span>
+      <span class="pip empty"></span><span class="pip empty"></span><span class="pip empty"></span><span class="pip empty"></span>
+    </div>
+    <div class="cd">reloads in <b>3s</b> — listen for the piano</div>
+  </div>
+</body>
+</html>

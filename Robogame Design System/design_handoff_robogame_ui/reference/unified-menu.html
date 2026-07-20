@@ -1,0 +1,77 @@
+<!-- @dsCard group="Unified" viewport="700x400" name="Unified — Main Menu" subtitle="The game's actual menu (Start / Settings / Exit) restyled" -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&family=Xanh+Mono:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 700px; height: 400px; overflow: hidden;
+    background:
+      repeating-linear-gradient(0deg, rgba(51,44,33,0.035) 0 1px, transparent 1px 28px),
+      repeating-linear-gradient(90deg, rgba(51,44,33,0.025) 0 1px, transparent 1px 28px),
+      radial-gradient(ellipse at 50% 25%, #F6F0E0 0%, #EDE4CC 65%, #E0D4B4 100%);
+    color: #2E2820; font-family: 'Yuji Syuku', serif; position: relative;
+    display: grid; place-items: center;
+  }
+  a { color: #C33D1F; } a:hover { color: #2E2820; }
+  .anno { font-family: 'Xanh Mono', monospace; font-style: italic; font-size: 12px; color: #6E6350; }
+  .reg { position: absolute; width: 12px; height: 12px; }
+  .reg::before, .reg::after { content: ""; position: absolute; background: #2E2820; opacity: 0.45; }
+  .reg::before { left: 6px; top: 0; width: 1px; height: 12px; }
+  .reg::after { top: 6px; left: 0; height: 1px; width: 12px; }
+  .menu { text-align: center; margin-top: -6px; }
+  .title { position: relative; display: inline-block; }
+  .title h1 { font-size: 54px; font-weight: normal; letter-spacing: 0.1em; }
+  .title .brush { display: block; height: 10px; margin: 0 6px;
+    background: #26211A; border-radius: 2px 45% 3px 50% / 55% 5px 60% 6px; transform: rotate(-0.7deg); }
+  .title .splash { position: absolute; right: -26px; top: 4px; width: 13px; height: 13px;
+    border-radius: 62% 38% 55% 45% / 48% 60% 40% 52%; background: #C33D1F; }
+  .title .splash2 { position: absolute; right: -38px; top: 24px; width: 6px; height: 6px;
+    border-radius: 62% 38% 55% 45% / 48% 60% 40% 52%; background: #C33D1F; opacity: 0.8; }
+  .sub { margin-top: 10px; font-size: 14px; }
+  .btns { margin-top: 30px; display: flex; flex-direction: column; gap: 13px; align-items: center; }
+  .btn { font-family: 'Yuji Syuku', serif; font-size: 20px; letter-spacing: 0.16em;
+    padding: 10px 0; width: 240px; cursor: pointer; background: transparent; border: none; color: #2E2820; position: relative; }
+  .btn.primary { background: #26211A; color: #F1E9D4;
+    border-radius: 5px 28px 6px 32px / 24px 7px 28px 8px; transform: rotate(-0.4deg); }
+  .btn.primary:hover { background: #322B21; }
+  .btn.quiet { padding: 6px 0; width: auto; font-size: 17px; letter-spacing: 0.14em; }
+  .btn.quiet::after { content: ""; position: absolute; left: 2px; right: 2px; bottom: 2px; height: 7px;
+    background: rgba(74,110,126,0.35); border-radius: 2px 40% 3px 45% / 50% 5px 55% 6px; z-index: -1; transform: rotate(-0.8deg); }
+  .btn.quiet:hover::after { background: rgba(74,110,126,0.6); }
+  .btn.exit::after { background: rgba(46,40,32,0.14); }
+  .btn.exit:hover::after { background: rgba(195,61,31,0.35); }
+  .corner-note { position: absolute; left: 26px; bottom: 22px; text-align: left; line-height: 1.5; }
+  .version { position: absolute; right: 26px; bottom: 22px; font-family: 'Xanh Mono', monospace;
+    font-style: italic; font-size: 11px; color: #6E6350; }
+  .mirror { transform: scaleX(-1); display: inline-block; opacity: 0.55; }
+</style>
+</head>
+<body>
+  <span class="reg" style="left:9px; top:9px;"></span>
+  <span class="reg" style="right:9px; top:9px;"></span>
+  <span class="reg" style="left:9px; bottom:9px;"></span>
+  <span class="reg" style="right:9px; bottom:9px;"></span>
+
+  <div class="menu">
+    <div class="title">
+      <h1>Robogame</h1>
+      <span class="brush"></span>
+      <span class="splash"></span>
+      <span class="splash2"></span>
+    </div>
+    <div class="sub anno">A Bestiary of Contraptions</div>
+    <div class="btns">
+      <button class="btn primary">Begin</button>
+      <button class="btn quiet">Settings</button>
+      <button class="btn quiet exit">Take Leave</button>
+    </div>
+  </div>
+
+  <div class="corner-note anno">Esc — Open Settings<br><span class="mirror">what is begun in ink is finished in flight</span></div>
+  <div class="version">v0.1.0 · Windows Editor</div>
+</body>
+</html>

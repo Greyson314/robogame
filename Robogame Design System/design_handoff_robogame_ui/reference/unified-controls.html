@@ -1,0 +1,128 @@
+<!-- @dsCard group="Unified" viewport="700x400" name="Unified — Controls & Widgets" subtitle="Toggles, sliders, steppers, tooltips, selects in the unified voice" -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&family=Xanh+Mono:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 700px; height: 400px; overflow: hidden;
+    background:
+      repeating-linear-gradient(0deg, rgba(51,44,33,0.035) 0 1px, transparent 1px 28px),
+      radial-gradient(ellipse at 45% 15%, #F6F0E0 0%, #EDE4CC 65%, #E1D5B6 100%);
+    color: #2E2820; font-family: 'Yuji Syuku', serif;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0 36px; padding: 24px 30px;
+    grid-auto-rows: min-content; align-content: space-between;
+  }
+  a { color: #C33D1F; } a:hover { color: #2E2820; }
+  .anno { font-family: 'Xanh Mono', monospace; font-style: italic; font-size: 11px; color: #6E6350; }
+  .fieldrow { display: flex; align-items: center; justify-content: space-between; padding: 9px 0;
+    border-bottom: 1px dashed rgba(46,40,32,0.3); }
+  .fieldrow:last-child { border-bottom: 0; }
+  .fieldrow label { font-size: 15px; letter-spacing: 0.04em; }
+  /* toggle: ink dot travels a ruled slot */
+  .toggle { position: relative; width: 52px; height: 22px; cursor: pointer; }
+  .toggle .rail { position: absolute; inset: 10px 2px; border-top: 1px solid rgba(46,40,32,0.55); }
+  .toggle .rail::before, .toggle .rail::after { content: ""; position: absolute; top: -3px; width: 1px; height: 7px; background: rgba(46,40,32,0.55); }
+  .toggle .rail::before { left: 0; } .toggle .rail::after { right: 0; }
+  .toggle .dot { position: absolute; top: 2px; width: 18px; height: 18px;
+    border-radius: 62% 38% 55% 45% / 48% 60% 40% 52%; transition: left 0.15s ease; }
+  .toggle.on .dot { left: 32px; background: #26211A; }
+  .toggle.off .dot { left: 2px; background: transparent; border: 1.5px solid rgba(46,40,32,0.6); }
+  /* slider: ruler with wash fill + brush thumb */
+  .slider { position: relative; width: 170px; height: 26px; cursor: pointer; }
+  .slider .marks { position: absolute; inset: 6px 0; display: flex; border-bottom: 1px solid rgba(46,40,32,0.5); }
+  .slider .marks i { flex: 1; border-right: 1px solid rgba(46,40,32,0.3); }
+  .slider .marks i:last-child { border-right: 0; }
+  .slider .wash { position: absolute; left: 0; top: 8px; height: 12px; width: 64%;
+    background: linear-gradient(90deg, rgba(74,110,126,0.8), rgba(74,110,126,0.35));
+    border-radius: 3px 45% 4px 50% / 55% 6px 60% 8px; }
+  .slider .thumb { position: absolute; left: calc(64% - 5px); top: 2px; width: 10px; height: 22px;
+    background: #26211A; border-radius: 40% 60% 45% 55% / 8px 3px 9px 4px; transform: rotate(-3deg); }
+  .slider .val { position: absolute; right: 0; top: -13px; font-family: 'Xanh Mono', monospace; font-style: italic; font-size: 11px; color: #6E6350; }
+  /* stepper */
+  .stepper { display: flex; align-items: center; gap: 12px; }
+  .stepper button { width: 26px; height: 26px; border: 1px solid rgba(46,40,32,0.6); background: transparent;
+    font-family: 'Yuji Syuku', serif; font-size: 15px; color: #2E2820; cursor: pointer; border-radius: 3px 10px 4px 11px / 9px 4px 10px 5px; }
+  .stepper button:hover { background: rgba(46,40,32,0.08); }
+  .stepper .v { font-size: 19px; min-width: 30px; text-align: center; }
+  /* select */
+  .select { position: relative; width: 170px; border-bottom: 1px solid rgba(46,40,32,0.55);
+    padding: 3px 2px 5px; font-size: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+  .select .chev { font-family: 'Xanh Mono', monospace; font-size: 11px; color: #6E6350; }
+  .menu { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 3;
+    background: #F4EDDA; box-shadow: 0 3px 12px rgba(46,40,32,0.22); padding: 6px 0;
+    border-radius: 3px 14px 4px 16px / 12px 4px 14px 5px; }
+  .menu .opt { padding: 5px 12px; font-size: 14px; }
+  .menu .opt.sel { background: linear-gradient(90deg, rgba(74,110,126,0.22), rgba(74,110,126,0.05)); }
+  .menu .opt:hover { background: rgba(46,40,32,0.07); }
+  /* checkbox: wax seal */
+  .checks { display: flex; gap: 22px; }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+  .check .box { width: 17px; height: 17px; border: 1.5px solid rgba(46,40,32,0.6); border-radius: 2px; position: relative; }
+  .check.on .box { border-color: transparent; }
+  .check.on .box::after { content: ""; position: absolute; inset: -2px;
+    border-radius: 62% 38% 55% 45% / 48% 60% 40% 52%;
+    background: radial-gradient(circle at 35% 35%, #E06843, #C33D1F 60%, #8F2812); }
+  /* tooltip */
+  .tipdemo { position: relative; display: inline-block; }
+  .tipdemo .target { border-bottom: 1px dashed rgba(46,40,32,0.6); font-size: 15px; }
+  .tip { position: absolute; left: 0; top: calc(100% + 8px); width: 240px; padding: 10px 13px 9px;
+    background: #26211A; color: #EFE7D2; z-index: 4;
+    border-radius: 4px 20px 5px 24px / 18px 6px 22px 7px; transform: rotate(-0.4deg); }
+  .tip .t { font-size: 14px; letter-spacing: 0.03em; }
+  .tip .d { font-family: 'Xanh Mono', monospace; font-style: italic; font-size: 11px; color: #B9AE93; margin-top: 2px; }
+  .tip::before { content: ""; position: absolute; left: 22px; top: -5px; width: 10px; height: 10px;
+    background: #26211A; transform: rotate(45deg); border-radius: 2px; }
+  .colhead { font-family: 'Xanh Mono', monospace; font-style: italic; font-size: 11px; color: #6E6350;
+    letter-spacing: 0.14em; padding-bottom: 2px; }
+</style>
+</head>
+<body>
+  <div>
+    <div class="colhead">SETTINGS FURNITURE</div>
+    <div class="fieldrow"><label>Musical Weaponry</label>
+      <div class="toggle on"><div class="rail"></div><div class="dot"></div></div></div>
+    <div class="fieldrow"><label>Mirror-Hand Footnotes</label>
+      <div class="toggle off"><div class="rail"></div><div class="dot"></div></div></div>
+    <div class="fieldrow"><label>Orchestra Volume</label>
+      <div class="slider">
+        <span class="val">64</span>
+        <div class="marks"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="wash"></div><div class="thumb"></div>
+      </div></div>
+    <div class="fieldrow"><label>Mortar Count</label>
+      <div class="stepper"><button>−</button><span class="v">8</span><button>+</button></div></div>
+    <div class="fieldrow"><label>Arena</label>
+      <div class="select">The Drafting Table <span class="chev">▾</span>
+        <div class="menu">
+          <div class="opt">The Aviary</div>
+          <div class="opt sel">The Drafting Table</div>
+          <div class="opt">The Proving Ground</div>
+        </div>
+      </div></div>
+  </div>
+  <div>
+    <div class="colhead">SEALS &amp; NOTES</div>
+    <div class="fieldrow" style="padding: 14px 0;">
+      <div class="checks">
+        <div class="check on"><span class="box"></span>Ornithopter</div>
+        <div class="check"><span class="box"></span>Aerial Screw</div>
+        <div class="check on"><span class="box"></span>Tesla Organ</div>
+      </div>
+    </div>
+    <div style="padding: 16px 0 90px;">
+      <div class="tipdemo">
+        <span class="target">the capybara pilot</span>
+        <div class="tip">
+          <div class="t">Capybara, First of Her Hangar</div>
+          <div class="d">calm under fire. plays the bassoon.</div>
+        </div>
+      </div>
+    </div>
+    <div class="anno" style="text-align: right; line-height: 1.55;">wax seals for chosen things; ink dots for toggles;<br>rulers for anything with a quantity.<br>tooltips are ink cards in the dark voice.</div>
+  </div>
+</body>
+</html>

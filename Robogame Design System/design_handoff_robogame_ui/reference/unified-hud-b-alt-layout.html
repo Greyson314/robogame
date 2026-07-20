@@ -1,0 +1,117 @@
+<!-- @dsCard group="Unified" viewport="700x400" name="HUD Variant B — Painter's Margin" subtitle="Bottom-anchored, airier · secondary font: Klee One" -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 700px; height: 400px; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 30%, #F7F1E2 0%, #EEE5CF 65%, #E1D5B6 100%);
+    color: #2E2820; font-family: 'Yuji Syuku', serif; position: relative;
+  }
+  a { color: #C33D1F; } a:hover { color: #2E2820; }
+  .anno { font-family: 'Klee One', cursive; font-size: 12px; color: #6E6350; }
+  /* compass: top-center thin band */
+  .compass { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); width: 240px; }
+  .compass .band { position: relative; height: 22px; overflow: hidden;
+    display: flex; align-items: center; justify-content: space-between; padding: 0 14px;
+    font-family: 'Klee One', cursive; font-size: 12px; color: #6E6350;
+    border-bottom: 1px solid rgba(46,40,32,0.45); }
+  .compass .band::before, .compass .band::after { content: ""; position: absolute; bottom: -1px; width: 1px; height: 7px; background: rgba(46,40,32,0.45); }
+  .compass .band::before { left: 0; } .compass .band::after { right: 0; }
+  .compass .tick { position: absolute; left: 50%; top: 0; height: 26px; width: 2px; background: #C33D1F; }
+  /* part note: top-right, no container at all — just handwriting */
+  .partnote { position: absolute; right: 32px; top: 24px; text-align: right; }
+  .partnote h3 { font-size: 21px; font-weight: normal; }
+  .partnote .underline { width: 130px; height: 6px; margin: 3px 0 4px auto;
+    background: rgba(74,110,126,0.55); border-radius: 2px 40% 3px 45% / 50% 4px 55% 5px; transform: rotate(-0.8deg); }
+  /* kill feed: top-left, handwriting */
+  .killfeed { position: absolute; left: 32px; top: 24px; }
+  .killfeed .row { font-family: 'Klee One', cursive; font-size: 13px; color: #4E463A; margin-bottom: 3px; }
+  .killfeed .row .splat { display: inline-block; width: 8px; height: 8px; margin: 0 5px -1px 0;
+    border-radius: 62% 38% 55% 45% / 48% 60% 40% 52%; background: #C33D1F; }
+  /* bottom band: one wide brush baseline carries everything */
+  .baseline { position: absolute; left: 24px; right: 24px; bottom: 96px; height: 8px;
+    background: #26211A; opacity: 0.9;
+    border-radius: 3px 46% 4px 50% / 55% 5px 60% 6px; transform: rotate(-0.25deg); }
+  .vitals { position: absolute; left: 32px; bottom: 118px; width: 250px; }
+  .vitals .rowlbl { display: flex; justify-content: space-between; align-items: baseline; }
+  .vitals label { font-size: 15px; letter-spacing: 0.06em; }
+  .vitals .pct { font-family: 'Klee One', cursive; font-size: 12px; color: #6E6350; }
+  .wash { height: 14px; margin: 3px 0 10px; border-radius: 3px 45% 4px 50% / 55% 6px 60% 8px; transform: rotate(-0.4deg); }
+  .wash.hull { width: 58%; background: linear-gradient(90deg, rgba(33,29,23,0.92), rgba(33,29,23,0.6) 74%, rgba(33,29,23,0.15) 96%); }
+  .wash.wind { width: 82%; background: linear-gradient(90deg, rgba(74,110,126,0.8), rgba(74,110,126,0.35) 84%, rgba(74,110,126,0.05)); }
+  .ammo { position: absolute; right: 32px; bottom: 118px; text-align: right; }
+  .ammo .count { font-size: 34px; line-height: 1; }
+  .ammo .of { font-family: 'Klee One', cursive; font-size: 12px; color: #6E6350; }
+  /* hotbar sits below the baseline like specimens pinned under a shelf */
+  .hotbar { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%);
+    display: flex; gap: 14px; align-items: flex-start; }
+  .slot { position: relative; width: 54px; height: 54px; display: grid; place-items: center;
+    background: rgba(255,252,242,0.55); box-shadow: 0 2px 8px rgba(46,40,32,0.12);
+    border-radius: 4px 18px 5px 20px / 16px 5px 18px 6px; }
+  .slot .key { position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%);
+    font-family: 'Klee One', cursive; font-size: 10.5px; color: #6E6350; }
+  .slot .glyph { font-size: 21px; opacity: 0.85; }
+  .slot .qty { position: absolute; right: 5px; top: 2px; font-family: 'Klee One', cursive; font-size: 11px; color: #6E6350; }
+  .slot.active { background: #26211A; color: #F1E9D4; transform: rotate(-1.2deg) translateY(-4px); }
+  .slot.active .qty { color: rgba(241,233,212,0.7); }
+  .slot.spent .glyph { opacity: 0.22; }
+  .slot.spent::after { content: ""; position: absolute; left: 9px; right: 9px; top: 50%; height: 3px;
+    background: rgba(195,61,31,0.75); border-radius: 2px 40% 3px 45% / 50% 4px 55% 5px; transform: rotate(-5deg); }
+  .cooldown { position: absolute; left: 306px; bottom: 128px; width: 40px; height: 40px; }
+  .cooldown svg { transform: rotate(-90deg); }
+  .cooldown .lbl { position: absolute; inset: 0; display: grid; place-items: center;
+    font-family: 'Klee One', cursive; font-size: 10.5px; color: #6E6350; }
+</style>
+</head>
+<body>
+  <div class="compass">
+    <div class="band"><span>SW</span><span>·</span><span>W</span><span>·</span><span>NW</span><div class="tick"></div></div>
+  </div>
+
+  <div class="killfeed">
+    <div class="row"><span class="splat"></span>Bartholomew — unmade by mortar volley</div>
+    <div class="row"><span class="splat" style="opacity:0.55;"></span>Wren — wings tattered, limping home</div>
+  </div>
+
+  <div class="partnote">
+    <h3>Flapping Wing</h3>
+    <div class="underline"></div>
+    <div class="anno">Part No. 131-B — equipped</div>
+  </div>
+
+  <div class="vitals">
+    <div class="rowlbl"><label>Hull</label><span class="pct">58</span></div>
+    <div class="wash hull"></div>
+    <div class="rowlbl"><label>Wind</label><span class="pct">82</span></div>
+    <div class="wash wind"></div>
+  </div>
+
+  <div class="cooldown">
+    <svg width="40" height="40" viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="16" fill="none" stroke="rgba(46,40,32,0.22)" stroke-width="2"></circle>
+      <circle cx="20" cy="20" r="16" fill="none" stroke="#4A6E7E" stroke-width="3"
+        stroke-dasharray="100" stroke-dashoffset="37" stroke-linecap="round"></circle>
+    </svg>
+    <div class="lbl">3s</div>
+  </div>
+
+  <div class="ammo">
+    <div class="count">4<span style="font-size:16px; color:#6E6350;">/8</span></div>
+    <div class="of">mortars</div>
+  </div>
+
+  <div class="baseline"></div>
+
+  <div class="hotbar">
+    <div class="slot"><span class="qty">2</span><span class="glyph">⚙</span><span class="key">1</span></div>
+    <div class="slot active"><span class="qty">4</span><span class="glyph">🜁</span><span class="key">2</span></div>
+    <div class="slot"><span class="qty">6</span><span class="glyph">🜂</span><span class="key">3</span></div>
+    <div class="slot spent"><span class="glyph">🜃</span><span class="key">4</span></div>
+  </div>
+</body>
+</html>
