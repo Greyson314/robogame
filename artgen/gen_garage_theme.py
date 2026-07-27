@@ -296,17 +296,24 @@ def build(bpm, grit):
 # ---------------------------------------------------------------- grit pass
 
 def build_grit(bpm):
-    """The blown-speaker inventor layer (LOG-150): distortion stabs,
-    synth bass doubling the contrabass, an electro kit with buffer-
-    stutter retriggers, and a saw lead shadowing the clarinet with
-    pitch-bend wobble. Channel 9 is GM percussion and reserved."""
-    dist, synbass, kit, lead = Track(), Track(), Track(), Track()
-    dist.program(8, 30)       # Distortion Guitar — the blown speaker
+    """The blown-speaker inventor layer (LOG-150, retimbred LOG-152):
+    blown-out tuba + timpani blasts, synth bass doubling the contrabass,
+    an electro kit with buffer-stutter retriggers, and a saw lead
+    shadowing the clarinet with pitch-bend wobble. Channel 9 is GM
+    percussion and reserved."""
+    blast, synbass, kit, lead, timp = Track(), Track(), Track(), Track(), Track()
+    # LOG-152: distortion guitar was too crunchy. Blown-out low brass
+    # instead — a tuba pushed to near-max velocity blats rather than
+    # buzzes, and a timpani doubles the thump. Same impact, and it stays
+    # in the orchestral palette the rest of the piece lives in.
+    blast.program(8, 58)      # Tuba
+    timp.program(11, 47)      # Timpani
     synbass.program(7, 39)    # Synth Bass 2
     lead.program(10, 81)      # Lead 2 (sawtooth)
     # ch 9 needs no program change: GM percussion map.
 
-    for t, ch, rev in ((dist, 8, 40), (synbass, 7, 24), (kit, 9, 32), (lead, 10, 64)):
+    for t, ch, rev in ((blast, 8, 46), (timp, 11, 60), (synbass, 7, 24),
+                       (kit, 9, 32), (lead, 10, 64)):
         t.control(ch, 91, rev)
 
     # --- Synth bass: root on 1, octave stab on the "and" of 3 — gives
@@ -316,19 +323,22 @@ def build_grit(bpm):
         synbass.note(7, at(bar, 0), int(TPQ * 1.1), root, 92)
         synbass.note(7, at(bar, 2.5), int(TPQ * .4), root + 12, 78)
 
-    # --- Distortion: power chords (root + fifth) slammed on the
-    # downbeat of every other bar, and every bar through section B.
+    # --- Blast: tuba root + fifth down where the horn actually blats,
+    # doubled by timpani on the octave for the thump. Downbeat of every
+    # other bar, and every bar through section B.
     for bar, name in enumerate(PROG):
         if not (bar % 2 == 0 or 16 <= bar < 24):
             continue
-        root = CHORDS[name]["bass"] + 12
-        vel = 118 if 16 <= bar < 24 else 104        # near-clipping on purpose
+        root = CHORDS[name]["bass"]                 # tuba register, not guitar
+        vel = 120 if 16 <= bar < 24 else 106        # pushed until it blats
         for p in (root, root + 7):
-            dist.note(8, at(bar, 0), int(TPQ * .85), p, vel)
-        # Bar 27 (the unresolved Neapolitan) gets a choked triplet stab.
+            blast.note(8, at(bar, 0), int(TPQ * 1.1), p, vel)
+        timp.note(11, at(bar, 0), int(TPQ * .9), root + 12, vel - 12)
+        # Bar 27 (the unresolved Neapolitan) gets a choked triplet.
         if bar == 27:
             for k in range(3):
-                dist.note(8, at(bar, 1 + k * .33), int(TPQ * .2), root + 1, 112 - k * 6)
+                blast.note(8, at(bar, 1 + k * .33), int(TPQ * .26), root + 1, 114 - k * 6)
+                timp.note(11, at(bar, 1 + k * .33), int(TPQ * .26), root + 13, 96 - k * 8)
 
     # --- Electro kit: kick on 1, a mechanical backbeat on 3, hats on
     # 8ths, with 32nd buffer-stutters on phrase ends.
@@ -368,7 +378,7 @@ def build_grit(bpm):
         for k, val in enumerate((8192, 7400, 8600, 8192)):
             lead.add(base + k * 90, bytes([0xE0 | 10, val & 0x7F, (val >> 7) & 0x7F]), 2)
 
-    return [dist, synbass, kit, lead]
+    return [blast, timp, synbass, kit, lead]
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)

@@ -18,7 +18,7 @@ harmony/melody tables there and re-run, never the `.mid`.
 
 | File | Piece | Feel |
 | --- | --- | --- |
-| `garage-gaslamp-glitch.mid` | **Gaslamp Waltz (Glitch)** (D minor, 3/4, 104 BPM) | **Current theme.** Blown-speaker inventor cut: distortion stabs, synth bass, electro kit with buffer stutters, ornamented melody |
+| `garage-gaslamp-glitch.mid` | **Gaslamp Waltz (Glitch)** (D minor, 3/4, 104 BPM) | **Current theme.** Blown-speaker inventor cut: blown-out tuba + timpani blasts, synth bass, electro kit with buffer stutters, ornamented melody |
 | `garage-gaslamp-waltz.mid` | **Gaslamp Waltz** (D minor, 3/4, 88 BPM) | The clean parlour cut: clarinet over harpsichord, one bright turn, back to mist |
 | `bach-invention-08.mid` | Two-Part Invention No. 8 in F, BWV 779 | Bright, bouncy, perpetual motion |
 | `bach-invention-04.mid` | Two-Part Invention No. 4 in D minor, BWV 775 | Driving and restless; D root matches the project scale |

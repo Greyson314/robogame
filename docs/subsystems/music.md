@@ -64,8 +64,9 @@ Rationale and alternatives: [ADR-0006](../decisions/0006-musical-damage-feedback
   `StreamingAssets/Midi/` looped through the same bank, handed to MPTK
   as raw bytes so swapping the theme is a file drop. Current theme is
   **Gaslamp Waltz (Glitch)** — an original foggy-Victorian piece in
-  D minor 3/4, in its blown-speaker cut (104 BPM, distortion + synth
-  bass + electro kit with buffer stutters, ornamented melody). Both
+  D minor 3/4, in its blown-speaker cut (104 BPM, blown-out tuba +
+  timpani blasts, synth bass, electro kit with buffer stutters,
+  ornamented melody). Both
   cuts come from
   [`artgen/gen_garage_theme.py`](../../artgen/gen_garage_theme.py),
   which emits one clean and one gritty version of the same harmony and
