@@ -50,13 +50,20 @@ namespace Robogame.Tools.Editor
             def.BeatsPerBar = BeatsPerBar;
             def.Volume = Volume;
             // TRACE[ADR-0007]: intensity-layer stems for the FMOD backend,
-            // StreamingAssets-relative, quietest first. Same generator, same
-            // exact loop length as the fallback clip.
-            def.StemFiles = new[]
+            // StreamingAssets-relative. Same generator, same exact loop
+            // length as the fallback clip. Fade windows are MusicMath.
+            // LayerGain semantics: equal endpoints = always on (bed),
+            // ascending = riser, descending = calm layer that fades OUT.
+            // Percussion enters last (2.5→3) so the top of the range has
+            // two audible gears (lute at 2, drums at 2.5).
+            def.Stems = new[]
             {
-                "Music/stem_bed.wav",
-                "Music/stem_strings.wav",
-                "Music/stem_brass.wav",
+                new MusicTrackDefinition.Stem { File = "Music/stem_bed.wav",        FadeStart = 0f,   FadeEnd = 0f },
+                new MusicTrackDefinition.Stem { File = "Music/stem_shimmer.wav",    FadeStart = 1f,   FadeEnd = 0f },
+                new MusicTrackDefinition.Stem { File = "Music/stem_strings.wav",    FadeStart = 0f,   FadeEnd = 1f },
+                new MusicTrackDefinition.Stem { File = "Music/stem_brass.wav",      FadeStart = 1f,   FadeEnd = 2f },
+                new MusicTrackDefinition.Stem { File = "Music/stem_lute.wav",       FadeStart = 2f,   FadeEnd = 3f },
+                new MusicTrackDefinition.Stem { File = "Music/stem_percussion.wav", FadeStart = 2.5f, FadeEnd = 3f },
             };
             EditorUtility.SetDirty(def);
             AssetDatabase.SaveAssets();

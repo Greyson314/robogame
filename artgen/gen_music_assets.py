@@ -115,6 +115,28 @@ def strings(freq, dur, attack=0.06):
             out += np.sin(h * ph) / (h ** 1.3)
     return out * env_ad(len(t), attack, dur * 0.7)
 
+def bell(freq, dur=1.8):
+    """Music-box tine: sparse inharmonic partials, fast-fading uppers —
+    the shimmer-stem voice."""
+    t = t_axis(dur)
+    out = np.zeros_like(t)
+    for ratio, a, decay in ((1.0, 1.0, 2.2), (2.76, 0.4, 5.0),
+                            (5.40, 0.18, 9.0), (8.93, 0.07, 14.0)):
+        out += a * np.sin(2 * np.pi * freq * ratio * t) * np.exp(-t * decay)
+    # Slightly detuned fundamental pair for the chorus glint
+    out += 0.3 * np.sin(2 * np.pi * freq * 1.003 * t) * np.exp(-t * 2.5)
+    return out * env_ad(len(t), 0.001, dur)
+
+def warsnare(gain=1.0, dur=0.16, tone=0.22, seed=0):
+    """Tight field-drum hit: differentiated (high-tilted) noise burst plus
+    a faint 190 Hz shell tone. Deliberately no low body — the percussion
+    stem must sit ABOVE the timpani bed, not inside it."""
+    n = int(dur * SR)
+    rng = np.random.default_rng(seed)
+    noise = np.diff(rng.uniform(-1, 1, n), prepend=0.0)
+    body = np.sin(2 * np.pi * 190.0 * np.arange(n) / SR) * tone
+    return (noise * 0.9 + body) * env_ad(n, 0.001, dur * 0.35) * gain
+
 INSTR = {"pluck": pluck, "brass": brass, "piano": piano, "timpani": timpani}
 ROOT = {"pluck": D4, "brass": D3, "piano": D4, "timpani": D2}
 
@@ -257,6 +279,70 @@ def gen_track():
         if bar % 2 == 1:                                   # pickup 8th into the next bar
             place(br, brass(A2, 0.25) * 0.5, b0 + 3.5 * spb)
     write_wav("stem_brass.wav", haas_stereo(normalize(br, 0.6)), stereo=True, out_dir=STREAM_OUT)
+
+    # Inverse layer — "workshop shimmer": sparse music-box arpeggio in
+    # the empty top octave (D5+). Gain fades OUT over intensity 0→1 —
+    # it plays when the arena is calm and its disappearance announces
+    # the fight. Bar 7 walks down the scale as the loop turnaround;
+    # last onset rings out exactly to the seam (17.1 + 1.8 ≤ loop end).
+    sh = np.zeros(total_samples)
+    shimmer_events = [   # (bar, beat, pentatonic ratio from D5, gain)
+        (0, 0.0, 1.0, .9), (0, 1.5, PENT[3], .6), (0, 3.0, PENT[2], .7),
+        (1, 1.0, PENT[1], .5), (1, 2.5, PENT[4], .65),
+        (2, 0.0, PENT[2], .8), (2, 2.0, 2.0, .55),
+        (3, 0.5, PENT[3], .6), (3, 2.0, PENT[1], .5), (3, 3.0, 1.0, .7),
+        (4, 0.0, 1.0, .9), (4, 1.5, PENT[4], .6), (4, 3.0, PENT[3], .7),
+        (5, 1.0, PENT[2], .55), (5, 2.5, 2.0, .6),
+        (6, 0.0, PENT[1], .7), (6, 2.0, PENT[3], .6),
+        (7, 0.0, PENT[4], .55), (7, 0.5, PENT[3], .5),
+        (7, 1.0, PENT[2], .45), (7, 1.5, PENT[1], .4),
+    ]
+    for bar, beat, ratio, gain in shimmer_events:
+        place(sh, bell(D5 * ratio) * gain, (bar * beats_per_bar + beat) * spb)
+    write_wav("stem_shimmer.wav", haas_stereo(normalize(sh, 0.35)), stereo=True, out_dir=STREAM_OUT)
+
+    # Layer 5 — "clockwork lute": Karplus-Strong 16th-note gallop in
+    # D4–D5, the register the low stack leaves empty. Escalates rhythmic
+    # subdivision (bed/strings own 8ths, this owns 16ths). Texture, not
+    # melody — the player's stingers are the soloist. Enters 2→3.
+    lu = np.zeros(total_samples)
+    s16 = spb / 4
+    GALLOP = [0, 2, 3, 4, 6, 7, 8, 10, 11, 12, 14, 15]   # x.xx per beat
+    for bar in range(bars):
+        b0 = bar * beats_per_bar * spb
+        cycle = [1.0, PENT[3], PENT[4]] if bar % 2 == 0 else [1.0, PENT[2], PENT[3]]
+        for k, slot in enumerate(GALLOP):
+            ratio = cycle[k % 3]
+            # Odd bars climb E–F#–A over the last three onsets into the
+            # next downbeat; bar 7 walks down instead, resolving to the
+            # loop's D.
+            if bar % 2 == 1 and slot >= 12:
+                run = [PENT[1], PENT[2], PENT[3]] if bar != 7 else [PENT[4], PENT[3], PENT[1]]
+                ratio = run[GALLOP.index(slot) - 9]
+            gain = 0.85 if slot % 4 == 0 else 0.55
+            place(lu, pluck(D4 * ratio, dur=0.22, bright=0.7) * gain, b0 + slot * s16)
+    write_wav("stem_lute.wav", haas_stereo(normalize(lu, 0.5)), stereo=True, out_dir=STREAM_OUT)
+
+    # Layer 6 — war percussion: tight snare 16ths with a military accent
+    # scheme, flam on each downbeat, doubled-stroke roll under the
+    # timpani roll bars (%4==3). Top-of-the-range topper (2.5→3).
+    pc = np.zeros(total_samples)
+    seed = 0
+    for bar in range(bars):
+        b0 = bar * beats_per_bar * spb
+        roll_bar = bar % 4 == 3
+        for beat in range(beats_per_bar):
+            for slot in range(4):
+                at = b0 + (beat + slot / 4) * spb
+                accent = 1.0 if (beat == 0 and slot == 0) else (0.8 if slot == 0 else (0.5 if slot == 2 else 0.3))
+                seed += 1
+                place(pc, warsnare(accent, seed=seed), at)
+                if beat == 0 and slot == 0:                 # flam: grace hit 12 ms early
+                    place(pc, warsnare(0.45, seed=seed + 991), at - 0.012 if at >= 0.012 else at)
+                if roll_bar and beat >= 2:                  # 32nd doubles, ramping
+                    seed += 1
+                    place(pc, warsnare(0.25 + 0.1 * slot, dur=0.10, seed=seed), at + spb / 8)
+    write_wav("stem_percussion.wav", haas_stereo(normalize(pc, 0.45)), stereo=True, out_dir=STREAM_OUT)
 
 gen_stingers()
 gen_track()

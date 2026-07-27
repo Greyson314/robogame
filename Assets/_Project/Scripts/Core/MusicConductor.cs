@@ -61,6 +61,13 @@ namespace Robogame.Core
         private int _fmodRate;
         private readonly MusicClock _clock = new MusicClock();
 
+        // Per-stem intensity fade windows, copied from the track
+        // definition at start (MusicMath.LayerGain semantics). Native-
+        // handle lifetime — rebuilt with the channels, never serialized.
+        [NonSerialized] private float[] _fadeStart;
+        [NonSerialized] private float[] _fadeEnd;
+        [SerializeField] private float _maxIntensity = 2f;
+
         private float _intensity;           // smoothed, 0..2
         private float _intensityTarget;
 #if UNITY_EDITOR
@@ -158,14 +165,17 @@ namespace Robogame.Core
         public static bool FmodActive => s_instance != null && s_instance._playing && s_instance._fmodMode;
 
         /// <summary>
-        /// Combat heat → layer fades, clamped to [0, 2]: layer 2 fades
-        /// in over 0→1, layer 3 over 1→2. Smoothed internally (fast
-        /// rise, slow fall). No-op on the Unity fallback backend.
+        /// Combat heat → per-stem layer fades, clamped to
+        /// [0, <see cref="MusicTrackDefinition.MaxIntensity"/>] of the
+        /// running track. Each stem's authored fade window maps
+        /// intensity to gain (<see cref="MusicMath.LayerGain"/> —
+        /// risers fade in, calm layers fade out). Smoothed internally
+        /// (fast rise, slow fall). No-op on the Unity fallback backend.
         /// </summary>
         public static void SetIntensity(float intensity)
         {
             if (s_instance != null)
-                s_instance._intensityTarget = Mathf.Clamp(intensity, 0f, 2f);
+                s_instance._intensityTarget = Mathf.Clamp(intensity, 0f, s_instance._maxIntensity);
         }
 
         /// <summary>
@@ -177,7 +187,7 @@ namespace Robogame.Core
         public static void StartCombatTrack()
         {
             var def = Resources.Load<MusicTrackDefinition>(MusicTrackDefinition.CombatTrackResourcePath);
-            if (def == null || (def.Clip == null && (def.StemFiles == null || def.StemFiles.Length == 0)))
+            if (def == null || (def.Clip == null && (def.Stems == null || def.Stems.Length == 0)))
             {
                 if (!s_loggedMissingTrack)
                 {
@@ -257,15 +267,8 @@ namespace Robogame.Core
 
             float speed = _intensityTarget > _intensity ? IntensityRiseSpeed : IntensityFallSpeed;
             _intensity = Mathf.MoveTowards(_intensity, _intensityTarget, speed * Time.unscaledDeltaTime);
-            for (int i = 1; i < _fmodChannels.Length; i++)
-                _fmodChannels[i].setVolume(LayerGain(i));
-        }
-
-        private float LayerGain(int layer)
-        {
-            // Layer 0 (bed) is always full; each further layer fades in
-            // across one unit of intensity.
-            return layer == 0 ? 1f : Mathf.Clamp01(_intensity - (layer - 1));
+            for (int i = 0; i < _fmodChannels.Length; i++)
+                _fmodChannels[i].setVolume(MusicMath.LayerGain(_intensity, _fadeStart[i], _fadeEnd[i]));
         }
 
         // -----------------------------------------------------------------
@@ -283,8 +286,9 @@ namespace Robogame.Core
             _secondsPerBeat = 60f / def.Bpm;
             _beatsPerBar = def.BeatsPerBar;
             _trackVolume = def.Volume;
+            _maxIntensity = def.MaxIntensity;
 
-            if (def.StemFiles != null && def.StemFiles.Length > 0 && TryStartFmod(def))
+            if (def.Stems != null && def.Stems.Length > 0 && TryStartFmod(def))
             {
                 _fmodMode = true;
                 _playing = true;
@@ -310,9 +314,9 @@ namespace Robogame.Core
             try
             {
                 string root = Application.streamingAssetsPath;
-                for (int i = 0; i < def.StemFiles.Length; i++)
-                    if (!File.Exists(Path.Combine(root, def.StemFiles[i])))
-                        return FmodFallback("stem missing: " + def.StemFiles[i]);
+                for (int i = 0; i < def.Stems.Length; i++)
+                    if (!File.Exists(Path.Combine(root, def.Stems[i].File)))
+                        return FmodFallback("stem missing: " + def.Stems[i].File);
 
                 FMOD.System core = FMODUnity.RuntimeManager.CoreSystem;
                 FMOD.SPEAKERMODE mode; int raw;
@@ -323,12 +327,16 @@ namespace Robogame.Core
                     return FmodFallback("createChannelGroup failed");
                 _fmodMaster.addGroup(_fmodGroup);
 
-                int n = def.StemFiles.Length;
+                int n = def.Stems.Length;
                 _fmodSounds = new FMOD.Sound[n];
                 _fmodChannels = new FMOD.Channel[n];
+                _fadeStart = new float[n];
+                _fadeEnd = new float[n];
                 for (int i = 0; i < n; i++)
                 {
-                    string path = Path.Combine(root, def.StemFiles[i]);
+                    _fadeStart[i] = def.Stems[i].FadeStart;
+                    _fadeEnd[i] = def.Stems[i].FadeEnd;
+                    string path = Path.Combine(root, def.Stems[i].File);
                     FMOD.RESULT r = core.createSound(path,
                         FMOD.MODE.LOOP_NORMAL | FMOD.MODE.CREATESAMPLE | FMOD.MODE._2D,
                         out _fmodSounds[i]);
@@ -345,7 +353,7 @@ namespace Robogame.Core
                 for (int i = 0; i < n; i++)
                 {
                     _fmodChannels[i].setDelay(_fmodStartClock, 0, false);
-                    _fmodChannels[i].setVolume(LayerGain(i));
+                    _fmodChannels[i].setVolume(MusicMath.LayerGain(0f, _fadeStart[i], _fadeEnd[i]));
                     _fmodChannels[i].setPaused(false);
                 }
 

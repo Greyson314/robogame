@@ -45,6 +45,21 @@ namespace Robogame.Core
             return gridOrigin + k * period;
         }
 
+        /// <summary>
+        /// Gain of one intensity-driven stem layer (ADR-0007). The fade
+        /// window is authored per stem: equal endpoints mean always full
+        /// (the bed), <c>fadeStart &lt; fadeEnd</c> fades the layer in
+        /// across the window, and <c>fadeStart &gt; fadeEnd</c> fades it
+        /// OUT — the inverse "calm layer" case, full below the window
+        /// and silent above it. One linear ramp covers all three.
+        /// </summary>
+        public static float LayerGain(float intensity, float fadeStart, float fadeEnd)
+        {
+            if (fadeStart == fadeEnd) return 1f;
+            float g = (intensity - fadeStart) / (fadeEnd - fadeStart);
+            return g < 0f ? 0f : (g > 1f ? 1f : g);
+        }
+
         /// <summary>Stinger intensity tiers, ordered by weight.</summary>
         public enum StingerTier { Note = 0, Flourish = 1, Phrase = 2 }
 

@@ -1,9 +1,10 @@
 # Robogame — Combat Music & Musical Damage Feedback
 
-> **Status.** v2 shipped (session 145, ADR-0007): FMOD Core plays the
-> backing track as intensity-layer stems, beat grid re-anchored across
-> the two clocks. Stinger timbres remain generated placeholders until
-> a soundfont is imported for the MPTK path (built, gated, unheard).
+> **Status.** v2.1 (session 146): six-stem stack with authored per-stem
+> fade windows — shimmer (calm, inverse), lute + war percussion on the
+> new 0..3 intensity range. v2 core (FMOD stems + two-clocks bridge)
+> shipped session 145, ADR-0007. Stinger timbres remain generated
+> placeholders until a soundfont is imported for the MPTK path.
 
 ## What this is
 
@@ -18,8 +19,14 @@ Rationale and alternatives: [ADR-0006](../decisions/0006-musical-damage-feedback
 - **`MusicConductor`** (Core) — owns the backing track, two backends
   (ADR-0007). Preferred: **FMOD Core** plays the intensity-layer stems
   from `StreamingAssets/Music/` as channels released by one shared
-  `setDelay` tick (sample-locked); `SetIntensity(0..2)` fades layer 2
-  over 0→1 and layer 3 over 1→2 (fast rise, slow fall). Fallback:
+  `setDelay` tick (sample-locked). `SetIntensity` clamps to the track's
+  authored range (`MusicTrackDefinition.MaxIntensity`, currently 0..3)
+  and each stem carries its own fade window, mapped to gain by
+  `MusicMath.LayerGain` — ascending window = riser, descending =
+  calm layer that fades OUT, equal endpoints = always-on bed
+  (fast rise, slow fall smoothing). Current stack: bed (always) /
+  shimmer (1→0, inverse) / strings (0→1) / brass (1→2) / lute (2→3) /
+  war percussion (2.5→3). Fallback:
   single clip via `PlayScheduled` (v1). Either way the grid is
   `startDsp + n × (60/BPM)` arithmetic on `AudioSettings.dspTime`;
   in FMOD mode `startDsp` is the FMOD start tick mapped through
@@ -67,11 +74,11 @@ cannon → brass, mortar → piano, bomb → timpani.
 Clips are synthesised offline:
 [`artgen/gen_music_assets.py`](../../artgen/gen_music_assets.py)
 (python + numpy) writes stinger WAVs + the fallback track into
-`Assets/_Project/Audio/Generated/` and the three intensity stems
-(bed / strings / brass, identical sample-exact length) into
-`Assets/StreamingAssets/Music/`, then **Robogame → Scaffold → Music →
-Build Combat Music** wires the track asset (clip + stem list) and cue
-rows. Replacing placeholders with real recordings
+`Assets/_Project/Audio/Generated/` and the six intensity stems
+(bed / shimmer / strings / brass / lute / percussion, identical
+sample-exact length) into `Assets/StreamingAssets/Music/`, then
+**Robogame → Scaffold → Music → Build Combat Music** wires the track
+asset (clip + stem list with fade windows) and cue rows. Replacing placeholders with real recordings
 is a pure asset swap: drop in same-named files (or edit the wizard
 rows), respect the root-note contract, rebuild.
 

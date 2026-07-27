@@ -83,7 +83,11 @@ namespace Robogame.Gameplay
         // ends. Purely cosmetic — nothing reads this back into gameplay.
         private const float HeatHalfLifeSeconds = 4f;
         private const float HeatPerKill = 80f;
-        private const float HeatAtFullIntensity = 90f;   // sustained-brawl damage scale
+        // Heat per intensity unit (sustained-brawl damage scale). The
+        // conductor clamps to the running track's authored range, so a
+        // taller stem stack just keeps climbing at the same rate — a
+        // mid-brawl kill (~60 heat + 80) tops out a 0..3 track.
+        private const float HeatPerIntensityStep = 45f;
         private float _heat;
 
         public void Bind(MatchController match, Func<Robot, MatchSide> sideLookup)
@@ -176,7 +180,7 @@ namespace Robogame.Gameplay
             // Exponential heat decay: half-life form so the fall-off is
             // frame-rate independent.
             _heat *= Mathf.Pow(0.5f, Time.unscaledDeltaTime / HeatHalfLifeSeconds);
-            MusicConductor.SetIntensity(2f * (_heat / HeatAtFullIntensity));
+            MusicConductor.SetIntensity(_heat / HeatPerIntensityStep);
 
             double now = AudioSettings.dspTime;
             Flush(_outgoing, now, incoming: false);

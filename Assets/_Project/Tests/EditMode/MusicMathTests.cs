@@ -71,6 +71,43 @@ namespace Robogame.Tests.EditMode
             Assert.Less(slot - 700.05, Spb + 1e-9);
         }
 
+        // ---- LayerGain: the per-stem intensity→gain contract (ADR-0007).
+        // Risers must be silent below their window and full above it,
+        // calm (inverted) layers the exact mirror, and the bed immune to
+        // intensity entirely — if these fail, layers leak into the wrong
+        // end of a brawl.
+
+        [Test]
+        public void LayerGain_BedIgnoresIntensity()
+        {
+            Assert.AreEqual(1f, MusicMath.LayerGain(0f, 0f, 0f));
+            Assert.AreEqual(1f, MusicMath.LayerGain(3f, 0f, 0f));
+        }
+
+        [Test]
+        public void LayerGain_RiserFadesInAcrossItsWindow()
+        {
+            Assert.AreEqual(0f, MusicMath.LayerGain(1f, 2f, 3f));      // below: silent
+            Assert.AreEqual(0.5f, MusicMath.LayerGain(2.5f, 2f, 3f), 1e-6f);
+            Assert.AreEqual(1f, MusicMath.LayerGain(3f, 2f, 3f));      // at top: full
+        }
+
+        [Test]
+        public void LayerGain_RiserClampsAboveItsWindow()
+        {
+            Assert.AreEqual(1f, MusicMath.LayerGain(99f, 0f, 1f));
+        }
+
+        [Test]
+        public void LayerGain_CalmLayerFadesOutAsIntensityRises()
+        {
+            // Descending window (1→0): full when calm, gone by intensity 1.
+            Assert.AreEqual(1f, MusicMath.LayerGain(0f, 1f, 0f));
+            Assert.AreEqual(0.25f, MusicMath.LayerGain(0.75f, 1f, 0f), 1e-6f);
+            Assert.AreEqual(0f, MusicMath.LayerGain(1f, 1f, 0f));
+            Assert.AreEqual(0f, MusicMath.LayerGain(3f, 1f, 0f));      // stays gone at max
+        }
+
         [Test]
         public void TierFor_ChipDamageIsNote()
         {
