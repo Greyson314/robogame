@@ -44,11 +44,28 @@ Rationale and alternatives: [ADR-0006](../decisions/0006-musical-damage-feedback
   off-beat 8th = `(1, 0.5, …)`; returns −1 while the bridge warms up
   (~8 frames). Stops on scene unload. Track metadata + stem list:
   `MusicTrackDefinition` at `Resources/Music/CombatTrack.asset`.
+- **`MusicSoundFont`** (Core) — binds the GM bank
+  (`StreamingAssets/SoundFont/GeneralUser-GS.sf2`) to an MPTK synth
+  **per synth** via `synth.MPTK_SoundFont.Load("file://…")`. The
+  global `MPTK_LoadLiveSF` binds only to synths that exist when it
+  runs, so lazily-created players come up bankless and silent — don't
+  use it. **Synths must be instantiated from MPTK's prefab**
+  (`Resources/Music/Mptk{Stream,File}Player`); a hand-built
+  GameObject reports ready and allocates voices but emits no audio
+  (LOG-148).
 - **`MusicMidi`** (Core) — MPTK soundfont voice for stingers: one
   synth channel per instrument (GM pizzicato/brass/piano/timpani),
-  runs as note tables in the same D pentatonic. Active only when
-  `MPTK_SoundFontLoaded`; otherwise the director stays on the WAV
-  path. ms-delay scheduling — synth-buffer accurate, not sample-exact.
+  runs as note tables in the same D pentatonic. SMG mirrors the WAV
+  hybrid — side-stick note tier, pizz payoffs, low tom on the kill.
+  Active only once its own synth's bank is ready; otherwise the
+  director stays on the WAV path. ms-delay scheduling — synth-buffer
+  accurate, not sample-exact.
+- **`GarageMusic`** (Core) — garage theme: a public-domain MIDI
+  (`StreamingAssets/Midi/`, currently Bach's Two-Part Invention No. 8,
+  BWV 779) looped through the same bank, handed to MPTK as raw bytes
+  so swapping the theme is a file drop. Started by `GarageController`,
+  stops on scene unload. No beat grid — the garage has no stingers to
+  stay consonant with.
 - **`MusicalHits`** (Combat) — static fan-in, sibling of
   `DamageAttribution` but carrying `ProjectileKind`. Reported from
   `ProjectileWorld`'s three damage paths (direct / ring / area).
@@ -100,10 +117,9 @@ quantisation delays presentation, never damage.
 
 ## Known gaps / next steps
 
-- **No soundfont imported yet** — the MPTK stinger path is built but
-  dormant (and unheard). Import one via Maestro's SoundFont Setup
-  window (Menu → Maestro); `MusicMidi` activates itself. Until then
-  stingers stay on the placeholder WAVs.
+- **Soundfont timbres unjudged by ear** — GeneralUser GS loads and
+  voices correctly (LOG-148), but the GM patch mapping is a first
+  guess and nobody has approved how it sounds.
 - MPTK note timing (ms-delay, synth-buffer accuracy) and synth CPU
   cost are unverified with a live soundfont — profile on first use
   (INV-7).

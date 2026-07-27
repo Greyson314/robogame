@@ -26,9 +26,22 @@ namespace Robogame.Core
         private static MidiStreamPlayer s_player;
         private static bool s_initFailed;
 
+        /// <summary>Resources path of the MPTK stream-player prefab copy.</summary>
+        public const string StreamPlayerResourcePath = "Music/MptkStreamPlayer";
+
         // Indexed by MusicalHitDirector's instrument index.
         // GM patches: 45 pizzicato strings, 61 brass section, 0 grand piano, 47 timpani.
         private static readonly int[] s_patches = { 45, 61, 0, 47 };
+
+        // TRACE[LOG-147]: the SMG is a hybrid voice — chip-damage notes
+        // are a rim tick that sits inside the percussion rather than a
+        // pitched pluck, and only the flourish/phrase payoffs sing. The
+        // WAV path bakes this in; mirror it here so importing a
+        // soundfont doesn't silently revert the design.
+        private const int SmgInstrument = 0;
+        private const int DrumChannel = 9;        // GM: channel 10, 0-based
+        private const int SideStickNote = 37;     // GM percussion: side stick
+        private const int LowTomNote = 45;        // GM percussion: low tom — the phrase's landing
         // Root notes at the project root D (MusicalSfx contract): D4, D3, D4, D2.
         private static readonly int[] s_roots = { 62, 50, 62, 38 };
         // D major pentatonic, semitones from root — mirror of MusicalSfx.ScalePitch.
@@ -41,9 +54,13 @@ namespace Robogame.Core
             s_initFailed = false;
         }
 
-        /// <summary>Soundfont imported and synth bootable — WAV fallback otherwise.</summary>
-        public static bool IsAvailable =>
-            !s_initFailed && MidiPlayerGlobal.MPTK_SoundFontLoaded && Ensure() != null;
+        /// <summary>
+        /// Synth booted with its bank loaded — WAV fallback otherwise.
+        /// Readiness is per synth (LOG-148): the bank streams in after
+        /// the player is created, so this stays false for the first
+        /// frames and the director keeps using WAVs meanwhile.
+        /// </summary>
+        public static bool IsAvailable => !s_initFailed && MusicSoundFont.IsReady(Ensure());
 
         /// <summary>
         /// Schedule one stinger at <paramref name="slotDsp"/> (dsp-time
@@ -70,6 +87,13 @@ namespace Robogame.Core
             switch (tier)
             {
                 case MusicMath.StingerTier.Note:
+                    if (instrument == SmgInstrument)
+                    {
+                        // Rim tick, not a pitched note — a 12 Hz stream
+                        // reads as rapid rim fire inside the groove.
+                        Play(player, DrumChannel, SideStickNote, vel, baseDelay, 120);
+                        break;
+                    }
                     Play(player, instrument, root + s_pentSemis[pentStep % s_pentSemis.Length],
                          vel, baseDelay, 450);
                     break;
@@ -90,6 +114,10 @@ namespace Robogame.Core
                     Play(player, instrument, root + 9, (int)(vel * 0.9f), baseDelay + 450, 180);
                     Play(player, instrument, root + 12, vel, baseDelay + 600, 1200);
                     Play(player, instrument, root + 19, (int)(vel * 0.7f), baseDelay + 600, 1200);
+                    // SMG kills land their top note on a drum, mirroring
+                    // the WAV phrase's pizz-run-into-a-barrel-hit shape.
+                    if (instrument == SmgInstrument)
+                        Play(player, DrumChannel, LowTomNote, vel, baseDelay + 600, 300);
                     break;
             }
         }
@@ -113,11 +141,28 @@ namespace Robogame.Core
             if (s_player != null || s_initFailed) return s_player;
             try
             {
-                var go = new GameObject("[MusicMidi]");
+                // TRACE[LOG-148]: instantiate MPTK's own prefab rather than
+                // AddComponent-ing a synth onto a bare GameObject. The synth
+                // needs a specific AudioSource + VoiceAudioSource template
+                // arrangement to reach the audio output at all; hand-building
+                // it produced a synth that allocated voices but was silent.
+                GameObject prefab = Resources.Load<GameObject>(StreamPlayerResourcePath);
+                if (prefab == null)
+                {
+                    s_initFailed = true;
+                    Debug.LogWarning("[MusicMidi] Missing MPTK player prefab at Resources/" +
+                                     StreamPlayerResourcePath + " — stingers stay on the WAV path.");
+                    return null;
+                }
+                GameObject go = UnityEngine.Object.Instantiate(prefab);
+                go.name = "[MusicMidi]";
                 UnityEngine.Object.DontDestroyOnLoad(go);
-                s_player = go.AddComponent<MidiStreamPlayer>();
+                s_player = go.GetComponent<MidiStreamPlayer>();
                 s_player.MPTK_CorePlayer = true;
                 s_player.MPTK_InitSynth();
+                // Per-synth bank load — a global live-load would miss this
+                // player entirely because it is created lazily (LOG-148).
+                MusicSoundFont.AttachTo(s_player);
                 for (int i = 0; i < s_patches.Length; i++)
                 {
                     s_player.MPTK_PlayEvent(new MPTKEvent

@@ -129,6 +129,11 @@ namespace Robogame.Gameplay
             // plain walled bay). Idempotent + runs on every garage load.
             ApplyGarageDecor();
 
+            // TRACE[LOG-148]: garage theme — public-domain MIDI through the
+            // GM soundfont. Silent no-op until the bank finishes streaming,
+            // and it stops itself when this scene unloads.
+            Robogame.Core.GarageMusic.Play();
+
             GameStateController state = GameStateController.Instance;
             if (state == null)
             {
