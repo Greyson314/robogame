@@ -10,9 +10,15 @@ obligation. That was deliberate: Mutopia also hosts CC-BY-SA editions
 terms we don't want on a shipped asset. If you add files, check the
 licence field on the Mutopia listing first and keep this table current.
 
+`garage-gaslamp-waltz.mid` is **ours** — composed for this project by
+[`artgen/gen_garage_theme.py`](../../../artgen/gen_garage_theme.py),
+not downloaded. Regenerate it by running that script; edit the harmony
+and melody tables there rather than the `.mid`.
+
 | File | Piece | Feel |
 | --- | --- | --- |
-| `bach-invention-08.mid` | Two-Part Invention No. 8 in F, BWV 779 | **Current theme.** Bright, bouncy, perpetual motion |
+| `garage-gaslamp-waltz.mid` | **Gaslamp Waltz** (original, D minor, 3/4, 88 BPM) | **Current theme.** Foggy Victorian: clarinet over harpsichord, one bright turn, back to mist |
+| `bach-invention-08.mid` | Two-Part Invention No. 8 in F, BWV 779 | Bright, bouncy, perpetual motion |
 | `bach-invention-04.mid` | Two-Part Invention No. 4 in D minor, BWV 775 | Driving and restless; D root matches the project scale |
 | `bach-invention-10.mid` | Two-Part Invention No. 10 in G, BWV 781 | Quick and light, the most cheerful of the set |
 | `bach-invention-13.mid` | Two-Part Invention No. 13 in A minor, BWV 784 | Flowing arpeggios, calmest — least busy under UI sound |

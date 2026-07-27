@@ -60,12 +60,16 @@ Rationale and alternatives: [ADR-0006](../decisions/0006-musical-damage-feedback
   Active only once its own synth's bank is ready; otherwise the
   director stays on the WAV path. ms-delay scheduling — synth-buffer
   accurate, not sample-exact.
-- **`GarageMusic`** (Core) — garage theme: a public-domain MIDI
-  (`StreamingAssets/Midi/`, currently Bach's Two-Part Invention No. 8,
-  BWV 779) looped through the same bank, handed to MPTK as raw bytes
-  so swapping the theme is a file drop. Started by `GarageController`,
-  stops on scene unload. No beat grid — the garage has no stingers to
-  stay consonant with. Seven PD candidates ship in that folder; see
+- **`GarageMusic`** (Core) — garage theme: a MIDI from
+  `StreamingAssets/Midi/` looped through the same bank, handed to MPTK
+  as raw bytes so swapping the theme is a file drop. Current theme is
+  **Gaslamp Waltz**, an original foggy-Victorian piece (D minor, 3/4,
+  65.5 s) composed by
+  [`artgen/gen_garage_theme.py`](../../artgen/gen_garage_theme.py) —
+  edit the harmony/melody tables there and re-run, never the `.mid`.
+  Started by `GarageController`, stops on scene unload. No beat grid —
+  the garage has no stingers to stay consonant with. Seven PD
+  audition candidates ship alongside it; see
   its [README](../../Assets/StreamingAssets/Midi/README.md) for the
   roster and licences. In editor/dev builds `GarageMusicDevCycle`
   auditions them live with **F7** (Shift+F7 back) — judge candidates
