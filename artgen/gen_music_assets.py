@@ -4,8 +4,10 @@ Outputs (44.1 kHz 16-bit WAV) into Assets/_Project/Audio/Generated/:
   track_warpulse_100bpm.wav                 8-bar D-rooted war-drum loop, sample-exact length
   stinger_{pluck,brass,piano,timpani}_{note,flourish,phrase}.wav
 
-All pitched material is rooted at D so MusicalSfx's relative major-pentatonic
-pitch multipliers stay consonant with the backing drone.
+All pitched material is rooted at D so MusicalSfx's relative minor-pentatonic
+pitch multipliers stay consonant with the backing drone. D MINOR since
+LOG-153 — the combat stack shares the garage Gaslamp Waltz's key quality,
+harmonic skeleton (Dm - F - Gm - A over a D pedal) and its clocktower bell.
 """
 import numpy as np
 import wave
@@ -19,8 +21,17 @@ STREAM_OUT = r"C:\Users\Grey\Desktop\mutedtuple\robogame\Assets\StreamingAssets\
 
 D1, D2, D3, D4, D5 = 36.708, 73.416, 146.832, 293.665, 587.330
 A2, A3, A4 = 110.0, 220.0, 440.0
-# D major pentatonic ratios from root: D E F# A B
-PENT = [1.0, 1.12246, 1.25992, 1.49831, 1.68179, 2.0]
+# D minor pentatonic ratios from root: D F G A C (LOG-153, mirrors
+# MusicalSfx.s_scale — the two tables must move together).
+PENT = [1.0, 1.18921, 1.33484, 1.49831, 1.78180, 2.0]
+
+# Per-bar harmony for the melodic stems, echoing the garage waltz's A
+# section (Dm Dm Gm Dm | Bb Gm A7 Dm compressed to its skeleton):
+# four bars home, the relative-major brightening, a G step, an A that
+# hands back to the loop's D. Ratios from the stem root. The drone and
+# timpani bed stay on the D pedal underneath — every skeleton root is a
+# D-minor-pentatonic degree, so stingers stay consonant by construction.
+SKELETON = [1.0, 1.0, 1.0, 1.0, PENT[1], PENT[1], PENT[2], PENT[3]]
 
 def t_axis(dur):
     return np.arange(int(dur * SR)) / SR
@@ -114,6 +125,37 @@ def strings(freq, dur, attack=0.06):
         for h in range(1, 10):
             out += np.sin(h * ph) / (h ** 1.3)
     return out * env_ad(len(t), attack, dur * 0.7)
+
+def bell(freq, dur=3.5, gain=1.0):
+    """Tubular-bell chime: inharmonic partials with a prominent minor-third
+    'tierce', long even decay — the garage waltz's distant clocktower,
+    carried into the arena (LOG-153)."""
+    t = t_axis(dur)
+    out = np.zeros_like(t)
+    # (partial ratio, amplitude, decay multiplier) — hum, prime, tierce,
+    # quint, nominal; loosely the classic bell spectrum.
+    for r, a, d in ((0.5, 0.5, 0.6), (1.0, 1.0, 1.0), (1.19, 0.65, 1.4),
+                    (1.5, 0.35, 1.8), (2.0, 0.5, 2.2), (2.66, 0.2, 3.0)):
+        out += a * np.sin(2 * np.pi * freq * r * t + r) * np.exp(-t * d)
+    strike = np.random.default_rng(int(freq)).uniform(-1, 1, len(t)) * np.exp(-t * 200) * 0.3
+    return (out + strike) * env_ad(len(t), 0.002, dur * 0.6) * gain
+
+def orchhit(gain=1.0):
+    """One-shot orchestral kill stab (LOG-153): unison D-minor chord of
+    brass + high strings over a timpani thump — the WAV-path mirror of
+    MusicMidi's GM 55 Orchestra Hit on the kill downbeat."""
+    canvas = np.zeros(int(1.2 * SR))
+    F3, A3f = D3 * PENT[1], D3 * PENT[3]
+    for f, g in ((D2, 0.7), (D3, 1.0), (F3, 0.6), (A3f, 0.55), (D4, 0.5)):
+        place(canvas, brass(f, 0.5, attack=0.008) * g * 0.8, 0)
+        place(canvas, strings(f * 2, 0.55, attack=0.004) * g * 0.3, 0)
+    place(canvas, timpani(D2, 1.1, sweep=1.5) * 0.9, 0)
+    return normalize(canvas, 0.9) * gain
+
+def kill_hit(canvas):
+    """Bake the orchestral stab onto the front of a kill-phrase canvas."""
+    place(canvas, orchhit(0.85), 0.0)
+    return normalize(canvas)
 
 def warsnare(gain=1.0, dur=0.16, tone=0.22, seed=0):
     """Tight field-drum hit: differentiated (high-tilted) noise burst plus
@@ -246,30 +288,30 @@ def gen_stingers():
         place(phrase, pizz(D4 * ratio, dur=1.0 if ratio == 2.0 else 0.6) * gain, at)
     place(phrase, chudaiko(0.9, seed=7), 4 * s16)     # kill lands with a barrel don
     place(phrase, shime(0.5, seed=8), 3.5 * s16)      #   ...set up by a grace rim tick
-    write_wav("stinger_pluck_phrase.wav", normalize(phrase))
+    write_wav("stinger_pluck_phrase.wav", kill_hit(phrase))
 
     write_wav("stinger_brass_note.wav", normalize(brass(D3, 0.7)))
     write_wav("stinger_brass_flourish.wav", sequence(
         [(0, 1, .9, .3), (0.14, PENT[3], .9, .3), (0.28, 2.0, 1.0, .8)], 1.3, "brass"))
-    write_wav("stinger_brass_phrase.wav", sequence(
+    write_wav("stinger_brass_phrase.wav", kill_hit(sequence(
         [(0, 1, .9, .25), (0.16, 1, .8, .2), (0.32, PENT[3], .9, .3),
-         (0.55, 2.0, 1.0, 1.0), (0.55, PENT[3], .55, 1.0), (0.55, 1.0, .5, 1.0)], 2.0, "brass"))
+         (0.55, 2.0, 1.0, 1.0), (0.55, PENT[3], .55, 1.0), (0.55, 1.0, .5, 1.0)], 2.0, "brass")))
 
     write_wav("stinger_piano_note.wav", normalize(piano(D4, 1.2)))
     write_wav("stinger_piano_flourish.wav", sequence(
         [(0, 1, .9), (s16, PENT[1], .8), (2*s16, PENT[2], .85), (3*s16, PENT[4], .9), (4*s16, 2.0, 1.0)],
         1.6, "piano"))
-    write_wav("stinger_piano_phrase.wav", sequence(
+    write_wav("stinger_piano_phrase.wav", kill_hit(sequence(
         [(0, 2.0, .9), (s16, PENT[4], .8), (2*s16, PENT[3], .8), (3*s16, PENT[2], .8),
          (4*s16, PENT[3], .85), (5*s16, PENT[4], .9), (6*s16, 2.0, 1.0, 1.8),
-         (6*s16, PENT[3]*2, .55, 1.8)], 2.6, "piano"))
+         (6*s16, PENT[3]*2, .55, 1.8)], 2.6, "piano")))
 
     write_wav("stinger_timpani_note.wav", normalize(timpani(D2, 1.3)))
     write_wav("stinger_timpani_flourish.wav", sequence(
         [(0, 1, .7, .5), (0.18, 1, .8, .5), (0.36, PENT[3], 1.0, 1.2)], 1.8, "timpani"))
     roll = [(i * 0.09, 1, 0.35 + 0.4 * i / 8, 0.35) for i in range(8)]
-    write_wav("stinger_timpani_phrase.wav", sequence(
-        roll + [(0.78, 1, 1.0, 1.6), (0.78, PENT[3], .5, 1.4)], 2.6, "timpani"))
+    write_wav("stinger_timpani_phrase.wav", kill_hit(sequence(
+        roll + [(0.78, 1, 1.0, 1.6), (0.78, PENT[3], .5, 1.4)], 2.6, "timpani")))
 
 # ---------------------------------------------------------------- backing track
 
@@ -324,43 +366,58 @@ def gen_track():
         tick = rng.uniform(-1, 1, int(0.03 * SR)) * env_ad(int(0.03 * SR), 0.001, 0.01)
         place(mix, tick * 0.05, at)
 
+    # Clocktower bells — the garage waltz's phrase-marking chime carried
+    # into the arena (LOG-153): D on the loop's downbeat, F where the
+    # skeleton brightens. Distant and low in the always-on bed.
+    place(mix, bell(D4, gain=0.17), 0.0)
+    place(mix, bell(D4 * PENT[1], gain=0.13), 4 * beats_per_bar * spb)
+
     bed = normalize(mix, 0.8)
     # Legacy single-file track — the conductor's Unity-AudioSource
     # fallback when FMOD stems are unavailable. Identical to the bed.
     write_wav("track_warpulse_100bpm.wav", haas_stereo(bed), stereo=True)
     write_wav("stem_bed.wav", haas_stereo(bed), stereo=True, out_dir=STREAM_OUT)
 
-    # Layer 2 — low-string ostinato: driving 8ths on D2, answering A2 on
-    # beat 3, an F#2 pickup lifting into odd bars. Enters at intensity > 0.
+    # Layer 2 — low-string ostinato: driving 8ths walking the waltz
+    # skeleton (LOG-153), answering on the fifth at beat 3, a pickup 8th
+    # leading into each root change. Enters at intensity > 0.
     st = np.zeros(total_samples)
-    F2s = D2 * 1.25992   # F#2, the pentatonic third
     for bar in range(bars):
         b0 = bar * beats_per_bar * spb
+        root = D2 * SKELETON[bar]
+        nxt = D2 * SKELETON[(bar + 1) % bars]
         for eighth in range(beats_per_bar * 2):
             at = b0 + eighth * spb * 0.5
             on_beat = eighth % 2 == 0
-            freq = A2 if eighth in (4, 5) else D2
-            if bar % 2 == 1 and eighth == 7:
-                freq = F2s
+            # Beat 3 answers on the fifth; the A bar answers on the
+            # octave instead — its fifth (E) rubs the pentatonic F.
+            freq = root * (2.0 if bar == 7 else 1.49831) if eighth in (4, 5) else root
+            if eighth == 7 and nxt != root:
+                freq = nxt                              # pickup into the change
             gain = 0.9 if on_beat else 0.55
             place(st, strings(freq, 0.26, attack=0.02) * gain, at)
     write_wav("stem_strings.wav", haas_stereo(normalize(st, 0.55)), stereo=True, out_dir=STREAM_OUT)
 
-    # Layer 3 — brass stabs on beats 1 and 3 (D3 + A2 double-stop), with
-    # a held swell opening each 4-bar phrase. Enters at intensity > 1.
+    # Layer 3 — brass stabs on beats 1 and 3 (root + fifth double-stop)
+    # walking the waltz skeleton, with a held swell opening each 4-bar
+    # phrase. Enters at intensity > 1.
     br = np.zeros(total_samples)
     for bar in range(bars):
         b0 = bar * beats_per_bar * spb
+        root = D3 * SKELETON[bar]
+        # Fifth below the root; the A bar doubles the octave below
+        # instead — its fifth (E) would rub the pentatonic stingers.
+        fifth = root * (0.5 if bar == 7 else 1.49831 / 2)
         if bar % 4 == 0:
-            place(br, brass(D3, 1.6, attack=0.25) * 0.9, b0)
-            place(br, brass(A3, 1.6, attack=0.25) * 0.45, b0)
+            place(br, brass(root, 1.6, attack=0.25) * 0.9, b0)
+            place(br, brass(root * 1.49831, 1.6, attack=0.25) * 0.45, b0)
         else:
-            place(br, brass(D3, 0.5) * 0.85, b0)
-            place(br, brass(A2, 0.5) * 0.5, b0)
-        place(br, brass(D3, 0.4) * 0.7, b0 + 2 * spb)
-        place(br, brass(A2, 0.4) * 0.45, b0 + 2 * spb)
+            place(br, brass(root, 0.5) * 0.85, b0)
+            place(br, brass(fifth, 0.5) * 0.5, b0)
+        place(br, brass(root, 0.4) * 0.7, b0 + 2 * spb)
+        place(br, brass(fifth, 0.4) * 0.45, b0 + 2 * spb)
         if bar % 2 == 1:                                   # pickup 8th into the next bar
-            place(br, brass(A2, 0.25) * 0.5, b0 + 3.5 * spb)
+            place(br, brass(fifth, 0.25) * 0.5, b0 + 3.5 * spb)
     write_wav("stem_brass.wav", haas_stereo(normalize(br, 0.6)), stereo=True, out_dir=STREAM_OUT)
 
     # Layer — "clockwork lute": Karplus-Strong 16th-note gallop in
@@ -370,16 +427,22 @@ def gen_track():
     lu = np.zeros(total_samples)
     s16 = spb / 4
     GALLOP = [0, 2, 3, 4, 6, 7, 8, 10, 11, 12, 14, 15]   # x.xx per beat
+    # The gallop's pitch cycle spells the garage waltz's opening phrase
+    # across each two-bar pair — A below the root rising through D to F,
+    # then F–E–D sinking back (MELODY_A bars 0–1, LOG-153). The E sits
+    # outside the pentatonic but only ever as a passing 16th pluck.
+    RISE = [1.49831 / 2, 1.0, PENT[1]]      # A3  D4  F4
+    FALL = [PENT[1], 1.12246, 1.0]          # F4  E4  D4
     for bar in range(bars):
         b0 = bar * beats_per_bar * spb
-        cycle = [1.0, PENT[3], PENT[4]] if bar % 2 == 0 else [1.0, PENT[2], PENT[3]]
+        cycle = RISE if bar % 2 == 0 else FALL
         for k, slot in enumerate(GALLOP):
             ratio = cycle[k % 3]
-            # Odd bars climb E–F#–A over the last three onsets into the
+            # Odd bars climb G–A–C over the last three onsets into the
             # next downbeat; bar 7 walks down instead, resolving to the
             # loop's D.
             if bar % 2 == 1 and slot >= 12:
-                run = [PENT[1], PENT[2], PENT[3]] if bar != 7 else [PENT[4], PENT[3], PENT[1]]
+                run = [PENT[2], PENT[3], PENT[4]] if bar != 7 else [PENT[4], PENT[3], PENT[1]]
                 ratio = run[GALLOP.index(slot) - 9]
             gain = 0.85 if slot % 4 == 0 else 0.55
             place(lu, pluck(D4 * ratio, dur=0.22, bright=0.7) * gain, b0 + slot * s16)

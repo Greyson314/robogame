@@ -1,13 +1,16 @@
 # Robogame — Combat Music & Musical Damage Feedback
 
-> **Status.** v2.2 (session 147): five-stem stack settled by ear —
-> original timpani bed kept (taiko-stem experiment built and reverted;
-> the kuchi shōga sequencer + taiko voices remain in the generator as
-> a toolkit), shimmer calm layer removed, SMG stingers now hybrid
-> (rim-tick notes, pizzicato payoff tiers). Intensity 0..3 with
-> authored per-stem fade windows (146). v2 core (FMOD stems +
-> two-clocks bridge) shipped session 145, ADR-0007. Stinger timbres
-> remain generated placeholders until a soundfont is imported.
+> **Status.** v2.3 (session 153): combat music re-keyed to **D minor**
+> to share the garage theme's tonality — minor-pentatonic stingers,
+> stems walking the waltz's Dm–F–Gm–A skeleton over the D pedal, the
+> waltz's opening motif in the lute gallop, clocktower bells in the
+> bed. Player kills land a GM 55 **Orchestra Hit** on the phrase
+> downbeat (WAV phrases carry a baked stab). v2.2 (147): five-stem
+> stack settled by ear — original timpani bed kept (taiko toolkit
+> stays dormant in the generator), SMG stingers hybrid (rim-tick
+> notes, pizzicato payoffs). Intensity 0..3 with per-stem fade
+> windows (146). v2 core (FMOD stems + two-clocks bridge) session
+> 145, ADR-0007. GeneralUser GS soundfont live since 148.
 
 ## What this is
 
@@ -28,8 +31,11 @@ Rationale and alternatives: [ADR-0006](../decisions/0006-musical-damage-feedback
   `MusicMath.LayerGain` — ascending window = riser, descending =
   calm layer that fades OUT (supported, currently unused), equal
   endpoints = always-on bed (fast rise, slow fall smoothing).
-  Current stack: bed (timpani war pattern, always) / strings (0→1) /
-  brass (1→2) / lute (2→3) / war-snare (2.5→3). The generator also
+  Current stack: bed (timpani war pattern + clocktower bells, always) /
+  strings (0→1) / brass (1→2) / lute (2→3) / war-snare (2.5→3).
+  Strings and brass walk the garage waltz's harmonic skeleton
+  (Dm–F–Gm–A over the bed's D pedal); the lute gallop spells the
+  waltz's opening motif (LOG-153). The generator also
   carries a dormant **kuchi shōga** toolkit (`STROKES` + `kuchi()` +
   taiko voices): one token per 8th slot, `doko`/`kara`/`tsuku` split
   the slot into two 16ths, `tsu` = ghost note, UPPERCASE = accent —
@@ -55,8 +61,12 @@ Rationale and alternatives: [ADR-0006](../decisions/0006-musical-damage-feedback
   (LOG-148).
 - **`MusicMidi`** (Core) — MPTK soundfont voice for stingers: one
   synth channel per instrument (GM pizzicato/brass/piano/timpani),
-  runs as note tables in the same D pentatonic. SMG mirrors the WAV
-  hybrid — side-stick note tier, pizz payoffs, low tom on the kill.
+  runs as note tables in the same D **minor** pentatonic, plus a
+  fifth channel carrying GM 55 Orchestra Hit — player kills open the
+  phrase with the stab on the downbeat (D4+D3, fixed regardless of
+  weapon); player deaths keep the hit-less dark mirror. SMG mirrors
+  the WAV hybrid — side-stick note tier, pizz payoffs, low tom on
+  the kill.
   Active only once its own synth's bank is ready; otherwise the
   director stays on the WAV path. ms-delay scheduling — synth-buffer
   accurate, not sample-exact.
@@ -100,9 +110,12 @@ cannon → brass, mortar → piano, bomb → timpani.
 - Backing tracks are rendered at **exactly** `bars × beatsPerBar ×
   (60/BPM)` seconds — a sloppy loop seam breaks the grid.
 - All pitched material (track drone + stinger clips) shares one root
-  (currently D). Stinger note clips are recorded at the root;
+  (currently D, minor since LOG-153 — `MusicalSfx.s_scale`,
+  `MusicMidi.s_pentSemis` and the generator's `PENT` table must move
+  together). Stinger note clips are recorded at the root;
   `MusicalSfx`'s pentatonic multipliers stay within one octave.
-  Flourish/phrase clips are baked runs in key and play at pitch 1.
+  Flourish/phrase clips are baked runs in key and play at pitch 1;
+  phrase clips carry the orchestral kill stab at their head.
 - Stinger cue rows live in `AudioCueWizard.s_rows` (Music bus, 2D,
   jitter 0 — the director owns pitch). `Assets/`-rooted paths bypass
   the USFX root.

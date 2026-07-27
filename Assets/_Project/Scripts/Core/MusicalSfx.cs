@@ -36,7 +36,7 @@ namespace Robogame.Core
     /// sample.
     /// </para>
     /// <para>
-    /// Everything is pinned to one global major-pentatonic scale, so
+    /// Everything is pinned to one global minor-pentatonic scale, so
     /// any two musical cues sounding together are consonant by
     /// construction — the cheap trick that makes 16 chassis firing at
     /// once read as texture instead of tone soup. Phrase state is
@@ -54,15 +54,17 @@ namespace Robogame.Core
         /// run; a longer gap resets the run to the root.</summary>
         public const float VolleyWindowSeconds = 1.2f;
 
-        // Major pentatonic degrees as semitone offsets from the root,
+        // Minor pentatonic degrees as semitone offsets from the root,
         // capped at the octave. Precomputed to pitch multipliers.
+        // Minor since LOG-153, matching the garage theme's D minor so
+        // arena and garage share one key quality.
         private static readonly float[] s_scale =
         {
             1f,          // 0  root
-            1.12246f,    // 2  major second
-            1.25992f,    // 4  major third
+            1.18921f,    // 3  minor third
+            1.33484f,    // 5  fourth
             1.49831f,    // 7  fifth
-            1.68179f,    // 9  major sixth
+            1.78180f,    // 10 minor seventh
             2f,          // 12 octave
         };
 

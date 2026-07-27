@@ -29,9 +29,18 @@ namespace Robogame.Core
         /// <summary>Resources path of the MPTK stream-player prefab copy.</summary>
         public const string StreamPlayerResourcePath = "Music/MptkStreamPlayer";
 
-        // Indexed by MusicalHitDirector's instrument index.
-        // GM patches: 45 pizzicato strings, 61 brass section, 0 grand piano, 47 timpani.
-        private static readonly int[] s_patches = { 45, 61, 0, 47 };
+        // Channel n carries s_patches[n]. 0–3 are indexed by
+        // MusicalHitDirector's instrument index; 4 is the kill-hit voice.
+        // GM patches: 45 pizzicato strings, 61 brass section, 0 grand
+        // piano, 47 timpani, 55 orchestra hit.
+        private static readonly int[] s_patches = { 45, 61, 0, 47, 55 };
+
+        // Player kills open the phrase with the classic orchestral stab
+        // (LOG-153) — same GM 55 the garage blast shortlist named in
+        // LOG-152, so the kill signature shares the garage's timbre
+        // lineage. Fixed D4+D3 regardless of weapon: one recognisable
+        // kill sound, not four.
+        private const int OrchestraHitChannel = 4;
 
         // TRACE[LOG-147]: the SMG is a hybrid voice — chip-damage notes
         // are a rim tick that sits inside the percussion rather than a
@@ -44,8 +53,10 @@ namespace Robogame.Core
         private const int LowTomNote = 45;        // GM percussion: low tom — the phrase's landing
         // Root notes at the project root D (MusicalSfx contract): D4, D3, D4, D2.
         private static readonly int[] s_roots = { 62, 50, 62, 38 };
-        // D major pentatonic, semitones from root — mirror of MusicalSfx.ScalePitch.
-        private static readonly int[] s_pentSemis = { 0, 2, 4, 7, 9, 12 };
+        // D minor pentatonic, semitones from root — mirror of
+        // MusicalSfx.ScalePitch. Minor to share the garage theme's key
+        // quality (Gaslamp Waltz is D minor — LOG-153).
+        private static readonly int[] s_pentSemis = { 0, 3, 5, 7, 10, 12 };
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
@@ -99,19 +110,28 @@ namespace Robogame.Core
                     break;
 
                 case MusicMath.StingerTier.Flourish:
-                    // Fast 16th run up the chord, landing on the octave.
+                    // Fast 16th run up the minor chord, landing on the octave.
                     Play(player, instrument, root, (int)(vel * 0.85f), baseDelay, 200);
-                    Play(player, instrument, root + 4, (int)(vel * 0.9f), baseDelay + 110, 200);
+                    Play(player, instrument, root + 3, (int)(vel * 0.9f), baseDelay + 110, 200);
                     Play(player, instrument, root + 7, (int)(vel * 0.95f), baseDelay + 220, 200);
                     Play(player, instrument, root + 12, vel, baseDelay + 330, 550);
                     break;
 
                 case MusicMath.StingerTier.Phrase:
+                    // Player kill: the orchestral hit takes the downbeat
+                    // itself, the run climbs out of it into the held
+                    // chord. Player death keeps the darker hit-less
+                    // mirror (the WAV path bakes a stab into both).
+                    if (!incoming)
+                    {
+                        Play(player, OrchestraHitChannel, 62, (int)(120 * volumeScale), baseDelay, 900);
+                        Play(player, OrchestraHitChannel, 50, (int)(96 * volumeScale), baseDelay, 900);
+                    }
                     // Kill phrase: run in 16ths, then root+fifth held on the beat.
                     Play(player, instrument, root, (int)(vel * 0.8f), baseDelay, 180);
-                    Play(player, instrument, root + 4, (int)(vel * 0.85f), baseDelay + 150, 180);
+                    Play(player, instrument, root + 3, (int)(vel * 0.85f), baseDelay + 150, 180);
                     Play(player, instrument, root + 7, (int)(vel * 0.9f), baseDelay + 300, 180);
-                    Play(player, instrument, root + 9, (int)(vel * 0.9f), baseDelay + 450, 180);
+                    Play(player, instrument, root + 10, (int)(vel * 0.9f), baseDelay + 450, 180);
                     Play(player, instrument, root + 12, vel, baseDelay + 600, 1200);
                     Play(player, instrument, root + 19, (int)(vel * 0.7f), baseDelay + 600, 1200);
                     // SMG kills land their top note on a drum, mirroring
