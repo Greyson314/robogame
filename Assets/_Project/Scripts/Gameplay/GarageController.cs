@@ -133,6 +133,11 @@ namespace Robogame.Gameplay
             // GM soundfont. Silent no-op until the bank finishes streaming,
             // and it stops itself when this scene unloads.
             Robogame.Core.GarageMusic.Play();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            // F7 auditions the other candidates in StreamingAssets/Midi/.
+            if (GetComponent<GarageMusicDevCycle>() == null)
+                gameObject.AddComponent<GarageMusicDevCycle>();
+#endif
 
             GameStateController state = GameStateController.Instance;
             if (state == null)

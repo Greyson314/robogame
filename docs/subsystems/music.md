@@ -65,7 +65,11 @@ Rationale and alternatives: [ADR-0006](../decisions/0006-musical-damage-feedback
   BWV 779) looped through the same bank, handed to MPTK as raw bytes
   so swapping the theme is a file drop. Started by `GarageController`,
   stops on scene unload. No beat grid — the garage has no stingers to
-  stay consonant with.
+  stay consonant with. Seven PD candidates ship in that folder; see
+  its [README](../../Assets/StreamingAssets/Midi/README.md) for the
+  roster and licences. In editor/dev builds `GarageMusicDevCycle`
+  auditions them live with **F7** (Shift+F7 back) — judge candidates
+  there, not in an external player, which uses the OS wavetable.
 - **`MusicalHits`** (Combat) — static fan-in, sibling of
   `DamageAttribution` but carrying `ProjectileKind`. Reported from
   `ProjectileWorld`'s three damage paths (direct / ring / area).

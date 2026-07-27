@@ -62,6 +62,35 @@ run with a bank, so it had never been observably broken.
   (backdrop rocks / stones get fresh random transforms on load);
   reverted — no authored values were touched.
 
+## Theme candidates + dev audition (follow-up in-session)
+
+User asked what MIDIs were available locally: only the one. Added six
+more Public Domain pieces from Mutopia into the same folder, with
+`StreamingAssets/Midi/README.md` holding the roster, licences and a
+one-line feel description each:
+
+- Bach Inventions No. 4 (D minor), No. 10 (G), No. 13 (A minor)
+- Bach Prelude BWV 999 (D minor, lute) — steady arpeggiated mechanism
+- Joplin, The Entertainer + Magnetic Rag — ragtime contrast
+
+Two substitutions from the proposed list: Mutopia has no Maple Leaf
+Rag (used Magnetic Rag) and no BWV 846 prelude (used BWV 999). All
+seven files are Public Domain — deliberately avoiding Mutopia's
+CC-BY-SA editions, which would put share-alike terms on a shipped
+asset.
+
+`GarageMusicDevCycle` (Gameplay, compile-stripped from release):
+**F7** cycles the folder, **Shift+F7** steps back. It lives in
+Gameplay because Core doesn't reference the Input System and this
+wasn't worth widening Core's dependencies for; `GarageMusic` exposes
+`AvailableTracks` / `CurrentTrack` / `SwitchTo` for it. F7 was free —
+NetDevHud owns F5 and F8–F11. Auditioning in an external player is
+misleading: Windows renders MIDI on the Microsoft GS wavetable, not
+GeneralUser GS.
+
+Verified live: enumeration returns all 7, `SwitchTo("entertainer")`
+restarted playback with 16 voices active.
+
 ## Notes / follow-ups
 
 - **Timbres still unjudged by ear** — this session verified voices

@@ -47,6 +47,7 @@ namespace Robogame.Core
 
         private MidiFilePlayer _player;
         private byte[] _midi;
+        private string _track = StreamingRelativePath;
         private float _waited;
         private bool _started;
         private bool _loggedMissing;
@@ -72,6 +73,37 @@ namespace Robogame.Core
             if (s_instance == null) return;
             Destroy(s_instance.gameObject);
             s_instance = null;
+        }
+
+        /// <summary>
+        /// StreamingAssets-relative paths of every theme candidate on
+        /// disk, sorted. Empty when the folder is missing. Used by the
+        /// dev theme-cycler; see the folder's README for the roster.
+        /// </summary>
+        public static string[] AvailableTracks()
+        {
+            string dir = Path.Combine(Application.streamingAssetsPath, "Midi");
+            if (!Directory.Exists(dir)) return Array.Empty<string>();
+            string[] files = Directory.GetFiles(dir, "*.mid");
+            Array.Sort(files, StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < files.Length; i++)
+                files[i] = "Midi/" + Path.GetFileName(files[i]);
+            return files;
+        }
+
+        /// <summary>Path of the track currently loaded (default theme before any switch).</summary>
+        public static string CurrentTrack =>
+            s_instance != null ? s_instance._track : StreamingRelativePath;
+
+        /// <summary>
+        /// Switch the running theme to another MIDI in the folder.
+        /// Restarts playback from the top; a no-op when the theme isn't
+        /// running or the file is unreadable.
+        /// </summary>
+        public static bool SwitchTo(string streamingRelativePath)
+        {
+            if (s_instance == null) return false;
+            return s_instance.LoadTrack(streamingRelativePath);
         }
 
         private void OnEnable()
@@ -128,19 +160,49 @@ namespace Robogame.Core
             _player.MPTK_Play(_midi);
         }
 
-        private bool TryCreatePlayer()
+        /// <summary>
+        /// Read a track's bytes and, when the synth is already running,
+        /// restart playback on it.
+        /// </summary>
+        private bool LoadTrack(string relativePath)
         {
-            string path = Path.Combine(Application.streamingAssetsPath, StreamingRelativePath);
+            string path = Path.Combine(Application.streamingAssetsPath, relativePath);
             if (!File.Exists(path))
             {
-                LogMissing("[GarageMusic] No theme MIDI at StreamingAssets/" + StreamingRelativePath +
-                           " — garage stays quiet.");
+                Debug.Log("[GarageMusic] No MIDI at StreamingAssets/" + relativePath + ".");
                 return false;
             }
 
             try
             {
                 _midi = File.ReadAllBytes(path);
+                _track = relativePath;
+                if (_started && _player != null)
+                {
+                    _player.MPTK_Stop();
+                    _player.MPTK_Play(_midi);
+                    Debug.Log("[GarageMusic] Now playing " + relativePath + ".");
+                }
+                return true;
+            }
+            catch (Exception e)
+            {
+                Debug.Log("[GarageMusic] Could not read " + relativePath + " (" + e.Message + ").");
+                return false;
+            }
+        }
+
+        private bool TryCreatePlayer()
+        {
+            if (!LoadTrack(_track))
+            {
+                LogMissing("[GarageMusic] No theme MIDI at StreamingAssets/" + _track +
+                           " — garage stays quiet.");
+                return false;
+            }
+
+            try
+            {
                 // TRACE[LOG-148]: MPTK's own prefab carries the AudioSource +
                 // voice-template arrangement the synth needs to reach the
                 // audio output; a hand-built GameObject allocates voices but
