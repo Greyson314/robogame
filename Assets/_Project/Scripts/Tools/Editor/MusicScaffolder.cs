@@ -59,11 +59,11 @@ namespace Robogame.Tools.Editor
             def.Stems = new[]
             {
                 new MusicTrackDefinition.Stem { File = "Music/stem_bed.wav",          FadeStart = 0f, FadeEnd = 0f },
-                new MusicTrackDefinition.Stem { File = "Music/stem_taiko_ji.wav",     FadeStart = 0f, FadeEnd = 1f },
+                new MusicTrackDefinition.Stem { File = "Music/stem_taiko_uchi.wav",   FadeStart = 0f, FadeEnd = 1f },
                 new MusicTrackDefinition.Stem { File = "Music/stem_strings.wav",      FadeStart = 0f, FadeEnd = 1f },
-                new MusicTrackDefinition.Stem { File = "Music/stem_taiko_chu.wav",    FadeStart = 1f, FadeEnd = 2f },
+                new MusicTrackDefinition.Stem { File = "Music/stem_taiko_odaiko.wav", FadeStart = 1f, FadeEnd = 2f },
                 new MusicTrackDefinition.Stem { File = "Music/stem_brass.wav",        FadeStart = 1f, FadeEnd = 2f },
-                new MusicTrackDefinition.Stem { File = "Music/stem_taiko_odaiko.wav", FadeStart = 2f, FadeEnd = 3f },
+                new MusicTrackDefinition.Stem { File = "Music/stem_taiko_frenzy.wav", FadeStart = 2f, FadeEnd = 3f },
                 new MusicTrackDefinition.Stem { File = "Music/stem_lute.wav",         FadeStart = 2f, FadeEnd = 3f },
             };
             EditorUtility.SetDirty(def);

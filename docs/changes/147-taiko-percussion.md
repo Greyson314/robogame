@@ -42,6 +42,24 @@ as the foundation for the other elements.
   seven at 1.00; mid-fall at intensity 1.223 → chū 0.22 + brass 0.22
   together, ji/strings full, ō-daiko/lute silent. No exceptions.
 
+## Round 2 — taiko into the bed
+
+User listened: shimmer's absence audible (so the build was fine), but
+drums "sound the same" — because round 1 left the bed untouched and
+gated all taiko behind intensity; at low heat you heard the old track.
+Restructured for overtness:
+
+- **Bed now carries the core taiko groove always-on** (chū matsuri +
+  shime horsebeat ji with ghosts); timpani slimmed to tuned anchors
+  (downbeat, beat-3 fifth, phrase roll); old faint rim ticks removed.
+  The Unity-fallback single track inherits all of it (same buffer).
+- Stems re-cut: **uchi** off-beat chū answers (0→1), **ō-daiko** ma +
+  booms + oroshi moved DOWN to 1→2 (mid-fight payoff, 0.85 mix),
+  **frenzy** wall-to-wall horsebeat + kara 16ths (2→3). ji/chu stems
+  deleted (content absorbed into bed/uchi/frenzy).
+- Verified: asset carries the new seven-stem lineup, compile clean,
+  FmodActive with 7 channels, rest = bed only.
+
 ## Notes / follow-ups
 
 - Mix levels (ji 0.3 / chū 0.55 / ō-daiko 0.7) and all timbres are

@@ -265,28 +265,41 @@ def gen_track():
     drone = (drone + fifth) * swell
     mix += normalize(drone, 0.30)
 
-    # War timpani: tuned kettledrums on D/A (same timpani() voice as the bomb
-    # stingers) so the drum bed rings in key with the drone instead of thudding.
+    # War timpani, slimmed to the tuned-anchor role (LOG-147 round 2):
+    # in-key downbeat, beat-3 fifth, phrase roll. The groove work moved
+    # to the taiko kit below — the kettles ring, the taiko drive.
     drums = np.zeros(total_samples)
     for bar in range(bars):
         b0 = bar * beats_per_bar * spb
         place(drums, timpani(D2, 1.6, sweep=1.6) * 1.0, b0)             # big downbeat, long ring
-        place(drums, timpani(A2, 1.0, sweep=1.4) * 0.7, b0 + 2 * spb)   # beat 3 on the fifth
-        place(drums, timpani(D3, 0.6, sweep=1.3) * 0.45, b0 + 1 * spb)  # beat 2
-        place(drums, timpani(D3, 0.6, sweep=1.3) * 0.5, b0 + 3 * spb)   # beat 4
-        place(drums, timpani(A3, 0.4, sweep=1.3) * 0.35, b0 + 3.5 * spb)  # & of 4 push
+        place(drums, timpani(A2, 1.0, sweep=1.4) * 0.6, b0 + 2 * spb)   # beat 3 on the fifth
         if bar % 4 == 3:                                                # timpani roll into next phrase
             for k in range(8):
                 place(drums, timpani(D2, 0.35, sweep=1.25) * (0.25 + 0.09 * k),
                       b0 + (3.0 + k / 8) * spb)
-    mix += normalize(drums, 0.62)
+    mix += normalize(drums, 0.5)
 
-    # Faint taiko rim ticks on off-beat 8ths — the grid players will sting against.
-    rng = np.random.default_rng(4)
-    for beat in range(bars * beats_per_bar):
-        at = (beat + 0.5) * spb
-        tick = rng.uniform(-1, 1, int(0.03 * SR)) * env_ad(int(0.03 * SR), 0.001, 0.01)
-        place(mix, tick * 0.05, at)
+    # Core taiko groove — ALWAYS ON, in the bed. Taiko is the core
+    # feeling of battle, so it plays from the first second, not from
+    # intensity 1: chu-daiko matsuri ji (ghost variant on odd bars,
+    # horsebeat drive through phrase bars) + shime horsebeat with tsu
+    # ghosts as the top-register timekeeper (replaces the old faint
+    # rim ticks).
+    groove = np.zeros(total_samples)
+    for bar in range(bars):
+        if bar % 4 == 3:
+            chu_pat = "don doko don doko DON doko DON doko"
+        elif bar % 2 == 1:
+            chu_pat = "DON tsu doko su don tsu DON tsuku"
+        else:
+            chu_pat = "DON su doko su don su DON su"
+        kuchi(groove, bar, chu_pat, center=chudaiko, rim=shime, spb=spb, beats_per_bar=beats_per_bar)
+        if bar % 4 == 3:
+            ji_pat = "KA tsu ka ka KA kara kara kara"
+        else:
+            ji_pat = "KA tsu ka ka KA tsu ka ka"
+        kuchi(groove, bar, ji_pat, center=shime, rim=shime, spb=spb, beats_per_bar=beats_per_bar)
+    mix += normalize(groove, 0.55)
 
     bed = normalize(mix, 0.8)
     # Legacy single-file track — the conductor's Unity-AudioSource
@@ -356,38 +369,24 @@ def gen_track():
     # "DON doko don DON" (Wikipedia: Jiuchi), oroshi accelerating roll
     # (Taiko Colorado glossary). Ghost notes are the tsu strokes.
 
-    # Ji (timekeeper, enters 0→1): horsebeat gallop on the shime, tsu
-    # ghosts breathing between the accents, kara doubles rolling into
-    # each phrase's last bar. Quiet and tight — the top-register tick
-    # the stingers play against.
-    ji = np.zeros(total_samples)
+    # Uchi (enters 0→1, with strings): chu-daiko answers displaced onto
+    # the off-beats — call-and-response against the bed's matsuri
+    # groove. First thing a fight adds is the conversation.
+    uchi = np.zeros(total_samples)
     for bar in range(bars):
         if bar % 4 == 3:
-            pat = "KA tsu ka ka KA kara kara kara"
-        else:
-            pat = "KA tsu ka ka KA tsu ka ka"
-        kuchi(ji, bar, pat, center=shime, rim=shime, spb=spb, beats_per_bar=beats_per_bar)
-    write_wav("stem_taiko_ji.wav", haas_stereo(normalize(ji, 0.3)), stereo=True, out_dir=STREAM_OUT)
-
-    # Chu-daiko groove (enters 1→2): matsuri ji as the core, ghost-note
-    # variant on odd bars, accents displaced onto the off-beats in bars
-    # 2/6 (syncopation), horsebeat drive building through phrase bars.
-    ch = np.zeros(total_samples)
-    for bar in range(bars):
-        if bar % 4 == 3:
-            pat = "don doko don doko DON doko DON doko"
-        elif bar % 4 == 2:
-            pat = "su DON su doko su DON doko su"
+            pat = "doko doko DON doko doko doko DON kara"
         elif bar % 2 == 1:
-            pat = "DON tsu doko su don tsu DON tsuku"
+            pat = "su doko su DON tsuku su DON doko"
         else:
-            pat = "DON su doko su don su DON su"
-        kuchi(ch, bar, pat, center=chudaiko, rim=shime, spb=spb, beats_per_bar=beats_per_bar)
-    write_wav("stem_taiko_chu.wav", haas_stereo(normalize(ch, 0.55)), stereo=True, out_dir=STREAM_OUT)
+            pat = "su DON su doko su DON doko su"
+        kuchi(uchi, bar, pat, center=chudaiko, rim=shime, spb=spb, beats_per_bar=beats_per_bar)
+    write_wav("stem_taiko_uchi.wav", haas_stereo(normalize(uchi, 0.5)), stereo=True, out_dir=STREAM_OUT)
 
-    # O-daiko (enters 2→3): ma — big booms with real space between
-    # them — then the oroshi across bars 3/7, arriving on the next
-    # phrase's (or the loop's) opening DON.
+    # O-daiko (enters 1→2, with brass): ma — big booms with real space
+    # between them — then the oroshi across bars 3/7, arriving on the
+    # next phrase's (or the loop's) opening DON. Mid-fight payoff now,
+    # not peak-only.
     od = np.zeros(total_samples)
     for bar in range(bars):
         b0 = bar * beats_per_bar * spb
@@ -401,7 +400,18 @@ def gen_track():
         else:
             pat = "DON su su su su su su su"
         kuchi(od, bar, pat, center=odaiko, rim=chudaiko, spb=spb, beats_per_bar=beats_per_bar)
-    write_wav("stem_taiko_odaiko.wav", haas_stereo(normalize(od, 0.7)), stereo=True, out_dir=STREAM_OUT)
+    write_wav("stem_taiko_odaiko.wav", haas_stereo(normalize(od, 0.85)), stereo=True, out_dir=STREAM_OUT)
+
+    # Frenzy (enters 2→3, with the lute): relentless horsebeat drive on
+    # the chu + kara rim 16ths on the shime. Peak battle is percussion
+    # wall-to-wall.
+    fz = np.zeros(total_samples)
+    for bar in range(bars):
+        kuchi(fz, bar, "don doko don doko DON doko don doko",
+              center=chudaiko, rim=shime, spb=spb, beats_per_bar=beats_per_bar)
+        kuchi(fz, bar, "kara ka kara ka kara ka kara KA",
+              center=shime, rim=shime, spb=spb, beats_per_bar=beats_per_bar)
+    write_wav("stem_taiko_frenzy.wav", haas_stereo(normalize(fz, 0.6)), stereo=True, out_dir=STREAM_OUT)
 
 gen_stingers()
 gen_track()

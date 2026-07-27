@@ -27,15 +27,16 @@ Rationale and alternatives: [ADR-0006](../decisions/0006-musical-damage-feedback
   `MusicMath.LayerGain` — ascending window = riser, descending =
   calm layer that fades OUT (supported, currently unused), equal
   endpoints = always-on bed (fast rise, slow fall smoothing).
-  Current stack pairs one pitched + one taiko voice per intensity
-  unit: bed (always) / taiko-ji + strings (0→1) / taiko-chū + brass
-  (1→2) / taiko-ō-daiko + lute (2→3). Percussion stems are authored
+  Current stack: the **bed carries the core taiko groove always-on**
+  (chū-daiko matsuri ji + shime horsebeat with ghosts; timpani slimmed
+  to tuned anchors), then one pitched + one taiko voice per intensity
+  unit: uchi off-beat answers + strings (0→1) / ō-daiko booms +
+  brass (1→2) / frenzy drive + lute (2→3). Percussion is authored
   in **kuchi shōga** in the generator (`STROKES` + `kuchi()`): one
   token per 8th slot, `doko`/`kara`/`tsuku` split the slot into two
   16ths, `tsu` = ghost note, UPPERCASE = accent — real taiko patterns
-  transcribe verbatim (ji = horsebeat, chū = matsuri + syncopated
-  displacements, ō-daiko = ma + booms + `oroshi()` accelerating rolls
-  into phrase bars). Fallback:
+  transcribe verbatim (horsebeat, matsuri, `oroshi()` accelerating
+  rolls into phrase bars). Fallback:
   single clip via `PlayScheduled` (v1). Either way the grid is
   `startDsp + n × (60/BPM)` arithmetic on `AudioSettings.dspTime`;
   in FMOD mode `startDsp` is the FMOD start tick mapped through

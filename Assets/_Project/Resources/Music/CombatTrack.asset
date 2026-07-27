@@ -17,19 +17,19 @@ MonoBehaviour:
   - File: Music/stem_bed.wav
     FadeStart: 0
     FadeEnd: 0
-  - File: Music/stem_taiko_ji.wav
+  - File: Music/stem_taiko_uchi.wav
     FadeStart: 0
     FadeEnd: 1
   - File: Music/stem_strings.wav
     FadeStart: 0
     FadeEnd: 1
-  - File: Music/stem_taiko_chu.wav
+  - File: Music/stem_taiko_odaiko.wav
     FadeStart: 1
     FadeEnd: 2
   - File: Music/stem_brass.wav
     FadeStart: 1
     FadeEnd: 2
-  - File: Music/stem_taiko_odaiko.wav
+  - File: Music/stem_taiko_frenzy.wav
     FadeStart: 2
     FadeEnd: 3
   - File: Music/stem_lute.wav
