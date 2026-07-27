@@ -1,10 +1,12 @@
 # Robogame — Combat Music & Musical Damage Feedback
 
-> **Status.** v2.1 (session 146): six-stem stack with authored per-stem
-> fade windows — shimmer (calm, inverse), lute + war percussion on the
-> new 0..3 intensity range. v2 core (FMOD stems + two-clocks bridge)
-> shipped session 145, ADR-0007. Stinger timbres remain generated
-> placeholders until a soundfont is imported for the MPTK path.
+> **Status.** v2.2 (session 147): seven-stem stack, taiko-first
+> percussion authored in kuchi shōga (ji / chū / ō-daiko stems with
+> ghost notes, syncopation, oroshi), intensity 0..3 with authored
+> per-stem fade windows (146). Shimmer calm layer removed by user
+> call — wrong vibe. v2 core (FMOD stems + two-clocks bridge) shipped
+> session 145, ADR-0007. Stinger timbres remain generated placeholders
+> until a soundfont is imported for the MPTK path.
 
 ## What this is
 
@@ -23,10 +25,17 @@ Rationale and alternatives: [ADR-0006](../decisions/0006-musical-damage-feedback
   authored range (`MusicTrackDefinition.MaxIntensity`, currently 0..3)
   and each stem carries its own fade window, mapped to gain by
   `MusicMath.LayerGain` — ascending window = riser, descending =
-  calm layer that fades OUT, equal endpoints = always-on bed
-  (fast rise, slow fall smoothing). Current stack: bed (always) /
-  shimmer (1→0, inverse) / strings (0→1) / brass (1→2) / lute (2→3) /
-  war percussion (2.5→3). Fallback:
+  calm layer that fades OUT (supported, currently unused), equal
+  endpoints = always-on bed (fast rise, slow fall smoothing).
+  Current stack pairs one pitched + one taiko voice per intensity
+  unit: bed (always) / taiko-ji + strings (0→1) / taiko-chū + brass
+  (1→2) / taiko-ō-daiko + lute (2→3). Percussion stems are authored
+  in **kuchi shōga** in the generator (`STROKES` + `kuchi()`): one
+  token per 8th slot, `doko`/`kara`/`tsuku` split the slot into two
+  16ths, `tsu` = ghost note, UPPERCASE = accent — real taiko patterns
+  transcribe verbatim (ji = horsebeat, chū = matsuri + syncopated
+  displacements, ō-daiko = ma + booms + `oroshi()` accelerating rolls
+  into phrase bars). Fallback:
   single clip via `PlayScheduled` (v1). Either way the grid is
   `startDsp + n × (60/BPM)` arithmetic on `AudioSettings.dspTime`;
   in FMOD mode `startDsp` is the FMOD start tick mapped through
@@ -74,11 +83,11 @@ cannon → brass, mortar → piano, bomb → timpani.
 Clips are synthesised offline:
 [`artgen/gen_music_assets.py`](../../artgen/gen_music_assets.py)
 (python + numpy) writes stinger WAVs + the fallback track into
-`Assets/_Project/Audio/Generated/` and the six intensity stems
-(bed / shimmer / strings / brass / lute / percussion, identical
-sample-exact length) into `Assets/StreamingAssets/Music/`, then
-**Robogame → Scaffold → Music → Build Combat Music** wires the track
-asset (clip + stem list with fade windows) and cue rows. Replacing placeholders with real recordings
+`Assets/_Project/Audio/Generated/` and the seven intensity stems
+(bed / strings / brass / lute / taiko ji / taiko chū / taiko ō-daiko,
+identical sample-exact length) into `Assets/StreamingAssets/Music/`,
+then **Robogame → Scaffold → Music → Build Combat Music** wires the
+track asset (clip + stem list with fade windows) and cue rows. Replacing placeholders with real recordings
 is a pure asset swap: drop in same-named files (or edit the wizard
 rows), respect the root-note contract, rebuild.
 

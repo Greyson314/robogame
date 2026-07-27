@@ -17,20 +17,23 @@ MonoBehaviour:
   - File: Music/stem_bed.wav
     FadeStart: 0
     FadeEnd: 0
-  - File: Music/stem_shimmer.wav
-    FadeStart: 1
-    FadeEnd: 0
+  - File: Music/stem_taiko_ji.wav
+    FadeStart: 0
+    FadeEnd: 1
   - File: Music/stem_strings.wav
     FadeStart: 0
     FadeEnd: 1
+  - File: Music/stem_taiko_chu.wav
+    FadeStart: 1
+    FadeEnd: 2
   - File: Music/stem_brass.wav
     FadeStart: 1
     FadeEnd: 2
-  - File: Music/stem_lute.wav
+  - File: Music/stem_taiko_odaiko.wav
     FadeStart: 2
     FadeEnd: 3
-  - File: Music/stem_percussion.wav
-    FadeStart: 2.5
+  - File: Music/stem_lute.wav
+    FadeStart: 2
     FadeEnd: 3
   Bpm: 100
   BeatsPerBar: 4

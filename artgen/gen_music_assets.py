@@ -115,27 +115,74 @@ def strings(freq, dur, attack=0.06):
             out += np.sin(h * ph) / (h ** 1.3)
     return out * env_ad(len(t), attack, dur * 0.7)
 
-def bell(freq, dur=1.8):
-    """Music-box tine: sparse inharmonic partials, fast-fading uppers —
-    the shimmer-stem voice."""
-    t = t_axis(dur)
-    out = np.zeros_like(t)
-    for ratio, a, decay in ((1.0, 1.0, 2.2), (2.76, 0.4, 5.0),
-                            (5.40, 0.18, 9.0), (8.93, 0.07, 14.0)):
-        out += a * np.sin(2 * np.pi * freq * ratio * t) * np.exp(-t * decay)
-    # Slightly detuned fundamental pair for the chorus glint
-    out += 0.3 * np.sin(2 * np.pi * freq * 1.003 * t) * np.exp(-t * 2.5)
-    return out * env_ad(len(t), 0.001, dur)
+# ------------------------------------------------------------------ taiko kit
+# Three-drum ensemble for the percussion stems. Registers are slotted
+# around the timpani bed (D2 fundamentals + in-key modal ring): the
+# o-daiko sits BELOW it (dark, inharmonic, no tonal ring), the
+# chu-daiko punches above it, the shime cracks at the top.
 
-def warsnare(gain=1.0, dur=0.16, tone=0.22, seed=0):
-    """Tight field-drum hit: differentiated (high-tilted) noise burst plus
-    a faint 190 Hz shell tone. Deliberately no low body — the percussion
-    stem must sit ABOVE the timpani bed, not inside it."""
+def odaiko(gain=1.0, dur=1.0, seed=0):
+    """O-daiko boom: dark membrane sweep + heavy skin slap. Deliberately
+    unpitched (no in-key modes) — the timpani own the tuned lows."""
+    t = t_axis(dur)
+    f = 44.0 * (1 + 0.9 * np.exp(-t * 22))          # ~84 → 44 Hz drop
+    phase = 2 * np.pi * np.cumsum(f) / SR
+    out = np.sin(phase)
+    out += 0.5 * np.sin(phase * 1.52 + 0.6) * np.exp(-t * 9)   # inharmonic knock
+    rng = np.random.default_rng(1100 + seed)
+    out += rng.uniform(-1, 1, len(t)) * np.exp(-t * 55) * 0.85  # skin slap
+    return out * env_ad(len(t), 0.002, dur * 0.45) * gain
+
+def chudaiko(gain=1.0, dur=0.4, seed=0):
+    """Chu-daiko 'don': mid punch, quick decay."""
+    t = t_axis(dur)
+    f = 128.0 * (1 + 0.6 * np.exp(-t * 30))
+    phase = 2 * np.pi * np.cumsum(f) / SR
+    out = np.sin(phase) + 0.35 * np.sin(phase * 1.7) * np.exp(-t * 18)
+    rng = np.random.default_rng(1200 + seed)
+    out += rng.uniform(-1, 1, len(t)) * np.exp(-t * 90) * 0.5
+    return out * env_ad(len(t), 0.0015, dur * 0.4) * gain
+
+def shime(gain=1.0, dur=0.12, seed=0):
+    """Shime-daiko 'ka': tight high rim crack (high-tilted noise + ping)."""
     n = int(dur * SR)
-    rng = np.random.default_rng(seed)
+    t = np.arange(n) / SR
+    rng = np.random.default_rng(1300 + seed)
     noise = np.diff(rng.uniform(-1, 1, n), prepend=0.0)
-    body = np.sin(2 * np.pi * 190.0 * np.arange(n) / SR) * tone
-    return (noise * 0.9 + body) * env_ad(n, 0.001, dur * 0.35) * gain
+    ping = (np.sin(2 * np.pi * 880 * t) * 0.5 + np.sin(2 * np.pi * 1320 * t) * 0.2)
+    return (noise * 0.8 + ping * np.exp(-t * 60)) * env_ad(n, 0.0008, dur * 0.3) * gain
+
+# Kuchi shoga sequencer — taiko's oral notation, so real patterns are
+# transcribable verbatim. One token per 8th-note slot; two-syllable
+# tokens (doko / kara / tsuku) split the slot into two 16th strokes.
+# 'c' strokes go to the stem's center voice, 'r' to its rim voice;
+# tsu/tsuku are the ghost notes. UPPERCASE = accent.
+STROKES = {
+    "su": [],
+    "don": [(0.0, "c", 1.0)],   "DON": [(0.0, "c", 1.3)],
+    "doko": [(0.0, "c", 0.9), (0.5, "c", 0.7)],
+    "tsu": [(0.0, "c", 0.32)],
+    "tsuku": [(0.0, "c", 0.3), (0.5, "c", 0.26)],
+    "ka": [(0.0, "r", 0.8)],    "KA": [(0.0, "r", 1.15)],
+    "kara": [(0.0, "r", 0.7), (0.5, "r", 0.6)],
+}
+
+def kuchi(canvas, bar, pattern, center, rim, spb, beats_per_bar):
+    tokens = pattern.split()
+    assert len(tokens) == beats_per_bar * 2, "want one token per 8th: " + pattern
+    b0 = bar * beats_per_bar * spb
+    for slot, tok in enumerate(tokens):
+        for off, kind, g in STROKES[tok]:
+            voice = center if kind == "c" else rim
+            place(canvas, voice(g, seed=bar * 31 + slot * 3 + int(off * 2)),
+                  b0 + (slot + off) * spb / 2)
+
+def oroshi(canvas, start, dur, voice, n_hits=14):
+    """Accelerating roll: wide ma shrinking into a rapid roll, swelling —
+    the classic transition into the next phrase's downbeat."""
+    for i in range(n_hits):
+        at = start + dur * (i / n_hits) ** 0.55
+        place(canvas, voice(0.35 + 0.75 * i / n_hits, dur=0.3, seed=900 + i), at)
 
 INSTR = {"pluck": pluck, "brass": brass, "piano": piano, "timpani": timpani}
 ROOT = {"pluck": D4, "brass": D3, "piano": D4, "timpani": D2}
@@ -280,28 +327,7 @@ def gen_track():
             place(br, brass(A2, 0.25) * 0.5, b0 + 3.5 * spb)
     write_wav("stem_brass.wav", haas_stereo(normalize(br, 0.6)), stereo=True, out_dir=STREAM_OUT)
 
-    # Inverse layer — "workshop shimmer": sparse music-box arpeggio in
-    # the empty top octave (D5+). Gain fades OUT over intensity 0→1 —
-    # it plays when the arena is calm and its disappearance announces
-    # the fight. Bar 7 walks down the scale as the loop turnaround;
-    # last onset rings out exactly to the seam (17.1 + 1.8 ≤ loop end).
-    sh = np.zeros(total_samples)
-    shimmer_events = [   # (bar, beat, pentatonic ratio from D5, gain)
-        (0, 0.0, 1.0, .9), (0, 1.5, PENT[3], .6), (0, 3.0, PENT[2], .7),
-        (1, 1.0, PENT[1], .5), (1, 2.5, PENT[4], .65),
-        (2, 0.0, PENT[2], .8), (2, 2.0, 2.0, .55),
-        (3, 0.5, PENT[3], .6), (3, 2.0, PENT[1], .5), (3, 3.0, 1.0, .7),
-        (4, 0.0, 1.0, .9), (4, 1.5, PENT[4], .6), (4, 3.0, PENT[3], .7),
-        (5, 1.0, PENT[2], .55), (5, 2.5, 2.0, .6),
-        (6, 0.0, PENT[1], .7), (6, 2.0, PENT[3], .6),
-        (7, 0.0, PENT[4], .55), (7, 0.5, PENT[3], .5),
-        (7, 1.0, PENT[2], .45), (7, 1.5, PENT[1], .4),
-    ]
-    for bar, beat, ratio, gain in shimmer_events:
-        place(sh, bell(D5 * ratio) * gain, (bar * beats_per_bar + beat) * spb)
-    write_wav("stem_shimmer.wav", haas_stereo(normalize(sh, 0.35)), stereo=True, out_dir=STREAM_OUT)
-
-    # Layer 5 — "clockwork lute": Karplus-Strong 16th-note gallop in
+    # Layer — "clockwork lute": Karplus-Strong 16th-note gallop in
     # D4–D5, the register the low stack leaves empty. Escalates rhythmic
     # subdivision (bed/strings own 8ths, this owns 16ths). Texture, not
     # melody — the player's stingers are the soloist. Enters 2→3.
@@ -323,26 +349,59 @@ def gen_track():
             place(lu, pluck(D4 * ratio, dur=0.22, bright=0.7) * gain, b0 + slot * s16)
     write_wav("stem_lute.wav", haas_stereo(normalize(lu, 0.5)), stereo=True, out_dir=STREAM_OUT)
 
-    # Layer 6 — war percussion: tight snare 16ths with a military accent
-    # scheme, flam on each downbeat, doubled-stroke roll under the
-    # timpani roll bars (%4==3). Top-of-the-range topper (2.5→3).
-    pc = np.zeros(total_samples)
-    seed = 0
+    # ---------------------------------------------------------- taiko stems
+    # Three percussion layers authored in kuchi shoga (one token per 8th
+    # slot — see STROKES). Sources for the vocabulary and base patterns:
+    # horsebeat ji "DON doko" (San Jose Taiko Conservatory), matsuri ji
+    # "DON doko don DON" (Wikipedia: Jiuchi), oroshi accelerating roll
+    # (Taiko Colorado glossary). Ghost notes are the tsu strokes.
+
+    # Ji (timekeeper, enters 0→1): horsebeat gallop on the shime, tsu
+    # ghosts breathing between the accents, kara doubles rolling into
+    # each phrase's last bar. Quiet and tight — the top-register tick
+    # the stingers play against.
+    ji = np.zeros(total_samples)
+    for bar in range(bars):
+        if bar % 4 == 3:
+            pat = "KA tsu ka ka KA kara kara kara"
+        else:
+            pat = "KA tsu ka ka KA tsu ka ka"
+        kuchi(ji, bar, pat, center=shime, rim=shime, spb=spb, beats_per_bar=beats_per_bar)
+    write_wav("stem_taiko_ji.wav", haas_stereo(normalize(ji, 0.3)), stereo=True, out_dir=STREAM_OUT)
+
+    # Chu-daiko groove (enters 1→2): matsuri ji as the core, ghost-note
+    # variant on odd bars, accents displaced onto the off-beats in bars
+    # 2/6 (syncopation), horsebeat drive building through phrase bars.
+    ch = np.zeros(total_samples)
+    for bar in range(bars):
+        if bar % 4 == 3:
+            pat = "don doko don doko DON doko DON doko"
+        elif bar % 4 == 2:
+            pat = "su DON su doko su DON doko su"
+        elif bar % 2 == 1:
+            pat = "DON tsu doko su don tsu DON tsuku"
+        else:
+            pat = "DON su doko su don su DON su"
+        kuchi(ch, bar, pat, center=chudaiko, rim=shime, spb=spb, beats_per_bar=beats_per_bar)
+    write_wav("stem_taiko_chu.wav", haas_stereo(normalize(ch, 0.55)), stereo=True, out_dir=STREAM_OUT)
+
+    # O-daiko (enters 2→3): ma — big booms with real space between
+    # them — then the oroshi across bars 3/7, arriving on the next
+    # phrase's (or the loop's) opening DON.
+    od = np.zeros(total_samples)
     for bar in range(bars):
         b0 = bar * beats_per_bar * spb
-        roll_bar = bar % 4 == 3
-        for beat in range(beats_per_bar):
-            for slot in range(4):
-                at = b0 + (beat + slot / 4) * spb
-                accent = 1.0 if (beat == 0 and slot == 0) else (0.8 if slot == 0 else (0.5 if slot == 2 else 0.3))
-                seed += 1
-                place(pc, warsnare(accent, seed=seed), at)
-                if beat == 0 and slot == 0:                 # flam: grace hit 12 ms early
-                    place(pc, warsnare(0.45, seed=seed + 991), at - 0.012 if at >= 0.012 else at)
-                if roll_bar and beat >= 2:                  # 32nd doubles, ramping
-                    seed += 1
-                    place(pc, warsnare(0.25 + 0.1 * slot, dur=0.10, seed=seed), at + spb / 8)
-    write_wav("stem_percussion.wav", haas_stereo(normalize(pc, 0.45)), stereo=True, out_dir=STREAM_OUT)
+        if bar % 4 == 3:
+            oroshi(od, b0, beats_per_bar * spb * 0.96, odaiko)
+            continue
+        if bar % 4 == 1:
+            pat = "DON su su su DON su su doko"
+        elif bar % 4 == 2:
+            pat = "DON su su doko DON su su su"
+        else:
+            pat = "DON su su su su su su su"
+        kuchi(od, bar, pat, center=odaiko, rim=chudaiko, spb=spb, beats_per_bar=beats_per_bar)
+    write_wav("stem_taiko_odaiko.wav", haas_stereo(normalize(od, 0.7)), stereo=True, out_dir=STREAM_OUT)
 
 gen_stingers()
 gen_track()
