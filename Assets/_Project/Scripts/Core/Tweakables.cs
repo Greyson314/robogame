@@ -318,6 +318,20 @@ namespace Robogame.Core
             // gameplay-observable knob is now invariant-#1 clean.
             // PHYSICS_PLAN §1.5 / §5.
 
+            // Audio mix, registered FIRST because registration order is
+            // the settings panel's display order (SettingsHud.BuildTweakRows)
+            // and volume is the control players actually reach for — it was
+            // stranded below ~40 physics rows before (LOG-151). Defaults:
+            // Master 1.0, SFX/Music/UI 0.8, no mute. AudioRouter subscribes
+            // to Changed and re-applies every value when any one moves. The
+            // unit is linear gain 0–1; the dB conversion happens in
+            // AudioRouter so the slider stays interpretable.
+            Register(AudioMaster,    "Audio", "Master Volume", 1.00f, 0f, 1f);
+            Register(AudioSfx,       "Audio", "SFX Volume",    0.80f, 0f, 1f);
+            Register(AudioMusic,     "Audio", "Music Volume",  0.80f, 0f, 1f);
+            Register(AudioUI,        "Audio", "UI Volume",     0.80f, 0f, 1f);
+            RegisterBool(AudioMute,  "Audio", "Mute All",      false);
+
             // Water-arena buoyancy (read live by WaterVolume / BuoyancyController).
             // Density is in "buoyancy units", not kg/m³ — empirically ~4 is
             // enough to float a tank-sized chassis, so we keep the range
@@ -394,16 +408,7 @@ namespace Robogame.Core
             RegisterBool(AirDummySpawn,    "Stress", "Spawn Air Dummy",    false);
             RegisterBool(AirDummyFire,     "Stress", "Air Bot Fires",      false);
 
-            // Audio mix. Defaults: Master 1.0, SFX/Music/UI 0.8, no
-            // mute. AudioRouter subscribes to Changed and re-applies
-            // every value when any one moves. The unit is linear gain
-            // 0–1; the dB conversion happens in AudioRouter so the
-            // slider stays interpretable from the inspector.
-            Register(AudioMaster,    "Audio", "Master Volume", 1.00f, 0f, 1f);
-            Register(AudioSfx,       "Audio", "SFX Volume",    0.80f, 0f, 1f);
-            Register(AudioMusic,     "Audio", "Music Volume",  0.80f, 0f, 1f);
-            Register(AudioUI,        "Audio", "UI Volume",     0.80f, 0f, 1f);
-            RegisterBool(AudioMute,  "Audio", "Mute All",      false);
+            // (Audio mix moved to the top of this method — see there.)
 
             // QoL.
             RegisterBool(SettingsPause, "QoL", "Pause When Settings Open", true);

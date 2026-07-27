@@ -330,14 +330,22 @@ def build_grit(bpm):
             for k in range(3):
                 dist.note(8, at(bar, 1 + k * .33), int(TPQ * .2), root + 1, 112 - k * 6)
 
-    # --- Electro kit: four-on-the-bar-ish kick, clap on 3, hats on
+    # --- Electro kit: kick on 1, a mechanical backbeat on 3, hats on
     # 8ths, with 32nd buffer-stutters on phrase ends.
-    KICK, CLAP, HAT, OPEN, SNARE = 36, 39, 42, 46, 40
+    # The backbeat was a hand clap; it read as dance-floor rather than
+    # workshop (LOG-151). Side stick + low wood block instead: a tight
+    # mechanical click with a hollow wooden knock under it, which sits
+    # with the harpsichord's clockwork role. Swap BACKBEAT/BACKBEAT_LOW
+    # for other GM percussion to retaste — 56 cowbell, 76 hi wood block,
+    # 40 electric snare, 67/68 agogo are the near neighbours.
+    KICK, HAT, OPEN, SNARE = 36, 42, 46, 40
+    BACKBEAT, BACKBEAT_LOW = 37, 77          # side stick, low wood block
     for bar in range(BARS):
         kit.note(9, at(bar, 0), 120, KICK, 108)
         if bar % 2 == 1:
             kit.note(9, at(bar, 1.5), 120, KICK, 84)
-        kit.note(9, at(bar, 2), 120, CLAP, 96)
+        kit.note(9, at(bar, 2), 120, BACKBEAT, 100)
+        kit.note(9, at(bar, 2), 120, BACKBEAT_LOW, 76)
         for beat in range(BEATS_PER_BAR):
             for k in (0, .5):
                 kit.note(9, at(bar, beat + k), 90, HAT, 64 if k else 76)
