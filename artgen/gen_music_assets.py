@@ -115,11 +115,22 @@ def strings(freq, dur, attack=0.06):
             out += np.sin(h * ph) / (h ** 1.3)
     return out * env_ad(len(t), attack, dur * 0.7)
 
+def warsnare(gain=1.0, dur=0.16, tone=0.22, seed=0):
+    """Tight field-drum hit: differentiated (high-tilted) noise burst plus
+    a faint 190 Hz shell tone. Deliberately no low body — the percussion
+    stem must sit ABOVE the timpani bed, not inside it."""
+    n = int(dur * SR)
+    rng = np.random.default_rng(seed)
+    noise = np.diff(rng.uniform(-1, 1, n), prepend=0.0)
+    body = np.sin(2 * np.pi * 190.0 * np.arange(n) / SR) * tone
+    return (noise * 0.9 + body) * env_ad(n, 0.001, dur * 0.35) * gain
+
 # ------------------------------------------------------------------ taiko kit
-# Three-drum ensemble for the percussion stems. Registers are slotted
-# around the timpani bed (D2 fundamentals + in-key modal ring): the
-# o-daiko sits BELOW it (dark, inharmonic, no tonal ring), the
-# chu-daiko punches above it, the shime cracks at the top.
+# Three-drum ensemble + kuchi shoga sequencer. The taiko-stem
+# experiment was reverted by ear (LOG-147 round 4), but the kit stays:
+# the SMG stingers use shime/chudaiko one-shots, and the sequencer is
+# the transcription path if taiko patterns return. Registers slot
+# around the timpani bed: o-daiko below, chu-daiko above, shime on top.
 
 def odaiko(gain=1.0, dur=1.8, seed=0):
     """O-daiko boom: deep membrane sweep with a long boomy tail.
@@ -288,41 +299,30 @@ def gen_track():
     drone = (drone + fifth) * swell
     mix += normalize(drone, 0.30)
 
-    # War timpani, slimmed to the tuned-anchor role (LOG-147 round 2):
-    # in-key downbeat + beat-3 fifth only. The rolls belong to the
-    # o-daiko now — the kettles ring, the taiko drive.
+    # War timpani: tuned kettledrums on D/A (same timpani() voice as the bomb
+    # stingers) so the drum bed rings in key with the drone instead of thudding.
+    # (LOG-147 round 4: taiko-in-the-bed experiment reverted by ear —
+    # this original pattern is the keeper.)
     drums = np.zeros(total_samples)
     for bar in range(bars):
         b0 = bar * beats_per_bar * spb
         place(drums, timpani(D2, 1.6, sweep=1.6) * 1.0, b0)             # big downbeat, long ring
-        place(drums, timpani(A2, 1.0, sweep=1.4) * 0.6, b0 + 2 * spb)   # beat 3 on the fifth
-    mix += normalize(drums, 0.4)
+        place(drums, timpani(A2, 1.0, sweep=1.4) * 0.7, b0 + 2 * spb)   # beat 3 on the fifth
+        place(drums, timpani(D3, 0.6, sweep=1.3) * 0.45, b0 + 1 * spb)  # beat 2
+        place(drums, timpani(D3, 0.6, sweep=1.3) * 0.5, b0 + 3 * spb)   # beat 4
+        place(drums, timpani(A3, 0.4, sweep=1.3) * 0.35, b0 + 3.5 * spb)  # & of 4 push
+        if bar % 4 == 3:                                                # timpani roll into next phrase
+            for k in range(8):
+                place(drums, timpani(D2, 0.35, sweep=1.25) * (0.25 + 0.09 * k),
+                      b0 + (3.0 + k / 8) * spb)
+    mix += normalize(drums, 0.62)
 
-    # Core taiko groove — ALWAYS ON, in the bed. Three lines (LOG-147
-    # round 3, "deep thuds and booming, rolling taikos"): the o-daiko
-    # pulse on the matsuri accents with a rolling oroshi through every
-    # phrase bar, the chu-daiko matsuri ji carrying the inner motion,
-    # and the shime horsebeat with tsu ghosts ticking on top.
-    groove = np.zeros(total_samples)
-    for bar in range(bars):
-        b0 = bar * beats_per_bar * spb
-        if bar % 4 == 3:
-            # Rolling o-daiko oroshi over the back half, arriving on the
-            # next phrase's (or the loop's) downbeat.
-            kuchi(groove, bar, "DON su su su su su su su",
-                  center=odaiko, rim=chudaiko, spb=spb, beats_per_bar=beats_per_bar)
-            oroshi(groove, b0 + 2 * spb, 2 * spb * 0.96, odaiko, n_hits=10, peak=1.0)
-            chu_pat = "don doko don doko DON doko DON doko"
-        else:
-            kuchi(groove, bar, "DON su su su su su DON su",
-                  center=odaiko, rim=chudaiko, spb=spb, beats_per_bar=beats_per_bar)
-            chu_pat = ("DON tsu doko su don tsu DON tsuku" if bar % 2 == 1 else
-                       "DON su doko su don su DON su")
-        kuchi(groove, bar, chu_pat, center=chudaiko, rim=shime, spb=spb, beats_per_bar=beats_per_bar)
-        ji_pat = ("KA tsu ka ka KA kara kara kara" if bar % 4 == 3 else
-                  "KA tsu ka ka KA tsu ka ka")
-        kuchi(groove, bar, ji_pat, center=shime, rim=shime, spb=spb, beats_per_bar=beats_per_bar)
-    mix += normalize(groove, 0.7)
+    # Faint taiko rim ticks on off-beat 8ths — the grid players will sting against.
+    rng = np.random.default_rng(4)
+    for beat in range(bars * beats_per_bar):
+        at = (beat + 0.5) * spb
+        tick = rng.uniform(-1, 1, int(0.03 * SR)) * env_ad(int(0.03 * SR), 0.001, 0.01)
+        place(mix, tick * 0.05, at)
 
     bed = normalize(mix, 0.8)
     # Legacy single-file track — the conductor's Unity-AudioSource
@@ -392,49 +392,26 @@ def gen_track():
     # "DON doko don DON" (Wikipedia: Jiuchi), oroshi accelerating roll
     # (Taiko Colorado glossary). Ghost notes are the tsu strokes.
 
-    # Uchi (enters 0→1, with strings): chu-daiko answers displaced onto
-    # the off-beats — call-and-response against the bed's matsuri
-    # groove. First thing a fight adds is the conversation.
-    uchi = np.zeros(total_samples)
-    for bar in range(bars):
-        if bar % 4 == 3:
-            pat = "doko doko DON doko doko doko DON kara"
-        elif bar % 2 == 1:
-            pat = "su doko su DON tsuku su DON doko"
-        else:
-            pat = "su DON su doko su DON doko su"
-        kuchi(uchi, bar, pat, center=chudaiko, rim=shime, spb=spb, beats_per_bar=beats_per_bar)
-    write_wav("stem_taiko_uchi.wav", haas_stereo(normalize(uchi, 0.5)), stereo=True, out_dir=STREAM_OUT)
-
-    # O-daiko (enters 1→2, with brass): ma — big booms with real space
-    # between them — then the oroshi across bars 3/7, arriving on the
-    # next phrase's (or the loop's) opening DON. Mid-fight payoff now,
-    # not peak-only.
-    od = np.zeros(total_samples)
+    # War percussion (enters 2.5→3): tight snare 16ths with a military
+    # accent scheme, flam on each downbeat, doubled-stroke roll under
+    # the timpani roll bars (%4==3). Top-of-the-range topper.
+    pc = np.zeros(total_samples)
+    seed = 0
     for bar in range(bars):
         b0 = bar * beats_per_bar * spb
-        if bar % 4 == 3:
-            oroshi(od, b0, beats_per_bar * spb * 0.96, odaiko)
-            continue
-        if bar % 4 == 1:
-            pat = "DON su su su DON su su doko"
-        elif bar % 4 == 2:
-            pat = "DON su su doko DON su su su"
-        else:
-            pat = "DON su su su su su su su"
-        kuchi(od, bar, pat, center=odaiko, rim=chudaiko, spb=spb, beats_per_bar=beats_per_bar)
-    write_wav("stem_taiko_odaiko.wav", haas_stereo(normalize(od, 0.85)), stereo=True, out_dir=STREAM_OUT)
-
-    # Frenzy (enters 2→3, with the lute): relentless horsebeat drive on
-    # the chu + kara rim 16ths on the shime. Peak battle is percussion
-    # wall-to-wall.
-    fz = np.zeros(total_samples)
-    for bar in range(bars):
-        kuchi(fz, bar, "don doko don doko DON doko don doko",
-              center=chudaiko, rim=shime, spb=spb, beats_per_bar=beats_per_bar)
-        kuchi(fz, bar, "kara ka kara ka kara ka kara KA",
-              center=shime, rim=shime, spb=spb, beats_per_bar=beats_per_bar)
-    write_wav("stem_taiko_frenzy.wav", haas_stereo(normalize(fz, 0.6)), stereo=True, out_dir=STREAM_OUT)
+        roll_bar = bar % 4 == 3
+        for beat in range(beats_per_bar):
+            for slot in range(4):
+                at = b0 + (beat + slot / 4) * spb
+                accent = 1.0 if (beat == 0 and slot == 0) else (0.8 if slot == 0 else (0.5 if slot == 2 else 0.3))
+                seed += 1
+                place(pc, warsnare(accent, seed=seed), at)
+                if beat == 0 and slot == 0:                 # flam: grace hit 12 ms early
+                    place(pc, warsnare(0.45, seed=seed + 991), at - 0.012 if at >= 0.012 else at)
+                if roll_bar and beat >= 2:                  # 32nd doubles, ramping
+                    seed += 1
+                    place(pc, warsnare(0.25 + 0.1 * slot, dur=0.10, seed=seed), at + spb / 8)
+    write_wav("stem_percussion.wav", haas_stereo(normalize(pc, 0.45)), stereo=True, out_dir=STREAM_OUT)
 
 gen_stingers()
 gen_track()

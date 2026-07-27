@@ -1,12 +1,13 @@
 # Robogame — Combat Music & Musical Damage Feedback
 
-> **Status.** v2.2 (session 147): seven-stem stack, taiko-first
-> percussion authored in kuchi shōga (ji / chū / ō-daiko stems with
-> ghost notes, syncopation, oroshi), intensity 0..3 with authored
-> per-stem fade windows (146). Shimmer calm layer removed by user
-> call — wrong vibe. v2 core (FMOD stems + two-clocks bridge) shipped
-> session 145, ADR-0007. Stinger timbres remain generated placeholders
-> until a soundfont is imported for the MPTK path.
+> **Status.** v2.2 (session 147): five-stem stack settled by ear —
+> original timpani bed kept (taiko-stem experiment built and reverted;
+> the kuchi shōga sequencer + taiko voices remain in the generator as
+> a toolkit), shimmer calm layer removed, SMG stingers now hybrid
+> (rim-tick notes, pizzicato payoff tiers). Intensity 0..3 with
+> authored per-stem fade windows (146). v2 core (FMOD stems +
+> two-clocks bridge) shipped session 145, ADR-0007. Stinger timbres
+> remain generated placeholders until a soundfont is imported.
 
 ## What this is
 
@@ -27,16 +28,13 @@ Rationale and alternatives: [ADR-0006](../decisions/0006-musical-damage-feedback
   `MusicMath.LayerGain` — ascending window = riser, descending =
   calm layer that fades OUT (supported, currently unused), equal
   endpoints = always-on bed (fast rise, slow fall smoothing).
-  Current stack: the **bed carries the core taiko groove always-on**
-  (chū-daiko matsuri ji + shime horsebeat with ghosts; timpani slimmed
-  to tuned anchors), then one pitched + one taiko voice per intensity
-  unit: uchi off-beat answers + strings (0→1) / ō-daiko booms +
-  brass (1→2) / frenzy drive + lute (2→3). Percussion is authored
-  in **kuchi shōga** in the generator (`STROKES` + `kuchi()`): one
-  token per 8th slot, `doko`/`kara`/`tsuku` split the slot into two
-  16ths, `tsu` = ghost note, UPPERCASE = accent — real taiko patterns
-  transcribe verbatim (horsebeat, matsuri, `oroshi()` accelerating
-  rolls into phrase bars). Fallback:
+  Current stack: bed (timpani war pattern, always) / strings (0→1) /
+  brass (1→2) / lute (2→3) / war-snare (2.5→3). The generator also
+  carries a dormant **kuchi shōga** toolkit (`STROKES` + `kuchi()` +
+  taiko voices): one token per 8th slot, `doko`/`kara`/`tsuku` split
+  the slot into two 16ths, `tsu` = ghost note, UPPERCASE = accent —
+  real taiko patterns transcribe verbatim if percussion pattern work
+  returns; the SMG stingers use its shime/chū one-shots. Fallback:
   single clip via `PlayScheduled` (v1). Either way the grid is
   `startDsp + n × (60/BPM)` arithmetic on `AudioSettings.dspTime`;
   in FMOD mode `startDsp` is the FMOD start tick mapped through

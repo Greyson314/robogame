@@ -85,6 +85,18 @@ with both rhythm and instrumentation.
 - Verified: regen clean, reimport clean, FmodActive with the new
   stems, console clean.
 
+## Round 4 — drums reverted, SMG kept
+
+Ear verdict on round 3: the taiko rework made the underlying
+percussion worse. Reverted ALL backing-percussion changes to the
+pre-taiko state — original timpani bed (full war pattern + rim
+ticks), stem lineup bed / strings 0→1 / brass 1→2 / lute 2→3 /
+war-snare 2.5→3 — verified byte-identical to the 146 LFS oids
+(lesson: WAVs are LFS pointers; compare `oid sha256` not blob
+hashes). Kept: SMG hybrid stingers (shime note / pizz flourish /
+pizz+chū phrase) and the kuchi shōga sequencer + taiko voices as an
+unused generator toolkit for future pattern work.
+
 ## Notes / follow-ups
 
 - Mix levels (ji 0.3 / chū 0.55 / ō-daiko 0.7) and all timbres are

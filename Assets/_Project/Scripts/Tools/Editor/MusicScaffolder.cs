@@ -53,18 +53,16 @@ namespace Robogame.Tools.Editor
             // StreamingAssets-relative. Same generator, same exact loop
             // length as the fallback clip. Fade windows are MusicMath.
             // LayerGain semantics: equal endpoints = always on (bed),
-            // ascending = riser. Each intensity unit adds one pitched
-            // voice + one taiko voice (LOG-147): the drums are the
-            // foundation at every level, per the percussionist's brief.
+            // ascending = riser. Lineup settled by ear in LOG-147: the
+            // timpani bed is the keeper; snare topper enters last (2.5→3)
+            // so the top of the range has two audible gears.
             def.Stems = new[]
             {
-                new MusicTrackDefinition.Stem { File = "Music/stem_bed.wav",          FadeStart = 0f, FadeEnd = 0f },
-                new MusicTrackDefinition.Stem { File = "Music/stem_taiko_uchi.wav",   FadeStart = 0f, FadeEnd = 1f },
-                new MusicTrackDefinition.Stem { File = "Music/stem_strings.wav",      FadeStart = 0f, FadeEnd = 1f },
-                new MusicTrackDefinition.Stem { File = "Music/stem_taiko_odaiko.wav", FadeStart = 1f, FadeEnd = 2f },
-                new MusicTrackDefinition.Stem { File = "Music/stem_brass.wav",        FadeStart = 1f, FadeEnd = 2f },
-                new MusicTrackDefinition.Stem { File = "Music/stem_taiko_frenzy.wav", FadeStart = 2f, FadeEnd = 3f },
-                new MusicTrackDefinition.Stem { File = "Music/stem_lute.wav",         FadeStart = 2f, FadeEnd = 3f },
+                new MusicTrackDefinition.Stem { File = "Music/stem_bed.wav",        FadeStart = 0f,   FadeEnd = 0f },
+                new MusicTrackDefinition.Stem { File = "Music/stem_strings.wav",    FadeStart = 0f,   FadeEnd = 1f },
+                new MusicTrackDefinition.Stem { File = "Music/stem_brass.wav",      FadeStart = 1f,   FadeEnd = 2f },
+                new MusicTrackDefinition.Stem { File = "Music/stem_lute.wav",       FadeStart = 2f,   FadeEnd = 3f },
+                new MusicTrackDefinition.Stem { File = "Music/stem_percussion.wav", FadeStart = 2.5f, FadeEnd = 3f },
             };
             EditorUtility.SetDirty(def);
             AssetDatabase.SaveAssets();
