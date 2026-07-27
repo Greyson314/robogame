@@ -63,10 +63,14 @@ Rationale and alternatives: [ADR-0006](../decisions/0006-musical-damage-feedback
 - **`GarageMusic`** (Core) — garage theme: a MIDI from
   `StreamingAssets/Midi/` looped through the same bank, handed to MPTK
   as raw bytes so swapping the theme is a file drop. Current theme is
-  **Gaslamp Waltz**, an original foggy-Victorian piece (D minor, 3/4,
-  65.5 s) composed by
-  [`artgen/gen_garage_theme.py`](../../artgen/gen_garage_theme.py) —
-  edit the harmony/melody tables there and re-run, never the `.mid`.
+  **Gaslamp Waltz (Glitch)** — an original foggy-Victorian piece in
+  D minor 3/4, in its blown-speaker cut (104 BPM, distortion + synth
+  bass + electro kit with buffer stutters, ornamented melody). Both
+  cuts come from
+  [`artgen/gen_garage_theme.py`](../../artgen/gen_garage_theme.py),
+  which emits one clean and one gritty version of the same harmony and
+  tunes via its `STYLES` table — edit the tables there and re-run,
+  never the `.mid`.
   Started by `GarageController`, stops on scene unload. No beat grid —
   the garage has no stingers to stay consonant with. Seven PD
   audition candidates ship alongside it; see

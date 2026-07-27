@@ -34,7 +34,7 @@ namespace Robogame.Core
         // TRACE[LOG-149]: original foggy-Victorian waltz composed for the
         // garage (artgen/gen_garage_theme.py). The public-domain pieces
         // beside it are audition candidates — cycle them with F7.
-        public const string StreamingRelativePath = "Midi/garage-gaslamp-waltz.mid";
+        public const string StreamingRelativePath = "Midi/garage-gaslamp-glitch.mid";
 
         /// <summary>Resources path of the MPTK file-player prefab copy.</summary>
         public const string FilePlayerResourcePath = "Music/MptkFilePlayer";

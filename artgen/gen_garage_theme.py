@@ -18,12 +18,19 @@ Pure stdlib: a minimal Standard MIDI File writer, no dependencies.
 import os
 
 OUT = r"C:\Users\Grey\Desktop\mutedtuple\robogame\Assets\StreamingAssets\Midi"
-NAME = "garage-gaslamp-waltz.mid"
 
 TPQ = 480                  # ticks per quarter note
 BEATS_PER_BAR = 3          # 3/4 waltz
-BPM = 88                   # slow enough to feel like fog, not a dance
 BAR = TPQ * BEATS_PER_BAR
+
+# Two cuts of the same piece — same harmony, same tunes, different
+# production (LOG-150). "fog" is the original parlour waltz; "glitch"
+# is the blown-speaker inventor pass: faster, distortion + synth bass +
+# electro kit with buffer-stutter retriggers, and an ornamented melody.
+STYLES = {
+    "fog":    {"file": "garage-gaslamp-waltz.mid",  "bpm": 88,  "grit": False},
+    "glitch": {"file": "garage-gaslamp-glitch.mid", "bpm": 104, "grit": True},
+}
 
 # ---------------------------------------------------------------- SMF writer
 
@@ -162,16 +169,53 @@ def place_melody(track, ch, notes, vel, gap=0.06):
     """Slightly detached notes — a hair of silence keeps the line from
     smearing on sustained soundfont patches."""
     for bar, beat, pitch, beats in notes:
+        tick = at(bar, beat)
+        if tick < 0:
+            continue                       # ornament ran off the front of the loop
         dur = max(TPQ // 8, int(beats * TPQ - gap * TPQ))
-        track.note(ch, at(bar, beat), dur, pitch, vel)
+        track.note(ch, tick, dur, pitch, vel)
+
+# ---------------------------------------------------------------- ornaments
+
+def ornament(notes, seed=7):
+    """Sauce for the melody line: grace notes leaning into longer notes,
+    mordents on sustained ones, and a trill on anything really held.
+    Deterministic (fixed seed) so regenerating gives the same take."""
+    import random
+    rng = random.Random(seed)
+    out = []
+    for bar, beat, pitch, beats in notes:
+        # Grace note a step below, flicked just before the beat.
+        if beats >= 1.5 and not (bar == 0 and beat == 0) and rng.random() < 0.6:
+            out.append((bar, beat - 0.16, pitch - rng.choice([1, 2]), 0.15))
+
+        if beats >= 2.5 and rng.random() < 0.7:
+            # Trill: alternate with the upper neighbour, then settle.
+            step = rng.choice([1, 2])
+            t, k = 0.0, 0
+            while t < beats - 0.9:
+                out.append((bar, beat + t, pitch + (step if k % 2 else 0), 0.16))
+                t += 0.15
+                k += 1
+            out.append((bar, beat + t, pitch, beats - t))
+        elif beats >= 1.5 and rng.random() < 0.55:
+            # Mordent: main / upper / main.
+            step = rng.choice([1, 2])
+            out.append((bar, beat, pitch, 0.2))
+            out.append((bar, beat + 0.2, pitch + step, 0.18))
+            out.append((bar, beat + 0.38, pitch, beats - 0.38))
+        else:
+            out.append((bar, beat, pitch, beats))
+    return out
 
 # ---------------------------------------------------------------- build
 
-def build():
+def build(bpm, grit):
+    title = b"Gaslamp Waltz (Glitch)" if grit else b"Gaslamp Waltz"
     conductor = Track()
     conductor.meta(0, b"\xff\x58\x04" + bytes([BEATS_PER_BAR, 2, 24, 8]))   # 3/4
-    conductor.meta(0, b"\xff\x51\x03" + int(60_000_000 / BPM).to_bytes(3, "big"))
-    conductor.meta(0, b"\xff\x03" + bytes([len(b"Gaslamp Waltz")]) + b"Gaslamp Waltz")
+    conductor.meta(0, b"\xff\x51\x03" + int(60_000_000 / bpm).to_bytes(3, "big"))
+    conductor.meta(0, b"\xff\x03" + bytes([len(title)]) + title)
 
     clarinet, horn, harp = Track(), Track(), Track()
     harpsi, bells, strings, bass = Track(), Track(), Track(), Track()
@@ -235,19 +279,94 @@ def build():
                          vel - i * 4)
 
     # --- Melody hand-off: clarinet owns the fog, horn owns the brightening.
-    place_melody(clarinet, 0, MELODY_A, 74)
-    place_melody(clarinet, 0, MELODY_A2, 78)
-    place_melody(horn, 1, MELODY_B, 86)
+    # The glitch cut ornaments every line — grace notes, mordents, trills.
+    deco = ornament if grit else (lambda n, seed=0: n)
+    place_melody(clarinet, 0, deco(MELODY_A, 11), 74)
+    place_melody(clarinet, 0, deco(MELODY_A2, 12), 78)
+    place_melody(horn, 1, deco(MELODY_B, 13), 86)
     # Clarinet shadows the horn an octave down — thickens the one loud moment.
     place_melody(clarinet, 0, [(b, t, p - 12, d) for b, t, p, d in MELODY_B], 54)
-    place_melody(clarinet, 0, MELODY_A3, 70)
+    place_melody(clarinet, 0, deco(MELODY_A3, 14), 70)
 
-    return [conductor, clarinet, horn, harp, harpsi, bells, strings, bass]
+    tracks = [conductor, clarinet, horn, harp, harpsi, bells, strings, bass]
+    if grit:
+        tracks += build_grit(bpm)
+    return tracks
+
+# ---------------------------------------------------------------- grit pass
+
+def build_grit(bpm):
+    """The blown-speaker inventor layer (LOG-150): distortion stabs,
+    synth bass doubling the contrabass, an electro kit with buffer-
+    stutter retriggers, and a saw lead shadowing the clarinet with
+    pitch-bend wobble. Channel 9 is GM percussion and reserved."""
+    dist, synbass, kit, lead = Track(), Track(), Track(), Track()
+    dist.program(8, 30)       # Distortion Guitar — the blown speaker
+    synbass.program(7, 39)    # Synth Bass 2
+    lead.program(10, 81)      # Lead 2 (sawtooth)
+    # ch 9 needs no program change: GM percussion map.
+
+    for t, ch, rev in ((dist, 8, 40), (synbass, 7, 24), (kit, 9, 32), (lead, 10, 64)):
+        t.control(ch, 91, rev)
+
+    # --- Synth bass: root on 1, octave stab on the "and" of 3 — gives
+    # the waltz a forward shove the contrabass alone doesn't have.
+    for bar, name in enumerate(PROG):
+        root = CHORDS[name]["bass"]
+        synbass.note(7, at(bar, 0), int(TPQ * 1.1), root, 92)
+        synbass.note(7, at(bar, 2.5), int(TPQ * .4), root + 12, 78)
+
+    # --- Distortion: power chords (root + fifth) slammed on the
+    # downbeat of every other bar, and every bar through section B.
+    for bar, name in enumerate(PROG):
+        if not (bar % 2 == 0 or 16 <= bar < 24):
+            continue
+        root = CHORDS[name]["bass"] + 12
+        vel = 118 if 16 <= bar < 24 else 104        # near-clipping on purpose
+        for p in (root, root + 7):
+            dist.note(8, at(bar, 0), int(TPQ * .85), p, vel)
+        # Bar 27 (the unresolved Neapolitan) gets a choked triplet stab.
+        if bar == 27:
+            for k in range(3):
+                dist.note(8, at(bar, 1 + k * .33), int(TPQ * .2), root + 1, 112 - k * 6)
+
+    # --- Electro kit: four-on-the-bar-ish kick, clap on 3, hats on
+    # 8ths, with 32nd buffer-stutters on phrase ends.
+    KICK, CLAP, HAT, OPEN, SNARE = 36, 39, 42, 46, 40
+    for bar in range(BARS):
+        kit.note(9, at(bar, 0), 120, KICK, 108)
+        if bar % 2 == 1:
+            kit.note(9, at(bar, 1.5), 120, KICK, 84)
+        kit.note(9, at(bar, 2), 120, CLAP, 96)
+        for beat in range(BEATS_PER_BAR):
+            for k in (0, .5):
+                kit.note(9, at(bar, beat + k), 90, HAT, 64 if k else 76)
+        # Stutter: last bar of each 4-bar phrase gets a 32nd retrigger
+        # ramp — the "buffer repeat" that reads as glitch.
+        if bar % 4 == 3:
+            for k in range(8):
+                kit.note(9, at(bar, 2 + k * .125), 60, HAT if k % 2 else SNARE,
+                         60 + k * 7)
+        if bar in (15, 31):
+            kit.note(9, at(bar, 2.5), 240, OPEN, 104)
+
+    # --- Saw lead: shadows the clarinet an octave up through the fog
+    # sections, quiet enough to read as an artefact rather than a
+    # second melody. Pitch-bend wobble on the held notes.
+    shadow = [(b, t, p + 12, d) for b, t, p, d in (MELODY_A2 + MELODY_A3)]
+    place_melody(lead, 10, shadow, 48)
+    for bar in (11, 15, 27, 31):                    # bend dips = tape wobble
+        base = at(bar, 0)
+        for k, val in enumerate((8192, 7400, 8600, 8192)):
+            lead.add(base + k * 90, bytes([0xE0 | 10, val & 0x7F, (val >> 7) & 0x7F]), 2)
+
+    return [dist, synbass, kit, lead]
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
-    path = os.path.join(OUT, NAME)
-    write_midi(path, build())
-    seconds = BARS * BEATS_PER_BAR * 60.0 / BPM
-    print("wrote %s  (%d bars, %.1f s loop, %d BPM, 3/4)" %
-          (path, BARS, seconds, BPM))
+    for style, cfg in STYLES.items():
+        path = os.path.join(OUT, cfg["file"])
+        write_midi(path, build(cfg["bpm"], cfg["grit"]))
+        seconds = BARS * BEATS_PER_BAR * 60.0 / cfg["bpm"]
+        print("wrote %-28s %-7s %d bars, %.1f s loop, %d BPM, 3/4" %
+              (cfg["file"], style, BARS, seconds, cfg["bpm"]))
