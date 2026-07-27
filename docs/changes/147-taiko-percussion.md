@@ -60,6 +60,31 @@ Restructured for overtness:
 - Verified: asset carries the new seven-stem lineup, compile clean,
   FmodActive with 7 channels, rest = bed only.
 
+## Round 3 — depth + SMG hybrid
+
+Percussionist verdict on round 2: instrumentation too lightweight —
+wants deep thuds and booming, rolling taikos; SMG plucks out of place
+with both rhythm and instrumentation.
+
+- **Voices deepened**: o-daiko 88→42 Hz sweep, 1.8 s boomy tail, slap
+  restrained; chu-daiko rebuilt as a 95 Hz barrel with shell modes and
+  a 0.9 s tail (8th-spacing tails overlap into a roll); shime leaned
+  down. Oroshi hits lengthened to 0.55 s so rolls boom.
+- **Bed gets the deep line**: o-daiko pulse on the matsuri accents in
+  every bar + rolling oroshi through every phrase bar (replaces the
+  timpani roll; timpani now downbeat + fifth only). Groove mix up to
+  0.7, timpani anchors down to 0.4.
+- **SMG hybrid** (user-picked): note tier = shime rim shot (pitch-walk
+  varies the tick), flourish = pizzicato-strings run (new `pizz`
+  voice, detuned KS pair), phrase = pizz run landing on a chu-daiko
+  don with a grace rim tick. Same filenames — cue rows untouched, no
+  C# changes.
+- Known divergence: `MusicMidi` GM patch for SMG is still pizzicato —
+  when a soundfont lands, the note tier reverts to melodic pizz on
+  the MPTK path; reconcile at soundfont import.
+- Verified: regen clean, reimport clean, FmodActive with the new
+  stems, console clean.
+
 ## Notes / follow-ups
 
 - Mix levels (ji 0.3 / chū 0.55 / ō-daiko 0.7) and all timbres are
