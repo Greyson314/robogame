@@ -13,10 +13,25 @@ MonoBehaviour:
   m_Name: CombatTrack
   m_EditorClassIdentifier: Robogame.Core::Robogame.Core.MusicTrackDefinition
   Clip: {fileID: 8300000, guid: 98de9d4615382ce4aa8c4c9895d8abd5, type: 3}
-  StemFiles:
-  - Music/stem_bed.wav
-  - Music/stem_strings.wav
-  - Music/stem_brass.wav
+  Stems:
+  - File: Music/stem_bed.wav
+    FadeStart: 0
+    FadeEnd: 0
+  - File: Music/stem_shimmer.wav
+    FadeStart: 1
+    FadeEnd: 0
+  - File: Music/stem_strings.wav
+    FadeStart: 0
+    FadeEnd: 1
+  - File: Music/stem_brass.wav
+    FadeStart: 1
+    FadeEnd: 2
+  - File: Music/stem_lute.wav
+    FadeStart: 2
+    FadeEnd: 3
+  - File: Music/stem_percussion.wav
+    FadeStart: 2.5
+    FadeEnd: 3
   Bpm: 100
   BeatsPerBar: 4
   Volume: 0.55
