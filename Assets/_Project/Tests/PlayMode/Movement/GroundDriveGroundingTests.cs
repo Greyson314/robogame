@@ -34,7 +34,7 @@ namespace Robogame.Tests.PlayMode.Movement
             _chassisRb.linearDamping = 0f;
             _grid = _root.AddComponent<BlockGrid>();
 
-            // One wheel in the hierarchy so AnyWheelGrounded() has something
+            // One wheel in the hierarchy so ProbeGround() has something
             // to poll; GroundDriveSubsystem seeds it in OnEnable.
             BlockDefinition wheelDef = MakeDef(BlockIds.Wheel);
             BlockBehaviour bb = _grid.PlaceBlock(wheelDef, Vector3Int.zero);

@@ -588,14 +588,18 @@ namespace Robogame.Combat
             switch (kind)
             {
                 case ProjectileKind.SmgPellet:
-                    if (spec.TintImpact) VfxSpawner.Spawn(VfxKind.HitSpark, pos, normal, 0.85f, spec.VisualTint);
-                    else VfxSpawner.Spawn(VfxKind.HitSpark, pos, normal, scale: 0.85f);
+                    // Size lever fattens the base spark (LOG-153) — the
+                    // kinetic kinds have no shock ring for size to read on.
+                    float smgScale = 0.85f * (1f + 0.5f * spec.FxSize);
+                    if (spec.TintImpact) VfxSpawner.Spawn(VfxKind.HitSpark, pos, normal, smgScale, spec.VisualTint);
+                    else VfxSpawner.Spawn(VfxKind.HitSpark, pos, normal, scale: smgScale);
                     AudioRouter.PlayOneShot(impactCue, pos);
                     break;
 
                 case ProjectileKind.Cannonball:
-                    if (spec.TintImpact) VfxSpawner.Spawn(VfxKind.HitSpark, pos, normal, 1.4f, spec.VisualTint);
-                    else VfxSpawner.Spawn(VfxKind.HitSpark, pos, normal, scale: 1.4f);
+                    float ballScale = 1.4f * (1f + 0.5f * spec.FxSize);
+                    if (spec.TintImpact) VfxSpawner.Spawn(VfxKind.HitSpark, pos, normal, ballScale, spec.VisualTint);
+                    else VfxSpawner.Spawn(VfxKind.HitSpark, pos, normal, scale: ballScale);
                     AudioRouter.PlayOneShot(impactCue, pos);
                     break;
 
@@ -634,6 +638,37 @@ namespace Robogame.Combat
                     Voxel.TerrainCratering.OnBombDetonation(craterCentre, craterR);
                     break;
             }
+
+            SpawnConcoctionExtras(in spec, pos, normal);
+        }
+
+        // Per-recipe impact layering (LOG-153): each concoction lever
+        // spiked above neutral adds its own read at the point of damage —
+        // damage = dense ember burst, knockback = shock ring, spread =
+        // debris scatter, speed = a streak back along the approach path
+        // (size fattens the base spark above). All pooled VfxSpawner
+        // kinds tinted with the recipe's pigment. Thresholded so
+        // near-neutral recipes stay on the base FX, and SMG pellets only
+        // pay on every third impact so a 12 Hz stream doesn't turn to soup.
+        private const float ConcoctionFxThreshold = 0.15f;
+        private int _smgExtraCounter;
+
+        private void SpawnConcoctionExtras(in ProjectileSpec spec, Vector3 pos, Vector3 normal)
+        {
+            const float T = ConcoctionFxThreshold;
+            if (!spec.TintImpact) return;
+            if (spec.FxDamage < T && spec.FxKnockback < T && spec.FxSpeed < T && spec.FxSpread < T) return;
+            if (spec.Kind == ProjectileKind.SmgPellet && (++_smgExtraCounter % 3) != 0) return;
+
+            Color tint = spec.VisualTint;
+            if (spec.FxDamage >= T)
+                VfxSpawner.Spawn(VfxKind.RamSpark, pos, normal, 0.5f + 0.8f * spec.FxDamage, tint);
+            if (spec.FxKnockback >= T)
+                VfxSpawner.Spawn(VfxKind.BombShockwave, pos, Quaternion.identity, 0.35f + 0.55f * spec.FxKnockback, tint);
+            if (spec.FxSpread >= T)
+                VfxSpawner.Spawn(VfxKind.DebrisDust, pos, normal, 0.45f + 0.55f * spec.FxSpread, tint);
+            if (spec.FxSpeed >= T && spec.InitialVelocity.sqrMagnitude > 1e-4f)
+                VfxSpawner.Spawn(VfxKind.HitSpark, pos, -spec.InitialVelocity.normalized, 0.5f + 0.6f * spec.FxSpeed, tint);
         }
 
         // -----------------------------------------------------------------

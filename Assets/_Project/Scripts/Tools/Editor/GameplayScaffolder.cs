@@ -176,6 +176,17 @@ namespace Robogame.Tools.Editor
                 // Bow gun on the front spine cube — the cell above the CPU
                 // belongs to the capybara (1x1x2 command cockpit).
                 sb.Place(BlockIds.Weapon, new Vector3Int(0, 1, 3), Vector3Int.up);
+                // Fleshed-out roster (LOG-153): flank armor walls at |x|=1
+                // above the side strips — the tank reads as a brawler at
+                // 30 m, and the extra plate is real hit points over the
+                // wheels. Front cells only; the rear deck stays clear for
+                // the module + cannon.
+                sb.MirrorX(b => b.Box(BlockIds.Cube, new Vector3Int(1, 1, 0), new Vector3Int(1, 1, 2)));
+                // Turret cannon on the aft spine — slower, harder punch
+                // layered over the bow SMG's chip stream. The bot AI holds
+                // one fire input, and every held-fire weapon shares
+                // WeaponFireGate, so both guns work with zero AI changes.
+                sb.Place(BlockIds.Cannon, new Vector3Int(0, 1, -1), Vector3Int.up);
                 // EMP module on the rear deck (+Y of the z=-2 cube) so the
                 // default tank can demo the ability bar (press 1). Each module
                 // is its own block now; swap it for any other Module-category
@@ -237,8 +248,12 @@ namespace Robogame.Tools.Editor
                 // only orientation that gives ThrusterBlock the correct
                 // forward axis (chassis +Z) for push direction.
                 sb.Place(BlockIds.Thruster, new Vector3Int(0, 1, -3), upTop);
-                // Top weapon at the nose.
-                sb.Place(BlockIds.Weapon, new Vector3Int(0, 1, 3), upTop);
+                // Nose cannon (LOG-153, was SMG): a fixed-forward gun on a
+                // strafing airframe only gets brief facing windows —
+                // AirBotInputSource's 0.6 facing gate exists for exactly
+                // this — so one hard-hitting shot per pass fits the plane
+                // better than spray that mostly misses.
+                sb.Place(BlockIds.Cannon, new Vector3Int(0, 1, 3), upTop);
                 // Main wings + canards + tail stabs — mirrored.
                 sb.MirrorX(b => b
                     .Place(BlockIds.Aero, new Vector3Int(1, 0,  0), upRight, wingDims)
@@ -362,8 +377,12 @@ namespace Robogame.Tools.Editor
                 sb.Place(BlockIds.Thruster, new Vector3Int(0, 1, zMin), Vector3Int.up);
                 // Rudder hangs below stern.
                 sb.Place(BlockIds.Rudder, new Vector3Int(0, -1, zMin), upDown);
-                // Bow gun.
-                sb.Place(BlockIds.Weapon, new Vector3Int(0, 1, zMax), Vector3Int.up);
+                // Gunboat armament (LOG-153): bow cannon (was SMG) for the
+                // broadside punch, plus an amidships mortar aft of the CPU —
+                // arcing area denial across open water, and the arc doesn't
+                // fight the bot AI's facing gate the way a hitscan gun does.
+                sb.Place(BlockIds.Cannon, new Vector3Int(0, 1, zMax), Vector3Int.up);
+                sb.Place(BlockIds.Mortar, new Vector3Int(0, 1, -1), Vector3Int.up);
                 return sb.Build();
             }
             finally { sb.Dispose(); }
@@ -523,6 +542,13 @@ namespace Robogame.Tools.Editor
                 sb.RotorWithFoils(new Vector3Int(0, 2, 0),
                                   foilDims: new Vector3(3.0f, 0.05f, 0.45f));
                 sb.RotorsGenerateLift(true);
+                // Wrecking ball slung under the cabin (LOG-153): rope off
+                // the -Y face of the forward floor cube, mace two cells
+                // down. "A chopper with a wrecking ball is Looney Tunes,
+                // not military sim" — the design pillars' own example,
+                // finally on the roster. The outboard SMGs stay for
+                // ranged poke; the mace swings free under the orbit.
+                sb.RopeWithMace(new Vector3Int(0, -1, 1), new Vector3Int(0, -1, 0), lengthCells: 2);
                 return sb.Build();
             }
             finally { sb.Dispose(); }
@@ -559,6 +585,12 @@ namespace Robogame.Tools.Editor
                 // chassis (0, 0, 2), exactly one cell ahead of the front
                 // cube.
                 sb.Place(BlockIds.Drill, new Vector3Int(0, 0, 2), forwardStep);
+                // Roof SMG (LOG-153): the drill is terrain utility, not a
+                // weapon — without a gun the DrillBot was a harmless prop
+                // in a fight. Chip damage over the drill nose keeps the
+                // aggression readable. (Terrain-breaching pursuit AI is a
+                // flagged follow-up, not in this pass.)
+                sb.Place(BlockIds.Weapon, new Vector3Int(0, 1, 1), Vector3Int.up);
                 // Wheels — side-mount stems extend ±X from the corner
                 // floor cubes. Steerers at front (+Z), drivers at back.
                 sb.MirrorX(b => b

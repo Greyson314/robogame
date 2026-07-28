@@ -199,6 +199,7 @@ namespace Robogame.Combat
             // Spread has no stat here — documented no-op.
             Color tint = s_ballTint;
             bool tintImpact = false;
+            Robogame.Block.Concoction fxRecipe = null;
             if (_block != null && Robogame.Block.ConcoctionRegistry.TryGet(
                     _block.ConcoctionId, out Robogame.Block.Concoction concoction))
             {
@@ -208,6 +209,7 @@ namespace Robogame.Combat
                 knockback *= concoction.KnockbackMultiplier;
                 tint = concoction.MixedColor;
                 tintImpact = true;
+                fxRecipe = concoction;
             }
 
             Vector3 origin = _muzzle.position;
@@ -241,6 +243,7 @@ namespace Robogame.Combat
                 VisualMeshDiameter = radius * 2f,
                 ImpactAudioOverride = AudioCue.ProjectileImpact,
             };
+            spec.SetConcoctionFx(fxRecipe);
             ProjectileWorld.Spawn(in spec);
 
             // Recoil at the muzzle — chassis-side effect at fire time,

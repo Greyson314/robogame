@@ -189,6 +189,15 @@ MonoBehaviour:
     Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
+  - BlockId: block.weapon.mortar
+    Position: {x: 0, y: 1, z: -1}
+    Up: {x: 0, y: 1, z: 0}
+    Dims: {x: 0, y: 0, z: 0}
+    Pitch: 0
+    Yaw: 0
+    Teeter: 0
+    BlockConfig: 0
+    ConcoctionId: 
   - BlockId: block.structure.cube
     Position: {x: -2, y: 0, z: 0}
     Up: {x: -1, y: 0, z: 0}
@@ -369,7 +378,7 @@ MonoBehaviour:
     Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
-  - BlockId: block.weapon.hitscan
+  - BlockId: block.weapon.cannon
     Position: {x: 0, y: 1, z: 3}
     Up: {x: 0, y: 1, z: 0}
     Dims: {x: 0, y: 0, z: 0}

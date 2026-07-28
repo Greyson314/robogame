@@ -51,6 +51,20 @@ namespace Robogame.Movement
                  "(not at wheel positions) so it produces ZERO roll moment. 0 = ice, 1 = perfect rails.")]
         [SerializeField, Range(0f, 1f)] private float _lateralGrip = 0.85f;
 
+        [Header("Tuning — Parking brake")]
+        // Raycast suspension has no contact friction, so before LOG-154 a
+        // bot nudged on a hill kept its in-plane velocity forever (nothing
+        // damped it) and slid until a chassis cube collider caught the
+        // terrain — the classic "stuck on the slope" state. The brake
+        // bleeds that creep while idle. No gravity-cancel term is needed:
+        // the suspension pushes world-VERTICAL, so at rest it already
+        // cancels all of gravity including the along-slope component
+        // (unlike a real car's slope-normal contact force) — a stopped
+        // bot holds the hill by construction.
+        [Tooltip("Fraction of in-plane velocity bled per physics step while grounded with no " +
+                 "drive input — rolls the bot to a stop instead of coasting, and stops hill creep.")]
+        [SerializeField, Range(0f, 1f)] private float _idleBrake = 0.2f;
+
         // Acceleration / MaxSpeed / TurnRate are server-authoritative
         // (blueprint), resolved once in OnEnable — were per-machine
         // Tweakables read every FixedUpdate. PHYSICS_PLAN §1.5 / §5.
@@ -65,6 +79,7 @@ namespace Robogame.Movement
         private float UprightStrength  => _tuning != null ? _tuning.UprightStrength  : _uprightStrength;
         private float RollPitchDamping => _tuning != null ? _tuning.RollPitchDamping : _rollPitchDamping;
         private float LateralGrip      => _tuning != null ? _tuning.LateralGrip      : _lateralGrip;
+        private float IdleBrake        => _tuning != null ? _tuning.IdleBrake        : _idleBrake;
 
         public int Order => 0;
         public bool IsOperational => isActiveAndEnabled;
@@ -151,14 +166,30 @@ namespace Robogame.Movement
             for (int i = 0; i < existing.Length; i++) _wheels.Add(existing[i]);
         }
 
-        /// <summary>True if any attached <see cref="WheelBlock"/> is touching ground this step.</summary>
-        private bool AnyWheelGrounded()
+        /// <summary>
+        /// True if any attached <see cref="WheelBlock"/> is touching ground
+        /// this step; <paramref name="groundNormal"/> is the normalised
+        /// average of the grounded wheels' contact normals (world up when
+        /// airborne). Drive, grip and the speed cap all act in this plane
+        /// so throttle climbs a slope instead of plowing into it (LOG-153).
+        /// </summary>
+        private bool ProbeGround(out Vector3 groundNormal)
         {
+            Vector3 sum = Vector3.zero;
+            int count = 0;
             foreach (WheelBlock w in _wheels)
             {
-                if (w != null && w.IsGrounded) return true;
+                if (w == null || !w.IsGrounded) continue;
+                sum += w.GroundNormal;
+                count++;
             }
-            return false;
+            if (count == 0 || sum.sqrMagnitude < 0.0001f)
+            {
+                groundNormal = Vector3.up;
+                return count > 0;
+            }
+            groundNormal = sum.normalized;
+            return true;
         }
 
         public void Tick(in DriveControl control)
@@ -172,7 +203,7 @@ namespace Robogame.Movement
             // air control that doesn't let you cheat distance. Self-right +
             // roll damping below stay ungated (stability assists, not
             // propulsion). Lateral grip is gated with drive (further down).
-            bool grounded = AnyWheelGrounded();
+            bool grounded = ProbeGround(out Vector3 groundNormal);
 
             // --- Steering: yaw around WORLD up so a tilted chassis doesn't
             //     accidentally roll itself when the player presses A/D.
@@ -219,20 +250,25 @@ namespace Robogame.Movement
             // to both accel and max speed so the chassis feels
             // unambiguously heavier.
             float carryMul = control.SpeedMultiplier;
-            if (grounded && !Mathf.Approximately(control.Move.y, 0f))
+            bool throttling = !Mathf.Approximately(control.Move.y, 0f);
+            if (grounded && throttling)
             {
-                Vector3 fwd = transform.forward;
-                fwd.y = 0f;
+                // Push along the ground plane, not the horizontal — on a
+                // hill the horizontal projection wasted sin(θ) of the
+                // throttle plowing into the slope face (LOG-153).
+                Vector3 fwd = Vector3.ProjectOnPlane(transform.forward, groundNormal);
                 if (fwd.sqrMagnitude > 0.0001f) fwd.Normalize();
                 Body.AddForce(fwd * (control.Move.y * Acceleration * carryMul), ForceMode.Acceleration);
 
+                // Cap in-plane speed (leave the ground-normal component
+                // alone so suspension bounce isn't clamped).
                 Vector3 v = Body.linearVelocity;
-                Vector3 horiz = new Vector3(v.x, 0f, v.z);
+                Vector3 inPlane = Vector3.ProjectOnPlane(v, groundNormal);
                 float cappedSpeed = MaxSpeed * carryMul;
-                if (horiz.sqrMagnitude > cappedSpeed * cappedSpeed)
+                if (inPlane.sqrMagnitude > cappedSpeed * cappedSpeed)
                 {
-                    horiz = horiz.normalized * cappedSpeed;
-                    Body.linearVelocity = new Vector3(horiz.x, v.y, horiz.z);
+                    Vector3 normalPart = v - inPlane;
+                    Body.linearVelocity = inPlane.normalized * cappedSpeed + normalPart;
                 }
             }
 
@@ -242,18 +278,30 @@ namespace Robogame.Movement
             //     car can still drift through the air after a jump. ---
             if (LateralGrip > 0f && grounded)
             {
-                Vector3 right = transform.right;
-                right.y = 0f;
+                Vector3 right = Vector3.ProjectOnPlane(transform.right, groundNormal);
                 if (right.sqrMagnitude > 0.0001f)
                 {
                     right.Normalize();
                     Vector3 v = Body.linearVelocity;
-                    float lateral = Vector3.Dot(new Vector3(v.x, 0f, v.z), right);
+                    float lateral = Vector3.Dot(v, right);
                     Vector3 cancel = -right * (lateral * LateralGrip);
                     // Use VelocityChange so it's a clean per-frame nudge
                     // instead of a force that depends on dt + mass.
                     Body.AddForce(cancel, ForceMode.VelocityChange);
                 }
+            }
+
+            // --- Parking brake (LOG-154). While grounded with no throttle,
+            //     bleed in-plane creep so a nudge on a hill decays to a
+            //     stop instead of persisting forever (raycast suspension
+            //     has no contact friction to do it). Once stopped, the
+            //     vertical suspension holds the slope by construction —
+            //     see the field comment. Tuned via the SO like jump /
+            //     upright (invariant-1 compliant — not a Tweakable). ---
+            if (grounded && !throttling && IdleBrake > 0f)
+            {
+                Vector3 creep = Vector3.ProjectOnPlane(Body.linearVelocity, groundNormal);
+                Body.AddForce(-creep * IdleBrake, ForceMode.VelocityChange);
             }
 
             // --- Jump. Grounded-only: an airborne re-hop would let a bot

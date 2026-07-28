@@ -145,6 +145,7 @@ namespace Robogame.Combat
             // has no stat to bite on here (no splash) — documented no-op.
             Color tint = s_tracerHead;
             bool tintImpact = false;
+            Robogame.Block.Concoction fxRecipe = null;
             if (_block != null && Robogame.Block.ConcoctionRegistry.TryGet(
                     _block.ConcoctionId, out Robogame.Block.Concoction concoction))
             {
@@ -154,6 +155,7 @@ namespace Robogame.Combat
                 knockback *= concoction.KnockbackMultiplier;
                 tint = concoction.MixedColor;
                 tintImpact = true;
+                fxRecipe = concoction;
             }
 
             // Index 0 of the splash profile is the direct-hit damage —
@@ -186,6 +188,7 @@ namespace Robogame.Combat
                 VisualMeshDiameter = 0f,
                 ImpactAudioOverride = AudioCue.ProjectileImpact,
             };
+            spec.SetConcoctionFx(fxRecipe);
             ProjectileWorld.Spawn(in spec);
 
             // Recoil — equal-and-opposite impulse at the muzzle. Stays

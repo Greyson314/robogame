@@ -289,6 +289,7 @@ namespace Robogame.Combat
             float dmgMult = 1f, sizeMult = 1f, knockMult = 1f;
             Color tint = s_shellTint;
             bool tintImpact = false;
+            Concoction fxRecipe = null;
             if (_block != null && ConcoctionRegistry.TryGet(_block.ConcoctionId, out Concoction concoction))
             {
                 dmgMult = concoction.DamageMultiplier;
@@ -296,6 +297,7 @@ namespace Robogame.Combat
                 knockMult = concoction.KnockbackMultiplier;
                 tint = concoction.MixedColor;
                 tintImpact = true;
+                fxRecipe = concoction;
             }
 
             ProjectileSpec spec = new ProjectileSpec
@@ -320,6 +322,7 @@ namespace Robogame.Combat
                 VisualMeshDiameter = ResolveShellRadius() * 2f,
                 ImpactAudioOverride = AudioCue.BombExplosion,
             };
+            spec.SetConcoctionFx(fxRecipe);
             ProjectileWorld.Spawn(in spec);
 
             // Recoil — opposite the launch, at the muzzle. Chassis-side effect.

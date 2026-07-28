@@ -84,5 +84,36 @@ namespace Robogame.Combat
         // dispatch falls back to AudioCue.ProjectileImpact for direct
         // hits and AudioCue.BombExplosion for splash radius.
         public Robogame.Core.AudioCue ImpactAudioOverride;
+
+        // Session 153: above-neutral concoction lever weights (0..1 each),
+        // baked at fire time by SetConcoctionFx. Impact dispatch layers
+        // extra FX per spiked lever so the recipe reads in the impact's
+        // CHARACTER, not just its tint — damage = ember burst, knockback =
+        // shock ring, spread = debris scatter, speed = approach streak,
+        // size = fatter base spark. All zero (the default) = base FX only.
+        public float FxDamage;
+        public float FxSize;
+        public float FxKnockback;
+        public float FxSpeed;
+        public float FxSpread;
+
+        /// <summary>
+        /// Bake the recipe's above-neutral lever weights into the spec.
+        /// Below-neutral levers contribute nothing — diluting a stat
+        /// shouldn't add visual noise, mirroring the pigment-mixing rule
+        /// in <see cref="Robogame.Block.ConcoctionColor"/>.
+        /// </summary>
+        public void SetConcoctionFx(Robogame.Block.Concoction c)
+        {
+            if (c == null) return;
+            FxDamage    = AboveNeutral(c.DamagePct);
+            FxSize      = AboveNeutral(c.SizePct);
+            FxKnockback = AboveNeutral(c.KnockbackPct);
+            FxSpeed     = AboveNeutral(c.SpeedPct);
+            FxSpread    = AboveNeutral(c.SpreadPct);
+        }
+
+        private static float AboveNeutral(float pct) =>
+            Mathf.Clamp01((pct - Robogame.Block.Concoction.DefaultPct) * 2f);
     }
 }

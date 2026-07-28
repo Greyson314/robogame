@@ -94,6 +94,13 @@ namespace Robogame.Movement
         /// <summary>True while this wheel's suspension raycast is touching ground.</summary>
         public bool IsGrounded { get; private set; }
 
+        /// <summary>
+        /// Ground contact normal from this wheel's suspension ray (world
+        /// up while airborne). Lets the drive subsystem push along the
+        /// slope surface instead of plowing horizontally into it (LOG-153).
+        /// </summary>
+        public Vector3 GroundNormal { get; private set; } = Vector3.up;
+
         private Rigidbody _rb;
         private IInputSource _input;
         private float _spinAngle;
@@ -164,9 +171,11 @@ namespace Robogame.Movement
             {
                 _suspensionExtension = _restLength;
                 IsGrounded = false;
+                GroundNormal = Vector3.up;
                 return;
             }
             IsGrounded = true;
+            GroundNormal = hit.normal;
 
             // Wheel centre rests one radius above the contact point.
             float wheelCenterY = hit.point.y + _radius;

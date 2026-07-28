@@ -132,6 +132,7 @@ namespace Robogame.Combat
             // crater downstream; the recipe's pigment dyes bomb + blast.
             Color tint = s_bombTint;
             bool tintImpact = false;
+            Concoction fxRecipe = null;
             if (_block != null && ConcoctionRegistry.TryGet(_block.ConcoctionId, out Concoction concoction))
             {
                 damage     *= concoction.DamageMultiplier;
@@ -140,6 +141,7 @@ namespace Robogame.Combat
                 startSpeed *= concoction.SpeedMultiplier;
                 tint = concoction.MixedColor;
                 tintImpact = true;
+                fxRecipe = concoction;
             }
 
             Vector3 dropWorld = DropPoint.position;
@@ -189,6 +191,7 @@ namespace Robogame.Combat
                 VisualMeshDiameter = _bombRadius * 2f,
                 ImpactAudioOverride = AudioCue.BombExplosion,
             };
+            spec.SetConcoctionFx(fxRecipe);
             ProjectileWorld.Spawn(in spec);
         }
 

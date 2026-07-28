@@ -27,5 +27,10 @@ namespace Robogame.Movement
         public float RollPitchDamping = 1.5f;
         [Tooltip("Chassis-level lateral grip when ANY wheel is grounded.")]
         [Range(0f, 1f)] public float LateralGrip = 0.85f;
+
+        [Header("Parking brake")]
+        [Tooltip("Fraction of in-plane velocity bled per physics step while idle and grounded — " +
+                 "rolls the bot to a stop and stops hill creep (LOG-154).")]
+        [Range(0f, 1f)] public float IdleBrake = 0.2f;
     }
 }
