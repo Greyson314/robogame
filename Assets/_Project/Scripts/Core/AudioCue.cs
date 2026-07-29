@@ -120,5 +120,7 @@ namespace Robogame.Core
         StingerTimpaniNote,     // bomb — deep timpani boom
         StingerTimpaniFlourish,
         StingerTimpaniPhrase,
+
+        WeaponOverheat,    // SMG heat lockout trips (session 155) — pressure-release hiss / hot metal tick
     }
 }

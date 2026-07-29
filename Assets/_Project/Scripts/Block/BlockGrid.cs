@@ -350,13 +350,17 @@ namespace Robogame.Block
         /// Apply damage centred at <paramref name="gridPos"/>, falling off through
         /// neighbouring blocks. <paramref name="ringDamage"/>[i] is the damage applied
         /// to blocks <i>i</i> graph-steps from the centre (index 0 = direct hit).
+        /// <paramref name="ring0Multiplier"/> scales only the ring-0 (direct hit)
+        /// damage — armour/spike modifiers use it without touching splash falloff.
         /// </summary>
         /// <remarks>
         /// Uses BFS across existing block neighbours, so damage only propagates
-        /// through actually-connected blocks (no leaping across gaps). Allocation-free
-        /// past the scratch buffers' initial capacity.
+        /// through actually-connected blocks (no leaping across gaps). A live Fuse
+        /// block takes its own ring's damage but never enqueues its neighbours, so
+        /// splash cannot travel through it. Allocation-free past the scratch
+        /// buffers' initial capacity.
         /// </remarks>
-        public void ApplySplashDamage(Vector3Int gridPos, IReadOnlyList<float> ringDamage)
+        public void ApplySplashDamage(Vector3Int gridPos, IReadOnlyList<float> ringDamage, float ring0Multiplier = 1f)
         {
             if (ringDamage == null || ringDamage.Count == 0) return;
             if (!_blocks.ContainsKey(gridPos)) return;
@@ -375,12 +379,19 @@ namespace Robogame.Block
                 var (pos, ring) = _splashFrontier.Dequeue();
                 if (ring >= ringDamage.Count) continue;
 
+                bool stopHere = false;
                 if (_blocks.TryGetValue(pos, out BlockBehaviour b) && b.IsAlive)
                 {
-                    _splashPending.Add((b, ringDamage[ring]));
+                    float amount = ringDamage[ring];
+                    if (ring == 0) amount *= ring0Multiplier;
+                    _splashPending.Add((b, amount));
+                    // TRACE[LOG-155]: Fuse = splash-chain breaker. It absorbs its
+                    // ring's damage but the BFS never crosses it. A destroyed fuse
+                    // stops fusing (IsAlive gate above).
+                    stopHere = b.Definition != null && b.Definition.Id == BlockIds.Fuse;
                 }
 
-                if (ring + 1 < ringDamage.Count)
+                if (!stopHere && ring + 1 < ringDamage.Count)
                 {
                     foreach (Vector3Int offset in s_neighborOffsets)
                     {

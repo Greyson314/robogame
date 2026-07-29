@@ -41,6 +41,24 @@ namespace Robogame.Combat
                  "Visible kickback under sustained fire.")]
         [SerializeField, Min(0f)] private float _recoilImpulse = 5.0f;
 
+        [Header("Spin-up / overheat (session 155)")]
+        [Tooltip("Seconds of held trigger to ramp from Min Fire Rate up to Fire Rate. " +
+                 "0 disables spin-up AND overheat entirely (legacy fixed-rate weapon).")]
+        [SerializeField, Min(0f)] private float _spinUpSeconds = 1.2f;
+
+        [Tooltip("Seconds for the spin-up ramp to decay back to min after the trigger is released.")]
+        [SerializeField, Min(0.01f)] private float _spinDownSeconds = 0.8f;
+
+        [Tooltip("Seconds of unbroken fire before overheat lockout. Heat cools at the same rate " +
+                 "while the trigger is released, so feathering is the skill expression.")]
+        [SerializeField, Min(0.1f)] private float _overheatSeconds = 4f;
+
+        [Tooltip("Lockout duration after an overheat trip. Holding the trigger neither extends nor shortens it.")]
+        [SerializeField, Min(0.1f)] private float _overheatCooldownSeconds = 2.5f;
+
+        [Tooltip("Shots per second at zero spin-up. Full rate is the Fire Rate field above.")]
+        [SerializeField, Min(0.1f)] private float _minFireRate = 5f;
+
         // SMG is the one weapon authored as a fire-RATE; the canonical
         // FireInterval is its reciprocal. _fireRate is the shipped field
         // name — do not rename (ADR-0003 phase A note).
@@ -49,5 +67,12 @@ namespace Robogame.Combat
         public float MuzzleSpeed     => _muzzleSpeed;
         public float SpreadDeg       => _spreadDeg;
         public float RecoilImpulse   => _recoilImpulse;
+
+        public bool  HasSpinUp                => _spinUpSeconds > 0f;
+        public float SpinUpSeconds            => _spinUpSeconds;
+        public float SpinDownSeconds          => _spinDownSeconds;
+        public float OverheatSeconds          => _overheatSeconds;
+        public float OverheatCooldownSeconds  => _overheatCooldownSeconds;
+        public float MinFireRate              => _minFireRate;
     }
 }

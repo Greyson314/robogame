@@ -101,5 +101,28 @@ namespace Robogame.Block
         // per-instance power (ConfigValue) sets HP healed per block. See
         // ModuleEffects.RepairPulse.
         public const string ModuleRepair = "block.module.repair";
+        // Wave-1 prototypes (session 155, EA triage docs/research/ea-block-triage.md):
+        // Gyro: IDriveSubsystem torque assist — yaw authority + upright
+        // stabilization on the single chassis Rigidbody. No physics objects.
+        public const string Gyro          = "block.movement.gyro";
+        // Pogo: passive raycast spring-damper bouncer. Deliberately NOT the
+        // Spring module (one-shot ability launch) — this is repeated, automatic
+        // bounce, kin to HoverBlade's non-joint propulsion pattern.
+        public const string Pogo          = "block.movement.pogo";
+        // Counterweight: dense structural block. Pure BlockDefinition data.
+        public const string Counterweight = "block.structure.counterweight";
+        // Feather: huge-but-light fragile bulk (renamed from "foam"). Visual
+        // oversize is placeholder until scalable-parts Phase 4 lands.
+        public const string Feather       = "block.structure.feather";
+        // Spike armor: victims ramming into it take boosted ring-0 damage
+        // (attacker-bonus reading; defensive discount is a possible follow-up).
+        public const string SpikeArmor    = "block.structure.spike";
+        // Wedge armor: glancing hits deal reduced damage via ArmorDeflection.
+        // Prototype uses the standard box collider's reported hit normal, so
+        // the sloped VISUAL and the mechanic can disagree — known tradeoff.
+        public const string WedgeArmor    = "block.structure.wedge";
+        // Fuse: splash-chain breaker — BlockGrid.ApplySplashDamage never
+        // propagates through a live fuse.
+        public const string Fuse          = "block.structure.fuse";
     }
 }

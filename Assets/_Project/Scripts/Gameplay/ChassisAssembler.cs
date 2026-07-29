@@ -228,6 +228,12 @@ namespace Robogame.Gameplay
                     // aero blocks are present.
                     EnsureComponent<RobotAeroBinder>(root);
 
+                    // Wave-1 prototype binders (session 155): unconditional
+                    // for the same drag-on reason; each only reacts to its
+                    // own block id, so an idle binder is the only cost.
+                    EnsureComponent<RobotGyroBinder>(root);
+                    EnsureComponent<RobotPogoBinder>(root);
+
                     // Module binder is likewise unconditional (dragging a
                     // module block on should just work). The chassis-root
                     // controller is only added when a module block is present

@@ -22,8 +22,12 @@ namespace Robogame.Tools.Editor
 
             // Author the per-kind component-data SOs FIRST so the
             // BlockDefinition writes below can reference live assets.
+            // Spin-up/overheat literals (session 155): 5→12 shots/s over
+            // 1.2 s, 4 s unbroken sustain to lockout, 2.5 s cooldown.
             WeaponDefinition smgDef = CreateOrUpdateWeaponDefinition(
-                "Weapon_Smg", fireRate: 12f, muzzleSpeed: 80f, spreadDeg: 1.2f, damage: 25f, recoil: 5f);
+                "Weapon_Smg", fireRate: 12f, muzzleSpeed: 80f, spreadDeg: 1.2f, damage: 25f, recoil: 5f,
+                minFireRate: 5f, spinUpSeconds: 1.2f, spinDownSeconds: 0.8f,
+                overheatSeconds: 4f, overheatCooldownSeconds: 2.5f);
             BombDefinition bombDef = CreateOrUpdateBombDefinition(
                 "Bomb_Default", dropInterval: 1.2f, damage: 80f, radius: 18f, initialSpeed: 2f);
             // TRACE[LOG-127]: cannon buff 60 -> 110 (survey-driven). The
@@ -127,6 +131,19 @@ namespace Robogame.Tools.Editor
             // when an enemy drives over it. Cheap-ish carrier; power (centre
             // damage) + cooldown ride ModuleTuning like the other modules.
             CreateOrUpdate("BlockDef_ModuleMines", BlockIds.ModuleMines, "Mines",        BlockCategory.Module, maxHealth:  90f, mass: 2.2f, cpuCost: 28, tint: w);
+            // Wave-1 prototype suite (session 155, docs/research/ea-block-triage.md).
+            // All literals are first-pass placeholders pending live playtest.
+            // Counterweight: dense trim ballast — mass is the whole feature.
+            // Feather: huge-but-light fragile bulk; visual oversize deferred to
+            // scalable-parts Phase 4, so for now it's a normal cell that weighs
+            // almost nothing and pops if you sneeze at it.
+            CreateOrUpdate("BlockDef_Gyro",          BlockIds.Gyro,          "Gyro",          BlockCategory.Movement,  maxHealth:  70f, mass: 2.0f,  cpuCost: 30, tint: w);
+            CreateOrUpdate("BlockDef_Pogo",          BlockIds.Pogo,          "Pogo",          BlockCategory.Movement,  maxHealth:  70f, mass: 1.5f,  cpuCost: 20, tint: w);
+            CreateOrUpdate("BlockDef_Counterweight", BlockIds.Counterweight, "Counterweight", BlockCategory.Structure, maxHealth: 150f, mass: 8f,    cpuCost: 5,  tint: w);
+            CreateOrUpdate("BlockDef_Feather",       BlockIds.Feather,       "Feather Block", BlockCategory.Structure, maxHealth:  30f, mass: 0.15f, cpuCost: 2,  tint: w);
+            CreateOrUpdate("BlockDef_SpikeArmor",    BlockIds.SpikeArmor,    "Spike Armor",   BlockCategory.Structure, maxHealth: 120f, mass: 1.5f,  cpuCost: 8,  tint: w);
+            CreateOrUpdate("BlockDef_WedgeArmor",    BlockIds.WedgeArmor,    "Wedge Armor",   BlockCategory.Structure, maxHealth: 110f, mass: 1.2f,  cpuCost: 6,  tint: w);
+            CreateOrUpdate("BlockDef_Fuse",          BlockIds.Fuse,          "Fuse",          BlockCategory.Structure, maxHealth:  80f, mass: 1.0f,  cpuCost: 6,  tint: w);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -204,7 +221,9 @@ namespace Robogame.Tools.Editor
         // -----------------------------------------------------------------
 
         private static WeaponDefinition CreateOrUpdateWeaponDefinition(
-            string assetName, float fireRate, float muzzleSpeed, float spreadDeg, float damage, float recoil)
+            string assetName, float fireRate, float muzzleSpeed, float spreadDeg, float damage, float recoil,
+            float minFireRate, float spinUpSeconds, float spinDownSeconds,
+            float overheatSeconds, float overheatCooldownSeconds)
         {
             string path = $"{WeaponDefinitionsFolder}/{assetName}.asset";
             WeaponDefinition def = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(path);
@@ -220,6 +239,11 @@ namespace Robogame.Tools.Editor
             so.FindProperty("_spreadDeg").floatValue     = spreadDeg;
             so.FindProperty("_damage").floatValue        = damage;
             so.FindProperty("_recoilImpulse").floatValue = recoil;
+            so.FindProperty("_minFireRate").floatValue             = minFireRate;
+            so.FindProperty("_spinUpSeconds").floatValue           = spinUpSeconds;
+            so.FindProperty("_spinDownSeconds").floatValue         = spinDownSeconds;
+            so.FindProperty("_overheatSeconds").floatValue         = overheatSeconds;
+            so.FindProperty("_overheatCooldownSeconds").floatValue = overheatCooldownSeconds;
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(def);
             return def;

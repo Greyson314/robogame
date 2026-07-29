@@ -155,17 +155,42 @@ namespace Robogame.Combat
             s_ringScratch[1] = baseDamage * _impact.Ring1Scale;
             s_ringScratch[2] = baseDamage * _impact.Ring2Scale;
 
+            // Wave-1 armour interactions (session 155): ring-0-only modifiers,
+            // threaded through ApplySplashDamage so falloff rings are untouched.
+            // Spike (their side): leading with a chassis into a live enemy
+            // spike block boosts the ring-0 damage WE take — attacker-bonus
+            // reading; a wielder-side defensive discount is a possible
+            // follow-up, not implemented. Wedge (our side): if the block we
+            // led with is a wedge, glancing impacts are deflected.
+            float ring0Mul = 1f;
+            BlockBehaviour otherBlock = contact.otherCollider != null
+                ? contact.otherCollider.GetComponentInParent<BlockBehaviour>()
+                : null;
+            if (otherBlock != null && otherBlock.IsAlive
+                && otherBlock.Definition != null
+                && otherBlock.Definition.Id == BlockIds.SpikeArmor)
+            {
+                ring0Mul *= ArmorConfig.Instance.SpikeDamageMultiplier;
+            }
+            BlockBehaviour selfBlock = contact.thisCollider != null
+                ? contact.thisCollider.GetComponentInParent<BlockBehaviour>()
+                : null;
+            if (selfBlock != null)
+            {
+                ring0Mul *= ArmorDeflection.ComputeMultiplier(selfBlock, contact.normal, vRel);
+            }
+
             // Self side — splash from the block nearest our contact point.
             // Each handler is responsible for *its own* chassis's damage:
             // OnCollisionEnter fires on both bodies, so if we also damaged
             // the other side here we'd double-apply when both chassis carry
             // a handler (plane vs plane, plane vs dummy). The other side's
             // handler will run independently and bill its own bookkeeping.
-            ApplyDamageAtContact(_robot, contact.thisCollider, contact.point, s_ringScratch);
+            ApplyDamageAtContact(_robot, contact.thisCollider, contact.point, s_ringScratch, ring0Mul);
             // Attribution: this handler bills its OWN chassis's damage, so
             // the other robot (when there is one — wall slams have none) is
             // the attacker. Nominal amount = headline ring-0 damage.
-            DamageAttribution.Report(otherRobot, _robot, s_ringScratch[0]);
+            DamageAttribution.Report(otherRobot, _robot, s_ringScratch[0] * ring0Mul);
 
             // Ram-spark VFX scaled by impact energy. Hard scrapes (low kJ)
             // get a small flash; serious crashes get a fragment puff.
@@ -210,7 +235,7 @@ namespace Robogame.Combat
         // isn't recognisably gridded (compound chassis colliders that
         // sit at the root rather than per-block).
         private static void ApplyDamageAtContact(
-            Robot robot, Collider contactCollider, Vector3 worldPoint, float[] ringDamage)
+            Robot robot, Collider contactCollider, Vector3 worldPoint, float[] ringDamage, float ring0Multiplier = 1f)
         {
             if (robot == null || ringDamage == null || ringDamage.Length == 0) return;
 
@@ -227,19 +252,19 @@ namespace Robogame.Combat
                 // into the neighbouring cell, which is still a sane
                 // outcome for an oblique hit.
                 Vector3Int gp = robot.Grid.WorldToGrid(worldPoint);
-                robot.Grid.ApplySplashDamage(gp, ringDamage);
+                robot.Grid.ApplySplashDamage(gp, ringDamage, ring0Multiplier);
                 return;
             }
 
             if (direct != null && robot.Grid != null)
             {
-                robot.Grid.ApplySplashDamage(direct.GridPosition, ringDamage);
+                robot.Grid.ApplySplashDamage(direct.GridPosition, ringDamage, ring0Multiplier);
                 return;
             }
 
             // Last-ditch: no grid at all (shouldn't happen for a Robot,
             // but be defensive). Just damage the block we hit.
-            if (direct != null) direct.TakeDamage(ringDamage[0]);
+            if (direct != null) direct.TakeDamage(ringDamage[0] * ring0Multiplier);
         }
     }
 }

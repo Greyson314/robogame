@@ -397,9 +397,13 @@ namespace Robogame.Combat
             // shots don't pass through, but they also don't grief the
             // ally. See docs/changes/58-scrap-loop-v1.md § 2.
             if (Teams.IsFriendlyFire(spec.Owner, targetRobot)) return;
-            target.TakeDamage(spec.Damage);
-            DamageAttribution.Report(spec.Owner, targetRobot, spec.Damage);
-            MusicalHits.Report(spec.Owner, targetRobot, spec.Kind, spec.Damage);
+            // Wedge deflection (session 155): glancing hits on a wedge block
+            // deal reduced damage. 1 for every non-wedge target.
+            BlockBehaviour hitBlock = hit.collider.GetComponentInParent<BlockBehaviour>();
+            float deflect = ArmorDeflection.ComputeMultiplier(hitBlock, hit.normal, travelDir);
+            target.TakeDamage(spec.Damage * deflect);
+            DamageAttribution.Report(spec.Owner, targetRobot, spec.Damage * deflect);
+            MusicalHits.Report(spec.Owner, targetRobot, spec.Kind, spec.Damage * deflect);
             if (spec.Knockback > 0f)
                 ApplyKineticKnockback(targetRobot, travelDir, spec.Knockback, spec.KnockbackSmoothed);
             HitLanded?.Invoke(spec.Owner, hit.point);
@@ -417,9 +421,13 @@ namespace Robogame.Combat
                 if (targetRobot != null && targetRobot != spec.Owner && targetRobot.Grid != null)
                 {
                     if (Teams.IsFriendlyFire(spec.Owner, targetRobot)) return;
-                    targetRobot.Grid.ApplySplashDamage(block.GridPosition, spec.SplashRings);
-                    DamageAttribution.Report(spec.Owner, targetRobot, spec.SplashRings[0]);
-                    MusicalHits.Report(spec.Owner, targetRobot, spec.Kind, spec.SplashRings[0]);
+                    // Wedge deflection (session 155): scales ring 0 only —
+                    // splash falloff through the rest of the chassis is
+                    // unchanged.
+                    float deflect = ArmorDeflection.ComputeMultiplier(block, hit.normal, travelDir);
+                    targetRobot.Grid.ApplySplashDamage(block.GridPosition, spec.SplashRings, deflect);
+                    DamageAttribution.Report(spec.Owner, targetRobot, spec.SplashRings[0] * deflect);
+                    MusicalHits.Report(spec.Owner, targetRobot, spec.Kind, spec.SplashRings[0] * deflect);
                     if (spec.Knockback > 0f)
                         ApplyKineticKnockback(targetRobot, travelDir, spec.Knockback, spec.KnockbackSmoothed);
                     HitLanded?.Invoke(spec.Owner, hit.point);
