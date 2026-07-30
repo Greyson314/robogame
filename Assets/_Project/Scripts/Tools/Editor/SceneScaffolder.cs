@@ -13,8 +13,8 @@ namespace Robogame.Tools.Editor
     /// Editor menu commands that build out our standard scenes from scratch.
     /// Block layouts come from <see cref="GameplayScaffolder"/>'s preset
     /// plans (built via <see cref="ScriptedChassisBuilder"/>); tuning
-    /// data lives in ScriptableObject assets created via
-    /// <see cref="TuningAssets"/>.
+    /// data lives in ScriptableObject assets under
+    /// <c>Assets/_Project/ScriptableObjects/Tuning</c>.
     /// </summary>
     public static class SceneScaffolder
     {

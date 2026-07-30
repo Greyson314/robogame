@@ -213,15 +213,6 @@ namespace Robogame.Gameplay
         }
         public BuildHotbar Hotbar { get => _hotbar; set => _hotbar = value; }
 
-        /// <summary>Snapshot of CPU usage for HUD display.</summary>
-        public readonly struct CpuUsage
-        {
-            public readonly int Used;
-            public readonly int Cap;
-            public CpuUsage(int used, int cap) { Used = used; Cap = cap; }
-            public bool OverBudget => Used > Cap;
-        }
-
         /// <summary>Snapshot of chassis aggregates for HUD display.</summary>
         public readonly struct ChassisStats
         {
@@ -230,24 +221,6 @@ namespace Robogame.Gameplay
             public ChassisStats(int cpuUsed, int cpuCap, int blockCount, float mass)
             { CpuUsed = cpuUsed; CpuCap = cpuCap; BlockCount = blockCount; TotalMass = mass; }
             public bool OverBudget => CpuUsed > CpuCap;
-        }
-
-        /// <summary>Live CPU usage of the chassis. Returns (0,0) if no grid.</summary>
-        public CpuUsage GetCpuUsage()
-        {
-            if (_grid == null) return new CpuUsage(0, 0);
-            int used = 0, cpus = 0;
-            foreach (var kvp in _grid.Blocks)
-            {
-                BlockBehaviour b = kvp.Value;
-                if (b == null || b.Definition == null) continue;
-                // Per-instance effective cost (rotor RPM scaling +
-                // concoction surcharge), same pricing core TrimToFit
-                // charges at spawn — the bar must not under-promise.
-                used += Block.CpuBudget.EffectiveCpuCost(b);
-                if (b.Definition.Category == BlockCategory.Cpu) cpus++;
-            }
-            return new CpuUsage(used, cpus * Block.CpuBudget.BudgetPerCpuBlock);
         }
 
         /// <summary>

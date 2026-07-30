@@ -95,21 +95,6 @@ namespace Robogame.Core
             return sum.sqrMagnitude > 0.0001f ? sum : Physics.gravity;
         }
 
-        /// <summary>
-        /// The single source whose SOI currently contains
-        /// <paramref name="worldPosition"/>, or <c>null</c> if none. Used
-        /// by cameras / UI for "which planet am I on?" queries.
-        /// </summary>
-        public static IGravitySource DominantAt(Vector3 worldPosition)
-        {
-            for (int i = 0; i < s_sources.Count; i++)
-            {
-                IGravitySource src = s_sources[i];
-                if (src != null && src.ContainsPoint(worldPosition)) return src;
-            }
-            return null;
-        }
-
         /// <summary>Editor / test convenience.</summary>
         public static int SourceCount => s_sources.Count;
     }

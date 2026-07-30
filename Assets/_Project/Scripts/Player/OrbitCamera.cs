@@ -78,15 +78,6 @@ namespace Robogame.Player
             SnapToDesired();
         }
 
-        /// <summary>Reset orbit framing to the initial values. Called when entering build mode.</summary>
-        public void RecenterOnTarget()
-        {
-            _yaw = _initialYaw;
-            _pitch = _initialPitch;
-            _panOffset = Vector3.zero;
-            SnapToDesired();
-        }
-
         private void Update()
         {
             Mouse m = Mouse.current;

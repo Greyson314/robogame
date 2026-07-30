@@ -13,9 +13,8 @@ namespace Robogame.Block
     /// Pure + Unity-free-ish (only <see cref="Mathf"/>) and cycle-free in
     /// <c>Robogame.Block</c> so the runtime (<c>ModuleSystem</c>), the garage
     /// readout (<c>VariantConfigPanel</c>), and the ability bar all compute the
-    /// same numbers. Mirrors the <c>SpringTuningConfig.Default</c> /
-    /// code-constant convention (gameplay defaults live in code, not in a
-    /// per-machine Tweakable).
+    /// same numbers. Follows the code-constant convention (gameplay
+    /// defaults live in code, not in a per-machine Tweakable).
     /// </remarks>
     public static class ModuleTuning
     {

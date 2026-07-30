@@ -48,12 +48,6 @@ namespace Robogame.Block
             s_byId[concoction.Id] = concoction;
         }
 
-        public static void RegisterAll(IEnumerable<Concoction> concoctions)
-        {
-            if (concoctions == null) return;
-            foreach (Concoction c in concoctions) Register(c);
-        }
-
         /// <summary>Clear then repopulate from the player's on-disk library.</summary>
         public static void ReloadFromLibrary()
         {

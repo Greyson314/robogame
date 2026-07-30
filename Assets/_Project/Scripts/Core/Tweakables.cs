@@ -203,12 +203,6 @@ namespace Robogame.Core
         public const string DevHoverDampingC           = "Dev.HoverBlade.DampingC";
         public const string DevHoverTargetAltitude     = "Dev.HoverBlade.TargetAltitude";
 
-        // Spring (jump) block live-tuning overrides — launch impulse +
-        // recharge cooldown. Same master-toggle gate as the rest of this
-        // section; per-instance impulse can also ride the blueprint's
-        // ConfigValue. Session 104.
-        public const string DevSpringImpulse           = "Dev.Spring.Impulse";
-        public const string DevSpringCooldown          = "Dev.Spring.Cooldown";
 #endif
 
         // -----------------------------------------------------------------
@@ -446,9 +440,6 @@ namespace Robogame.Core
             Register(DevHoverSpringK,         "Dev (Override Chassis Tuning)", "Hover: Spring K (N=2)",       800f,  0f, 4000f);
             Register(DevHoverDampingC,        "Dev (Override Chassis Tuning)", "Hover: Damping C (N=2)",       60f,  0f, 400f);
             Register(DevHoverTargetAltitude,  "Dev (Override Chassis Tuning)", "Hover: Target Altitude (m)",  2.5f,  0f, 10f);
-
-            Register(DevSpringImpulse,        "Dev (Override Chassis Tuning)", "Spring: Launch Impulse (N·s)",140f,  0f, 400f);
-            Register(DevSpringCooldown,       "Dev (Override Chassis Tuning)", "Spring: Cooldown (s)",        1.2f,  0f, 6f);
 #endif
 
             Load();

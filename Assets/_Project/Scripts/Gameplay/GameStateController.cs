@@ -197,14 +197,6 @@ namespace Robogame.Gameplay
         // Blueprint helpers
         // -----------------------------------------------------------------
 
-        /// <summary>Replace the current working blueprint (e.g. after loading a save).</summary>
-        public void SetCurrentBlueprint(ChassisBlueprint source)
-        {
-            CurrentBlueprint = CloneBlueprint(source);
-            CurrentPresetIndex = -1;
-            CurrentUserFileName = null;
-        }
-
         /// <summary>
         /// Swap the current blueprint to one of the merged catalog entries
         /// and notify listeners. <paramref name="mergedIndex"/> spans

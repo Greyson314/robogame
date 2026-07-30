@@ -34,29 +34,6 @@ namespace Robogame.Movement
     [DisallowMultipleComponent]
     public sealed class PlaneControlSubsystem : MonoBehaviour, IDriveSubsystem
     {
-        [Tooltip("Optional tuning profile. If assigned, OVERRIDES the inline values below.")]
-        [SerializeField] private PlaneControlTuning _tuning;
-
-        [Header("Authority (rad/s²)")]
-        [Tooltip("Pitch torque (acceleration) at full input.")]
-        [SerializeField, Min(0f)] private float _pitchPower = 7.5f;
-
-        [Tooltip("Roll torque (acceleration) at full input.")]
-        [SerializeField, Min(0f)] private float _rollPower = 9.0f;
-
-        [Tooltip("Yaw acceleration per unit of bank tilt (rad/s² per [-1..1] of right.y).")]
-        [SerializeField, Min(0f)] private float _yawFromBank = 2.0f;
-
-        [Header("Damping (rad/s² per rad/s)")]
-        [Tooltip("Local pitch-rate damping. Higher = stiffer feel.")]
-        [SerializeField, Min(0f)] private float _pitchDamping = 3.5f;
-
-        [Tooltip("Local roll-rate damping.")]
-        [SerializeField, Min(0f)] private float _rollDamping = 2.8f;
-
-        [Tooltip("Local yaw-rate damping.")]
-        [SerializeField, Min(0f)] private float _yawDamping = 1.6f;
-
         // Server-authoritative chassis tuning, resolved once from the
         // blueprint in OnEnable (was per-machine Tweakables, formerly read
         // every FixedUpdate — this also drops the per-tick dictionary

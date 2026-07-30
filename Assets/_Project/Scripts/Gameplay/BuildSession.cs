@@ -45,13 +45,6 @@ namespace Robogame.Gameplay
             Library = library;
         }
 
-        public void ClearBindings()
-        {
-            Grid = null;
-            Blueprint = null;
-            Library = null;
-        }
-
         // -----------------------------------------------------------------
         // Selected block + variant cache
         // -----------------------------------------------------------------

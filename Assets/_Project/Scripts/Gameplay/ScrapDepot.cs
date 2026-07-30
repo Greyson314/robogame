@@ -101,10 +101,6 @@ namespace Robogame.Gameplay
         // iterates the set and applies damage. Static-free; cleared on
         // disable.
         private readonly HashSet<Robot> _enemiesInside = new();
-        // Set of robots currently inside the volume regardless of side —
-        // used so a kill landed inside earns the grinder bonus (the
-        // killer themselves doesn't have to be in the volume).
-        private static readonly HashSet<Robot> s_robotsInsideAnyDepot = new();
 
         private float _grinderTickTimer;
 
@@ -118,18 +114,6 @@ namespace Robogame.Gameplay
 
         /// <summary>Trigger radius in metres. Mostly used by the dev cheats for teleport diagnostics.</summary>
         public float TriggerRadius => _triggerRadius;
-
-        /// <summary>
-        /// True when <paramref name="victim"/> was inside any depot's
-        /// volume at the moment of this query. ArenaController calls
-        /// this on <see cref="Robot.Destroyed"/> to decide whether the
-        /// scrap drop earns the grinder-kill bonus.
-        /// </summary>
-        public static bool IsRobotInsideAnyDepot(Robot victim)
-        {
-            if (victim == null) return false;
-            return s_robotsInsideAnyDepot.Contains(victim);
-        }
 
         /// <summary>
         /// Try to find the depot that <paramref name="victim"/> is
@@ -167,7 +151,6 @@ namespace Robogame.Gameplay
         private static void ResetStatics()
         {
             s_allDepots.Clear();
-            s_robotsInsideAnyDepot.Clear();
             ScrapDeposited = null;
         }
 
@@ -205,8 +188,6 @@ namespace Robogame.Gameplay
         private void OnDisable()
         {
             s_allDepots.Remove(this);
-            // Defensive: don't leak entries when the depot tears down.
-            foreach (Robot r in _enemiesInside) s_robotsInsideAnyDepot.Remove(r);
             _enemiesInside.Clear();
         }
 
@@ -240,12 +221,6 @@ namespace Robogame.Gameplay
         {
             Robot robot = other.GetComponentInParent<Robot>();
             if (robot == null || robot.IsDestroyed) return;
-            // Track every chassis inside any depot for kill-bonus
-            // attribution (Phase 4). The robot doesn't have to be on the
-            // grinder's team for the kill bonus — what matters is whether
-            // the victim died inside a depot's volume.
-            s_robotsInsideAnyDepot.Add(robot);
-
             // Faction-tagged: opposing team chassis are eligible for the
             // grinder hazard. Matching team chassis get the deposit
             // treatment via OnTriggerStay.
@@ -265,7 +240,6 @@ namespace Robogame.Gameplay
             // collider parenting changes). Cheap; HashSet.Add is O(1).
             Robot robot = other.GetComponentInParent<Robot>();
             if (robot == null || robot.IsDestroyed) return;
-            s_robotsInsideAnyDepot.Add(robot);
             MatchSide side = _sideLookup != null ? _sideLookup(robot) : MatchSide.None;
             if (_grinderEnabled && side != MatchSide.None && side != _team) _enemiesInside.Add(robot);
             if (side == _team) TryInstantTransfer(robot);
@@ -275,18 +249,7 @@ namespace Robogame.Gameplay
         {
             Robot robot = other.GetComponentInParent<Robot>();
             if (robot == null) return;
-            // Only clear the inside-set tracker if no OTHER depot still
-            // contains this chassis. With two depots this is just a
-            // second-depot check; the helper does it inline.
             _enemiesInside.Remove(robot);
-            bool stillInside = false;
-            for (int i = 0; i < s_allDepots.Count; i++)
-            {
-                ScrapDepot d = s_allDepots[i];
-                if (d == null || d == this) continue;
-                if (d._enemiesInside.Contains(robot)) { stillInside = true; break; }
-            }
-            if (!stillInside) s_robotsInsideAnyDepot.Remove(robot);
         }
 
         // -----------------------------------------------------------------

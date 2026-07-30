@@ -159,27 +159,6 @@ namespace Robogame.Combat
             for (int i = 0; i < keys.Count; i++) RequestReload(keys[i]);
         }
 
-        /// <summary>Current loaded ammo for this weapon type, or 0 if no pool.</summary>
-        public int GetCurrent(string blockId) => _pools.TryGetValue(blockId, out Pool p) ? p.Current : 0;
-
-        /// <summary>Maximum ammo (capacity) for this weapon type.</summary>
-        public int GetMax(string blockId) => _pools.TryGetValue(blockId, out Pool p) ? p.Max : 0;
-
-        /// <summary>
-        /// True while a reload is in progress for the pool, with
-        /// <paramref name="progress"/> filled in [0..1] (0 = just started,
-        /// 1 = about to finish).
-        /// </summary>
-        public bool IsReloading(string blockId, out float progress)
-        {
-            progress = 0f;
-            if (!_pools.TryGetValue(blockId, out Pool p)) return false;
-            if (p.ReloadEndsAt <= Time.time) return false;
-            float total = Mathf.Max(0.001f, p.ReloadDuration);
-            progress = 1f - Mathf.Clamp01((p.ReloadEndsAt - Time.time) / total);
-            return true;
-        }
-
         /// <summary>Enumerate every pool — used by the HUD to render an ammo row per weapon type.</summary>
         public IEnumerable<KeyValuePair<string, (int current, int max, int instances, bool reloading, float reloadProgress)>> EnumeratePools()
         {

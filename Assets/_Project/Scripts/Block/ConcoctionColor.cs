@@ -40,10 +40,6 @@ namespace Robogame.Block
         public const float SpeedHue     = 215f; // Prussian — cold fast blue
         public const float SpreadHue    = 300f; // Orchid — chaotic scattershot violet
 
-        /// <summary>Full-strength pigment colour for one lever (vial tint in the Lab).</summary>
-        public static Color LeverPigment(float hueDeg) =>
-            Color.HSVToRGB(Mathf.Repeat(hueDeg, 360f) / 360f, 0.80f, 0.75f);
-
         // Saturation band: dominance 0 (hue-opposed sludge) → 1 (one clear leader).
         private const float MinSaturation = 0.15f, MaxSaturation = 0.85f;
         // Value band: average slider level 0 (dilute, pale) → 1 (potent, dark).

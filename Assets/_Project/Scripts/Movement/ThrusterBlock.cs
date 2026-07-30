@@ -28,19 +28,6 @@ namespace Robogame.Movement
     [RequireComponent(typeof(BlockBehaviour))]
     public sealed class ThrusterBlock : MonoBehaviour, IDriveSubsystem
     {
-        [Tooltip("Optional tuning profile. If assigned, OVERRIDES the inline values below.")]
-        [SerializeField] private ThrusterTuning _tuning;
-
-        [Header("Thrust")]
-        [Tooltip("Maximum forward force (N) at full throttle.")]
-        [SerializeField, Min(0f)] private float _maxThrust = 155f;
-
-        [Tooltip("Idle throttle when no input is being applied. 0 = off, 1 = full.")]
-        [SerializeField, Range(0f, 1f)] private float _idleThrottle = 0.4f;
-
-        [Tooltip("How quickly throttle slews to its target value (per second). 0 = instant.")]
-        [SerializeField, Min(0f)] private float _throttleResponse = 2.6f;
-
         [Header("Visual nozzle (auto-built if blank)")]
         [SerializeField] private Transform _nozzle;
         [SerializeField] private Color _nozzleColor = new Color(0.95f, 0.45f, 0.1f);
@@ -50,8 +37,7 @@ namespace Robogame.Movement
         public float CurrentThrottle => _throttle;
         // MaxThrust is per-thruster (Entry.BlockConfig, via BlockBehaviour);
         // 0 = use this historical default (the value the old Thruster.MaxThrust
-        // Tweakable shipped at — NOT the vestigial _maxThrust SerializeField,
-        // which the Tweakable always overrode). Idle/response are chassis-wide
+        // Tweakable shipped at). Idle/response are chassis-wide
         // feel (Option A) and come from the blueprint's ThrusterTuning.
         // physics.md §1 / §5.
         // Session 120 playtest: 620 (the prior doubling) still read as "way

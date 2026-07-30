@@ -120,48 +120,6 @@ namespace Robogame.Block
 #endif
         }
 
-        /// <summary>
-        /// Spring (jump) block tuning. Two knobs: launch impulse + cooldown.
-        /// Per-instance launch strength can also ride the blueprint via
-        /// <c>BlockBehaviour.ConfigValue</c>; this dev layer overrides the
-        /// fallback default + cooldown for live feel iteration.
-        /// </summary>
-        public static void ApplySpring(ref SpringTuningConfig cfg)
-        {
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            if (!Active) return;
-            cfg.DefaultImpulse = Tweakables.Get(Tweakables.DevSpringImpulse);
-            cfg.Cooldown       = Tweakables.Get(Tweakables.DevSpringCooldown);
-#endif
-        }
-    }
-
-    /// <summary>
-    /// Tuning struct for the legacy spring movement block. <b>Obsolete</b> as
-    /// of session 105 — the spring is a module now, tuned via
-    /// <c>ModuleTuning</c> + the per-block <c>ConfigValue</c> power slider.
-    /// Kept (with <c>ApplySpring</c> + the two <c>Dev.Spring.*</c> keys) as
-    /// dead-but-compiling code; safe to delete once the Tweakables dev-key
-    /// registration is revisited.
-    /// <see cref="DefaultImpulse"/> is the fallback launch strength (N·s)
-    /// when the block's per-instance <c>ConfigValue</c> is 0;
-    /// <see cref="Cooldown"/> is the recharge time between launches.
-    /// Initialised to the shipped defaults so the dev override layer can
-    /// mutate it in place when the master toggle is on, leave it otherwise.
-    /// </summary>
-    public struct SpringTuningConfig
-    {
-        public float DefaultImpulse;
-        public float Cooldown;
-
-        public static SpringTuningConfig Default => new SpringTuningConfig
-        {
-            // Tuned (session 104 playtest) for a real hop off the ground on
-            // a light ground bot, not a back-end nudge. ConfigValue on the
-            // blueprint overrides per-build.
-            DefaultImpulse = 140f,
-            Cooldown = 1.2f,
-        };
     }
 
     /// <summary>
