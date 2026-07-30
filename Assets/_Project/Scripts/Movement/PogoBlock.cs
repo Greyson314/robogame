@@ -31,9 +31,12 @@ namespace Robogame.Movement
     /// <see cref="BlockBehaviour.ConfigValue"/>); tilt is
     /// <see cref="ForceMode.Acceleration"/> (consistent lean feel across
     /// masses). No gravity reference anywhere — spherical arenas behave
-    /// identically. Known prototype quirk: N pogos touching down together
-    /// stack N impulses. Pair with a Gyro for wobble damping — that's the
-    /// intended build synergy, not a bug workaround.
+    /// identically. Multi-pogo chassis are arbitrated: every pogo claims
+    /// <see cref="PogoBounceArbiter"/> before bouncing and only one claim
+    /// per bounce window wins, so extra pogos buy landing coverage, not
+    /// stacked Δv (the unarbitrated version was a functional rocket —
+    /// 10 pogos × full velocity-set ≈ 560 m/s). Pair with a Gyro for
+    /// wobble damping — that's the intended build synergy.
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
@@ -75,6 +78,7 @@ namespace Robogame.Movement
         private Rigidbody _rb;
         private Robogame.Input.IInputSource _input;
         private BlockBehaviour _bb;
+        private PogoBounceArbiter _arbiter;
         private float _extension;
         private float _bounceCooldown;
 
@@ -122,7 +126,17 @@ namespace Robogame.Movement
                 // of bouncing (caught in live play-mode test, this
                 // session). Velocity perpendicular to the stick is left
                 // alone — forward momentum carries across bounces.
-                if (_bounceCooldown <= 0f)
+                // Chassis-level arbitration: only ONE pogo per body may
+                // bounce per window. A denied pogo keeps its own cooldown
+                // untouched, so it stays ready for the next landing where
+                // it might be the foot that actually touches first.
+                if (_arbiter == null)
+                {
+                    _arbiter = _rb.gameObject.GetComponent<PogoBounceArbiter>();
+                    if (_arbiter == null) _arbiter = _rb.gameObject.AddComponent<PogoBounceArbiter>();
+                }
+
+                if (_bounceCooldown <= 0f && _arbiter.TryClaim(Time.fixedTime, _bounceIntervalSeconds))
                 {
                     float vAlongStick = Vector3.Dot(_rb.linearVelocity, -castDir);
                     float baseSpeed = BaseTakeoffSpeed;
@@ -135,8 +149,14 @@ namespace Robogame.Movement
                     float impactSpeed = Mathf.Max(0f, -vAlongStick);
                     float takeoff = baseSpeed + _momentumBonus * Mathf.Max(0f, impactSpeed - baseSpeed);
                     float deltaV = takeoff - vAlongStick;
+                    // Applied at the COM, not the foot: the arbiter picks ONE
+                    // winning foot per bounce, and a corner-foot VelocityChange
+                    // off-COM converts into violent spin (live probe: a quad
+                    // rig tumbled straight through the floor). Direction stays
+                    // the stick axis, so tilt-aiming is unchanged; landing
+                    // asymmetry still comes from the collision itself.
                     if (deltaV > 0f)
-                        _rb.AddForceAtPosition(-castDir * deltaV, origin, ForceMode.VelocityChange);
+                        _rb.AddForce(-castDir * deltaV, ForceMode.VelocityChange);
                     _bounceCooldown = _bounceIntervalSeconds;
                     // SpringLaunch "boing" reused as the placeholder cue
                     // (invariant #8) until the pogo gets its own recording.

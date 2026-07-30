@@ -131,6 +131,21 @@ User's first testing pass produced two fixes:
   blocks placed in the two cells beneath clip through it visually
   (scalable-parts gap, same as Feather).
 
+## Multi-pogo rocket closed: per-chassis bounce arbitration
+
+Playtest: 10 pogos on one bot = functional rocket (500+ m). Each pogo
+read the PRE-bounce velocity and queued its full velocity-set, so the
+corrections stacked N×. Fix: `PogoBounceArbiter` on the chassis root
+(added lazily, no statics) — one bounce claim wins per bounce window;
+denied pogos keep their own cooldowns, so extra pogos buy landing
+coverage and redundancy, not Δv. Second finding from the same probe:
+the winning bounce must apply at the COM — a corner-foot VelocityChange
+off-COM became violent spin (the quad test rig tumbled through the
+floor). Live-verified: quad rig bounces in the same envelope as a
+single pogo (y 4.8 ↔ 13.1, vy ±13). First-claim-wins is contact-order
+arbitrary on mixed-power chassis — upgrade to max-request if that
+becomes a real build pattern.
+
 ## Pre-existing bug flushed out: tune edits never reached the blueprint
 
 `BuildSession.SyncBlueprint()` ran only on place/remove. Tune-mode edits
