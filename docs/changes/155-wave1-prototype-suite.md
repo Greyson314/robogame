@@ -141,10 +141,21 @@ denied pogos keep their own cooldowns, so extra pogos buy landing
 coverage and redundancy, not Δv. Second finding from the same probe:
 the winning bounce must apply at the COM — a corner-foot VelocityChange
 off-COM became violent spin (the quad test rig tumbled through the
-floor). Live-verified: quad rig bounces in the same envelope as a
-single pogo (y 4.8 ↔ 13.1, vy ±13). First-claim-wins is contact-order
+floor). First-claim-wins is contact-order
 arbitrary on mixed-power chassis — upgrade to max-request if that
 becomes a real build pattern.
+
+Refined same session into **diminishing returns** (user: >1×, <10×):
+new `StackingCurves.PowerLaw(count, exponent)` in Robogame.Block is the
+shared DR primitive for any "N of the same block" system; each system
+owns its exponent as a schema-side constant. Pogo:
+`PogoDefaults.StackHeightExponent = 0.5` — N loaded feet → N^0.5 bounce
+HEIGHT (4 ≈ 2×, 10 ≈ 3.2×). The arbiter keeps a registered-feet list
+(no bounce-time allocation) and `CountLoadedFeet()` re-probes each
+foot's ray so the count is same-step accurate at the landing instant.
+Live A/B: single rig unchanged (~10 m over contact), quad rig ~20 m —
+exactly 4^0.5. Future DR candidates: gyro torque stacks linearly today;
+flag it if multi-gyro turrets get silly.
 
 ## Pre-existing bug flushed out: tune edits never reached the blueprint
 

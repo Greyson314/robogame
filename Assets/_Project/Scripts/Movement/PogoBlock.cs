@@ -96,6 +96,20 @@ namespace Robogame.Movement
             _extension = _restLength;
         }
 
+        private void OnDisable()
+        {
+            if (_arbiter != null) _arbiter.Unregister(this);
+            _arbiter = null; // re-resolve + re-register on next FixedUpdate if re-enabled
+        }
+
+        /// <summary>
+        /// True when this foot's ray currently finds ground inside rest
+        /// length. Called by <see cref="PogoBounceArbiter.CountLoadedFeet"/>
+        /// so the diminishing-returns stack count is same-step accurate.
+        /// </summary>
+        public bool ProbeFootLoaded()
+            => RaycastIgnoringSelf(transform.position, transform.up, _restLength, out _);
+
         private void FixedUpdate()
         {
             if (_rb == null) return;
@@ -103,6 +117,12 @@ namespace Robogame.Movement
             // after block components exist, so an Awake-time lookup can miss
             // it (v2 bug class). Cheap null-guarded retry.
             if (_input == null) _input = GetComponentInParent<Robogame.Input.IInputSource>();
+            if (_arbiter == null)
+            {
+                _arbiter = _rb.gameObject.GetComponent<PogoBounceArbiter>();
+                if (_arbiter == null) _arbiter = _rb.gameObject.AddComponent<PogoBounceArbiter>();
+                _arbiter.Register(this);
+            }
             if (_bounceCooldown > 0f) _bounceCooldown -= Time.fixedDeltaTime;
 
             Vector3 origin = transform.position;
@@ -130,16 +150,16 @@ namespace Robogame.Movement
                 // bounce per window. A denied pogo keeps its own cooldown
                 // untouched, so it stays ready for the next landing where
                 // it might be the foot that actually touches first.
-                if (_arbiter == null)
-                {
-                    _arbiter = _rb.gameObject.GetComponent<PogoBounceArbiter>();
-                    if (_arbiter == null) _arbiter = _rb.gameObject.AddComponent<PogoBounceArbiter>();
-                }
-
                 if (_bounceCooldown <= 0f && _arbiter.TryClaim(Time.fixedTime, _bounceIntervalSeconds))
                 {
                     float vAlongStick = Vector3.Dot(_rb.linearVelocity, -castDir);
-                    float baseSpeed = BaseTakeoffSpeed;
+                    // Diminishing returns for stacked feet (StackingCurves):
+                    // N loaded feet → N^0.5 bounce HEIGHT, so speed scales
+                    // by the square root of that. 4 feet ≈ 2× height,
+                    // 10 ≈ 3.2× — more than one pogo, never the N× rocket.
+                    int feet = _arbiter.CountLoadedFeet();
+                    float stackHeightMul = StackingCurves.PowerLaw(feet, PogoDefaults.StackHeightExponent);
+                    float baseSpeed = BaseTakeoffSpeed * Mathf.Sqrt(stackHeightMul);
                     // Momentum banking: impact speed ABOVE the base takeoff
                     // carries into this bounce at _momentumBonus. Flat-ground
                     // hopping is stable (impact ≈ takeoff → zero bonus);

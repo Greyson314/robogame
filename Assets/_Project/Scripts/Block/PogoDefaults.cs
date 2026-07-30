@@ -26,6 +26,15 @@ namespace Robogame.Block
         /// </summary>
         public const float NominalApexMeters = 10f;
 
+        /// <summary>
+        /// Diminishing-returns exponent for multi-pogo chassis: N loaded
+        /// feet multiply bounce HEIGHT by N^this
+        /// (<see cref="StackingCurves.PowerLaw"/>). 0.5 → 4 feet ≈ 2×,
+        /// 10 feet ≈ 3.2×. 1 would be linear (the playtest rocket), 0
+        /// disables stacking benefit entirely.
+        /// </summary>
+        public const float StackHeightExponent = 0.5f;
+
         /// <summary>Blueprint <c>BlockConfig</c> → effective height multiplier (0 = default).</summary>
         public static float ResolvePower(float blockConfig)
             => blockConfig > 0f
