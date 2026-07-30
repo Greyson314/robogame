@@ -94,14 +94,22 @@ User's first testing pass produced two fixes:
   `lerp(white, hot, heat)` — at heat 0 that overrode the authored MK Toon
   colour with white. Glow now caches each renderer's authored material
   colour and lerps from that.
-- **Pogo reworked: player-commanded hops.** v1's stiff passive spring
-  launched once then settled at equilibrium (passive spring-dampers always
-  dissipate — that was the one-bounce bug) and the launch was huge. v2:
-  soft over-damped stand spring (wheel-tier 600/220) + hop impulse
-  (`VelocityChange`, 5 m/s, 0.45 s interval) while jump (`Vertical`) is
-  held and the foot is loaded. Hold space to hop, release to stand.
-  ConfigValue = per-pogo hop speed. Placeholder hop audio reuses
-  `SpringLaunch`. Known quirk: N grounded pogos stack N impulses.
+- **Pogo v3: perpetual bouncer with air-tilt steering.** v1's stiff
+  passive spring launched once then settled (passive spring-dampers always
+  dissipate); v2 gated hops on the jump input, which ground-chassis input
+  never delivered — "nothing works" in playtest. v3 identity per user:
+  "upside without control". Bounces at the instant of foot contact,
+  always (0.35 s cooldown); the bounce vector is the STICK's axis, so
+  leaning aims the next bounce; WASD applies air-only TILT torque
+  (pitch/roll, `Acceleration`, light rate damping) — attitude control,
+  never lateral force. Take-off speed is SET along the stick axis (raw
+  additive `VelocityChange` mostly cancelled the incoming fall — the bot
+  hovered; caught by live play-mode probe over the MCP bridge).
+  Perpendicular velocity carries across bounces, so sustained leaning
+  builds horizontal speed. ConfigValue = per-pogo bounce speed. Verified
+  live: sustained ~1.2 m bounce cycle (vy −4.0 → +2.25). Pairs with Gyro
+  for wobble damping. Placeholder audio reuses `SpringLaunch`. Quirk: N
+  pogos touching down together stack N impulses.
 
 ## Next
 
