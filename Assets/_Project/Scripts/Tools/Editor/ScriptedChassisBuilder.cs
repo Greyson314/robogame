@@ -15,7 +15,8 @@ namespace Robogame.Tools.Editor
     /// <remarks>
     /// <para>
     /// <b>Why this exists.</b> Defaults previously authored entries as raw
-    /// <c>Entry[]</c> arrays via <see cref="BlueprintBuilder"/>. That path
+    /// <c>Entry[]</c> arrays via <c>BlueprintBuilder</c> (now test-only,
+    /// living in the EditMode test assembly). That path
     /// duplicates runtime behaviour (rotor mechanism cube, mirror axis
     /// pitch normalization, rope-bridge connectivity) in two places and
     /// silently drifts when one side gains a feature. With this harness,

@@ -5,28 +5,27 @@ using UnityEngine;
 namespace Robogame.Block
 {
     /// <summary>
-    /// Pure-data builder for <see cref="ChassisBlueprint.Entry"/> arrays
-    /// — appends entries to a list and returns a <see cref="BlueprintPlan"/>.
-    /// Does NOT route through the rules engine and does NOT trigger
-    /// auto-companion cascades. Use cases: hand-authored validator test
-    /// inputs, ASCII-snapshot helpers, anywhere a "raw entry layout" is
-    /// the unit of work.
+    /// TEST-ONLY pure-data builder for <see cref="ChassisBlueprint.Entry"/>
+    /// arrays — appends entries to a list and returns a
+    /// <see cref="BlueprintPlan"/>. Does NOT route through the rules engine
+    /// and does NOT trigger auto-companion cascades — which is exactly why
+    /// it lives in the EditMode test assembly: validator tests need to
+    /// author contrived INVALID layouts the rules engine would refuse.
     /// </summary>
     /// <remarks>
     /// <para>
     /// For default chassis presets and any "what would the player produce"
     /// authoring, use <c>Robogame.Tools.Editor.ScriptedChassisBuilder</c>
-    /// instead — it drives <see cref="Gameplay.BuildSession.TryPlace"/>
-    /// against a real <see cref="BlockGrid"/>, so the rules engine and
-    /// auto-companion logic run on every placement. Anything authored
-    /// here is one step away from "user could have built this" — handy
-    /// for validator unit tests that need a contrived bad-shape, but the
-    /// wrong choice for shipping default robots.
+    /// instead — it drives <c>BuildSession.TryPlace</c> against a real
+    /// <see cref="BlockGrid"/>, so the rules engine and auto-companion
+    /// logic run on every placement. This class is intentionally
+    /// unreachable from production assemblies.
     /// </para>
     /// <para>
     /// The builder does not allocate a <see cref="ChassisBlueprint"/>
-    /// SO — it produces a data-only <see cref="BlueprintPlan"/>. Tests
-    /// can materialise via <see cref="BlueprintPlan.ToBlueprint"/>.
+    /// SO — it produces a data-only <see cref="BlueprintPlan"/> (which
+    /// stays in the production Block assembly). Tests can materialise via
+    /// <see cref="BlueprintPlan.ToBlueprint"/>.
     /// </para>
     /// </remarks>
     public sealed class BlueprintBuilder
@@ -211,44 +210,6 @@ namespace Robogame.Block
                 throw new InvalidOperationException(
                     $"Blueprint '{_displayName}' failed validation:\n{result}");
             return plan;
-        }
-    }
-
-    /// <summary>
-    /// Immutable data tuple describing a chassis layout. Either the
-    /// editor scaffolder writes this into a <see cref="ChassisBlueprint"/>
-    /// asset on disk, or runtime code calls <see cref="ToBlueprint"/> to
-    /// get an in-memory ScriptableObject instance for spawning.
-    /// </summary>
-    public readonly struct BlueprintPlan
-    {
-        public readonly string DisplayName;
-        public readonly ChassisKind Kind;
-        public readonly ChassisBlueprint.Entry[] Entries;
-        public readonly bool RotorsGenerateLift;
-
-        public BlueprintPlan(string displayName, ChassisKind kind,
-            ChassisBlueprint.Entry[] entries, bool rotorsGenerateLift)
-        {
-            DisplayName = displayName;
-            Kind = kind;
-            Entries = entries ?? Array.Empty<ChassisBlueprint.Entry>();
-            RotorsGenerateLift = rotorsGenerateLift;
-        }
-
-        /// <summary>
-        /// Materialise this plan into an in-memory <see cref="ChassisBlueprint"/>.
-        /// The result is NOT persisted to disk — call this only when you
-        /// want a runtime instance (e.g. test scaffolds, garage previews).
-        /// </summary>
-        public ChassisBlueprint ToBlueprint()
-        {
-            ChassisBlueprint bp = ScriptableObject.CreateInstance<ChassisBlueprint>();
-            bp.DisplayName = DisplayName;
-            bp.Kind = Kind;
-            bp.SetEntries(Entries);
-            bp.RotorsGenerateLift = RotorsGenerateLift;
-            return bp;
         }
     }
 }
