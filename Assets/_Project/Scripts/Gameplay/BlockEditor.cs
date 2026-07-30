@@ -129,6 +129,13 @@ namespace Robogame.Gameplay
             // event. 0 means "use authored default", same convention
             // the pitch/dims paths follow.
             block.ConfigValue = config;
+            // Persist the tune edit into the blueprint NOW. SyncBlueprint
+            // previously ran only on place/remove, so a pure tune-then-
+            // launch (or tune-then-save) session silently reverted every
+            // instance edit — the live block had the value, the Entry
+            // didn't, and launch/save read the Entry. (Pogo power playtest
+            // caught it; the bug covered the whole tune family.)
+            _session.SyncBlueprint();
         }
 
         public VariantConfigPanel VariantPanel { get => _variantPanel; set => _variantPanel = value; }

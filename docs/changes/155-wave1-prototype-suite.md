@@ -131,6 +131,18 @@ User's first testing pass produced two fixes:
   blocks placed in the two cells beneath clip through it visually
   (scalable-parts gap, same as Feather).
 
+## Pre-existing bug flushed out: tune edits never reached the blueprint
+
+`BuildSession.SyncBlueprint()` ran only on place/remove. Tune-mode edits
+(`BlockEditor.PropagateVariantToLiveBlocks`) wrote the live garage block
+but not the Entry — and launch/save read the Entry, so a pure
+tune-then-launch or tune-then-save session silently reverted EVERY
+instance edit (module power, rotor RPM, foil pitch/dims, pogo power).
+It looked shipped because placing/removing any block afterwards
+re-captures the whole grid, rescuing earlier tune edits by accident.
+Fix: propagation now calls `SyncBlueprint()` after applying the edit.
+Surfaced by the pogo power slider (playtest pass 5).
+
 ## Next
 
 Wave-2 candidates from the triage: arc emitter, marker dart, balloon /
