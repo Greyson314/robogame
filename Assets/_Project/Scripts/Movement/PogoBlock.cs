@@ -150,7 +150,11 @@ namespace Robogame.Movement
                 // bounce per window. A denied pogo keeps its own cooldown
                 // untouched, so it stays ready for the next landing where
                 // it might be the foot that actually touches first.
-                if (_bounceCooldown <= 0f && _arbiter.TryClaim(Time.fixedTime, _bounceIntervalSeconds))
+                // CanClaim first (read-only), TryClaim latched only once we
+                // know deltaV > 0 — a no-op claim (chassis already moving
+                // up faster than takeoff) used to burn the shared window +
+                // cooldown + audio with no bounce applied.
+                if (_bounceCooldown <= 0f && _arbiter.CanClaim(Time.fixedTime, _bounceIntervalSeconds))
                 {
                     float vAlongStick = Vector3.Dot(_rb.linearVelocity, -castDir);
                     // Diminishing returns for stacked feet (StackingCurves):
@@ -175,12 +179,14 @@ namespace Robogame.Movement
                     // rig tumbled straight through the floor). Direction stays
                     // the stick axis, so tilt-aiming is unchanged; landing
                     // asymmetry still comes from the collision itself.
-                    if (deltaV > 0f)
+                    if (deltaV > 0f && _arbiter.TryClaim(Time.fixedTime, _bounceIntervalSeconds))
+                    {
                         _rb.AddForce(-castDir * deltaV, ForceMode.VelocityChange);
-                    _bounceCooldown = _bounceIntervalSeconds;
-                    // SpringLaunch "boing" reused as the placeholder cue
-                    // (invariant #8) until the pogo gets its own recording.
-                    Robogame.Core.AudioRouter.PlayOneShot(Robogame.Core.AudioCue.SpringLaunch, origin);
+                        _bounceCooldown = _bounceIntervalSeconds;
+                        // SpringLaunch "boing" reused as the placeholder cue
+                        // (invariant #8) until the pogo gets its own recording.
+                        Robogame.Core.AudioRouter.PlayOneShot(Robogame.Core.AudioCue.SpringLaunch, origin);
+                    }
                 }
                 return;
             }

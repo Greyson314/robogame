@@ -351,9 +351,7 @@ namespace Robogame.Gameplay
             }
             for (int i = 0; i < _grinderPruneScratch.Count; i++)
             {
-                Robot r = _grinderPruneScratch[i];
-                _enemiesInside.Remove(r);
-                s_robotsInsideAnyDepot.Remove(r);
+                _enemiesInside.Remove(_grinderPruneScratch[i]);
             }
         }
 

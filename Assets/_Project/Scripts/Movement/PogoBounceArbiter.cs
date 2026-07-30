@@ -32,10 +32,18 @@ namespace Robogame.Movement
         /// </summary>
         public bool TryClaim(float now, float window)
         {
-            if (now - _lastBounceTime < window) return false;
+            if (!CanClaim(now, window)) return false;
             _lastBounceTime = now;
             return true;
         }
+
+        /// <summary>
+        /// Read-only probe: would <see cref="TryClaim"/> succeed right now?
+        /// Lets a foot skip the stack-count work while the window is closed
+        /// and defer the actual latch until it knows the bounce will really
+        /// apply (a no-op claim would deny sibling feet for the window).
+        /// </summary>
+        public bool CanClaim(float now, float window) => now - _lastBounceTime >= window;
 
         /// <summary>Feet enrol here so the stack count never allocates at bounce time.</summary>
         public void Register(PogoBlock foot)
