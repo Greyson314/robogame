@@ -49,6 +49,8 @@ namespace Robogame.Block
             // size. See WeaponAmmoDefaults.
             BlockIds.Weapon,
             BlockIds.Cannon,
+            // Pogo: bounce-height power slider (ConfigValue). See PogoDefaults.
+            BlockIds.Pogo,
         };
 
         /// <summary>

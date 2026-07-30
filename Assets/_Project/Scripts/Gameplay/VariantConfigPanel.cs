@@ -53,7 +53,7 @@ namespace Robogame.Gameplay
         // ----- UGUI -----
         private GameObject _root;
         private Text _titleText;
-        private GameObject _foilSection, _ropeSection, _rotorSection, _hoverSection, _moduleSection, _explosiveSection, _weaponSection;
+        private GameObject _foilSection, _ropeSection, _rotorSection, _hoverSection, _moduleSection, _explosiveSection, _weaponSection, _pogoSection;
 
         // Foil controls
         private Slider _foilPitchPrimary;
@@ -100,6 +100,12 @@ namespace Robogame.Gameplay
         private Slider _weaponAmmoSlider;
         private Text _weaponAmmoValue;
         private Text _weaponReadout;
+        // Pogo controls — one "Power" multiplier slider (writes ConfigValue,
+        // a bounce-HEIGHT multiplier) with a live hop-apex readout. See
+        // PogoDefaults.
+        private Slider _pogoPowerSlider;
+        private Text _pogoPowerValue;
+        private Text _pogoReadout;
 
         private string _activeBlockId;
         private bool _suppressCallbacks;
@@ -309,7 +315,8 @@ namespace Robogame.Gameplay
             bool module = ModuleKinds.IsModuleId(blockId);
             bool explosive = ConcoctionRegistry.IsConcoctableBlock(blockId);
             bool weaponAmmo = WeaponAmmoDefaults.IsAmmoConfigurable(blockId);
-            bool any = foil || rope || rotor || hover || module || explosive || weaponAmmo;
+            bool pogo = blockId == BlockIds.Pogo;
+            bool any = foil || rope || rotor || hover || module || explosive || weaponAmmo || pogo;
             SetVisible(any);
             if (!any) return;
 
@@ -341,6 +348,7 @@ namespace Robogame.Gameplay
                 else if (explosive) _titleText.text = blockId == BlockIds.Mortar
                     ? $"{lead} — Mortar"
                     : $"{lead} — Bomb bay";
+                else if (pogo) _titleText.text = $"{lead} — Pogo";
                 else _titleText.text = $"{(editing ? "Tuning" : "Module")} — {ModuleKinds.Label(ModuleKinds.ForBlockId(blockId) ?? ModuleKind.EmpBurst)}";
             }
             _foilSection.SetActive(foil);
@@ -350,6 +358,7 @@ namespace Robogame.Gameplay
             _moduleSection.SetActive(module);
             _explosiveSection.SetActive(explosive);
             _weaponSection.SetActive(weaponAmmo);
+            _pogoSection.SetActive(pogo);
 
             _suppressCallbacks = true;
             if (foil)
@@ -412,6 +421,16 @@ namespace Robogame.Gameplay
                 _modulePowerSlider.value = power;
                 UpdateValueText(_modulePowerValue, power, "F1");
                 UpdateModuleReadout(power);
+            }
+            else if (pogo)
+            {
+                // Config cache 0 = "use default 1×" — display without
+                // writing the cache (rotor-RPM pattern), so an untouched
+                // pogo keeps the 0 sentinel in its blueprint entry.
+                float power = PogoDefaults.ResolvePower(GetConfigForBlock(blockId));
+                _pogoPowerSlider.value = power;
+                UpdateValueText(_pogoPowerValue, power, "F2");
+                UpdatePogoReadout(power);
             }
             else
             {
@@ -794,6 +813,7 @@ namespace Robogame.Gameplay
             _moduleSection = BuildModuleSection(panel.transform);
             _explosiveSection = BuildExplosiveSection(panel.transform);
             _weaponSection = BuildWeaponSection(panel.transform);
+            _pogoSection = BuildPogoSection(panel.transform);
 
             BuildTipStrip(panel.transform);
 
@@ -804,6 +824,7 @@ namespace Robogame.Gameplay
             _moduleSection.SetActive(false);
             _explosiveSection.SetActive(false);
             _weaponSection.SetActive(false);
+            _pogoSection.SetActive(false);
         }
 
         // -----------------------------------------------------------------
@@ -1140,6 +1161,60 @@ namespace Robogame.Gameplay
             if (_moduleReadout == null) return;
             float cd = ModuleTuning.CooldownFor(_moduleKind, power);
             _moduleReadout.text = $"{power:F1} power  •  {cd:F1}s cooldown";
+        }
+
+        // -----------------------------------------------------------------
+        // Pogo section — bounce-height power slider (PogoDefaults)
+        // -----------------------------------------------------------------
+
+        private GameObject BuildPogoSection(Transform parent)
+        {
+            var section = NewChild("Pogo", parent);
+            var rt = section.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.offsetMin = new Vector2(12f, 12f);
+            rt.offsetMax = new Vector2(-12f, -40f);
+
+            // Single "Power" multiplier slider; writing it caches
+            // ConfigValue, which rides the blueprint as a bounce-height
+            // multiplier (PogoBlock takes √power on takeoff speed).
+            _pogoPowerSlider = BuildLabeledSlider(section.transform, "Power ×", slot: 0,
+                min: PogoDefaults.MinPower, max: PogoDefaults.MaxPower,
+                def: PogoDefaults.DefaultPower,
+                onChanged: OnPogoPowerChanged, out _pogoPowerValue,
+                tip: "Bounce-height multiplier for this pogo. Momentum from drops stacks on top either way.");
+
+            _pogoReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
+                anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
+                size: 12, style: FontStyle.Italic, anchor: TextAnchor.MiddleCenter, color: s_dim);
+            var prt = _pogoReadout.rectTransform;
+            prt.pivot = new Vector2(0.5f, 1f);
+            prt.anchoredPosition = new Vector2(0f, -56f - 4f);
+            prt.sizeDelta = new Vector2(0f, 22f);
+
+            return section;
+        }
+
+        private void OnPogoPowerChanged(float v)
+        {
+            if (_suppressCallbacks) return;
+            float snapped = Mathf.Round(v * 20f) / 20f; // 0.05× steps
+            string id = _activeBlockId;
+            if (string.IsNullOrEmpty(id)) return;
+            _suppressCallbacks = true;
+            _pogoPowerSlider.value = snapped;
+            _suppressCallbacks = false;
+            _session?.SetVariantConfig(id, snapped);
+            UpdateValueText(_pogoPowerValue, snapped, "F2");
+            UpdatePogoReadout(snapped);
+        }
+
+        private void UpdatePogoReadout(float power)
+        {
+            if (_pogoReadout == null) return;
+            _pogoReadout.text =
+                $"{power:F2}× bounce height  •  ≈ {PogoDefaults.NominalApexMeters * power:F1} m solo hop";
         }
 
         // The foil section UI is shared by the whole aero family; the

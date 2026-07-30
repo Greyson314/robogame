@@ -46,9 +46,13 @@ namespace Robogame.Movement
                  "the bounce fires at the true foot-touch instant, so the foot never buries before firing.")]
         [SerializeField, Min(0.1f)] private float _restLength = 0.95f;
 
-        [Tooltip("Bounce take-off speed, m/s (VelocityChange — mass-independent). ConfigValue overrides per instance. " +
-                 "14 m/s ≈ 10 m apex — playtest-tuned (~8× the original 5 m/s bounce height).")]
+        [Tooltip("Base bounce take-off speed at 1× power, m/s (VelocityChange — mass-independent). " +
+                 "14 m/s ≈ 10 m apex — playtest-tuned. Per-instance power rides ConfigValue (PogoDefaults, height multiplier).")]
         [SerializeField, Min(0f)] private float _bounceSpeed = 14f;
+
+        [Tooltip("Fraction of impact speed ABOVE the base takeoff that carries into the next bounce. " +
+                 "Below 1 so cliff-drop momentum decays back to base height instead of running away.")]
+        [SerializeField, Range(0f, 0.95f)] private float _momentumBonus = 0.7f;
 
         [Tooltip("Minimum seconds between bounces from this pogo. Always ticking, so a bot that failed to lift re-pulses instead of deadlocking.")]
         [SerializeField, Min(0.05f)] private float _bounceIntervalSeconds = 0.35f;
@@ -73,7 +77,10 @@ namespace Robogame.Movement
         private float _extension;
         private float _bounceCooldown;
 
-        private float BounceSpeed => _bb != null && _bb.ConfigValue > 0f ? _bb.ConfigValue : _bounceSpeed;
+        // ConfigValue is a bounce-HEIGHT multiplier (0.8–1.8, PogoDefaults;
+        // 0 sentinel = 1×). Height ∝ v², so takeoff speed scales by √power.
+        private float BaseTakeoffSpeed =>
+            _bounceSpeed * Mathf.Sqrt(PogoDefaults.ResolvePower(_bb != null ? _bb.ConfigValue : 0f));
 
         private void Awake()
         {
@@ -117,7 +124,16 @@ namespace Robogame.Movement
                 if (_bounceCooldown <= 0f)
                 {
                     float vAlongStick = Vector3.Dot(_rb.linearVelocity, -castDir);
-                    float deltaV = BounceSpeed - vAlongStick;
+                    float baseSpeed = BaseTakeoffSpeed;
+                    // Momentum banking: impact speed ABOVE the base takeoff
+                    // carries into this bounce at _momentumBonus. Flat-ground
+                    // hopping is stable (impact ≈ takeoff → zero bonus);
+                    // a cliff drop launches higher and the extra decays
+                    // geometrically over the next bounces. Bonus < 1 is the
+                    // no-runaway guarantee.
+                    float impactSpeed = Mathf.Max(0f, -vAlongStick);
+                    float takeoff = baseSpeed + _momentumBonus * Mathf.Max(0f, impactSpeed - baseSpeed);
+                    float deltaV = takeoff - vAlongStick;
                     if (deltaV > 0f)
                         _rb.AddForceAtPosition(-castDir * deltaV, origin, ForceMode.VelocityChange);
                     _bounceCooldown = _bounceIntervalSeconds;

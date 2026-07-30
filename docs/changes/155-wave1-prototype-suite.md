@@ -115,6 +115,15 @@ User's first testing pass produced two fixes:
   foot sphere drawn one radius short of the contact face, and bounce
   speed 5 → 14 m/s (≈8× height, ~10 m apex). Verified live: sustained
   y 2.7 ↔ 11.1 cycle, vy ±13.
+  Playtest pass 3 ("really fun"): momentum banking — impact speed above
+  the base takeoff carries into the next bounce at 0.7×, so cliff drops
+  launch higher and decay geometrically back to base (flat ground is
+  stable by construction; bonus < 1 = no runaway). Live-verified: 25 m
+  drop → apexes 14.1 → 13.2 → 12.9 → 11.7 → ~10.5 converging on base.
+  Plus a variant-panel "Power ×" slider (PogoDefaults, 0.8–1.8× bounce
+  HEIGHT via ConfigValue; PogoBlock takes √power on speed) — new
+  PogoDefaults.cs, BlockVariants entry, VariantConfigPanel pogo section
+  cloned from the weapon-ammo scalar pattern.
 
 ## Next
 
