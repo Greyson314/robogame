@@ -120,10 +120,16 @@ User's first testing pass produced two fixes:
   launch higher and decay geometrically back to base (flat ground is
   stable by construction; bonus < 1 = no runaway). Live-verified: 25 m
   drop → apexes 14.1 → 13.2 → 12.9 → 11.7 → ~10.5 converging on base.
-  Plus a variant-panel "Power ×" slider (PogoDefaults, 0.8–1.8× bounce
-  HEIGHT via ConfigValue; PogoBlock takes √power on speed) — new
+  Plus a variant-panel "Power ×" slider (PogoDefaults, bounce-HEIGHT
+  multiplier via ConfigValue; PogoBlock takes √power on speed) — new
   PogoDefaults.cs, BlockVariants entry, VariantConfigPanel pogo section
-  cloned from the weapon-ammo scalar pattern.
+  cloned from the weapon-ammo scalar pattern. Pass 4: max power raised
+  1.8× → 4× (≈40 m solo hop at full crank) and the leg stretched to a
+  3-cell-tall assembly (foot reach 0.95 → 2.5 m — bot rides high on its
+  stilt, bounces the moment the distant foot touches; sized-to-mechanic
+  convention, mount stays cell-sized). Leg has no occupancy guard —
+  blocks placed in the two cells beneath clip through it visually
+  (scalable-parts gap, same as Feather).
 
 ## Next
 

@@ -42,9 +42,10 @@ namespace Robogame.Movement
     {
         [Header("Bounce")]
         [Tooltip("Reach of the foot's CONTACT face from block centre along the mount axis, metres (ray length). " +
-                 "Kept short so the leg pokes just below the host cell instead of occupying the cell beneath; " +
-                 "the bounce fires at the true foot-touch instant, so the foot never buries before firing.")]
-        [SerializeField, Min(0.1f)] private float _restLength = 0.95f;
+                 "2.5 = a 3-cell-tall assembly (host cell + 2-cell leg), per the components-sized-to-the-mechanic " +
+                 "convention — the bot rides high on its stilt and bounces the moment the distant foot touches. " +
+                 "The bounce fires at the true foot-touch instant, so the foot never buries before firing.")]
+        [SerializeField, Min(0.1f)] private float _restLength = 2.5f;
 
         [Tooltip("Base bounce take-off speed at 1× power, m/s (VelocityChange — mass-independent). " +
                  "14 m/s ≈ 10 m apex — playtest-tuned. Per-instance power rides ConfigValue (PogoDefaults, height multiplier).")]

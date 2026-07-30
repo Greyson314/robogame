@@ -17,7 +17,7 @@ namespace Robogame.Block
         public const float DefaultPower = 1f;
 
         /// <summary>Build-mode slider range for the per-pogo bounce-height multiplier.</summary>
-        public const float MinPower = 0.8f, MaxPower = 1.8f;
+        public const float MinPower = 0.8f, MaxPower = 4f;
 
         /// <summary>
         /// Solo-hop apex at 1× power, metres — for panel readouts only
