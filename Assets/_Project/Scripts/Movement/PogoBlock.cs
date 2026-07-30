@@ -41,14 +41,14 @@ namespace Robogame.Movement
     public sealed class PogoBlock : MonoBehaviour
     {
         [Header("Bounce")]
-        [Tooltip("Foot reach from block centre along the mount axis, metres (ray length).")]
-        [SerializeField, Min(0.1f)] private float _restLength = 1.15f;
+        [Tooltip("Reach of the foot's CONTACT face from block centre along the mount axis, metres (ray length). " +
+                 "Kept short so the leg pokes just below the host cell instead of occupying the cell beneath; " +
+                 "the bounce fires at the true foot-touch instant, so the foot never buries before firing.")]
+        [SerializeField, Min(0.1f)] private float _restLength = 0.95f;
 
-        [Tooltip("Foot-contact distance that triggers a bounce, metres. Below rest length so the bounce fires as the foot loads, not at first graze.")]
-        [SerializeField, Min(0.05f)] private float _triggerDistance = 0.9f;
-
-        [Tooltip("Bounce take-off speed, m/s (VelocityChange — mass-independent). ConfigValue overrides per instance.")]
-        [SerializeField, Min(0f)] private float _bounceSpeed = 5f;
+        [Tooltip("Bounce take-off speed, m/s (VelocityChange — mass-independent). ConfigValue overrides per instance. " +
+                 "14 m/s ≈ 10 m apex — playtest-tuned (~8× the original 5 m/s bounce height).")]
+        [SerializeField, Min(0f)] private float _bounceSpeed = 14f;
 
         [Tooltip("Minimum seconds between bounces from this pogo. Always ticking, so a bot that failed to lift re-pulses instead of deadlocking.")]
         [SerializeField, Min(0.05f)] private float _bounceIntervalSeconds = 0.35f;
@@ -96,8 +96,11 @@ namespace Robogame.Movement
             Vector3 origin = transform.position;
             Vector3 castDir = transform.up; // mount axis, points away from chassis
 
-            bool footLoaded = RaycastIgnoringSelf(origin, castDir, _restLength, out RaycastHit hit)
-                              && hit.distance <= _triggerDistance;
+            // The ray IS the foot: any hit inside rest length means the
+            // foot's contact face is touching ground — bounce now. (The
+            // old separate trigger distance fired 0.25 m after the foot
+            // visual had already buried itself — playtest pass 2.)
+            bool footLoaded = RaycastIgnoringSelf(origin, castDir, _restLength, out RaycastHit hit);
             _extension = footLoaded ? hit.distance : _restLength;
 
             if (footLoaded)
@@ -176,15 +179,20 @@ namespace Robogame.Movement
 
         private static Material s_pogoMaterial;
 
+        // Foot sphere is 0.4 local units in diameter; its CENTRE sits one
+        // radius short of the contact face so the ball kisses the ground
+        // instead of half-burying (playtest pass 2).
+        private const float FootRadius = 0.2f;
+
         private void LateUpdate()
         {
             if (_piston == null || _foot == null) return;
-            // Foot tracks the current extension along local +Y; piston spans
-            // block centre → foot.
-            float ext = _extension;
-            _foot.localPosition = new Vector3(0f, ext, 0f);
-            _piston.localPosition = new Vector3(0f, ext * 0.5f, 0f);
-            _piston.localScale = new Vector3(0.14f, ext * 0.5f, 0.14f);
+            // _extension is centre → contact-face distance along local +Y;
+            // piston spans block centre → foot centre.
+            float footCentre = Mathf.Max(0.1f, _extension - FootRadius);
+            _foot.localPosition = new Vector3(0f, footCentre, 0f);
+            _piston.localPosition = new Vector3(0f, footCentre * 0.5f, 0f);
+            _piston.localScale = new Vector3(0.14f, footCentre * 0.5f, 0.14f);
         }
 
         private void EnsureRig()

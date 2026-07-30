@@ -106,10 +106,15 @@ User's first testing pass produced two fixes:
   additive `VelocityChange` mostly cancelled the incoming fall — the bot
   hovered; caught by live play-mode probe over the MCP bridge).
   Perpendicular velocity carries across bounces, so sustained leaning
-  builds horizontal speed. ConfigValue = per-pogo bounce speed. Verified
-  live: sustained ~1.2 m bounce cycle (vy −4.0 → +2.25). Pairs with Gyro
-  for wobble damping. Placeholder audio reuses `SpringLaunch`. Quirk: N
-  pogos touching down together stack N impulses.
+  builds horizontal speed. ConfigValue = per-pogo bounce speed. Pairs
+  with Gyro for wobble damping. Placeholder audio reuses `SpringLaunch`.
+  Quirk: N pogos touching down together stack N impulses.
+  Playtest pass 2 ("kinda fun"): foot reach cut 1.15 → 0.95 with the ray
+  being the foot itself (the old separate 0.9 m trigger fired 0.25 m
+  after the foot visual had buried — read as bouncing off the host cube),
+  foot sphere drawn one radius short of the contact face, and bounce
+  speed 5 → 14 m/s (≈8× height, ~10 m apex). Verified live: sustained
+  y 2.7 ↔ 11.1 cycle, vy ±13.
 
 ## Next
 
