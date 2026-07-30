@@ -24,8 +24,5 @@ MonoBehaviour:
   _muzzleSpeed: 80
   _spreadDeg: 1.2
   _recoilImpulse: 5
-  _spinUpSeconds: 1.2
-  _spinDownSeconds: 0.8
   _overheatSeconds: 4
   _overheatCooldownSeconds: 2.5
-  _minFireRate: 5

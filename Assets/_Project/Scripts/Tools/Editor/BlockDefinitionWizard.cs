@@ -22,11 +22,10 @@ namespace Robogame.Tools.Editor
 
             // Author the per-kind component-data SOs FIRST so the
             // BlockDefinition writes below can reference live assets.
-            // Spin-up/overheat literals (session 155): 5→12 shots/s over
-            // 1.2 s, 4 s unbroken sustain to lockout, 2.5 s cooldown.
+            // Overheat literals (session 155; spin-up reverted by playtest):
+            // 4 s unbroken sustain to lockout, 2.5 s cooldown, constant rate.
             WeaponDefinition smgDef = CreateOrUpdateWeaponDefinition(
                 "Weapon_Smg", fireRate: 12f, muzzleSpeed: 80f, spreadDeg: 1.2f, damage: 25f, recoil: 5f,
-                minFireRate: 5f, spinUpSeconds: 1.2f, spinDownSeconds: 0.8f,
                 overheatSeconds: 4f, overheatCooldownSeconds: 2.5f);
             BombDefinition bombDef = CreateOrUpdateBombDefinition(
                 "Bomb_Default", dropInterval: 1.2f, damage: 80f, radius: 18f, initialSpeed: 2f);
@@ -222,7 +221,6 @@ namespace Robogame.Tools.Editor
 
         private static WeaponDefinition CreateOrUpdateWeaponDefinition(
             string assetName, float fireRate, float muzzleSpeed, float spreadDeg, float damage, float recoil,
-            float minFireRate, float spinUpSeconds, float spinDownSeconds,
             float overheatSeconds, float overheatCooldownSeconds)
         {
             string path = $"{WeaponDefinitionsFolder}/{assetName}.asset";
@@ -239,9 +237,6 @@ namespace Robogame.Tools.Editor
             so.FindProperty("_spreadDeg").floatValue     = spreadDeg;
             so.FindProperty("_damage").floatValue        = damage;
             so.FindProperty("_recoilImpulse").floatValue = recoil;
-            so.FindProperty("_minFireRate").floatValue             = minFireRate;
-            so.FindProperty("_spinUpSeconds").floatValue           = spinUpSeconds;
-            so.FindProperty("_spinDownSeconds").floatValue         = spinDownSeconds;
             so.FindProperty("_overheatSeconds").floatValue         = overheatSeconds;
             so.FindProperty("_overheatCooldownSeconds").floatValue = overheatCooldownSeconds;
             so.ApplyModifiedPropertiesWithoutUndo();

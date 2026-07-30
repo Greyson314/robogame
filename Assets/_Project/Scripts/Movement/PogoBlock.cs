@@ -4,11 +4,12 @@ using UnityEngine;
 namespace Robogame.Movement
 {
     /// <summary>
-    /// Passive raycast spring-damper bouncer. The foot extends along the
-    /// block's mount axis (local +Y, i.e. away from the chassis); when the
-    /// ray finds ground inside rest length, a stiff under-damped spring
-    /// pushes the chassis away. Repeated automatic bounce — deliberately
-    /// NOT the Spring module's one-shot ability launch.
+    /// Player-controlled hopper. A soft over-damped stand spring holds the
+    /// chassis up on its foot; while the jump input is held
+    /// (<see cref="Robogame.Input.IInputSource.Vertical"/> &gt; 0), each
+    /// grounded contact fires a hop impulse along the mount axis. Hold to
+    /// keep hopping, release to stand. Deliberately NOT the Spring
+    /// module's one-shot ability launch.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -17,34 +18,46 @@ namespace Robogame.Movement
     /// forces on the single chassis Rigidbody, zero new physics objects.
     /// </para>
     /// <para>
-    /// The damper term is mandatory — an undamped auto-spring is exactly
-    /// the feedback-loop runaway best-practices §15.7 warns about. Pogo
-    /// wants bounce, so it sits well UNDER critical damping, but never at
-    /// zero; the force cap absorbs the rest.
+    /// v1 was a stiff under-damped passive spring: it launched once, then
+    /// settled at static equilibrium — a passive spring-damper always
+    /// dissipates. Repeated hopping needs energy injected per bounce, so
+    /// v2 makes the hop an explicit player-commanded impulse
+    /// (<see cref="ForceMode.VelocityChange"/> for consistent hop height
+    /// across chassis masses; per-pogo height via
+    /// <see cref="BlockBehaviour.ConfigValue"/>).
     /// </para>
     /// <para>
     /// Casting along the mount axis (not world down) means a bottom-mounted
-    /// pogo bounces the bot upward, a side-mounted one kicks it sideways
-    /// off walls, and gravity direction is never referenced — spherical
-    /// arenas behave identically.
+    /// pogo hops the bot upward, a side-mounted one kicks it off walls, and
+    /// gravity direction is never referenced — spherical arenas behave
+    /// identically. Known prototype quirk: N pogos grounded simultaneously
+    /// stack N hop impulses — quad-pogo bots jump ~4×. Revisit if that
+    /// reads as exploit rather than build expression.
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(BlockBehaviour))]
     public sealed class PogoBlock : MonoBehaviour
     {
-        [Header("Spring")]
+        [Header("Stand spring")]
         [Tooltip("Foot reach from block centre along the mount axis, metres.")]
         [SerializeField, Min(0.1f)] private float _restLength = 1.15f;
 
-        [Tooltip("Spring stiffness, N per metre of compression. Stiffer than wheel suspension on purpose.")]
-        [SerializeField, Min(0f)] private float _springStrength = 1400f;
+        [Tooltip("Spring stiffness, N per metre of compression. Wheel-suspension-soft: stands, never self-bounces.")]
+        [SerializeField, Min(0f)] private float _springStrength = 600f;
 
-        [Tooltip("Damping, N per m/s of compression rate. Deliberately under-damped for bounce; never zero (§15.7).")]
-        [SerializeField, Min(0f)] private float _damper = 60f;
+        [Tooltip("Damping, N per m/s of compression rate. Over-damped on purpose (§15.7) — hop energy comes from the impulse, not the spring.")]
+        [SerializeField, Min(0f)] private float _damper = 220f;
 
         [Tooltip("Hard cap on spring force, N — absorbs landing spikes so a drop can't catapult the chassis.")]
-        [SerializeField, Min(0f)] private float _maxForce = 5000f;
+        [SerializeField, Min(0f)] private float _maxForce = 6000f;
+
+        [Header("Hop")]
+        [Tooltip("Hop take-off speed, m/s (VelocityChange — mass-independent). ConfigValue overrides per instance.")]
+        [SerializeField, Min(0f)] private float _hopSpeed = 5f;
+
+        [Tooltip("Minimum seconds between hops from this pogo.")]
+        [SerializeField, Min(0.05f)] private float _hopIntervalSeconds = 0.45f;
 
         [Tooltip("Layers the foot can push off.")]
         [SerializeField] private LayerMask _groundMask = ~0;
@@ -54,19 +67,27 @@ namespace Robogame.Movement
         [SerializeField] private Transform _foot;   // contact pad
 
         private Rigidbody _rb;
+        private Robogame.Input.IInputSource _input;
+        private BlockBehaviour _bb;
         private float _extension;
+        private float _hopCooldown;
+
+        private float HopSpeed => _bb != null && _bb.ConfigValue > 0f ? _bb.ConfigValue : _hopSpeed;
 
         private void Awake()
         {
             BlockVisuals.HideHostMesh(gameObject);
             EnsureRig();
             _rb = GetComponentInParent<Rigidbody>();
+            _input = GetComponentInParent<Robogame.Input.IInputSource>();
+            _bb = GetComponent<BlockBehaviour>();
             _extension = _restLength;
         }
 
         private void FixedUpdate()
         {
             if (_rb == null) return;
+            if (_hopCooldown > 0f) _hopCooldown -= Time.fixedDeltaTime;
 
             Vector3 origin = transform.position;
             Vector3 castDir = transform.up; // mount axis, points away from chassis
@@ -89,6 +110,18 @@ namespace Robogame.Movement
             {
                 if (force > _maxForce) force = _maxForce;
                 _rb.AddForceAtPosition(-castDir * force, origin, ForceMode.Force);
+            }
+
+            // Player-commanded hop: jump held + foot loaded + off cooldown.
+            // Bots currently report Vertical 0, so their pogos just stand.
+            if (_input != null && _input.Vertical > 0.25f
+                && _hopCooldown <= 0f && compression > 0.05f)
+            {
+                _rb.AddForceAtPosition(-castDir * HopSpeed, origin, ForceMode.VelocityChange);
+                _hopCooldown = _hopIntervalSeconds;
+                // SpringLaunch "boing" reused as the placeholder hop cue
+                // (invariant #8) until the pogo gets its own recording.
+                Robogame.Core.AudioRouter.PlayOneShot(Robogame.Core.AudioCue.SpringLaunch, origin);
             }
 
             _extension = hit.distance;

@@ -80,6 +80,29 @@ cache reset). `WeaponDefinition` gained the five spin-up fields;
 - Pogo needs a live bounce-feel pass (§15.7 runaway watch) — headless
   tests can't judge feel.
 
+## Post-playtest revisions (same session)
+
+User's first testing pass produced two fixes:
+
+- **SMG spin-up reverted, overheat kept.** Rate-of-fire buildup felt bad;
+  fire rate is constant 12/s again, the 4 s sustain → 2.5 s lockout
+  stays. `WeaponDefinition` dropped the three spin fields (gate is now
+  `HasOverheat`, `_overheatSeconds` 0 = off). `WeaponHeatModel` keeps its
+  spin-up support untouched (tests still pass) — `ProjectileGun` passes
+  min == max so the ramp is inert; a future minigun block can use it.
+- **SMG plain-white bug fixed.** The heat glow's MPB wrote
+  `lerp(white, hot, heat)` — at heat 0 that overrode the authored MK Toon
+  colour with white. Glow now caches each renderer's authored material
+  colour and lerps from that.
+- **Pogo reworked: player-commanded hops.** v1's stiff passive spring
+  launched once then settled at equilibrium (passive spring-dampers always
+  dissipate — that was the one-bounce bug) and the launch was huge. v2:
+  soft over-damped stand spring (wheel-tier 600/220) + hop impulse
+  (`VelocityChange`, 5 m/s, 0.45 s interval) while jump (`Vertical`) is
+  held and the foot is loaded. Hold space to hop, release to stand.
+  ConfigValue = per-pogo hop speed. Placeholder hop audio reuses
+  `SpringLaunch`. Known quirk: N grounded pogos stack N impulses.
+
 ## Next
 
 Wave-2 candidates from the triage: arc emitter, marker dart, balloon /

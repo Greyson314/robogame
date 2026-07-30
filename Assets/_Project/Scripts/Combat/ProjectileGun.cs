@@ -108,14 +108,17 @@ namespace Robogame.Combat
             if (muzzle != null) _muzzle = muzzle;
         }
 
-        // Spin-up / overheat (session 155). Model is pure + deterministic
-        // (WeaponHeatModel); this component just ticks it with frame time
-        // and feeds the resolved rate into the fire gate. NOTE: heat is a
-        // function of local held-duration/Time — the same clock-authority
-        // debt already documented for fire-rate gating (performance.md
-        // §8.10); the netcode pass owns both.
+        // Overheat (session 155; spin-up reverted by playtest — fire rate
+        // is constant, only the lockout remains). Model is pure +
+        // deterministic (WeaponHeatModel keeps its spin-up support for a
+        // future minigun-style block; this gun passes min == max so the
+        // rate never ramps). NOTE: heat is a function of local
+        // held-duration/Time — the same clock-authority debt already
+        // documented for fire-rate gating (performance.md §8.10); the
+        // netcode pass owns both.
         private WeaponHeatModel _heat;
         private MeshRenderer[] _glowRenderers;
+        private Color[] _glowBaseColors;
         private MaterialPropertyBlock _glowMpb;
         private float _lastGlowHeat = -1f;
         private static readonly int s_glowAlbedoId = Shader.PropertyToID("_AlbedoColor");
@@ -126,16 +129,18 @@ namespace Robogame.Combat
         private void Update()
         {
             bool held = _input != null && _input.FireHeld;
+            float fireRate = Mathf.Max(0.1f, ResolveFireRate());
 
             WeaponDefinition def = ResolveDef();
-            if (def != null && def.HasSpinUp)
+            if (def != null && def.HasOverheat)
             {
                 if (_heat == null)
                 {
+                    // min == max: constant rate, spin-up path inert.
                     _heat = new WeaponHeatModel(
-                        def.SpinUpSeconds, def.SpinDownSeconds,
+                        0.1f, 0.1f,
                         def.OverheatSeconds, def.OverheatCooldownSeconds,
-                        def.MinFireRate, def.FireRate);
+                        fireRate, fireRate);
                 }
 
                 bool wasOverheated = _heat.IsOverheated;
@@ -146,24 +151,23 @@ namespace Robogame.Combat
                 }
                 UpdateHeatGlow();
 
-                if (!held || _heat.IsOverheated) return;
-                float rate = Mathf.Max(0.1f, _heat.CurrentFireRate);
-                if (_gate.TryFire(true, Time.time, 1f / rate, _ammo, _blockId, transform.position, 0.20f))
-                    Fire();
-                return;
+                if (_heat.IsOverheated) return;
             }
 
             if (!held) return;
-            float fireRate = Mathf.Max(0.1f, ResolveFireRate());
             // Dry-click throttle matches a fast cadence so a held trigger on
             // empty doesn't strobe the cue.
             if (_gate.TryFire(true, Time.time, 1f / fireRate, _ammo, _blockId, transform.position, 0.20f))
                 Fire();
         }
 
-        // Heat readout: tint the weapon's renderers toward hot red via MPB
-        // (never Renderer.material — no per-instance material churn). Only
-        // touches the MPB when heat visibly moved.
+        // Heat readout: tint the weapon's renderers from their AUTHORED
+        // material colour toward hot red via MPB (never Renderer.material —
+        // no per-instance material churn). Lerping from the authored colour
+        // (not white) matters: an MPB override replaces the material's
+        // colour outright, so a white base repainted the whole weapon white
+        // at zero heat (playtest bug, this session). Only touches the MPB
+        // when heat visibly moved.
         private void UpdateHeatGlow()
         {
             float h = _heat.Heat01;
@@ -174,13 +178,26 @@ namespace Robogame.Combat
             {
                 _glowRenderers = GetComponentsInChildren<MeshRenderer>(includeInactive: true);
                 _glowMpb = new MaterialPropertyBlock();
+                _glowBaseColors = new Color[_glowRenderers.Length];
+                for (int i = 0; i < _glowRenderers.Length; i++)
+                {
+                    Color baseC = Color.white;
+                    Material m = _glowRenderers[i] != null ? _glowRenderers[i].sharedMaterial : null;
+                    if (m != null)
+                    {
+                        if      (m.HasProperty(s_glowAlbedoId)) baseC = m.GetColor(s_glowAlbedoId);
+                        else if (m.HasProperty(s_glowBaseId))   baseC = m.GetColor(s_glowBaseId);
+                        else if (m.HasProperty(s_glowLegacyId)) baseC = m.GetColor(s_glowLegacyId);
+                    }
+                    _glowBaseColors[i] = baseC;
+                }
             }
 
-            Color c = Color.Lerp(Color.white, s_hotColor, h);
             for (int i = 0; i < _glowRenderers.Length; i++)
             {
                 MeshRenderer mr = _glowRenderers[i];
                 if (mr == null) continue;
+                Color c = Color.Lerp(_glowBaseColors[i], s_hotColor, h);
                 mr.GetPropertyBlock(_glowMpb);
                 _glowMpb.SetColor(s_glowAlbedoId, c);
                 _glowMpb.SetColor(s_glowBaseId,   c);
