@@ -398,12 +398,7 @@ namespace Robogame.Gameplay
         }
 
         private static GameObject NewChild(string name, Transform parent)
-        {
-            var go = new GameObject(name);
-            go.transform.SetParent(parent, worldPositionStays: false);
-            go.AddComponent<RectTransform>();
-            return go;
-        }
+            => Robogame.Core.UguiKit.NewChild(name, parent);
 
         private static void FillParent(GameObject go)
         {

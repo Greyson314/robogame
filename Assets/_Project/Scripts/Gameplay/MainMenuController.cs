@@ -263,11 +263,7 @@ namespace Robogame.Gameplay
         // -----------------------------------------------------------------
 
         private static GameObject NewChild(string name, Transform parent)
-        {
-            var go = new GameObject(name, typeof(RectTransform));
-            go.transform.SetParent(parent, worldPositionStays: false);
-            return go;
-        }
+            => Robogame.Core.UguiKit.NewChild(name, parent);
 
         private static void FillParent(GameObject go)
         {
@@ -313,28 +309,10 @@ namespace Robogame.Gameplay
             Vector2 anchorMin, Vector2 anchorMax,
             Vector2 offsetMin, Vector2 offsetMax,
             Color color)
-        {
-            var go = NewChild("Text", parent);
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = anchorMin;
-            rt.anchorMax = anchorMax;
-            rt.offsetMin = offsetMin;
-            rt.offsetMax = offsetMax;
-            var t = go.AddComponent<Text>();
-            t.text = content;
-            t.font = font;
-            t.fontSize = size;
-            t.fontStyle = style;
-            t.color = color;
-            t.alignment = anchor;
-            // Legacy Text truncates the whole line when a font's line box
-            // overruns a small rect (bit us hard with Yuji Syuku's CJK
-            // metrics) — every menu string is short static copy, so
-            // overflow is always safe here.
-            t.horizontalOverflow = HorizontalWrapMode.Overflow;
-            t.verticalOverflow = VerticalWrapMode.Overflow;
-            return t;
-        }
+            // Menu strings are short static copy, so horizontal overflow is
+            // always safe here (see UguiKit.AddText for the CJK rationale).
+            => Robogame.Core.UguiKit.AddText(parent, content, font, size, style, color, anchor,
+                anchorMin, anchorMax, offsetMin, offsetMax, horizontalOverflow: true);
 
         /// <summary>Primary action: solid ink brush blob, cream label, slight rotation.</summary>
         private void BuildPrimaryButton(Transform parent, string label, Vector2 anchoredPos, System.Action onClick)

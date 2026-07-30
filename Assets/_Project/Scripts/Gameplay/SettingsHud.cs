@@ -1097,11 +1097,7 @@ namespace Robogame.Gameplay
         // -----------------------------------------------------------------
 
         private static GameObject NewChild(string name, Transform parent)
-        {
-            var go = new GameObject(name, typeof(RectTransform));
-            go.transform.SetParent(parent, worldPositionStays: false);
-            return go;
-        }
+            => Robogame.Core.UguiKit.NewChild(name, parent);
 
         private static void FillParent(GameObject go)
         {
@@ -1114,23 +1110,8 @@ namespace Robogame.Gameplay
 
         private static Text AddText(Transform parent, string text, int size, FontStyle style, TextAnchor anchor,
             Vector2 offset = default)
-        {
-            var go = NewChild("Text", parent);
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = offset;
-            rt.offsetMax = offset;
-            var t = go.AddComponent<Text>();
-            t.text = text;
-            t.font = UIFont;
-            t.fontSize = size;
-            t.fontStyle = style;
-            t.color = s_textColor;
-            t.alignment = anchor;
-            t.verticalOverflow = VerticalWrapMode.Overflow;
-            return t;
-        }
+            => Robogame.Core.UguiKit.AddText(parent, text, UIFont, size, style, s_textColor, anchor,
+                Vector2.zero, Vector2.one, offset, offset);
 
         private static Button AddButton(Transform parent, string label, Vector2 anchoredPos, Vector2 size,
             Vector2 anchor, Vector2 pivot)

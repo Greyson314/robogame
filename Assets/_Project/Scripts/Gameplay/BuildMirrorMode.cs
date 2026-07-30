@@ -181,27 +181,11 @@ namespace Robogame.Gameplay
         }
 
         private static GameObject NewChild(string name, Transform parent)
-        {
-            var go = new GameObject(name, typeof(RectTransform));
-            go.transform.SetParent(parent, worldPositionStays: false);
-            return go;
-        }
+            => Robogame.Core.UguiKit.NewChild(name, parent);
 
         private static Text AddText(Transform parent)
-        {
-            var go = NewChild("Text", parent);
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = Vector2.zero;
-            rt.anchorMax = Vector2.one;
-            rt.offsetMin = new Vector2(8f, 0f);
-            rt.offsetMax = new Vector2(-8f, 0f);
-            var t = go.AddComponent<Text>();
-            t.font = Robogame.Core.InkKit.Display;
-            t.fontSize = 13;
-            t.fontStyle = FontStyle.Bold;
-            t.alignment = TextAnchor.MiddleCenter;
-            t.verticalOverflow = VerticalWrapMode.Overflow;
-            return t;
-        }
+            => Robogame.Core.UguiKit.AddText(parent, "", Robogame.Core.InkKit.Display, 13,
+                FontStyle.Bold, Color.white, TextAnchor.MiddleCenter,
+                Vector2.zero, Vector2.one, new Vector2(8f, 0f), new Vector2(-8f, 0f));
     }
 }
