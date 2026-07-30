@@ -208,27 +208,8 @@ namespace Robogame.Movement
             }
         }
 
-        private static readonly RaycastHit[] s_hitBuffer = new RaycastHit[8];
-
         private bool RaycastIgnoringSelf(Vector3 origin, Vector3 dir, float maxDist, out RaycastHit best)
-        {
-            int count = Physics.RaycastNonAlloc(origin, dir, s_hitBuffer, maxDist, _groundMask, QueryTriggerInteraction.Ignore);
-            best = default;
-            float bestDist = float.MaxValue;
-            bool found = false;
-            for (int i = 0; i < count; i++)
-            {
-                RaycastHit h = s_hitBuffer[i];
-                if (h.collider.attachedRigidbody == _rb) continue; // self
-                if (h.distance < bestDist)
-                {
-                    bestDist = h.distance;
-                    best = h;
-                    found = true;
-                }
-            }
-            return found;
-        }
+            => ChassisRaycast.TryNearestIgnoring(_rb, origin, dir, maxDist, _groundMask, out best);
 
         // -----------------------------------------------------------------
         // Visual rig

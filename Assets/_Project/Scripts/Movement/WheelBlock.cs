@@ -180,23 +180,21 @@ namespace Robogame.Movement
             // Wheel centre rests one radius above the contact point.
             float wheelCenterY = hit.point.y + _radius;
             float extension = Mathf.Clamp(origin.y - wheelCenterY, 0f, _restLength);
-            float compression = _restLength - extension;
 
-            // Compression rate: positive when the chassis is moving DOWN at
-            // this point (suspension is being compressed). Using the full
-            // point velocity (not just _rb.linearVelocity.y) means roll
-            // and pitch correctly contribute to damping — without this, a
-            // chassis pitching forward would flap because only the COM's
-            // vertical velocity was being damped.
+            // Damping uses the full point velocity (not just
+            // _rb.linearVelocity.y) so roll and pitch correctly contribute
+            // — without this, a chassis pitching forward would flap because
+            // only the COM's vertical velocity was being damped.
             Vector3 pointVel = _rb.GetPointVelocity(origin);
-            float compressionRate = -pointVel.y;
 
-            // Hooke + damper in NEWTONS (default ForceMode.Force is
-            // mass-dependent on purpose, so heavier chassis sag more on
-            // the same springs — matches real-world intuition). Clamped
-            // to absorb spike loads on hard landings, and never pulls
-            // down — suspension can only push up off the ground.
-            float force = compression * _springStrength + compressionRate * _damper;
+            // Damped Hooke spring in NEWTONS via the shared solver, which
+            // owns the push-only clamp (suspension never pulls down).
+            // Default ForceMode.Force is mass-dependent on purpose, so
+            // heavier chassis sag more on the same springs — matches
+            // real-world intuition. Capped to absorb spike loads on hard
+            // landings.
+            float force = SpringSolver.HookeDamped(
+                _springStrength, _damper, extension, _restLength, pointVel.y);
             if (force > 0f)
             {
                 if (force > _maxForce) force = _maxForce;
@@ -248,29 +246,8 @@ namespace Robogame.Movement
             _stem.localScale = new Vector3(0.18f, length * 0.5f, 0.18f);
         }
 
-        private static readonly RaycastHit[] s_hitBuffer = new RaycastHit[8];
-
         private bool RaycastIgnoringSelf(Vector3 origin, Vector3 dir, float maxDist, out RaycastHit best)
-        {
-            // RaycastNonAlloc so we can skip hits on our own chassis (the block
-            // host cube collider sits exactly at the ray origin).
-            int count = Physics.RaycastNonAlloc(origin, dir, s_hitBuffer, maxDist, _groundMask, QueryTriggerInteraction.Ignore);
-            best = default;
-            float bestDist = float.MaxValue;
-            bool found = false;
-            for (int i = 0; i < count; i++)
-            {
-                RaycastHit h = s_hitBuffer[i];
-                if (h.collider.attachedRigidbody == _rb) continue; // self
-                if (h.distance < bestDist)
-                {
-                    bestDist = h.distance;
-                    best = h;
-                    found = true;
-                }
-            }
-            return found;
-        }
+            => ChassisRaycast.TryNearestIgnoring(_rb, origin, dir, maxDist, _groundMask, out best);
 
         private void UpdateSteering()
         {
@@ -399,24 +376,11 @@ namespace Robogame.Movement
             }
         }
 
-        private static readonly int s_baseColorId   = Shader.PropertyToID("_BaseColor");
-        private static readonly int s_albedoColorId = Shader.PropertyToID("_AlbedoColor");
-        private static readonly int s_legacyColorId = Shader.PropertyToID("_Color");
 
         // Apply a colour to a primitive's MeshRenderer via MaterialPropertyBlock
         // so we don't churn per-instance materials and break batching. Mirrors
         // the pattern in BlockGrid.ApplyTint.
         private static void TintRenderer(Transform t, Color colour)
-        {
-            if (t == null) return;
-            MeshRenderer mr = t.GetComponent<MeshRenderer>();
-            if (mr == null) return;
-            MaterialPropertyBlock mpb = new MaterialPropertyBlock();
-            mr.GetPropertyBlock(mpb);
-            mpb.SetColor(s_baseColorId,   colour);
-            mpb.SetColor(s_albedoColorId, colour);
-            mpb.SetColor(s_legacyColorId, colour);
-            mr.SetPropertyBlock(mpb);
-        }
+            => Core.RuntimeMaterials.Tint(t, colour);
     }
 }

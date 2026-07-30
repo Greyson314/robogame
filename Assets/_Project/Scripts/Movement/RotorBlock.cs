@@ -176,10 +176,6 @@ namespace Robogame.Movement
         private readonly List<AdoptedRope> _adoptedRopes = new List<AdoptedRope>();
 
         // Property cache.
-        private static readonly int s_albedoColorId   = Shader.PropertyToID("_AlbedoColor");
-        private static readonly int s_baseColorId     = Shader.PropertyToID("_BaseColor");
-        private static readonly int s_legacyColorId   = Shader.PropertyToID("_Color");
-        private static readonly int s_emissionColorId = Shader.PropertyToID("_EmissionColor");
 
         // Visual hub signals "this thing spins" via cyan accents — same
         // tech-energy palette token the CPU beacon uses, deliberately. A
@@ -507,17 +503,7 @@ namespace Robogame.Movement
         }
 
         private static void Tint(Renderer r, Color baseColor, Color emission)
-        {
-            if (r == null) return;
-            MaterialPropertyBlock mpb = new MaterialPropertyBlock();
-            r.GetPropertyBlock(mpb);
-            mpb.SetColor(s_albedoColorId, baseColor);
-            mpb.SetColor(s_baseColorId,   baseColor);
-            mpb.SetColor(s_legacyColorId, baseColor);
-            if (emission.maxColorComponent > 0f)
-                mpb.SetColor(s_emissionColorId, emission);
-            r.SetPropertyBlock(mpb);
-        }
+            => Core.RuntimeMaterials.Tint(r, baseColor, emission);
 
         // -----------------------------------------------------------------
         // Lift rig (only when GeneratesLift = true)

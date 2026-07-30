@@ -310,16 +310,7 @@ namespace Robogame.Combat
         }
 
         private static void Tint(Transform t, Color color)
-        {
-            Renderer r = t.GetComponent<Renderer>();
-            if (r == null) return;
-            MaterialPropertyBlock mpb = new MaterialPropertyBlock();
-            r.GetPropertyBlock(mpb);
-            mpb.SetColor(Shader.PropertyToID("_AlbedoColor"), color);
-            mpb.SetColor(Shader.PropertyToID("_BaseColor"),   color);
-            mpb.SetColor(Shader.PropertyToID("_Color"),       color);
-            r.SetPropertyBlock(mpb);
-        }
+            => Core.RuntimeMaterials.Tint(t, color);
 
         /// <summary>Editor / scaffolder helper.</summary>
         public void Bind(WeaponMount mount)

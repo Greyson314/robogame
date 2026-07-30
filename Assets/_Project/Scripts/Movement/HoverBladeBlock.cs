@@ -46,11 +46,6 @@ namespace Robogame.Movement
         // budget conventions even though each blade owns its own PS.
         private const float PlumeMaxRate = 90f;
 
-        // Reusable hit buffer (no per-frame allocations — invariant #6).
-        // Sized for the worst case of overlapping colliders on a stack of
-        // chassis under one blade; same width as WheelBlock.s_hitBuffer.
-        private static readonly RaycastHit[] s_hitBuffer = new RaycastHit[8];
-
         [Header("Layers")]
         [Tooltip("Layers the hover blade's downward raycast can rest on. " +
                  "Default = all; self-chassis hits are filtered by rigidbody match.")]
@@ -356,24 +351,7 @@ namespace Robogame.Movement
         }
 
         private bool RaycastIgnoringSelf(Vector3 origin, Vector3 dir, float maxDist, out RaycastHit best)
-        {
-            int count = Physics.RaycastNonAlloc(origin, dir, s_hitBuffer, maxDist, _groundMask, QueryTriggerInteraction.Ignore);
-            best = default;
-            float bestDist = float.MaxValue;
-            bool found = false;
-            for (int i = 0; i < count; i++)
-            {
-                RaycastHit h = s_hitBuffer[i];
-                if (h.collider.attachedRigidbody == _chassisRb) continue; // self
-                if (h.distance < bestDist)
-                {
-                    bestDist = h.distance;
-                    best = h;
-                    found = true;
-                }
-            }
-            return found;
-        }
+            => ChassisRaycast.TryNearestIgnoring(_chassisRb, origin, dir, maxDist, _groundMask, out best);
 
         // -----------------------------------------------------------------
         // Visual rig
@@ -559,21 +537,8 @@ namespace Robogame.Movement
             rend.sharedMaterial = s_plumeMaterial;
         }
 
-        private static readonly int s_baseColorId   = Shader.PropertyToID("_BaseColor");
-        private static readonly int s_albedoColorId = Shader.PropertyToID("_AlbedoColor");
-        private static readonly int s_legacyColorId = Shader.PropertyToID("_Color");
 
         private static void TintRenderer(Transform t, Color colour)
-        {
-            if (t == null) return;
-            MeshRenderer mr = t.GetComponent<MeshRenderer>();
-            if (mr == null) return;
-            MaterialPropertyBlock mpb = new MaterialPropertyBlock();
-            mr.GetPropertyBlock(mpb);
-            mpb.SetColor(s_baseColorId,   colour);
-            mpb.SetColor(s_albedoColorId, colour);
-            mpb.SetColor(s_legacyColorId, colour);
-            mr.SetPropertyBlock(mpb);
-        }
+            => Core.RuntimeMaterials.Tint(t, colour);
     }
 }

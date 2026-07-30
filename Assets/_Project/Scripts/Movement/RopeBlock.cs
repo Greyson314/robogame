@@ -133,6 +133,12 @@ namespace Robogame.Movement
         private GameObject _segmentContainer;       // visual cylinders
         private Transform[] _segmentVisuals;        // one per (P[i], P[i+1])
         private Rigidbody _hubRb;                   // chassis Rigidbody
+        // Ancestor-Rb cache for the per-frame safety net below — same
+        // pattern as RotorBlock (performance.md §2.5): cache lazily,
+        // invalidate on OnTransformParentChanged, re-walk when the cached
+        // body goes fake-null (destroyed in place — no reparent event).
+        private Rigidbody _ancestorRbCached;
+        private bool _ancestorRbCacheValid;
         private Rigidbody _tipRb;                   // per-rope, scene-root, hosts tip block
         private GameObject _tipGo;
         private SphereCollider _tipCollider;
@@ -274,7 +280,11 @@ namespace Robogame.Movement
         // hands orphaned blocks their own Rigidbody and reparents to scene
         // root. When that happens our anchor changes; rebuild against it
         // so the rope stays hooked up to whichever rigidbody now owns us.
-        private void OnTransformParentChanged() => Rebuild();
+        private void OnTransformParentChanged()
+        {
+            _ancestorRbCacheValid = false;
+            Rebuild();
+        }
 
         // BlockPlaced subscriber: late-adoption path. When a Hook/Mace is
         // re-placed at our adjacent grid cell after we've already Built,
@@ -401,8 +411,15 @@ namespace Robogame.Movement
 
             // Cheap safety net for ancestor-rigidbody swaps the parent
             // change callback didn't catch (e.g. the chassis Rigidbody
-            // being destroyed mid-flight in some edge case).
-            Rigidbody current = GetComponentInParent<Rigidbody>();
+            // being destroyed mid-flight in some edge case). Cached so a
+            // per-frame tick doesn't pay the ancestor walk (perf §2.5);
+            // a fake-null cached body forces a re-walk next frame.
+            if (!_ancestorRbCacheValid || _ancestorRbCached == null)
+            {
+                _ancestorRbCached = GetComponentInParent<Rigidbody>();
+                _ancestorRbCacheValid = true;
+            }
+            Rigidbody current = _ancestorRbCached;
             if (current != _hubRb) { Rebuild(); return; }
             // Detect the garage's spawn → park transition. Block OnEnable
             // (and therefore the first Build) runs while the chassis is

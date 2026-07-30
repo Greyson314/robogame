@@ -174,15 +174,7 @@ namespace Robogame.Movement
         }
 
         private static void Tint(Renderer r, Color color)
-        {
-            if (r == null) return;
-            MaterialPropertyBlock mpb = new MaterialPropertyBlock();
-            r.GetPropertyBlock(mpb);
-            mpb.SetColor(Shader.PropertyToID("_AlbedoColor"), color);
-            mpb.SetColor(Shader.PropertyToID("_BaseColor"),   color);
-            mpb.SetColor(Shader.PropertyToID("_Color"),       color);
-            r.SetPropertyBlock(mpb);
-        }
+            => Core.RuntimeMaterials.Tint(r, color);
 
         // -----------------------------------------------------------------
         // Grapple lifecycle

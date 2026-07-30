@@ -25,7 +25,6 @@ namespace Robogame.Combat
         // gravity (works on spherical arenas) and is short enough that a launch
         // carries the spring out of range until it falls back.
         private const float GroundProbeDistance = 2.5f;
-        private static readonly RaycastHit[] s_groundHits = new RaycastHit[8];
 
         // Spring coil squash on launch + restore rate (visual only).
         private const float CoilCompressedScaleY = 0.45f;
@@ -108,14 +107,8 @@ namespace Robogame.Combat
             Vector3 gravity = GravityField.SampleAt(transform.position);
             if (gravity.sqrMagnitude < 1e-4f) return false;
             Vector3 down = gravity.normalized;
-            int count = Physics.RaycastNonAlloc(
-                transform.position, down, s_groundHits, GroundProbeDistance, ~0, QueryTriggerInteraction.Ignore);
-            for (int i = 0; i < count; i++)
-            {
-                if (s_groundHits[i].collider.attachedRigidbody == _chassisRb) continue; // own chassis
-                return true;
-            }
-            return false;
+            return Movement.ChassisRaycast.AnyHitIgnoring(
+                _chassisRb, transform.position, down, GroundProbeDistance, ~0);
         }
 
         /// <summary>Squash the spring coil on launch; <see cref="RestoreCoil"/> eases it back.</summary>
@@ -156,21 +149,8 @@ namespace Robogame.Combat
             _coil.localScale = new Vector3(s.x, y, s.z);
         }
 
-        private static readonly int s_baseColorId = Shader.PropertyToID("_BaseColor");
-        private static readonly int s_albedoColorId = Shader.PropertyToID("_AlbedoColor");
-        private static readonly int s_legacyColorId = Shader.PropertyToID("_Color");
 
         private static void TintRenderer(Transform t, Color colour)
-        {
-            if (t == null) return;
-            MeshRenderer mr = t.GetComponent<MeshRenderer>();
-            if (mr == null) return;
-            var mpb = new MaterialPropertyBlock();
-            mr.GetPropertyBlock(mpb);
-            mpb.SetColor(s_baseColorId, colour);
-            mpb.SetColor(s_albedoColorId, colour);
-            mpb.SetColor(s_legacyColorId, colour);
-            mr.SetPropertyBlock(mpb);
-        }
+            => Core.RuntimeMaterials.Tint(t, colour);
     }
 }

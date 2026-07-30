@@ -190,9 +190,6 @@ namespace Robogame.Combat
         private static readonly Color s_poleColor   = new(0.30f, 0.85f, 0.95f);
         private static readonly Color s_ropeColor   = new(0.42f, 0.42f, 0.45f);
         private static readonly Color s_flightTint  = new(0.55f, 0.85f, 0.95f);
-        private static readonly int s_albedoId = Shader.PropertyToID("_AlbedoColor");
-        private static readonly int s_baseId   = Shader.PropertyToID("_BaseColor");
-        private static readonly int s_legacyId = Shader.PropertyToID("_Color");
 
         // -----------------------------------------------------------------
         // Public API
@@ -865,14 +862,6 @@ namespace Robogame.Combat
         }
 
         private static void Tint(Renderer r, Color color)
-        {
-            if (r == null) return;
-            MaterialPropertyBlock mpb = new();
-            r.GetPropertyBlock(mpb);
-            mpb.SetColor(s_albedoId, color);
-            mpb.SetColor(s_baseId,   color);
-            mpb.SetColor(s_legacyId, color);
-            r.SetPropertyBlock(mpb);
-        }
+            => Core.RuntimeMaterials.Tint(r, color);
     }
 }

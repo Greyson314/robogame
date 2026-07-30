@@ -42,5 +42,62 @@ namespace Robogame.Core
             if (m.HasProperty("_Color")) m.SetColor("_Color", color);
             return m;
         }
+
+        // -------------------------------------------------------------
+        // MaterialPropertyBlock tinting
+        //
+        // One implementation for the "tint this renderer" idiom that was
+        // hand-copied across ~11 block visual rigs. Sets every color
+        // property family the project's shaders use: the MK Toon block
+        // shader (_AlbedoColor), URP Lit/Unlit (_BaseColor), and legacy
+        // (_Color). Properties a shader lacks are ignored, so writing all
+        // three is safe — and omitting one (as a drifted copy did with
+        // _AlbedoColor) silently no-ops on the toon shader.
+        // -------------------------------------------------------------
+
+        private static readonly int s_albedoColorId   = Shader.PropertyToID("_AlbedoColor");
+        private static readonly int s_baseColorId     = Shader.PropertyToID("_BaseColor");
+        private static readonly int s_legacyColorId   = Shader.PropertyToID("_Color");
+        private static readonly int s_emissionColorId = Shader.PropertyToID("_EmissionColor");
+
+        // Plain C# object (not a UnityEngine.Object): survives domain
+        // reload harmlessly — GetPropertyBlock overwrites it every call.
+        private static MaterialPropertyBlock s_tintMpb;
+
+        /// <summary>Tint a renderer via MaterialPropertyBlock (all shader families).</summary>
+        public static void Tint(Renderer r, Color color)
+        {
+            if (r == null) return;
+            MaterialPropertyBlock mpb = s_tintMpb ??= new MaterialPropertyBlock();
+            r.GetPropertyBlock(mpb);
+            mpb.SetColor(s_albedoColorId, color);
+            mpb.SetColor(s_baseColorId,   color);
+            mpb.SetColor(s_legacyColorId, color);
+            r.SetPropertyBlock(mpb);
+        }
+
+        /// <summary>
+        /// Tint plus emission. Emission is written only when it is
+        /// non-black, so unlit rigs don't pick up a stray property.
+        /// </summary>
+        public static void Tint(Renderer r, Color color, Color emission)
+        {
+            if (r == null) return;
+            MaterialPropertyBlock mpb = s_tintMpb ??= new MaterialPropertyBlock();
+            r.GetPropertyBlock(mpb);
+            mpb.SetColor(s_albedoColorId, color);
+            mpb.SetColor(s_baseColorId,   color);
+            mpb.SetColor(s_legacyColorId, color);
+            if (emission.maxColorComponent > 0f)
+                mpb.SetColor(s_emissionColorId, emission);
+            r.SetPropertyBlock(mpb);
+        }
+
+        /// <summary>Convenience: tint the Renderer on <paramref name="t"/>, if any.</summary>
+        public static void Tint(Transform t, Color color)
+        {
+            if (t == null) return;
+            Tint(t.GetComponent<Renderer>(), color);
+        }
     }
 }

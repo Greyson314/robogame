@@ -504,21 +504,13 @@ namespace Robogame.Combat
         private void SetGlow(Color color)
         {
             if (_glow == null) return;
-            MaterialPropertyBlock mpb = new MaterialPropertyBlock();
-            _glow.GetPropertyBlock(mpb);
-            mpb.SetColor(Shader.PropertyToID("_BaseColor"), color);
-            mpb.SetColor(Shader.PropertyToID("_Color"), color);
-            _glow.SetPropertyBlock(mpb);
+            Core.RuntimeMaterials.Tint(_glow, color);
         }
 
+        // Delegates to the shared helper, which also writes _AlbedoColor —
+        // the hand-copied version here omitted it, so tints silently
+        // no-opped on the MK Toon block shader.
         private static void Tint(Renderer r, Color color)
-        {
-            if (r == null) return;
-            MaterialPropertyBlock mpb = new MaterialPropertyBlock();
-            r.GetPropertyBlock(mpb);
-            mpb.SetColor(Shader.PropertyToID("_BaseColor"), color);
-            mpb.SetColor(Shader.PropertyToID("_Color"), color);
-            r.SetPropertyBlock(mpb);
-        }
+            => Core.RuntimeMaterials.Tint(r, color);
     }
 }
