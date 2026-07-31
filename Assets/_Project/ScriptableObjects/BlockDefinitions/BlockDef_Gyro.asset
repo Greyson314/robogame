@@ -18,9 +18,13 @@ MonoBehaviour:
   _maxHealth: 70
   _mass: 2
   _cpuCost: 30
-  _isLeafBlock: 0
+  _isLeafBlock: 1
   _sideMountOnly: 0
   _hasVariantConfig: 0
+  _topMountOnly: 0
+  _driveNeed: 0
+  _companionBlockId: 
+  _companionLateralAttachIds: []
   _prefab: {fileID: 0}
   _tintColor: {r: 1, g: 1, b: 1, a: 1}
   _material: {fileID: 2100000, guid: 98e8252e3c2633d43a950ef1bfa56f27, type: 2}

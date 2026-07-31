@@ -5,18 +5,11 @@ namespace Robogame.Movement
 {
     /// <summary>
     /// Attaches <see cref="GyroBlock"/> behaviour to gyro blocks placed
-    /// into the chassis grid. Same shape as <see cref="RobotWheelBinder"/>.
+    /// into the chassis grid.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class RobotGyroBinder : BlockBinder
+    public sealed class RobotGyroBinder : SingleBlockBinder<GyroBlock>
     {
-        protected override bool ShouldBind(BlockBehaviour block) =>
-            block.Definition.Id == BlockIds.Gyro;
-
-        protected override void Bind(BlockBehaviour block)
-        {
-            if (block.GetComponent<GyroBlock>() == null)
-                block.gameObject.AddComponent<GyroBlock>();
-        }
+        protected override string BlockId => BlockIds.Gyro;
     }
 }

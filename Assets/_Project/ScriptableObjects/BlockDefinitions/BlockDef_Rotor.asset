@@ -18,9 +18,16 @@ MonoBehaviour:
   _maxHealth: 60
   _mass: 0.6
   _cpuCost: 10
-  _isLeafBlock: 0
+  _isLeafBlock: 1
   _sideMountOnly: 0
-  _hasVariantConfig: 0
+  _hasVariantConfig: 1
+  _topMountOnly: 0
+  _driveNeed: 0
+  _companionBlockId: block.structure.cube
+  _companionLateralAttachIds:
+  - block.movement.aero
+  - block.movement.aero.fin
+  - block.cosmetic.rope
   _prefab: {fileID: 0}
   _tintColor: {r: 1, g: 1, b: 1, a: 1}
   _material: {fileID: 2100000, guid: 218632f03b0754c44819a193b77ab8c3, type: 2}

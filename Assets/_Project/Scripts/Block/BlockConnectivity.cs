@@ -16,54 +16,23 @@ namespace Robogame.Block
     /// builds on them.
     /// </para>
     /// <para>
-    /// The authoritative source is <see cref="BlockDefinition.IsLeafBlockRaw"/>
-    /// on the SO. The hardcoded id list below is a defensive fallback so
-    /// shipped assets without the flag still behave correctly — flagged
-    /// here rather than scattered through the placement code so future
-    /// scalable parts (Phase 2 wheels, Phase 4 panels, …) only need to
-    /// register here.
+    /// The authoritative source is the SO flag set
+    /// (<see cref="BlockDefinition.IsLeafBlockRaw"/> and siblings),
+    /// authored per definition by <c>BlockDefinitionWizard</c> — the old
+    /// hardcoded fallback lists are gone (ADR-0008). A new block
+    /// classifies by wizard arguments, not by registering here.
     /// </para>
     /// </remarks>
     public static class BlockConnectivity
     {
-        // Block ids that are leaves regardless of their SO flag. Lets us
-        // ship the rule without having to re-author every preset asset.
-        private static readonly HashSet<string> s_hardcodedLeafIds = new()
-        {
-            BlockIds.Aero,
-            BlockIds.AeroFin,
-            BlockIds.Wing,
-            BlockIds.Thruster,
-            BlockIds.Rudder,
-            BlockIds.Rotor,
-            BlockIds.Weapon,
-            BlockIds.Cannon,
-            BlockIds.BombBay,
-            BlockIds.Mortar,
-            BlockIds.Hook,
-            BlockIds.Mace,
-            BlockIds.Magnet,
-            BlockIds.GrappleMagnet,
-            BlockIds.Wheel,
-            BlockIds.WheelSteer,
-            BlockIds.Rope,
-            BlockIds.HoverBlade,
-        };
-
         /// <summary>True if the definition's faces are all non-connective —
-        /// i.e. nothing can be placed using this block as a host.</summary>
+        /// i.e. nothing can be placed using this block as a host. Reads the
+        /// authored SO flag only (ADR-0008 — the hardcoded fallback list is
+        /// gone; BlockDefinitionWizard authors the flag on every asset).</summary>
         public static bool IsLeaf(BlockDefinition def)
         {
-            if (def == null) return false;
-            if (def.IsLeafBlockRaw) return true;
-            return s_hardcodedLeafIds.Contains(def.Id);
+            return def != null && def.IsLeafBlockRaw;
         }
-
-        /// <summary>
-        /// Lookup by stable id (when the BlockBehaviour reference isn't
-        /// at hand — e.g. validating a blueprint plan pre-instantiation).
-        /// </summary>
-        public static bool IsLeafId(string blockId) => s_hardcodedLeafIds.Contains(blockId);
 
         /// <summary>
         /// Per-face connectivity: would the host accept a new block
@@ -97,10 +66,15 @@ namespace Robogame.Block
             if (!IsLeaf(hostDef)) return true;
             if (hostDef == null) return false;
             Vector3Int up = hostUp == Vector3Int.zero ? Vector3Int.up : hostUp;
-            if (hostDef.Id == BlockIds.Rotor) return placementUp == up;
+            // Companion exception (ADR-0008): a leaf that declares a
+            // companion keeps its +mount-up face connective — that face is
+            // where the companion sits (rotor → mechanism cube).
+            if (hostDef.HasCompanion) return placementUp == up;
             // Rope's tip face = the chain's free end direction = +mount-up
             // (per session 52's chain redesign — chain extends OUTWARD
             // from the chassis face, so the tip is at +up, not -up).
+            // Single-block semantics, stays code until a second chain
+            // block needs the hook (ADR-0008).
             if (hostDef.Id == BlockIds.Rope)  return placementUp == up;
             return false;
         }
@@ -149,12 +123,20 @@ namespace Robogame.Block
             if (host == null || host.Definition == null) return AcceptDecision.HostIsLeaf;
             BlockDefinition hostDef = host.Definition;
 
-            // Mechanism-cube rule (non-leaf host, lateral-face restriction).
-            if (hostDef.Id == BlockIds.Cube && grid != null)
+            // Companion-block rule (ADR-0008, non-leaf host, lateral-face
+            // restriction): when the host is some block's auto-placed
+            // companion — the owner sits one cell along the host's
+            // mount-up and declares this id as its companion — lateral
+            // faces accept only the owner's declared attach list (the
+            // rotor authors its blade/rope ring: aero foils adopt into
+            // the kinematic hub; ropes adopt for the centrifugal chain).
+            if (grid != null)
             {
                 Vector3Int cellBelow = host.GridPosition - host.Up;
                 if (grid.TryGetBlock(cellBelow, out BlockBehaviour below) && below != null
-                    && below.Definition != null && below.Definition.Id == BlockIds.Rotor
+                    && below.Definition != null
+                    && below.Definition.HasCompanion
+                    && below.Definition.CompanionBlockId == hostDef.Id
                     && below.Up == host.Up)
                 {
                     int dot = placementUp.x * host.Up.x + placementUp.y * host.Up.y + placementUp.z * host.Up.z;
@@ -162,14 +144,13 @@ namespace Robogame.Block
                     if (lateral)
                     {
                         if (placementDef == null) return AcceptDecision.HostFaceRejectsBlockType;
-                        // Aero blades adopt cleanly into the rotor's
-                        // kinematic hub. Ropes also adopt — rule of cool
-                        // per the user — and provide a centrifugal-chain
-                        // effect when the rotor spins.
-                        if (placementDef.Id != BlockIds.Aero
-                            && placementDef.Id != BlockIds.AeroFin
-                            && placementDef.Id != BlockIds.Rope)
-                            return AcceptDecision.HostFaceRejectsBlockType;
+                        var allowed = below.Definition.CompanionLateralAttachIds;
+                        bool accepted = false;
+                        for (int i = 0; i < allowed.Count; i++)
+                        {
+                            if (allowed[i] == placementDef.Id) { accepted = true; break; }
+                        }
+                        if (!accepted) return AcceptDecision.HostFaceRejectsBlockType;
                     }
                 }
             }
@@ -179,7 +160,9 @@ namespace Robogame.Block
 
             // Leaf-host exceptions:
             Vector3Int up = host.Up == Vector3Int.zero ? Vector3Int.up : host.Up;
-            if (hostDef.Id == BlockIds.Rotor)
+            // Companion exception (ADR-0008): +mount-up face stays open —
+            // that's where the declared companion sits.
+            if (hostDef.HasCompanion)
             {
                 return placementUp == up ? AcceptDecision.None : AcceptDecision.HostIsLeaf;
             }
@@ -190,10 +173,9 @@ namespace Robogame.Block
                 // chain-extends-toward-chassis convention.
                 if (placementUp != up) return AcceptDecision.HostIsLeaf;
                 if (placementDef == null) return AcceptDecision.HostFaceRejectsBlockType;
-                bool isTip = placementDef.Id == BlockIds.Hook
-                           || placementDef.Id == BlockIds.Mace
-                           || placementDef.Id == BlockIds.Magnet;
-                return isTip ? AcceptDecision.None : AcceptDecision.HostFaceRejectsBlockType;
+                return BlockIds.IsTipId(placementDef.Id)
+                    ? AcceptDecision.None
+                    : AcceptDecision.HostFaceRejectsBlockType;
             }
             return AcceptDecision.HostIsLeaf;
         }
@@ -202,26 +184,15 @@ namespace Robogame.Block
         // Mount-face constraints
         // -----------------------------------------------------------------
 
-        // Block ids that must mount on a side face (chassis ±X or ±Z).
-        // Used for wheels: the stem is horizontal, so a top / bottom mount
-        // would point the stem straight up or down. Hardcoded fallback so
-        // shipped wheel assets work without re-authoring the SO.
-        private static readonly HashSet<string> s_hardcodedSideMountOnlyIds = new()
-        {
-            BlockIds.Wheel,
-            BlockIds.WheelSteer,
-        };
-
         /// <summary>
         /// True if this block can only mount on side faces of a host
         /// (chassis ±X / ±Z, never ±Y). Caller is responsible for
         /// rejecting placements with up=±Y when this returns true.
+        /// Authored SO flag only (ADR-0008).
         /// </summary>
         public static bool RequiresSideMount(BlockDefinition def)
         {
-            if (def == null) return false;
-            if (def.SideMountOnlyRaw) return true;
-            return s_hardcodedSideMountOnlyIds.Contains(def.Id);
+            return def != null && def.SideMountOnlyRaw;
         }
 
         /// <summary>True if <paramref name="up"/> is a side-face direction (±X or ±Z, not ±Y).</summary>
@@ -230,23 +201,15 @@ namespace Robogame.Block
             return up.y == 0 && (up.x != 0 || up.z != 0);
         }
 
-        // Block ids that must mount on a TOP face (chassis +Y). The mortar
-        // is "placed on top of the bot" — its tube fires upward into a lob,
-        // so a side- or bottom-mount would be nonsensical. Hardcoded fallback
-        // so the shipped mortar asset works without a per-SO flag.
-        private static readonly HashSet<string> s_hardcodedTopMountOnlyIds = new()
-        {
-            BlockIds.Mortar,
-        };
-
         /// <summary>
         /// True if this block can only mount on the top face of a host
         /// (chassis +Y). Caller rejects placements with up != +Y when true.
+        /// Authored SO flag only (ADR-0008; the mortar is the model case —
+        /// its tube fires upward into a lob).
         /// </summary>
         public static bool RequiresTopMount(BlockDefinition def)
         {
-            if (def == null) return false;
-            return s_hardcodedTopMountOnlyIds.Contains(def.Id);
+            return def != null && def.TopMountOnlyRaw;
         }
 
         /// <summary>

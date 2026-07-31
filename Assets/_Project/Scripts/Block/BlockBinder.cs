@@ -48,4 +48,27 @@ namespace Robogame.Block
         /// <summary>Attach (or update) the per-block behaviour for <paramref name="block"/>.</summary>
         protected abstract void Bind(BlockBehaviour block);
     }
+
+    /// <summary>
+    /// One-block-id, one-component binder — the shape most binders take
+    /// (ADR-0008; RobotPogoBinder and RobotGyroBinder were line-identical
+    /// files before this base). Subclass with the concrete component type
+    /// and override <see cref="BlockId"/>; the closed generic subclass is
+    /// what AddComponent needs, so each binder is three lines.
+    /// </summary>
+    public abstract class SingleBlockBinder<TBehaviour> : BlockBinder
+        where TBehaviour : Component
+    {
+        /// <summary>The block id this binder reacts to.</summary>
+        protected abstract string BlockId { get; }
+
+        protected override bool ShouldBind(BlockBehaviour block) =>
+            block.Definition.Id == BlockId;
+
+        protected override void Bind(BlockBehaviour block)
+        {
+            if (block.GetComponent<TBehaviour>() == null)
+                block.gameObject.AddComponent<TBehaviour>();
+        }
+    }
 }

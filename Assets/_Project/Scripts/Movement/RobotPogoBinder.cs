@@ -5,18 +5,11 @@ namespace Robogame.Movement
 {
     /// <summary>
     /// Attaches <see cref="PogoBlock"/> behaviour to pogo blocks placed
-    /// into the chassis grid. Same shape as <see cref="RobotWheelBinder"/>.
+    /// into the chassis grid.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class RobotPogoBinder : BlockBinder
+    public sealed class RobotPogoBinder : SingleBlockBinder<PogoBlock>
     {
-        protected override bool ShouldBind(BlockBehaviour block) =>
-            block.Definition.Id == BlockIds.Pogo;
-
-        protected override void Bind(BlockBehaviour block)
-        {
-            if (block.GetComponent<PogoBlock>() == null)
-                block.gameObject.AddComponent<PogoBlock>();
-        }
+        protected override string BlockId => BlockIds.Pogo;
     }
 }

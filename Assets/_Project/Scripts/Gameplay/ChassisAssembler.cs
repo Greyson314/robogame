@@ -192,23 +192,27 @@ namespace Robogame.Gameplay
                     bool hasWheels = false, hasAero = false, hasWeapon = false, hasHovers = false, hasModule = false;
                     foreach (ChassisBlueprint.Entry e in blueprint.Entries)
                     {
-                        if (e.BlockId == BlockIds.Wheel || e.BlockId == BlockIds.WheelSteer) hasWheels = true;
-                        if (e.BlockId == BlockIds.Aero || e.BlockId == BlockIds.AeroFin) hasAero = true;
-                        if (e.BlockId == BlockIds.HoverBlade) hasHovers = true;
                         if (ModuleKinds.IsModuleId(e.BlockId)) hasModule = true;
-                        // TRACE[LOG-132]: weapon detection by definition
-                        // category, not a hand-synced id list — the old list
-                        // {Weapon, BombBay, Cannon, GrappleMagnet} silently
-                        // missed the mortar, so a mortar-only bot got no
-                        // WeaponMount / RobotWeaponBinder: red host cube,
-                        // dead trigger. Same registry-over-list move as
-                        // ADR-0003 phase B. Tip blocks are Weapon-category
-                        // too; the binder's own ShouldBind skips them, so an
-                        // idle binder on a tips-only bot is the only cost.
-                        BlockDefinition weaponProbe = library.Get(e.BlockId);
-                        if (weaponProbe != null &&
-                            weaponProbe.Category == BlockCategory.Weapon)
-                            hasWeapon = true;
+                        // TRACE[ADR-0008]: subsystem needs + weapon presence
+                        // ride the definition — the hand-synced id lists
+                        // (Wheel||WheelSteer, Aero||AeroFin, HoverBlade) are
+                        // gone. This generalises TRACE[LOG-132]'s mortar
+                        // lesson (the old weapon id list missed the mortar:
+                        // red host cube, dead trigger) and closes the same
+                        // trap that was still armed for Wing — a Wing-only
+                        // chassis got no PlaneControlSubsystem. Tip blocks
+                        // are Weapon-category too; the binder's own
+                        // ShouldBind skips them, so an idle binder on a
+                        // tips-only bot is the only cost.
+                        BlockDefinition def = library.Get(e.BlockId);
+                        if (def == null) continue;
+                        switch (def.DriveSubsystemNeed)
+                        {
+                            case DriveNeed.Ground: hasWheels = true; break;
+                            case DriveNeed.Flight: hasAero   = true; break;
+                            case DriveNeed.Hover:  hasHovers = true; break;
+                        }
+                        if (def.Category == BlockCategory.Weapon) hasWeapon = true;
                     }
 
                     if (hasWheels)

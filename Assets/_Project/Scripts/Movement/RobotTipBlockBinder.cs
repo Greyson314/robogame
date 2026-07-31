@@ -22,8 +22,7 @@ namespace Robogame.Movement
         protected override bool ShouldBind(BlockBehaviour block)
         {
             if (block == null || block.Definition == null) return false;
-            string id = block.Definition.Id;
-            return id == BlockIds.Hook || id == BlockIds.Mace || id == BlockIds.Magnet;
+            return BlockIds.IsTipId(block.Definition.Id);
         }
 
         protected override void Bind(BlockBehaviour block)

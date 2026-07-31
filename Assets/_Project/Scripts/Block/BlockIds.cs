@@ -124,5 +124,18 @@ namespace Robogame.Block
         // Fuse: splash-chain breaker — BlockGrid.ApplySplashDamage never
         // propagates through a live fuse.
         public const string Fuse          = "block.structure.fuse";
+
+        /// <summary>
+        /// The single "is this a rope-tip block" predicate (ADR-0008).
+        /// Tips are intrinsically code classes (each is a TipBlock
+        /// subclass), so the registry lives here next to the id constants
+        /// rather than as an SO flag. Adding a tip block: new TipBlock
+        /// subclass, new const above, one entry here — every consumer
+        /// (graph rope-bridge, placement, connectivity, binders) follows.
+        /// GrappleMagnet is deliberately NOT a tip: it is a turret weapon
+        /// that fires a tethered projectile.
+        /// </summary>
+        public static bool IsTipId(string blockId)
+            => blockId == Hook || blockId == Mace || blockId == Magnet;
     }
 }

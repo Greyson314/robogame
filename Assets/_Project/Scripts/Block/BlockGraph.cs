@@ -278,7 +278,7 @@ namespace Robogame.Block
                 Vector3Int tip = RopeGeometry.TipCell(bb);
                 TryEnqueueLive(grid, tip, buffers, ignoreCell);
             }
-            else if (id == BlockIds.Hook || id == BlockIds.Mace || id == BlockIds.Magnet)
+            else if (BlockIds.IsTipId(id))
             {
                 Vector3Int up = bb.Up == Vector3Int.zero ? Vector3Int.up : bb.Up;
                 for (int dist = 1; dist <= RopeGeometry.MaxLengthCells; dist++)
@@ -307,7 +307,7 @@ namespace Robogame.Block
                 Vector3Int tip = RopeGeometry.TipCell(bb);
                 if (tip != ignA && tip != ignB) TryEnqueueLive(grid, tip, buffers, ignoreCell: null);
             }
-            else if (id == BlockIds.Hook || id == BlockIds.Mace || id == BlockIds.Magnet)
+            else if (BlockIds.IsTipId(id))
             {
                 Vector3Int up = bb.Up == Vector3Int.zero ? Vector3Int.up : bb.Up;
                 for (int dist = 1; dist <= RopeGeometry.MaxLengthCells; dist++)
@@ -347,9 +347,7 @@ namespace Robogame.Block
                 Vector3Int tip = RopeGeometry.TipCell(entry);
                 TryEnqueuePositions(positions, tip, buffers, ignoreCell);
             }
-            else if (entry.BlockId == BlockIds.Hook
-                     || entry.BlockId == BlockIds.Mace
-                     || entry.BlockId == BlockIds.Magnet)
+            else if (BlockIds.IsTipId(entry.BlockId))
             {
                 Vector3Int up = entry.EffectiveUp;
                 for (int dist = 1; dist <= RopeGeometry.MaxLengthCells; dist++)

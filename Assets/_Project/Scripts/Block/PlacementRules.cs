@@ -290,8 +290,7 @@ namespace Robogame.Block
             return c.Cell - c.Up;
         }
 
-        private static bool IsTipBlockId(string id) =>
-            id == BlockIds.Hook || id == BlockIds.Mace || id == BlockIds.Magnet;
+        private static bool IsTipBlockId(string id) => BlockIds.IsTipId(id);
 
         private static bool ContainsLinear(IReadOnlyCollection<Vector3Int> set, Vector3Int value)
         {

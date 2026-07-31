@@ -54,39 +54,56 @@ namespace Robogame.Tools.Editor
             Color w = Color.white;
             CreateOrUpdate("BlockDef_Cube",       BlockIds.Cube,       "Structure Cube", BlockCategory.Structure, maxHealth: 100f, mass: 1f,   cpuCost: 1,  tint: w);
             CreateOrUpdate("BlockDef_Cpu",        BlockIds.Cpu,        "CPU",            BlockCategory.Cpu,       maxHealth: 200f, mass: 2f,   cpuCost: 0,  tint: w);
-            CreateOrUpdate("BlockDef_Wheel",      BlockIds.Wheel,      "Drive Wheel",    BlockCategory.Movement,  maxHealth:  80f, mass: 1.5f, cpuCost: 25, tint: w);
-            CreateOrUpdate("BlockDef_WheelSteer", BlockIds.WheelSteer, "Steer Wheel",    BlockCategory.Movement,  maxHealth:  80f, mass: 1.5f, cpuCost: 25, tint: w);
-            CreateOrUpdate("BlockDef_Thruster",   BlockIds.Thruster,   "Thruster",       BlockCategory.Movement,  maxHealth:  70f, mass: 2f,   cpuCost: 30, tint: w);
-            CreateOrUpdate("BlockDef_Aero",       BlockIds.Aero,       "Wing Section",   BlockCategory.Movement,  maxHealth:  50f, mass: 0.6f, cpuCost: 10, tint: w);
-            CreateOrUpdate("BlockDef_AeroFin",    BlockIds.AeroFin,    "Tail Fin",       BlockCategory.Movement,  maxHealth:  50f, mass: 0.5f, cpuCost: 8,  tint: w);
+            CreateOrUpdate("BlockDef_Wheel",      BlockIds.Wheel,      "Drive Wheel",    BlockCategory.Movement,  maxHealth:  80f, mass: 1.5f, cpuCost: 25, tint: w,
+                leaf: true, sideMount: true, drive: DriveNeed.Ground);
+            CreateOrUpdate("BlockDef_WheelSteer", BlockIds.WheelSteer, "Steer Wheel",    BlockCategory.Movement,  maxHealth:  80f, mass: 1.5f, cpuCost: 25, tint: w,
+                leaf: true, sideMount: true, drive: DriveNeed.Ground);
+            CreateOrUpdate("BlockDef_Thruster",   BlockIds.Thruster,   "Thruster",       BlockCategory.Movement,  maxHealth:  70f, mass: 2f,   cpuCost: 30, tint: w,
+                leaf: true);
+            CreateOrUpdate("BlockDef_Aero",       BlockIds.Aero,       "Wing Section",   BlockCategory.Movement,  maxHealth:  50f, mass: 0.6f, cpuCost: 10, tint: w,
+                leaf: true, variant: true, drive: DriveNeed.Flight);
+            CreateOrUpdate("BlockDef_AeroFin",    BlockIds.AeroFin,    "Tail Fin",       BlockCategory.Movement,  maxHealth:  50f, mass: 0.5f, cpuCost: 8,  tint: w,
+                leaf: true, variant: true, drive: DriveNeed.Flight);
             // Wing (session 140): the animated bat-wing aero part. Bigger
             // authored footprint than the foil (~2 cells span) → heavier,
             // tougher, pricier. Same AeroSurfaceBlock lift path.
-            CreateOrUpdate("BlockDef_Wing",       BlockIds.Wing,       "Wing",           BlockCategory.Movement,  maxHealth:  70f, mass: 1.2f, cpuCost: 18, tint: w);
-            CreateOrUpdate("BlockDef_Rudder",     BlockIds.Rudder,     "Rudder",         BlockCategory.Movement,  maxHealth:  60f, mass: 0.8f, cpuCost: 15, tint: w);
-            CreateOrUpdate("BlockDef_Weapon",     BlockIds.Weapon,     "Hitscan Gun",    BlockCategory.Weapon,    maxHealth:  60f, mass: 1.5f, cpuCost: 20, tint: w, componentData: smgDef);
-            CreateOrUpdate("BlockDef_BombBay",    BlockIds.BombBay,    "Bomb Bay",       BlockCategory.Weapon,    maxHealth: 110f, mass: 3.0f, cpuCost: 40, tint: w, componentData: bombDef);
+            CreateOrUpdate("BlockDef_Wing",       BlockIds.Wing,       "Wing",           BlockCategory.Movement,  maxHealth:  70f, mass: 1.2f, cpuCost: 18, tint: w,
+                leaf: true, variant: true, drive: DriveNeed.Flight);
+            // Rudder: leaf, but drive stays None on purpose — a rudder alone
+            // shouldn't grant a ground bot plane-control authority (ADR-0008).
+            CreateOrUpdate("BlockDef_Rudder",     BlockIds.Rudder,     "Rudder",         BlockCategory.Movement,  maxHealth:  60f, mass: 0.8f, cpuCost: 15, tint: w,
+                leaf: true);
+            CreateOrUpdate("BlockDef_Weapon",     BlockIds.Weapon,     "Hitscan Gun",    BlockCategory.Weapon,    maxHealth:  60f, mass: 1.5f, cpuCost: 20, tint: w, componentData: smgDef,
+                leaf: true, variant: true);
+            CreateOrUpdate("BlockDef_BombBay",    BlockIds.BombBay,    "Bomb Bay",       BlockCategory.Weapon,    maxHealth: 110f, mass: 3.0f, cpuCost: 40, tint: w, componentData: bombDef,
+                leaf: true, variant: true);
             // Cannon: pirate-themed gravity-projectile weapon. Slower
             // fire rate than SMG (~1 shot/sec), heavier per-hit damage,
             // gravity-affected so the player has to lead targets.
             // Heavier than the SMG block so it reads as "real artillery"
             // when placed on a chassis.
-            CreateOrUpdate("BlockDef_Cannon",     BlockIds.Cannon,     "Cannon",         BlockCategory.Weapon,    maxHealth:  90f, mass: 3.5f, cpuCost: 35, tint: w, componentData: cannonDef);
+            CreateOrUpdate("BlockDef_Cannon",     BlockIds.Cannon,     "Cannon",         BlockCategory.Weapon,    maxHealth:  90f, mass: 3.5f, cpuCost: 35, tint: w, componentData: cannonDef,
+                leaf: true, variant: true);
             // Mortar (session 108): top-mounted indirect-fire artillery.
             // Lobs an explosive shell on a camera-offset ballistic arc.
             // Heavier than the SMG, on par with the cannon. Must mount on a
             // top face (BlockConnectivity top-mount rule).
-            CreateOrUpdate("BlockDef_Mortar",     BlockIds.Mortar,     "Mortar",         BlockCategory.Weapon,    maxHealth: 100f, mass: 3.2f, cpuCost: 38, tint: w, componentData: mortarDef);
+            CreateOrUpdate("BlockDef_Mortar",     BlockIds.Mortar,     "Mortar",         BlockCategory.Weapon,    maxHealth: 100f, mass: 3.2f, cpuCost: 38, tint: w, componentData: mortarDef,
+                leaf: true, topMount: true, variant: true);
             // Rope is a Cosmetic free-body block: dangles a jointed
             // chain below the host cell. Cheap CPU + low mass so a
             // builder can hang one off any chassis without rebalancing.
-            CreateOrUpdate("BlockDef_Rope",       BlockIds.Rope,       "Rope",           BlockCategory.Cosmetic,  maxHealth:  40f, mass: 0.4f, cpuCost: 5,  tint: w);
+            CreateOrUpdate("BlockDef_Rope",       BlockIds.Rope,       "Rope",           BlockCategory.Cosmetic,  maxHealth:  40f, mass: 0.4f, cpuCost: 5,  tint: w,
+                leaf: true, variant: true);
             // Rotor is a Cosmetic spinning block. Hosts an optional ring
             // of ropes radiating from its hub — the helicopter / chained
             // flail use case. Slightly heftier than a rope (it carries
             // a kinematic hub plus its rope ring) but still well below
             // structural mass.
-            CreateOrUpdate("BlockDef_Rotor",      BlockIds.Rotor,      "Rotor",          BlockCategory.Cosmetic,  maxHealth:  60f, mass: 0.6f, cpuCost: 10, tint: w);
+            CreateOrUpdate("BlockDef_Rotor",      BlockIds.Rotor,      "Rotor",          BlockCategory.Cosmetic,  maxHealth:  60f, mass: 0.6f, cpuCost: 10, tint: w,
+                leaf: true, variant: true,
+                companionId: BlockIds.Cube,
+                companionLateral: new[] { BlockIds.Aero, BlockIds.AeroFin, BlockIds.Rope });
             // Hook + Mace tip blocks. Both adopt onto a rope's tip
             // segment at game-start and deal contact damage per
             // docs/subsystems/physics.md §3. Hook is light + sharp (high damage
@@ -100,44 +117,64 @@ namespace Robogame.Tools.Editor
             // is 1 m diameter. Mass scales with envelope volume — both
             // bumped roughly proportional, preserving the 3.3× hook→mace
             // mass ratio that drives the kinetic-energy differential.
-            CreateOrUpdate("BlockDef_Hook",       BlockIds.Hook,       "Rope Hook",      BlockCategory.Weapon,    maxHealth: 120f, mass: 0.5f, cpuCost: 18, tint: w);
-            CreateOrUpdate("BlockDef_Mace",       BlockIds.Mace,       "Rope Mace",      BlockCategory.Weapon,    maxHealth: 180f, mass: 5.0f, cpuCost: 28, tint: w);
+            CreateOrUpdate("BlockDef_Hook",       BlockIds.Hook,       "Rope Hook",      BlockCategory.Weapon,    maxHealth: 120f, mass: 0.5f, cpuCost: 18, tint: w,
+                leaf: true);
+            CreateOrUpdate("BlockDef_Mace",       BlockIds.Mace,       "Rope Mace",      BlockCategory.Weapon,    maxHealth: 180f, mass: 5.0f, cpuCost: 28, tint: w,
+                leaf: true);
             // Magnet (session 59): heavier than hook, lighter than
             // mace. Mid-cost CPU budget. Damage is small (DamagePerKj 0.8
             // on the component side); the value comes from the pull
             // field, not contact.
-            CreateOrUpdate("BlockDef_Magnet",     BlockIds.Magnet,     "Rope Magnet",    BlockCategory.Weapon,    maxHealth: 150f, mass: 3.0f, cpuCost: 24, tint: w);
+            CreateOrUpdate("BlockDef_Magnet",     BlockIds.Magnet,     "Rope Magnet",    BlockCategory.Weapon,    maxHealth: 150f, mass: 3.0f, cpuCost: 24, tint: w,
+                leaf: true);
             // Grapple magnet (session 61): standalone single-shot
             // launcher. Heavier than the SMG; spends its action
             // budget on the rope + tip projectile rather than ammo.
-            CreateOrUpdate("BlockDef_GrappleMagnet", BlockIds.GrappleMagnet, "Grapple Magnet", BlockCategory.Weapon, maxHealth: 140f, mass: 4.5f, cpuCost: 45, tint: w);
+            CreateOrUpdate("BlockDef_GrappleMagnet", BlockIds.GrappleMagnet, "Grapple Magnet", BlockCategory.Weapon, maxHealth: 140f, mass: 4.5f, cpuCost: 45, tint: w,
+                leaf: true);
             // Drill (Phase 3b): carves voxel dig zones. Moderate mass +
             // mid-cost CPU. No componentData yet — drill radius + emit
             // rate live on the DrillBlock MonoBehaviour as SerializeFields.
-            CreateOrUpdate("BlockDef_Drill",      BlockIds.Drill,      "Drill",          BlockCategory.Weapon,    maxHealth: 130f, mass: 3.5f, cpuCost: 32, tint: w);
+            CreateOrUpdate("BlockDef_Drill",      BlockIds.Drill,      "Drill",          BlockCategory.Weapon,    maxHealth: 130f, mass: 3.5f, cpuCost: 32, tint: w,
+                leaf: true);
             // Modules (session 105): each is its own destructible carrier whose
             // block type IS its ability (ModuleKinds maps id ↔ kind). Per-module
             // power rides the blueprint ConfigValue (no componentData SO — tuning
             // lives in ModuleTuning). Up to ModuleBudget.MaxModules per chassis.
             // Spring keeps its shipped id but is a Module now (a grounded launch).
-            CreateOrUpdate("BlockDef_Spring",      BlockIds.Spring,      "Spring",       BlockCategory.Module, maxHealth:  80f, mass: 1.8f, cpuCost: 20, tint: w);
-            CreateOrUpdate("BlockDef_ModuleEmp",   BlockIds.ModuleEmp,   "EMP Burst",    BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 30, tint: w);
-            CreateOrUpdate("BlockDef_ModuleBlink", BlockIds.ModuleBlink, "Blink",        BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 30, tint: w);
-            CreateOrUpdate("BlockDef_ModuleShield",BlockIds.ModuleShield,"Disc Shield",  BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 30, tint: w);
-            CreateOrUpdate("BlockDef_ModuleSmoke", BlockIds.ModuleSmoke, "Smoke",        BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 25, tint: w);
-            CreateOrUpdate("BlockDef_ModuleInvis", BlockIds.ModuleInvis, "Cloak",        BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 35, tint: w);
+            // Modules all carry the power slider (variant) — the old
+            // hardcoded variant list had drifted and missed Mines + Repair,
+            // making their sliders unreachable (ADR-0008 drift fix).
+            CreateOrUpdate("BlockDef_Spring",      BlockIds.Spring,      "Spring",       BlockCategory.Module, maxHealth:  80f, mass: 1.8f, cpuCost: 20, tint: w,
+                variant: true);
+            CreateOrUpdate("BlockDef_ModuleEmp",   BlockIds.ModuleEmp,   "EMP Burst",    BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 30, tint: w,
+                variant: true);
+            CreateOrUpdate("BlockDef_ModuleBlink", BlockIds.ModuleBlink, "Blink",        BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 30, tint: w,
+                variant: true);
+            CreateOrUpdate("BlockDef_ModuleShield",BlockIds.ModuleShield,"Disc Shield",  BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 30, tint: w,
+                variant: true);
+            CreateOrUpdate("BlockDef_ModuleSmoke", BlockIds.ModuleSmoke, "Smoke",        BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 25, tint: w,
+                variant: true);
+            CreateOrUpdate("BlockDef_ModuleInvis", BlockIds.ModuleInvis, "Cloak",        BlockCategory.Module, maxHealth:  90f, mass: 2.0f, cpuCost: 35, tint: w,
+                variant: true);
             // Mines (session 108): drops a ground proximity mine that detonates
             // when an enemy drives over it. Cheap-ish carrier; power (centre
             // damage) + cooldown ride ModuleTuning like the other modules.
-            CreateOrUpdate("BlockDef_ModuleMines", BlockIds.ModuleMines, "Mines",        BlockCategory.Module, maxHealth:  90f, mass: 2.2f, cpuCost: 28, tint: w);
+            CreateOrUpdate("BlockDef_ModuleMines", BlockIds.ModuleMines, "Mines",        BlockCategory.Module, maxHealth:  90f, mass: 2.2f, cpuCost: 28, tint: w,
+                variant: true);
             // Wave-1 prototype suite (session 155, docs/research/ea-block-triage.md).
             // All literals are first-pass placeholders pending live playtest.
             // Counterweight: dense trim ballast — mass is the whole feature.
             // Feather: huge-but-light fragile bulk; visual oversize deferred to
             // scalable-parts Phase 4, so for now it's a normal cell that weighs
             // almost nothing and pops if you sneeze at it.
-            CreateOrUpdate("BlockDef_Gyro",          BlockIds.Gyro,          "Gyro",          BlockCategory.Movement,  maxHealth:  70f, mass: 2.0f,  cpuCost: 30, tint: w);
-            CreateOrUpdate("BlockDef_Pogo",          BlockIds.Pogo,          "Pogo",          BlockCategory.Movement,  maxHealth:  70f, mass: 1.5f,  cpuCost: 20, tint: w);
+            // Gyro/Pogo/Drill leaf flags close the review gap: the old
+            // hardcoded leaf list predated wave 1, so structure could be
+            // stacked on a pogo foot (ADR-0008).
+            CreateOrUpdate("BlockDef_Gyro",          BlockIds.Gyro,          "Gyro",          BlockCategory.Movement,  maxHealth:  70f, mass: 2.0f,  cpuCost: 30, tint: w,
+                leaf: true);
+            CreateOrUpdate("BlockDef_Pogo",          BlockIds.Pogo,          "Pogo",          BlockCategory.Movement,  maxHealth:  70f, mass: 1.5f,  cpuCost: 20, tint: w,
+                leaf: true, variant: true);
             CreateOrUpdate("BlockDef_Counterweight", BlockIds.Counterweight, "Counterweight", BlockCategory.Structure, maxHealth: 150f, mass: 8f,    cpuCost: 5,  tint: w);
             CreateOrUpdate("BlockDef_Feather",       BlockIds.Feather,       "Feather Block", BlockCategory.Structure, maxHealth:  30f, mass: 0.15f, cpuCost: 2,  tint: w);
             CreateOrUpdate("BlockDef_SpikeArmor",    BlockIds.SpikeArmor,    "Spike Armor",   BlockCategory.Structure, maxHealth: 120f, mass: 1.5f,  cpuCost: 8,  tint: w);
@@ -167,7 +204,14 @@ namespace Robogame.Tools.Editor
             float mass,
             int cpuCost,
             Color tint,
-            ScriptableObject componentData = null)
+            ScriptableObject componentData = null,
+            bool leaf = false,
+            bool sideMount = false,
+            bool topMount = false,
+            bool variant = false,
+            DriveNeed drive = DriveNeed.None,
+            string companionId = null,
+            string[] companionLateral = null)
         {
             string path = $"{DefinitionsFolder}/{assetName}.asset";
             BlockDefinition def = AssetDatabase.LoadAssetAtPath<BlockDefinition>(path);
@@ -188,6 +232,22 @@ namespace Robogame.Tools.Editor
             so.FindProperty("_cpuCost").intValue = cpuCost;
             SerializedProperty tintProp = so.FindProperty("_tintColor");
             if (tintProp != null) tintProp.colorValue = tint;
+
+            // Classification flags (ADR-0008). The wizard is the durable
+            // authoring point — these re-stamp on every run, so the flag
+            // arguments above are the single source of truth (hand edits
+            // to the .asset would be reverted, same as the stat literals).
+            so.FindProperty("_isLeafBlock").boolValue      = leaf;
+            so.FindProperty("_sideMountOnly").boolValue    = sideMount;
+            so.FindProperty("_topMountOnly").boolValue     = topMount;
+            so.FindProperty("_hasVariantConfig").boolValue = variant;
+            so.FindProperty("_driveNeed").enumValueIndex   = (int)drive;
+            so.FindProperty("_companionBlockId").stringValue = companionId ?? "";
+            SerializedProperty lateralProp = so.FindProperty("_companionLateralAttachIds");
+            string[] lateral = companionLateral ?? System.Array.Empty<string>();
+            lateralProp.arraySize = lateral.Length;
+            for (int i = 0; i < lateral.Length; i++)
+                lateralProp.GetArrayElementAtIndex(i).stringValue = lateral[i];
 
             // Per-category material reference. Loaded by path right before
             // assignment to dodge the AssetDatabase fake-null pattern

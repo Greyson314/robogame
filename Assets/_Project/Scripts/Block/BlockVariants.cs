@@ -19,55 +19,18 @@ namespace Robogame.Block
     /// </remarks>
     public static class BlockVariants
     {
-        // Block ids that have variant config regardless of their SO flag.
-        // Lets us ship the rule without having to re-author every preset
-        // asset. Adding a new scalable block per
-        // docs/subsystems/scalable-parts.md only needs a new entry here.
-        private static readonly HashSet<string> s_hardcodedVariableIds = new()
-        {
-            BlockIds.Aero,
-            BlockIds.AeroFin,
-            BlockIds.Wing,
-            BlockIds.Rope,
-            BlockIds.Rotor,
-            BlockIds.HoverBlade,
-            // Modules: their "variant config" is the power slider (ConfigValue),
-            // which trades power for cooldown. Every module id qualifies.
-            BlockIds.Spring,
-            BlockIds.ModuleEmp,
-            BlockIds.ModuleBlink,
-            BlockIds.ModuleShield,
-            BlockIds.ModuleSmoke,
-            BlockIds.ModuleInvis,
-            // Explosive weapons: their "variant config" is the concoction
-            // chooser (a player recipe scaling damage/size/knockback for a CPU
-            // surcharge). See ADR-0004 / ConcoctionRegistry.IsConcoctableBlock.
-            BlockIds.BombBay,
-            BlockIds.Mortar,
-            // Ammo-configurable turrets: their "variant config" is the ammo
-            // multiplier slider (ConfigValue), trading CPU + mass for clip
-            // size. See WeaponAmmoDefaults.
-            BlockIds.Weapon,
-            BlockIds.Cannon,
-            // Pogo: bounce-height power slider (ConfigValue). See PogoDefaults.
-            BlockIds.Pogo,
-        };
-
         /// <summary>
         /// True when this block exposes per-instance variant config
-        /// (foil span/pitch, rope segment count, …).
+        /// (foil span/pitch, rope segment count, module power slider,
+        /// concoction chooser, ammo multiplier). Authored SO flag only
+        /// (ADR-0008) — BlockDefinitionWizard sets it per definition; the
+        /// old hardcoded id list (which had already drifted: ModuleMines
+        /// and ModuleRepair were missing, so their power sliders were
+        /// unreachable) is gone.
         /// </summary>
         public static bool HasVariantConfig(BlockDefinition def)
         {
-            if (def == null) return false;
-            if (def.HasVariantConfigRaw) return true;
-            return s_hardcodedVariableIds.Contains(def.Id);
+            return def != null && def.HasVariantConfigRaw;
         }
-
-        /// <summary>
-        /// Lookup by stable id (when the BlockDefinition reference isn't
-        /// at hand — e.g. parsing a raw blueprint payload).
-        /// </summary>
-        public static bool HasVariantConfigId(string blockId) => s_hardcodedVariableIds.Contains(blockId);
     }
 }

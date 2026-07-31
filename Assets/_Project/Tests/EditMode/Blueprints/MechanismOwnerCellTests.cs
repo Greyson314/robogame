@@ -57,6 +57,15 @@ namespace Robogame.Tests.EditMode.Blueprints
             typeof(BlockDefinition)
                 .GetField("_maxHealth", BindingFlags.NonPublic | BindingFlags.Instance)
                 ?.SetValue(def, 100f);
+            // ADR-0008: the owner-cell resolver reads the companion spec
+            // off the definition, so the test rotor must author it the
+            // same way the wizard does.
+            if (id == BlockIds.Rotor)
+            {
+                typeof(BlockDefinition)
+                    .GetField("_companionBlockId", BindingFlags.NonPublic | BindingFlags.Instance)
+                    ?.SetValue(def, BlockIds.Cube);
+            }
             return def;
         }
 

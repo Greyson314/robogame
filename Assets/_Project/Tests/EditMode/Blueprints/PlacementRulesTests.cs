@@ -131,13 +131,33 @@ namespace Robogame.Tests.EditMode.Blueprints
         // BlockDefinition has a private _id field — set it via reflection
         // so EditMode tests don't have to ship asset files. This is the
         // same path other EditMode tests use to assemble test SOs.
+        // ADR-0008: classification rides the SO flags now (the hardcoded
+        // id fallbacks are gone), so the factory mirrors the wizard's
+        // authored classification for the ids these tests exercise.
         private static BlockDefinition MakeBlockDefinition(string id)
         {
             BlockDefinition def = ScriptableObject.CreateInstance<BlockDefinition>();
-            FieldInfo idField = typeof(BlockDefinition).GetField("_id",
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            idField.SetValue(def, id);
+            SetField(def, "_id", id);
+            if (id == BlockIds.Rotor)
+            {
+                SetField(def, "_isLeafBlock", true);
+                SetField(def, "_companionBlockId", BlockIds.Cube);
+                SetField(def, "_companionLateralAttachIds",
+                    new[] { BlockIds.Aero, BlockIds.AeroFin, BlockIds.Rope });
+            }
+            else if (id == BlockIds.Aero || id == BlockIds.AeroFin)
+            {
+                SetField(def, "_isLeafBlock", true);
+            }
             return def;
+        }
+
+        private static void SetField(BlockDefinition def, string field, object value)
+        {
+            FieldInfo f = typeof(BlockDefinition).GetField(field,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(f, $"BlockDefinition.{field} not found — test factory out of date.");
+            f.SetValue(def, value);
         }
     }
 }

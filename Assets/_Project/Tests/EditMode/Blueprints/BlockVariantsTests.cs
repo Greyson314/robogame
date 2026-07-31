@@ -1,50 +1,75 @@
 using NUnit.Framework;
 using Robogame.Block;
+using UnityEditor;
 using UnityEngine;
 
 namespace Robogame.Tests.EditMode.Blueprints
 {
     /// <summary>
-    /// Pin the schema-side "does this block have variant config?"
-    /// query. The build hotbar's VAR badge and the variant panel's
-    /// visibility both flow from <see cref="BlockVariants"/> — a
-    /// regression that drops a block from the list silently strips
-    /// it of its sliders in the editor.
+    /// Pin the schema-side "does this block have variant config?" query
+    /// against the shipped assets (ADR-0008 — the SO flag is the only
+    /// source; the old hardcoded list is gone). The build hotbar's VAR
+    /// badge and the variant panel's visibility both flow from
+    /// <see cref="BlockVariants"/> — a wizard regression that drops the
+    /// flag silently strips a block of its sliders in the editor.
     /// </summary>
     public sealed class BlockVariantsTests
     {
-        [Test]
-        public void HasVariantConfigId_True_ForShippedScalableBlocks()
+        private const string LibraryPath =
+            "Assets/_Project/ScriptableObjects/BlockDefinitionLibrary.asset";
+
+        private static BlockDefinition Def(string id)
         {
-            Assert.IsTrue(BlockVariants.HasVariantConfigId(BlockIds.Aero));
-            Assert.IsTrue(BlockVariants.HasVariantConfigId(BlockIds.AeroFin));
-            Assert.IsTrue(BlockVariants.HasVariantConfigId(BlockIds.Rope));
-            Assert.IsTrue(BlockVariants.HasVariantConfigId(BlockIds.Rotor));
+            var lib = AssetDatabase.LoadAssetAtPath<BlockDefinitionLibrary>(LibraryPath);
+            Assert.IsNotNull(lib, $"Missing {LibraryPath} — run Robogame → Build Everything.");
+            BlockDefinition def = lib.Get(id);
+            Assert.IsNotNull(def, $"Library has no definition for '{id}'.");
+            return def;
+        }
+
+        [TestCase(BlockIds.Aero)]
+        [TestCase(BlockIds.AeroFin)]
+        [TestCase(BlockIds.Wing)]
+        [TestCase(BlockIds.Rope)]
+        [TestCase(BlockIds.Rotor)]
+        [TestCase(BlockIds.HoverBlade)]
+        [TestCase(BlockIds.Spring)]
+        [TestCase(BlockIds.ModuleEmp)]
+        [TestCase(BlockIds.ModuleBlink)]
+        [TestCase(BlockIds.ModuleShield)]
+        [TestCase(BlockIds.ModuleSmoke)]
+        [TestCase(BlockIds.ModuleInvis)]
+        [TestCase(BlockIds.ModuleMines)]
+        [TestCase(BlockIds.ModuleRepair)]
+        [TestCase(BlockIds.BombBay)]
+        [TestCase(BlockIds.Mortar)]
+        [TestCase(BlockIds.Weapon)]
+        [TestCase(BlockIds.Cannon)]
+        [TestCase(BlockIds.Pogo)]
+        public void VariableBlocks_HaveVariantConfig(string id)
+        {
+            // ModuleMines + ModuleRepair are the drift fix: the old list's
+            // comment said every module qualifies, but both were missing —
+            // their power sliders were unreachable.
+            Assert.IsTrue(BlockVariants.HasVariantConfig(Def(id)),
+                $"'{id}' should expose variant config. Author the flag in BlockDefinitionWizard.");
+        }
+
+        [TestCase(BlockIds.Cube)]
+        [TestCase(BlockIds.Cpu)]
+        [TestCase(BlockIds.Wheel)]
+        [TestCase(BlockIds.Thruster)]
+        public void FixedBlocks_HaveNoVariantConfig(string id)
+        {
+            Assert.IsFalse(BlockVariants.HasVariantConfig(Def(id)));
         }
 
         [Test]
-        public void HasVariantConfigId_False_ForFixedBlocks()
+        public void DefaultConstructedDefinition_IsNotVariable()
         {
-            Assert.IsFalse(BlockVariants.HasVariantConfigId(BlockIds.Cube));
-            Assert.IsFalse(BlockVariants.HasVariantConfigId(BlockIds.Cpu));
-            Assert.IsFalse(BlockVariants.HasVariantConfigId(BlockIds.Wheel));
-        }
-
-        [Test]
-        public void HasVariantConfig_PrefersSoFlag_OverHardcodedList()
-        {
-            // SO with id=cube but flag set → counts as variable.
             BlockDefinition def = ScriptableObject.CreateInstance<BlockDefinition>();
-            // Have to use SerializedObject to set the private field; the
-            // raw test is enough: a future block with HasVariantConfigRaw
-            // = true on the SO must be picked up regardless of the
-            // hardcoded list.
-            // Skipping the SerializedObject dance keeps this an EditMode
-            // pure-data test; the contract we care about is "if the SO
-            // says yes, the answer is yes" — covered by the property
-            // implementation in BlockDefinition itself.
             Assert.IsFalse(BlockVariants.HasVariantConfig(def),
-                "Default-constructed BlockDefinition has no flag and isn't on the hardcoded list.");
+                "No authored flag → no variant config; there is no id fallback any more.");
             Object.DestroyImmediate(def);
         }
     }

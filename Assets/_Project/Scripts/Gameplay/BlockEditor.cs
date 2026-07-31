@@ -531,7 +531,7 @@ namespace Robogame.Gameplay
         {
             BlockDefinition def = GetSelectedDefinition();
             if (def == null) return false;
-            return def.Id == BlockIds.Hook || def.Id == BlockIds.Mace || def.Id == BlockIds.Magnet;
+            return BlockIds.IsTipId(def.Id);
         }
 
         // -----------------------------------------------------------------
@@ -765,7 +765,7 @@ namespace Robogame.Gameplay
             BlockDefinition def = b.Definition;
             if (def == null) return;
 
-            if (!VariantConfigPanel.IsVariableBlock(def.Id))
+            if (!VariantConfigPanel.IsVariableBlock(def))
             {
                 Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
                 return;
@@ -906,7 +906,7 @@ namespace Robogame.Gameplay
             {
                 Vector3Int cell = BuildSession.ResolveMechanismOwnerCell(_grid.Blocks, _targetHitCell);
                 if (_grid.Blocks.TryGetValue(cell, out BlockBehaviour b) && b != null
-                    && b.Definition != null && VariantConfigPanel.IsVariableBlock(b.Definition.Id))
+                    && b.Definition != null && VariantConfigPanel.IsVariableBlock(b.Definition))
                     target = b;
             }
             // The bound instance already wears the stronger edit shell —

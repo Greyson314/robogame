@@ -59,27 +59,50 @@ namespace Robogame.Block
         [Tooltip("If true, no other block can attach to any of this block's faces. " +
                  "Used by the build-mode placement check to enforce \"can't build on top " +
                  "of a wing / weapon / thruster\" rules. Default false (block hosts on " +
-                 "all 6 faces). Specialty blocks should set this true; the placement " +
-                 "system also has a hardcoded fallback list (see BlockConnectivity) so " +
-                 "shipped assets without the flag still behave correctly.")]
+                 "all 6 faces). AUTHORITATIVE — author via BlockDefinitionWizard " +
+                 "(ADR-0008; the old hardcoded fallback lists are gone).")]
         [SerializeField] private bool _isLeafBlock = false;
 
         [Tooltip("If true, this block can only be placed on a side face of a host " +
                  "(chassis ±X or ±Z); top / bottom (±Y) mounts are rejected at " +
                  "placement time. Used for wheels: the stem is horizontal, so " +
                  "mounting a wheel on the top of a cube would point the stem " +
-                 "straight up. Default false (block can mount on any of the 6 faces). " +
-                 "BlockConnectivity has a hardcoded fallback list — shipped wheel " +
-                 "assets behave correctly without re-authoring the SO.")]
+                 "straight up. Default false. AUTHORITATIVE — author via " +
+                 "BlockDefinitionWizard (ADR-0008).")]
         [SerializeField] private bool _sideMountOnly = false;
 
         [Tooltip("If true, this block exposes per-instance variant config (foil " +
                  "span/thickness/chord/pitch, rope segment count, rotor collective). " +
                  "The build-mode variant panel renders sliders only for variable " +
-                 "blocks; the hotbar marks them with a 'VAR' badge. BlockVariants has " +
-                 "a hardcoded fallback list so shipped assets without the flag still " +
-                 "behave correctly.")]
+                 "blocks; the hotbar marks them with a 'VAR' badge. AUTHORITATIVE — " +
+                 "author via BlockDefinitionWizard (ADR-0008).")]
         [SerializeField] private bool _hasVariantConfig = false;
+
+        [Tooltip("If true, this block can only mount on the TOP face of a host " +
+                 "(chassis +Y). The mortar is the model case — its tube fires " +
+                 "upward into a lob, so side/bottom mounts are nonsensical. " +
+                 "Default false. AUTHORITATIVE — author via BlockDefinitionWizard " +
+                 "(ADR-0008).")]
+        [SerializeField] private bool _topMountOnly = false;
+
+        [Tooltip("Chassis-level drive subsystem this block implies. ChassisAssembler " +
+                 "unions the needs over the blueprint: Ground -> GroundDriveSubsystem, " +
+                 "Flight -> PlaneControlSubsystem, Hover -> HoverDriveSubsystem. " +
+                 "None for blocks with purely per-block behaviour (thruster, rudder). " +
+                 "ADR-0008.")]
+        [SerializeField] private DriveNeed _driveNeed = DriveNeed.None;
+
+        [Tooltip("If non-empty, placing this block auto-places the named companion " +
+                 "block at cell + mount-up (the rotor's mechanism cube is the model " +
+                 "case). Ownership resolution, cascade removal, and the lateral " +
+                 "attach restriction below all read this spec. ADR-0008.")]
+        [SerializeField] private string _companionBlockId = "";
+
+        [Tooltip("When this block has a companion: block ids that may attach to the " +
+                 "companion's LATERAL faces (perpendicular to mount-up). Empty = " +
+                 "nothing may attach laterally. Rotor authors its blade/rope ring " +
+                 "here. Ignored when CompanionBlockId is empty.")]
+        [SerializeField] private string[] _companionLateralAttachIds = System.Array.Empty<string>();
 
         [Header("Visuals")]
         [Tooltip("Prefab spawned when this block is placed. Must contain a BlockBehaviour at the root.")]
@@ -134,19 +157,34 @@ namespace Robogame.Block
         public float MaxHealth => _maxHealth;
         public float Mass => _mass;
         public int CpuCost => _cpuCost;
-        /// <summary>Raw flag from the asset; consumers should call
-        /// <see cref="BlockConnectivity.IsLeaf"/> instead, which also
-        /// applies the hardcoded fallback list.</summary>
+        /// <summary>Authoritative flag (ADR-0008); consumers should call
+        /// <see cref="BlockConnectivity.IsLeaf"/> for the null-safe read.</summary>
         public bool IsLeafBlockRaw => _isLeafBlock;
 
-        /// <summary>Raw flag from the asset; consumers should call
+        /// <summary>Authoritative flag (ADR-0008); consumers should call
         /// <see cref="BlockConnectivity.RequiresSideMount"/>.</summary>
         public bool SideMountOnlyRaw => _sideMountOnly;
 
-        /// <summary>Raw flag from the asset; consumers should call
-        /// <see cref="BlockVariants.HasVariantConfig"/> which also
-        /// applies the hardcoded fallback list for shipped assets.</summary>
+        /// <summary>Authoritative flag (ADR-0008); consumers should call
+        /// <see cref="BlockVariants.HasVariantConfig"/>.</summary>
         public bool HasVariantConfigRaw => _hasVariantConfig;
+
+        /// <summary>Authoritative flag (ADR-0008); consumers should call
+        /// <see cref="BlockConnectivity.RequiresTopMount"/>.</summary>
+        public bool TopMountOnlyRaw => _topMountOnly;
+
+        /// <summary>Chassis-level drive subsystem this block implies (ADR-0008).</summary>
+        public DriveNeed DriveSubsystemNeed => _driveNeed;
+
+        /// <summary>Companion block auto-placed at cell + mount-up, or empty (ADR-0008).</summary>
+        public string CompanionBlockId => _companionBlockId ?? "";
+
+        /// <summary>True when this block auto-places a companion (ADR-0008).</summary>
+        public bool HasCompanion => !string.IsNullOrEmpty(_companionBlockId);
+
+        /// <summary>Ids allowed on the companion's lateral faces (ADR-0008).</summary>
+        public System.Collections.Generic.IReadOnlyList<string> CompanionLateralAttachIds
+            => _companionLateralAttachIds ?? System.Array.Empty<string>();
         public GameObject Prefab => _prefab;
         public Color TintColor => _tintColor;
         public Material Material => _material;
@@ -168,5 +206,17 @@ namespace Robogame.Block
             }
         }
 #endif
+    }
+
+    /// <summary>
+    /// Chassis-level drive subsystem a block implies (ADR-0008). Serialized
+    /// on <see cref="BlockDefinition"/> — keep the numeric values stable.
+    /// </summary>
+    public enum DriveNeed
+    {
+        None = 0,
+        Ground = 1,
+        Flight = 2,
+        Hover = 3,
     }
 }

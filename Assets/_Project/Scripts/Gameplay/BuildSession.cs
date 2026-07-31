@@ -389,14 +389,15 @@ namespace Robogame.Gameplay
         private void AutoPlaceCompanionsOf(BlockDefinition def, Vector3Int cell, Vector3Int up)
         {
             if (def == null || Grid == null || Library == null) return;
-            if (def.Id == BlockIds.Rotor)
-            {
-                BlockDefinition cubeDef = Library.Get(BlockIds.Cube);
-                if (cubeDef == null) return;
-                Vector3Int mechanismCell = cell + up;
-                if (Grid.HasBlock(mechanismCell)) return;
-                Grid.PlaceBlock(cubeDef, mechanismCell, up, Vector3.zero, 0f);
-            }
+            // ADR-0008: the companion pairing rides the definition (the
+            // rotor authors Cube). Companions sit at cell + mount-up by
+            // contract; an occupied cell is adopted as-is.
+            if (!def.HasCompanion) return;
+            BlockDefinition companionDef = Library.Get(def.CompanionBlockId);
+            if (companionDef == null) return;
+            Vector3Int companionCell = cell + up;
+            if (Grid.HasBlock(companionCell)) return;
+            Grid.PlaceBlock(companionDef, companionCell, up, Vector3.zero, 0f);
         }
 
         /// <summary>
@@ -418,12 +419,16 @@ namespace Robogame.Gameplay
         {
             if (blocks == null) return cell;
             if (!blocks.TryGetValue(cell, out BlockBehaviour b) || b == null) return cell;
-            if (b.Definition == null || b.Definition.Id != BlockIds.Cube) return cell;
+            if (b.Definition == null) return cell;
+            // ADR-0008: a block is a companion when some adjacent owner
+            // declares this id as its CompanionBlockId and points its
+            // mount-up at this cell.
             for (int i = 0; i < s_cascadeFaces.Length; i++)
             {
                 Vector3Int d = s_cascadeFaces[i];
                 if (!blocks.TryGetValue(cell - d, out BlockBehaviour r) || r == null) continue;
-                if (r.Definition == null || r.Definition.Id != BlockIds.Rotor) continue;
+                if (r.Definition == null || !r.Definition.HasCompanion) continue;
+                if (r.Definition.CompanionBlockId != b.Definition.Id) continue;
                 if (r.Up == d) return cell - d;
             }
             return cell;
@@ -441,11 +446,13 @@ namespace Robogame.Gameplay
         {
             if (Grid == null) return null;
             if (!Grid.TryGetBlock(cell, out BlockBehaviour block) || block == null) return null;
-            if (block.Definition == null || block.Definition.Id != BlockIds.Rotor) return null;
+            // ADR-0008: cascade applies to any block with a declared
+            // companion (the rotor's mechanism cube is the model case).
+            if (block.Definition == null || !block.Definition.HasCompanion) return null;
             Vector3Int spinAxis = block.Up == Vector3Int.zero ? Vector3Int.up : block.Up;
             Vector3Int mechCell = cell + spinAxis;
             if (!Grid.TryGetBlock(mechCell, out BlockBehaviour mech) || mech == null) return null;
-            if (mech.Definition == null || mech.Definition.Id != BlockIds.Cube) return null;
+            if (mech.Definition == null || mech.Definition.Id != block.Definition.CompanionBlockId) return null;
             // Only cascade when the cube has no neighbours other than
             // this rotor — otherwise blades or chained structure are at
             // stake, and the user should be the one to clear them.

@@ -240,11 +240,11 @@ namespace Robogame.Gameplay
 
         /// <summary>
         /// True when the block id participates in the variant config UI.
-        /// Delegates to <see cref="BlockVariants.HasVariantConfigId"/>
+        /// Delegates to <see cref="BlockVariants.HasVariantConfig"/>
         /// so the hotbar 'VAR' badge, the panel visibility, and any
         /// future schema-side reader stay aligned on a single answer.
         /// </summary>
-        public static bool IsVariableBlock(string id) => BlockVariants.HasVariantConfigId(id);
+        public static bool IsVariableBlock(BlockDefinition def) => BlockVariants.HasVariantConfig(def);
 
         // -----------------------------------------------------------------
         // Lifecycle

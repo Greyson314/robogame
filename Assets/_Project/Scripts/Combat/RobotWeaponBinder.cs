@@ -28,7 +28,7 @@ namespace Robogame.Combat
             // reticle — wrong behaviour for a rope-tip that should hang
             // freely from the rope. Skip them here.
             string id = block.Definition.Id;
-            if (id == BlockIds.Hook || id == BlockIds.Mace || id == BlockIds.Magnet) return false;
+            if (BlockIds.IsTipId(id)) return false;
             return true;
         }
 
