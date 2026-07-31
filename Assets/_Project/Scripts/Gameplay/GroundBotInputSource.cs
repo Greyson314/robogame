@@ -278,8 +278,8 @@ namespace Robogame.Gameplay
 
                 case BotState.Retreat:
                     // Sticky — stays in Retreat until destroyed or HP rises
-                    // back above the threshold (no heal mechanic today, so
-                    // effectively until destroyed).
+                    // back above the threshold (RepairPad / RepairPulse
+                    // module can heal it back over).
                     if (HealthFraction >= _retreatHealthFraction) _state = _target != null && dist < _chaseRange ? BotState.Pursue : BotState.Patrol;
                     break;
             }

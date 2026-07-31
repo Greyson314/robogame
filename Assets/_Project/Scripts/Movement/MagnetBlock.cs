@@ -93,10 +93,6 @@ namespace Robogame.Movement
         [Tooltip("Cooldown after release before the magnet can re-latch. Stops the pull field from immediately re-snagging a target the player just shook off.")]
         [SerializeField, Min(0f)] private float _relatchCooldown = 0.5f;
 
-        // Pre-sized buffer for OverlapSphereNonAlloc so the pull loop
-        // doesn't allocate per FixedUpdate. 32 is comfortably above the
-        // block count any reasonable target packs.
-        private static readonly Collider[] s_overlapBuffer = new Collider[32];
 
         private float _nextPulseAt = -1f;
 
@@ -290,44 +286,33 @@ namespace Robogame.Movement
 
         private void ApplyPullForces()
         {
+            // Iterate the chassis registry instead of an OverlapSphere:
+            // with mask ~0 the fixed overlap buffer filled up with the
+            // owner's own block colliders (skipped, but still occupying
+            // slots), so a real target chassis inside the radius could be
+            // silently dropped. The registry is saturation-proof, cheaper
+            // (no physics query, no per-collider dedup), and matches the
+            // tip-blocks doc: the field pulls chassis, not loose debris.
             Vector3 worldOrigin = _hostRb.transform.position;
-            int hitCount = Physics.OverlapSphereNonAlloc(
-                worldOrigin, _pullRadius, s_overlapBuffer,
-                ~0, QueryTriggerInteraction.Ignore);
-
-            for (int i = 0; i < hitCount; i++)
+            var chassis = Robogame.Core.ChassisRegistry.Active;
+            for (int i = 0; i < chassis.Count; i++)
             {
-                Collider c = s_overlapBuffer[i];
-                if (c == null) continue;
-                Rigidbody targetRb = c.attachedRigidbody;
+                Rigidbody targetRb = chassis[i];
                 if (targetRb == null || targetRb.isKinematic) continue;
 
                 // Self-skip: chassis + tip body.
                 if (targetRb == _ownerChassisRb) continue;
                 if (targetRb == _hostRb) continue;
 
-                // Dedup against earlier buffer entries.
-                bool alreadySeen = false;
-                for (int j = 0; j < i; j++)
-                {
-                    Collider prior = s_overlapBuffer[j];
-                    if (prior == null) continue;
-                    if (prior.attachedRigidbody == targetRb) { alreadySeen = true; break; }
-                }
-                if (alreadySeen) continue;
-
                 Vector3 delta = worldOrigin - targetRb.worldCenterOfMass;
                 float distance = delta.magnitude;
-                if (distance < 0.05f) continue;
+                if (distance < 0.05f || distance > _pullRadius) continue;
 
                 float t = 1f - Mathf.Clamp01(distance / _pullRadius);
                 float gain = Mathf.Pow(t, Mathf.Max(0.01f, _falloffExponent));
                 Vector3 dir = delta / distance;
                 targetRb.AddForce(dir * (_pullForce * gain), ForceMode.Force);
             }
-
-            // Clear scratch slots so destroyed colliders don't linger.
-            for (int i = 0; i < hitCount; i++) s_overlapBuffer[i] = null;
         }
 
         private void MaybePulseVfx()

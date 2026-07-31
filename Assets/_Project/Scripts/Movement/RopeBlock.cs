@@ -45,7 +45,7 @@ namespace Robogame.Movement
     /// </remarks>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(BlockBehaviour))]
-    public sealed class RopeBlock : MonoBehaviour
+    public sealed class RopeBlock : MonoBehaviour, Block.IDetachAware
     {
         [Header("Visual")]
         [Tooltip("Tint applied to the segment cylinders. Defaults to a dark slate; " +
@@ -285,6 +285,11 @@ namespace Robogame.Movement
             _ancestorRbCacheValid = false;
             Rebuild();
         }
+
+        // Robot.DetachAsDebris disables block behaviours by default; the
+        // rope opts out — the OnTransformParentChanged rebuild above
+        // re-anchors the chain to the debris Rigidbody by design.
+        void Block.IDetachAware.OnDetachedAsDebris() { }
 
         // BlockPlaced subscriber: late-adoption path. When a Hook/Mace is
         // re-placed at our adjacent grid cell after we've already Built,

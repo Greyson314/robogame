@@ -164,8 +164,10 @@ namespace Robogame.Block
                 ApplySharedMaterial(go, definition.Material);
             }
 
-            ApplyTint(go, definition.TintColor);
-
+            // Definition TintColor is applied by BlockBehaviour's
+            // damage-visual MPB (Initialize below) — a placement-time MPB
+            // here was wiped the same frame by the full-health
+            // SetPropertyBlock(null) batcher-rejoin path.
             BlockBehaviour block = go.GetComponent<BlockBehaviour>();
             if (block == null) block = go.AddComponent<BlockBehaviour>();
             block.Initialize(definition, gridPos, dims, up, pitchDeg, yawDeg);
@@ -252,36 +254,6 @@ namespace Robogame.Block
             }
         }
 
-        /// <summary>
-        /// Apply a tint colour to every <see cref="MeshRenderer"/> below
-        /// <paramref name="root"/>. Uses a <see cref="MaterialPropertyBlock"/>
-        /// so the shared category material isn't recoloured project-wide,
-        /// and we don't churn per-block material instances. No-op if the
-        /// tint is white (the default).
-        /// </summary>
-        private static void ApplyTint(GameObject root, Color tint)
-        {
-            if (root == null) return;
-            if (Mathf.Approximately(tint.r, 1f) &&
-                Mathf.Approximately(tint.g, 1f) &&
-                Mathf.Approximately(tint.b, 1f) &&
-                Mathf.Approximately(tint.a, 1f)) return;
-
-            MeshRenderer[] renderers = root.GetComponentsInChildren<MeshRenderer>(includeInactive: true);
-            MaterialPropertyBlock mpb = new MaterialPropertyBlock();
-            int albedoId = Shader.PropertyToID("_AlbedoColor");
-            int baseId   = Shader.PropertyToID("_BaseColor");
-            int legacyId = Shader.PropertyToID("_Color");
-            foreach (MeshRenderer mr in renderers)
-            {
-                if (mr == null) continue;
-                mr.GetPropertyBlock(mpb);
-                mpb.SetColor(albedoId, tint);
-                mpb.SetColor(baseId,   tint);
-                mpb.SetColor(legacyId, tint);
-                mr.SetPropertyBlock(mpb);
-            }
-        }
 
         /// <summary>Drop every block. Used during scaffolding/rebuild.</summary>
         public void Clear()

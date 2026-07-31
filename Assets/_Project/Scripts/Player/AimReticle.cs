@@ -103,6 +103,7 @@ namespace Robogame.Player
             Robot localRobot = _follow != null && _follow.Target != null
                 ? _follow.Target.GetComponentInParent<Robot>()
                 : null;
+            BlockGrid localGrid = localRobot != null ? localRobot.Grid : null;
             float bestDist = float.MaxValue;
             for (int i = 0; i < n; i++)
             {
@@ -112,6 +113,21 @@ namespace Robogame.Player
                 if (dmg == null || !dmg.IsAlive) continue;
                 Robot otherRobot = (dmg as Component)?.GetComponentInParent<Robot>();
                 if (otherRobot != null && otherRobot == localRobot) continue;
+                // Reparented own blocks (rotor foils adopted under a
+                // scene-root kinematic hub) have no Robot ancestor, so the
+                // check above misses them and the crosshair went red on the
+                // player's own spinning foils. Resolve via grid membership —
+                // same self-check as RobotDrive.ComputeAimPoint.
+                if (localGrid != null)
+                {
+                    BlockBehaviour bb = h.collider.GetComponentInParent<BlockBehaviour>();
+                    if (bb != null
+                        && localGrid.TryGetBlock(bb.GridPosition, out BlockBehaviour ownBlock)
+                        && ownBlock == bb)
+                    {
+                        continue;
+                    }
+                }
                 if (h.distance < bestDist)
                 {
                     bestDist = h.distance;

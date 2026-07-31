@@ -83,8 +83,14 @@ namespace Robogame.Network.Diagnostics
         {
             if (s_instance != null) return s_instance;
             if (host == null) return null;
-            s_instance = host.GetComponent<NetcodeFakeLatencyController>()
-                      ?? host.AddComponent<NetcodeFakeLatencyController>();
+            // Explicit Unity-null check, NOT `??`: in the Editor a missing
+            // component comes back as a fake-null wrapper that satisfies
+            // `??`, so AddComponent never ran and F5 drove a ghost instance
+            // whose Awake never fired — the tool silently no-opped in the
+            // exact in-Editor MPPM scenario it exists for.
+            NetcodeFakeLatencyController found = host.GetComponent<NetcodeFakeLatencyController>();
+            if (found == null) found = host.AddComponent<NetcodeFakeLatencyController>();
+            s_instance = found;
             return s_instance;
         }
 
@@ -101,8 +107,10 @@ namespace Robogame.Network.Diagnostics
             // DontDestroyOnLoad lifetime. NetworkSimulator binds to network
             // adapters via the global NetworkAdapters registry, so it does
             // not need to co-locate with UnityTransport.
-            _sim = gameObject.GetComponent<NetworkSimulator>()
-                ?? gameObject.AddComponent<NetworkSimulator>();
+            // Explicit Unity-null check (see EnsureAttached — `??` keeps
+            // the Editor's fake-null and the simulator was never added).
+            _sim = gameObject.GetComponent<NetworkSimulator>();
+            if (_sim == null) _sim = gameObject.AddComponent<NetworkSimulator>();
             _sim.ConnectionPreset = Presets[_activeIndex];
         }
 

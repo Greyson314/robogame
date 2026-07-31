@@ -189,8 +189,23 @@ namespace Robogame.Network.Robot
             // Server: drain commands + periodic snapshot to owner.
             if (_serverDrivesRemote && _serverQueue != null && _netInput != null)
             {
-                if (_serverQueue.TryDrainNext(out InputCommand cmd))
+                // One command per tick in the steady state. A jitter burst
+                // delivers several fresh ticks at once, and one-in/one-out
+                // would keep that backlog (and its added input latency)
+                // forever — catch up by applying a few extra commands this
+                // tick until the queue is back under a small tolerance.
+                // Each drained command goes through Apply so held input
+                // converges on the newest; the physics step sees the last.
+                const int BacklogTolerance = 2;
+                const int MaxCatchUpPerTick = 4;
+                int applied = 0;
+                while (_serverQueue.TryDrainNext(out InputCommand cmd))
+                {
                     _netInput.Apply(cmd);
+                    applied++;
+                    if (applied >= MaxCatchUpPerTick) break;
+                    if (_serverQueue.PendingCount <= BacklogTolerance) break;
+                }
 
                 if (_rb != null && --_ticksUntilSnapshot <= 0)
                 {

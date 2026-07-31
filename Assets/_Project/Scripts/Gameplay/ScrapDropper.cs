@@ -114,7 +114,9 @@ namespace Robogame.Gameplay
 
             for (int i = 0; i < pickupCount; i++)
             {
-                Vector3 offset = Random.insideUnitSphere * _scatterRadius;
+                // Seeded stream — pickup landing spots are gameplay-
+                // observable (who can collect what), §12.4.
+                Vector3 offset = Robogame.Core.GameplayRng.InsideUnitSphere * _scatterRadius;
                 offset.y = Mathf.Abs(offset.y) + _scatterUpward;
                 int v = valuePerPickup + (i == 0 ? remainder : 0);
                 ScrapPickup.Spawn(origin + offset, v);

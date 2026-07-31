@@ -243,8 +243,14 @@ namespace Robogame.Gameplay
                     if (_target == null) _state = BotState.Cruise;
                     else if (dist > _optimalRange + _engageBuffer * 1.5f) _state = BotState.Pursue;
                     break;
-                // LowHealth is sticky; only cleared by re-cross of HP threshold
-                // (no heal mechanic today, so effectively until destroyed).
+                case BotState.LowHealth:
+                    // Sticky until HP re-crosses the threshold. Healing is
+                    // real (RepairPad, RepairPulse module), so without this
+                    // exit a patched-up bot stayed crippled forever —
+                    // mirrors GroundBotInputSource's Retreat recovery.
+                    if (HealthFraction >= _lowHealthFraction)
+                        _state = _target != null && dist < _chaseRange ? BotState.Pursue : BotState.Cruise;
+                    break;
             }
 
             switch (_state)
@@ -373,8 +379,10 @@ namespace Robogame.Gameplay
             // GetComponent per frame.
             if (_target != null && _targetRbTransform != _target)
             {
-                _targetRb = _target.GetComponent<Rigidbody>()
-                            ?? _target.GetComponentInParent<Rigidbody>();
+                // GetComponentInParent covers the self case; `??` on a
+                // Unity object bypasses the fake-null check and dead-coded
+                // the parent fallback in-Editor (lead-aim silently off).
+                _targetRb = _target.GetComponentInParent<Rigidbody>();
                 _targetRbTransform = _target;
             }
             if (_targetRb == null || _projectileSpeedEstimate <= 0f) return targetPos;

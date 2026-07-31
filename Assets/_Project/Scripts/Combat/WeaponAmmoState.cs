@@ -95,6 +95,9 @@ namespace Robogame.Combat
 
         private void Update()
         {
+            // Late-resolve: OnEnable can run before the input source lands
+            // on the chassis root (LOG-132 activation-order class).
+            if (_input == null) _input = GetComponentInParent<IInputSource>();
             // Manual reload (R): player only; bot ReloadPressed is always
             // false. Don't double-trigger if the pool is already in a
             // reload (handled inside RequestReloadAll).
@@ -104,6 +107,14 @@ namespace Robogame.Combat
             }
             TickReloads();
         }
+
+        // Reload cues route through the 2D UI channel, which is only
+        // correct for the chassis the player is driving — every AI bot
+        // carries a WeaponAmmoState too, and ungated cues played a
+        // full-volume click for every bot reload anywhere on the map.
+        // MP note: when ownership lands, the delegating NetworkInputSource
+        // must surface its inner source for this check.
+        private bool IsLocalPlayerChassis => _input is PlayerInputHandler;
 
         // -----------------------------------------------------------------
         // Public API (called from weapon block Update paths)
@@ -194,14 +205,14 @@ namespace Robogame.Combat
                 {
                     p.ReloadStartsAt = 0f;
                     p.ReloadEndsAt = now + Mathf.Max(0.05f, p.ReloadDuration);
-                    AudioRouter.PlayUI(AudioCue.ReloadStart);
+                    if (IsLocalPlayerChassis) AudioRouter.PlayUI(AudioCue.ReloadStart);
                     changed = true;
                 }
                 else if (p.ReloadEndsAt > 0f && now >= p.ReloadEndsAt)
                 {
                     p.ReloadEndsAt = 0f;
                     p.Current = p.Max;
-                    AudioRouter.PlayUI(AudioCue.ReloadComplete);
+                    if (IsLocalPlayerChassis) AudioRouter.PlayUI(AudioCue.ReloadComplete);
                     changed = true;
                 }
                 if (changed)

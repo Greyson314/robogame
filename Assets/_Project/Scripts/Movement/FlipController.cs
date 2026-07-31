@@ -142,7 +142,24 @@ namespace Robogame.Movement
             // the chassis's current up onto the local-up vector, applied
             // on top of the current rotation. Keeps the chassis's heading
             // (forward axis) intact — flipping fixes roll/pitch only.
-            Quaternion delta = Quaternion.FromToRotation(transform.up, up);
+            // Antiparallel special case: resting exactly on its back is
+            // the flip's primary use case, and FromToRotation's axis is
+            // undefined there — an arbitrary 180° arc can pitch the bot
+            // nose-over-tail and reverse its heading. Roll about the
+            // up-plane-projected forward axis instead: up flips, heading
+            // stays.
+            Quaternion delta;
+            if (Vector3.Dot(transform.up, up) < -0.999f)
+            {
+                Vector3 axis = Vector3.ProjectOnPlane(transform.forward, up);
+                if (axis.sqrMagnitude < 1e-6f)
+                    axis = Vector3.ProjectOnPlane(transform.right, up);
+                delta = Quaternion.AngleAxis(180f, axis.normalized);
+            }
+            else
+            {
+                delta = Quaternion.FromToRotation(transform.up, up);
+            }
             _flipStartRot = transform.rotation;
             _flipTargetRot = delta * transform.rotation;
             _flipStartTime = Time.time;

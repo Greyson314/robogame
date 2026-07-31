@@ -214,6 +214,9 @@ namespace Robogame.Robots
                 _grid.BlockPlaced += HandleBlockPlaced;
                 _grid.BlockRemoving += HandleBlockRemoving;
             }
+            // Low-level systems (magnet pull field, pickups) iterate live
+            // chassis via the Core registry instead of physics overlaps.
+            Robogame.Core.ChassisRegistry.Register(_rb);
         }
 
         private void OnDisable()
@@ -223,6 +226,7 @@ namespace Robogame.Robots
                 _grid.BlockPlaced -= HandleBlockPlaced;
                 _grid.BlockRemoving -= HandleBlockRemoving;
             }
+            Robogame.Core.ChassisRegistry.Unregister(_rb);
         }
 
         private void Start()
@@ -645,6 +649,28 @@ namespace Robogame.Robots
             {
                 rb.linearVelocity = _rb.GetPointVelocity(worldPos);
                 rb.angularVelocity = _rb.angularVelocity;
+            }
+
+            // Debris must stop acting like part of the chassis. Block
+            // gameplay components cache the chassis Rigidbody at Awake, so
+            // left enabled they keep driving the LIVE chassis from the
+            // ground (a detached pogo foot claimed the bounce window and
+            // kicked the chassis for its whole debris lifetime). Disable
+            // everything except the passive BlockBehaviour data host and
+            // components that opt out via IDetachAware (RopeBlock rebuilds
+            // against the debris body by design). Event-scoped allocation.
+            MonoBehaviour[] behaviours =
+                detached.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            for (int i = 0; i < behaviours.Length; i++)
+            {
+                MonoBehaviour mb = behaviours[i];
+                if (mb == null || mb is BlockBehaviour) continue;
+                if (mb is Block.IDetachAware aware)
+                {
+                    aware.OnDetachedAsDebris();
+                    continue;
+                }
+                mb.enabled = false;
             }
 
             if (_debrisLifetime > 0f)

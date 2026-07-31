@@ -65,8 +65,9 @@ namespace Robogame.Player
             // post-netcode) is somebody else's hit and should be silent.
             if (_follow == null) _follow = GetComponent<FollowCamera>();
             if (_follow == null || _follow.Target == null) return;
-            Robot localRobot = _follow.Target.GetComponent<Robot>()
-                ?? _follow.Target.GetComponentInParent<Robot>();
+            // GetComponentInParent covers the self case too; `??` on a
+            // Unity object bypasses the fake-null check (see DeathOverlay).
+            Robot localRobot = _follow.Target.GetComponentInParent<Robot>();
             if (owner == null || owner != localRobot) return;
             _hitAt = Time.unscaledTime;
         }

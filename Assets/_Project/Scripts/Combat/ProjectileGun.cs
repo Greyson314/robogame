@@ -307,7 +307,10 @@ namespace Robogame.Combat
         {
             if (spreadDeg <= 0f) return forward;
             float r = Mathf.Tan(spreadDeg * Mathf.Deg2Rad);
-            Vector2 disk = Random.insideUnitCircle * r;
+            // Seeded stream, not UnityEngine.Random: the roll bends the
+            // damage-carrying InitialVelocity (best-practices §12.4 —
+            // gameplay rolls must be replayable).
+            Vector2 disk = Core.GameplayRng.InsideUnitCircle * r;
             return (forward + right * disk.x + up * disk.y).normalized;
         }
     }

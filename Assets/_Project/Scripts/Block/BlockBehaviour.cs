@@ -165,6 +165,14 @@ namespace Robogame.Block
         private Renderer[] _renderers;
         private Color[] _baseColors;
         private MaterialPropertyBlock _mpb;
+        // Authored per-definition tint (e.g. the repair module's green).
+        // Composed into the damage-visual MPB rather than applied at
+        // placement, because the full-health SetPropertyBlock(null) path
+        // (SRP-Batcher rejoin, §8.2) wipes any placement-time MPB — the
+        // tint was silently invisible in play mode. White = no tint, so
+        // the batcher optimisation is unchanged for the untinted majority.
+        private Color _definitionTint = Color.white;
+        private bool _hasDefinitionTint;
 
         /// <summary>Internal initializer called by <see cref="BlockGrid"/> at placement time.</summary>
         internal void Initialize(BlockDefinition definition, Vector3Int gridPosition, Vector3 dims = default, Vector3Int up = default, float pitchDeg = 0f, int yaw = 0)
@@ -176,6 +184,8 @@ namespace Robogame.Block
             _pitchDeg = pitchDeg;
             _yaw = yaw;
             _currentHealth = definition != null ? definition.MaxHealth : 1f;
+            _definitionTint = definition != null ? definition.TintColor : Color.white;
+            _hasDefinitionTint = _definitionTint != Color.white;
             BuildStaticVisual();
             CacheRenderers();
             UpdateDamageVisual();
@@ -291,8 +301,10 @@ namespace Robogame.Block
             // Only carry an MPB while the block is actually darkened;
             // clear it (SetPropertyBlock(null) → rejoin the batch) the
             // moment it returns to full. Visually identical; the only
-            // change is not setting a no-op override.
-            bool needsTint = darken < 0.999f;
+            // change is not setting a no-op override. Blocks with an
+            // authored definition tint are the exception: they always
+            // carry the MPB (tiny population — one definition today).
+            bool needsTint = darken < 0.999f || _hasDefinitionTint;
 
             for (int i = 0; i < _renderers.Length; i++)
             {
@@ -305,6 +317,14 @@ namespace Robogame.Block
                 }
                 r.GetPropertyBlock(_mpb);
                 Color baseCol = _baseColors[i];
+                if (_hasDefinitionTint)
+                {
+                    baseCol = new Color(
+                        baseCol.r * _definitionTint.r,
+                        baseCol.g * _definitionTint.g,
+                        baseCol.b * _definitionTint.b,
+                        baseCol.a * _definitionTint.a);
+                }
                 Color tinted = new Color(baseCol.r * darken, baseCol.g * darken, baseCol.b * darken, baseCol.a);
                 _mpb.SetColor(s_albedoColorId, tinted);
                 _mpb.SetColor(s_baseColorId, tinted);

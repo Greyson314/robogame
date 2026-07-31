@@ -56,7 +56,10 @@ namespace Robogame.Player
             }
             if (_robot == null || _robot.transform != t)
             {
-                _robot = t.GetComponent<Robot>() ?? t.GetComponentInParent<Robot>();
+                // GetComponentInParent covers both cases; `??` on a Unity
+                // object kept the Editor's fake-null and dead-coded the
+                // parent fallback (latent — targets are chassis roots today).
+                _robot = t.GetComponentInParent<Robot>();
             }
 
             // BlockCount drops to 0 when the chassis disintegrates after

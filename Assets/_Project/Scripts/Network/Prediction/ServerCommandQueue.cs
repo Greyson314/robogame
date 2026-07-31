@@ -41,6 +41,10 @@ namespace Robogame.Network.Prediction
             _pending.Enqueue(cmd);
         }
 
+        /// <summary>Commands still queued (stale entries included until a
+        /// drain skips them). Used by the consumer's backlog catch-up.</summary>
+        public int PendingCount => _pending.Count;
+
         /// <summary>Pop the next command (if any) for the server to apply this
         /// tick. Updates <see cref="LastAppliedTick"/>.</summary>
         public bool TryDrainNext(out InputCommand cmd)
