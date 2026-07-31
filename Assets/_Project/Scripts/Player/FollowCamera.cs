@@ -523,7 +523,7 @@ namespace Robogame.Player
 
             Quaternion rot = ComputeOrbitRotation(out Vector3 up);
             Vector3 lookAt = _target.position + up * _height;
-            Vector3 desired = ResolveCameraPosition(lookAt, rot);
+            Vector3 desired = ResolveCameraPosition(lookAt, rot, up);
 
             transform.position = Vector3.SmoothDamp(
                 transform.position,
@@ -663,7 +663,7 @@ namespace Robogame.Player
         /// obstacle avoidance so geometry between target and camera pulls
         /// the camera in instead of clipping through walls.
         /// </summary>
-        private Vector3 ResolveCameraPosition(Vector3 lookAt, Quaternion rot)
+        private Vector3 ResolveCameraPosition(Vector3 lookAt, Quaternion rot, Vector3 up)
         {
             Vector3 dir = -(rot * Vector3.forward);
             float effectiveDistance = _distance * s_distanceMultiplier;
@@ -692,16 +692,20 @@ namespace Robogame.Player
                 }
             }
 
-            // Y-floor: never let the camera dip below (target.y +
-            // _minHeightAboveTarget). A ground-bot pitching down hard
-            // to aim at another ground bot was using the SphereCast's
-            // terrain hit to pull the camera through ground; the
-            // floor breaks that geometry trap. Set
+            // Height floor: never let the camera dip below
+            // _minHeightAboveTarget along the LOCAL up axis. A ground-bot
+            // pitching down hard to aim at another ground bot was using
+            // the SphereCast's terrain hit to pull the camera through
+            // ground; the floor breaks that geometry trap. Measured along
+            // the UpProvider's sampled up (not world Y) so the clamp works
+            // on the lower hemisphere of a planet arena instead of
+            // dragging the camera into the ground there. Set
             // _minHeightAboveTarget to a negative number to disable.
             if (_target != null && _minHeightAboveTarget >= 0f)
             {
-                float floorY = _target.position.y + _minHeightAboveTarget;
-                if (desired.y < floorY) desired.y = floorY;
+                float heightAlongUp = Vector3.Dot(desired - _target.position, up);
+                if (heightAlongUp < _minHeightAboveTarget)
+                    desired += up * (_minHeightAboveTarget - heightAlongUp);
             }
             return desired;
         }
@@ -711,7 +715,7 @@ namespace Robogame.Player
             if (_target == null) return;
             Quaternion rot = ComputeOrbitRotation(out Vector3 up);
             Vector3 lookAt = _target.position + up * _height;
-            transform.position = ResolveCameraPosition(lookAt, rot);
+            transform.position = ResolveCameraPosition(lookAt, rot, up);
             transform.rotation = rot;
         }
 

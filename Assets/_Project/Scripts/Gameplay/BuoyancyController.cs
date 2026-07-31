@@ -115,7 +115,8 @@ namespace Robogame.Gameplay
             float time = Time.timeSinceLevelLoad;
 
             float submergedFractionSum = 0f;
-            int blockCount = 0;
+            int blockCount = 0;      // wet blocks only — splash-audio gate
+            int totalBlockCount = 0; // every live block — drag denominator
 
             // Hoist wave tweakables once per fixed step (4 dict probes per
             // block otherwise, §8.9).
@@ -129,6 +130,7 @@ namespace Robogame.Gameplay
             {
                 BlockBehaviour b = kvp.Value;
                 if (b == null) continue;
+                totalBlockCount++;
 
                 Vector3 worldCentre = _grid.GridToWorld(kvp.Key);
                 // Per-block wave-aware surface height. Each block sees its
@@ -160,7 +162,7 @@ namespace Robogame.Gameplay
                 _rb.AddForceAtPosition(Vector3.up * forceMag, worldCentre, ForceMode.Force);
             }
 
-            ApplyDrag(water, submergedFractionSum, blockCount);
+            ApplyDrag(water, submergedFractionSum, totalBlockCount);
             UpdateSplashAudio(submergedFractionSum, blockCount);
         }
 
@@ -192,15 +194,18 @@ namespace Robogame.Gameplay
         /// Surface-skimming rovers (only the bottom row of blocks
         /// submerged) get light drag; a sunken hull is heavily damped.
         /// </summary>
-        private void ApplyDrag(WaterVolume water, float submergedFractionSum, int blockCount)
+        private void ApplyDrag(WaterVolume water, float submergedFractionSum, int totalBlockCount)
         {
-            if (blockCount == 0)
+            // Average over the WHOLE chassis, not just wet blocks —
+            // dividing by the wet count made one submerged corner block
+            // read as a fully-sunken hull (avg ≈ 1 → full water drag).
+            if (totalBlockCount == 0 || submergedFractionSum <= 0f)
             {
                 RestoreDamping();
                 return;
             }
 
-            float avg = submergedFractionSum / blockCount;
+            float avg = submergedFractionSum / totalBlockCount;
             // Blend FROM the chassis's authored damping TO water's damping
             // by the average submerged fraction. 0 → unchanged, 1 → fully water-damped.
             _rb.linearDamping  = Mathf.Lerp(_baseLinearDamping,  water.LinearDrag,  avg);

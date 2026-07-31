@@ -193,10 +193,21 @@ namespace Robogame.Combat
         private readonly Stack<ProjectileVisual> _trailPool = new(32);
         private readonly Stack<ProjectileVisual> _meshPool = new(32);
 
-        // Owner collider cache — built per-Robot on first fire,
-        // refreshed via InvalidateOwnerColliders when chassis state
-        // changes (block detach, chassis rebuild).
-        private readonly Dictionary<Robot, Collider[]> _ownerColliderCache = new(16);
+        // Owner collider cache — built per-Robot on first fire. Stamped
+        // with the grid's StructureVersion so any structural change
+        // (block detach, RepairPad re-placement, rebuild) rebuilds the
+        // snapshot on the next fire — InvalidateOwnerColliders had zero
+        // callers, so a stale snapshot made your own shots die on your
+        // hull after regen. Dead-Robot keys are pruned periodically so
+        // this DontDestroyOnLoad singleton doesn't leak across matches.
+        private struct OwnerColliders
+        {
+            public Collider[] Colliders;
+            public int StructureVersion;
+        }
+        private readonly Dictionary<Robot, OwnerColliders> _ownerColliderCache = new(16);
+        private readonly List<Robot> _deadOwnerScratch = new(16);
+        private float _nextOwnerCachePrune;
 
         // Reusable per-cast filter set. Size grows monotonically with
         // the largest-ever-encountered chassis; never shrinks (avoids
@@ -343,14 +354,40 @@ namespace Robogame.Combat
         {
             _hitFilter.Clear();
             if (owner == null) return;
-            if (!_ownerColliderCache.TryGetValue(owner, out Collider[] cols))
+            int version = owner.Grid != null ? owner.Grid.StructureVersion : 0;
+            if (!_ownerColliderCache.TryGetValue(owner, out OwnerColliders cached)
+                || cached.StructureVersion != version)
             {
-                cols = owner.GetComponentsInChildren<Collider>(includeInactive: true);
-                _ownerColliderCache[owner] = cols;
+                cached = new OwnerColliders
+                {
+                    Colliders = owner.GetComponentsInChildren<Collider>(includeInactive: true),
+                    StructureVersion = version,
+                };
+                _ownerColliderCache[owner] = cached;
             }
+            Collider[] cols = cached.Colliders;
             for (int i = 0; i < cols.Length; i++)
             {
                 if (cols[i] != null) _hitFilter.Add(cols[i]);
+            }
+        }
+
+        // Drop cache entries whose Robot has been destroyed. Runs on a
+        // slow cadence — the dictionary is small, but this component is
+        // a DontDestroyOnLoad singleton, so without the sweep dead keys
+        // accumulate across respawns and scene loads forever.
+        private void PruneDeadOwnerCache()
+        {
+            if (Time.unscaledTime < _nextOwnerCachePrune) return;
+            _nextOwnerCachePrune = Time.unscaledTime + 10f;
+            _deadOwnerScratch.Clear();
+            foreach (var kvp in _ownerColliderCache)
+            {
+                if (kvp.Key == null) _deadOwnerScratch.Add(kvp.Key);
+            }
+            for (int i = 0; i < _deadOwnerScratch.Count; i++)
+            {
+                _ownerColliderCache.Remove(_deadOwnerScratch[i]);
             }
         }
 

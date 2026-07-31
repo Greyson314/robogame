@@ -176,9 +176,27 @@ namespace Robogame.Combat
         private Vector3 _retractFromWorld;
         private float _retractElapsed;
 
-        // Layer mask for flight hit detection. Skip our own chassis
-        // colliders explicitly — set up in Awake.
+        // Layer mask for flight hit detection. Own-chassis colliders are
+        // filtered per-hit in TickFiring (queries ignore
+        // Physics.IgnoreCollision, so a mask alone can't exclude them).
         private int _flightHitMask = ~0;
+
+        // Reusable hit buffer for the flight sphere-cast. Static — only
+        // one cast runs at a time (FixedUpdate is single-threaded).
+        private static readonly RaycastHit[] s_flightHits = new RaycastHit[16];
+
+        // Does this collider belong to our own chassis? Checks the
+        // Awake-time snapshot (the same set the spawn-time contact-ignore
+        // uses, so reparented pieces stay covered) plus the tip we fired.
+        private bool IsOwnCollider(Collider c)
+        {
+            if (_tipCollider != null && c == _tipCollider) return true;
+            for (int i = 0; i < _chassisColliders.Length; i++)
+            {
+                if (_chassisColliders[i] == c) return true;
+            }
+            return false;
+        }
 
         // Pre-sized scratch for the Latched pull-field OverlapSphere.
         // 32 comfortably exceeds the block count of any realistic target
@@ -318,11 +336,30 @@ namespace Robogame.Combat
             Vector3 nextPos = origin + dir * (_launchSpeed * dt);
 
             // Sphere-cast over this step's swept volume to catch fast hits
-            // without tunnelling. Excludes the chassis's own colliders via
-            // a per-cast scratch (we pre-ignored them at spawn).
-            if (Physics.SphereCast(origin, _flightCastRadius, dir,
-                    out RaycastHit hit, (nextPos - origin).magnitude,
-                    _flightHitMask, QueryTriggerInteraction.Ignore))
+            // without tunnelling. Physics.IgnoreCollision only suppresses
+            // solver CONTACTS, not queries — the spawn-time ignore pass
+            // does nothing for this cast, so own-chassis colliders must be
+            // filtered here or a mount that fires across any part of the
+            // hull instantly retracts on its own hit. NonAlloc + nearest
+            // non-own hit replaces the single-closest-hit cast.
+            int flightHits = Physics.SphereCastNonAlloc(origin, _flightCastRadius, dir,
+                    s_flightHits, (nextPos - origin).magnitude,
+                    _flightHitMask, QueryTriggerInteraction.Ignore);
+            bool foundHit = false;
+            RaycastHit hit = default;
+            float bestDist = float.MaxValue;
+            for (int i = 0; i < flightHits; i++)
+            {
+                Collider c = s_flightHits[i].collider;
+                if (c == null || IsOwnCollider(c)) continue;
+                if (s_flightHits[i].distance < bestDist)
+                {
+                    bestDist = s_flightHits[i].distance;
+                    hit = s_flightHits[i];
+                    foundHit = true;
+                }
+            }
+            if (foundHit)
             {
                 // Move the tip to the hit point so the visual snaps to
                 // exactly where it caught.

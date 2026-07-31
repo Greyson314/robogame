@@ -358,6 +358,18 @@ namespace Robogame.Gameplay
             // here when ChassisBlueprint grows them.
             clone.RotorsGenerateLift = source.RotorsGenerateLift;
 
+            // Server-authoritative tuning configs must round-trip too —
+            // every CurrentBlueprint assignment funnels through this clone,
+            // so dropping them silently reset authored tuning to defaults
+            // (load→save erased it; tuning was inert at spawn). JSON
+            // round-trip deep-copies every [Serializable] field, so new
+            // tuning fields ride along without edits here, and the clone
+            // never aliases the source asset's config instances.
+            clone.PlaneTuning    = JsonUtility.FromJson<PlaneTuningConfig>(JsonUtility.ToJson(source.PlaneTuning));
+            clone.GroundTuning   = JsonUtility.FromJson<GroundTuningConfig>(JsonUtility.ToJson(source.GroundTuning));
+            clone.ChassisDamping = JsonUtility.FromJson<ChassisDampingConfig>(JsonUtility.ToJson(source.ChassisDamping));
+            clone.ThrusterTuning = JsonUtility.FromJson<ThrusterTuningConfig>(JsonUtility.ToJson(source.ThrusterTuning));
+
             ChassisBlueprint.Entry[] src = source.Entries;
             var copy = new ChassisBlueprint.Entry[src.Length];
             // Entry is a struct so Array.Copy is a deep copy of all

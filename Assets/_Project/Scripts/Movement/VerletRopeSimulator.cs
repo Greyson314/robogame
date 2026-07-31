@@ -194,7 +194,6 @@ namespace Robogame.Movement
         {
             using var _scope = Robogame.Core.PerfMarkers.VerletRopeFixedUpdate.Auto();
             float dt = Time.fixedDeltaTime;
-            Vector3 gravity = Physics.gravity;
 
             for (int ci = 0; ci < _chains.Count; ci++)
             {
@@ -202,6 +201,14 @@ namespace Robogame.Movement
                 if (c == null || c.Particles == null || c.Count < 2) continue;
 
                 int N = c.Count;
+                // Per-chain gravity from the field, sampled at the hub —
+                // on planet arenas the pull points at the planet centre,
+                // not flat -Y (spherical-arenas.md §6). One sample per
+                // chain: a rope is short relative to the planet radius,
+                // so per-particle sampling buys nothing. Flat arenas get
+                // Physics.gravity back from the field unchanged.
+                Vector3 gravity = Robogame.Core.GravityField.SampleAt(
+                    c.Particles[0].Position);
                 // Auto-detect external tip constraint (Hook grapple joint
                 // on the tip Rigidbody) so a grappled rope conforms to
                 // the held tip rather than fighting the joint.

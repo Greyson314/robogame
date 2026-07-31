@@ -357,6 +357,10 @@ namespace Robogame.Gameplay
                         if (mPlaced != null)
                         {
                             mPlaced.ConfigValue = GetVariantConfig(def.Id);
+                            // Same per-id variant cache as the primary —
+                            // the mirror side must not silently drop the
+                            // dialed concoction. ADR-0004.
+                            mPlaced.ConcoctionId = GetVariantConcoctionId(def.Id);
                             mPlaced.SetTeeter(mLocalTeeter);
                         }
                         AutoPlaceCompanionsOf(def, mCell, mUp);

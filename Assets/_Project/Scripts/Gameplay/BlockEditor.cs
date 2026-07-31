@@ -744,6 +744,14 @@ namespace Robogame.Gameplay
                 return;
             }
 
+            // A pick means "shape the NEXT placement" — drop any tune-mode
+            // instance binding first. Without this, the SetVariant* calls
+            // below fire VariantChanged → PropagateVariantToLiveBlocks and
+            // a same-definition-id pick silently overwrites the bound
+            // block's config (persisted by SyncBlueprint). Same rule the
+            // fresh-place path applies.
+            if (_session.EditingInstance != null) ClearInstanceEdit();
+
             LoadBlockSettingsIntoCache(def, b);
             if (_variantPanel != null) _variantPanel.RefreshForBlock(def.Id);
             Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.UiClick);

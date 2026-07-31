@@ -363,31 +363,12 @@ namespace Robogame.Gameplay
             var go = new GameObject(_chassisName);
             go.transform.SetPositionAndRotation(pos, Quaternion.identity);
 
-            // CPU budget enforcement at the match-start freeze (invariant #2),
-            // server-authoritative (invariant #3 — SP offline stub is always
-            // server). Over-budget builds get peripheral blocks stripped to
-            // fit before the chassis is assembled; the garage budget HUD is
-            // advisory, this is where it bites. Trims a clone, never the
-            // shared asset.
-            ChassisBlueprint spawnBp = bp;
-            if (bp != null && Core.NetworkContext.Instance.IsServer)
-            {
-                spawnBp = CpuBudget.TrimmedClone(bp, state.Library, out int stripped);
-                if (stripped > 0)
-                    Debug.LogWarning(
-                        $"[Robogame] '{bp.DisplayName}' was over the CPU budget; " +
-                        $"stripped {stripped} block(s) at spawn to fit.");
-
-                // Module cap enforcement at the same freeze: a hand-authored or
-                // imported blueprint can never field more than ModuleBudget.MaxModules.
-                spawnBp = ModuleBudget.TrimmedClone(spawnBp, out int strippedModules);
-                if (strippedModules > 0)
-                    Debug.LogWarning(
-                        $"[Robogame] '{bp.DisplayName}' carried more than {ModuleBudget.MaxModules} modules; " +
-                        $"dropped {strippedModules} at spawn to fit.");
-            }
-
-            ChassisFactory.Build(go, spawnBp, state.Library, state.InputActions);
+            // CPU + module budget enforcement moved into
+            // ChassisAssembler.Assemble (the shared chokepoint) so every
+            // spawn path — including the water/planet arenas and the
+            // networked server spawn — gets the same server-authoritative
+            // trim. See TRACE[INV-3] there.
+            ChassisFactory.Build(go, bp, state.Library, state.InputActions);
 
             if (isPlane && _planeSpawnForwardSpeed > 0f)
             {
@@ -487,6 +468,11 @@ namespace Robogame.Gameplay
             }
             Chassis = SpawnPlayerChassis(state);
             BindFollowCamera(Chassis);
+            // Re-register the fresh Robot with the match (idempotent —
+            // RegisterChassis early-outs on a known Robot). Without this a
+            // manual respawn leaves the new chassis unregistered, so its
+            // next death skips lives / match-end / scrap banking.
+            RegisterChassis(Chassis, MatchSide.Player, PlayerStatsName);
             // Re-bind every live AI's target to the new chassis. Without
             // this, bots keep their reference to the destroyed (fake-null)
             // old transform and stay in Patrol forever after a respawn.

@@ -40,6 +40,14 @@ namespace Robogame.Block
         public IReadOnlyDictionary<Vector3Int, BlockBehaviour> Blocks => _blocks;
 
         /// <summary>
+        /// Monotonic counter bumped on every structural mutation (place /
+        /// remove / detach). Cheap staleness check for consumers that
+        /// cache derived per-chassis data (e.g. ProjectileWorld's owner
+        /// collider snapshot) without subscribing to the grid events.
+        /// </summary>
+        public int StructureVersion { get; private set; }
+
+        /// <summary>
         /// Allocation-free iteration for hot per-frame loops: foreach over
         /// the interface-typed <see cref="Blocks"/> boxes the Dictionary's
         /// struct enumerator (one heap alloc per loop — INV-6); this
@@ -199,6 +207,7 @@ namespace Robogame.Block
             }
 
             _blocks[gridPos] = block;
+            StructureVersion++;
             block.Destroyed += HandleBlockDestroyed;
             BlockPlaced?.Invoke(block);
             return block;
@@ -210,6 +219,7 @@ namespace Robogame.Block
             if (!_blocks.TryGetValue(gridPos, out BlockBehaviour block)) return false;
             BlockRemoving?.Invoke(block);
             _blocks.Remove(gridPos);
+            StructureVersion++;
             if (block != null)
             {
                 block.Destroyed -= HandleBlockDestroyed;
@@ -305,6 +315,7 @@ namespace Robogame.Block
             if (!_blocks.TryGetValue(gridPos, out BlockBehaviour block)) return null;
             BlockRemoving?.Invoke(block);
             _blocks.Remove(gridPos);
+            StructureVersion++;
             if (block != null)
             {
                 block.Destroyed -= HandleBlockDestroyed;

@@ -87,6 +87,13 @@ namespace Robogame.Gameplay
                 cam.transform.LookAt(chassisPos);
             }
 
+            // 3. Suspend the mass-loss destroy rule while editing —
+            //    deleting ≥75% of spawn mass mid-edit is normal building
+            //    and must not explode the chassis. TRACE[INV-2]: building
+            //    happens only in the garage, so this gate is edit-scoped.
+            Robot robot = _chassis.GetComponent<Robot>();
+            if (robot != null) robot.SuppressMassLossDestruction = true;
+
             IsActive = true;
             Entered?.Invoke();
         }
@@ -102,6 +109,21 @@ namespace Robogame.Gameplay
 
             // 2. Re-enable player input.
             if (_playerInput != null) _playerInput.enabled = true;
+
+            // 3. Lift the edit-time destroy suspension and re-baseline the
+            //    (possibly edited) chassis so the mass-loss threshold
+            //    measures against what the player just built, not the
+            //    pre-edit spawn mass. Harmless when a respawn follows —
+            //    the rebuilt chassis re-baselines in its own Start.
+            if (_chassis != null)
+            {
+                Robot robot = _chassis.GetComponent<Robot>();
+                if (robot != null)
+                {
+                    robot.SuppressMassLossDestruction = false;
+                    robot.ResetInitialAggregates();
+                }
+            }
 
             // Note: chassis stays parked — GarageController owns that
             // state and its Exited subscriber will rebuild + re-park if

@@ -274,7 +274,27 @@ namespace Robogame.Movement
         // applied to RotorBlock for foil reparent during chassis destroy.
         private void OnDestroy() => DestroyChain(reparentTip: false);
 
-        private void OnTweakablesChanged() => Rebuild();
+        // Tweakables.Changed carries no key, so ANY slider (audio volume
+        // included) used to tear down + rebuild every rope chain in the
+        // scene. Only rebuild when a rope-relevant tweakable actually
+        // moved since the last Build.
+        private void OnTweakablesChanged()
+        {
+            if (!Mathf.Approximately(_builtSegmentLengthTweak, RopeSegmentLengthTweak)
+                || !Mathf.Approximately(_builtSegmentRadius, LiveSegmentRadius)
+                || !Mathf.Approximately(_builtSegmentMass, LiveSegmentMass)
+                || !Mathf.Approximately(_builtLinearDamping, LiveLinearDamping))
+            {
+                Rebuild();
+            }
+        }
+
+        // Rope-tweakable snapshot taken by Build(); compared by
+        // OnTweakablesChanged above to filter irrelevant slider events.
+        private float _builtSegmentLengthTweak;
+        private float _builtSegmentRadius;
+        private float _builtSegmentMass;
+        private float _builtLinearDamping;
 
         // The host block can be reparented at runtime — Robot.DetachAsDebris
         // hands orphaned blocks their own Rigidbody and reparents to scene
@@ -457,6 +477,12 @@ namespace Robogame.Movement
             float segRad = LiveSegmentRadius;
             float segMass = LiveSegmentMass;
             float linDamp = LiveLinearDamping;
+
+            // Snapshot for OnTweakablesChanged's changed-values filter.
+            _builtSegmentLengthTweak = RopeSegmentLengthTweak;
+            _builtSegmentRadius = segRad;
+            _builtSegmentMass = segMass;
+            _builtLinearDamping = linDamp;
 
             _builtKinematic = _hubRb.isKinematic;
 
@@ -808,19 +834,40 @@ namespace Robogame.Movement
 
             // Mass: sum the tip block's authored mass into the tip-end
             // body so swing dynamics reflect the weight at the end.
-            tipBody.mass += tip.Mass;
+            // A destroyed tip (arena damage + RepairPad regen) skips
+            // ReleaseAdoptedTip — its fake-null _adoptedTip passes the
+            // caller's guard — so reverse any prior un-released adoption
+            // first or the body's mass inflates every regen cycle.
+            tipBody.mass = Mathf.Max(0.001f, tipBody.mass - _tipMassAdded + tip.Mass);
+            _tipMassAdded = tip.Mass;
 
-            // Forward collisions to the tip block.
-            TipCollisionForwarder fwd = tipBody.gameObject.AddComponent<TipCollisionForwarder>();
+            // Forward collisions to the tip block. Reuse the forwarder a
+            // prior adoption left on the body — a second AddComponent
+            // would stack stale-Tip forwarders on every regen cycle.
+            TipCollisionForwarder fwd = tipBody.gameObject.GetComponent<TipCollisionForwarder>();
+            if (fwd == null) fwd = tipBody.gameObject.AddComponent<TipCollisionForwarder>();
             fwd.Tip = tip;
             tip.AttachToHost(tipBody, _hubRb);
             return true;
         }
 
+        // Mass added onto the tip-end body by the current adoption; used
+        // to reverse it on release / re-adoption.
+        private float _tipMassAdded;
+
         private void ReleaseAdoptedTip(bool reparent = true)
         {
             if (_adoptedTip == null) return;
             _adoptedTip.DetachFromHost();
+            // Reverse the adopted mass and drop the collision forward so
+            // the freed body stops relaying hits to a released tip.
+            if (_tipRb != null)
+            {
+                _tipRb.mass = Mathf.Max(0.001f, _tipRb.mass - _tipMassAdded);
+                TipCollisionForwarder fwd = _tipRb.GetComponent<TipCollisionForwarder>();
+                if (fwd != null) fwd.Tip = null;
+            }
+            _tipMassAdded = 0f;
             if (reparent)
             {
                 if (_tipOriginalParent != null)

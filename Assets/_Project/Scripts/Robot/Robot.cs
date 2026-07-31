@@ -573,8 +573,23 @@ namespace Robogame.Robots
             {
                 StartCoroutine(RunConnectivityNextFrame());
             }
+            else if (isActiveAndEnabled)
+            {
+                // No connectivity pass will run, but COM + the manually managed
+                // inertia tensor still shifted (auto-recompute is off — see
+                // RecalculateAggregates). Defer so the grid dictionary is
+                // done removing this block first.
+                StartCoroutine(RecalculateAggregatesNextFrame());
+            }
 
             CheckMassThreshold();
+        }
+
+        private IEnumerator RecalculateAggregatesNextFrame()
+        {
+            yield return null;
+            if (IsDestroyed) yield break;
+            RecalculateAggregates();
         }
 
         private IEnumerator RunConnectivityNextFrame()
@@ -583,7 +598,14 @@ namespace Robogame.Robots
             if (IsDestroyed || CpuBlock == null) yield break;
 
             List<BlockBehaviour> orphans = _grid.FindDisconnectedFrom(CpuBlock.GridPosition);
-            if (orphans.Count == 0) yield break;
+            if (orphans.Count == 0)
+            {
+                // Zero-orphan removals still move COM and the manually managed
+                // inertia tensor; the O(1) deduct in HandleBlockRemoving only
+                // patched _rb.mass. Without this, both stay stale all match.
+                RecalculateAggregates();
+                yield break;
+            }
 
             // Snapshot the grid positions BEFORE DetachAsDebris reparents the
             // BlockBehaviour and (potentially) nulls its GridPosition reference.
@@ -673,14 +695,36 @@ namespace Robogame.Robots
                 mb.enabled = false;
             }
 
+            // Planet arenas: the chassis root carries a PlanetGravityBody
+            // (Gameplay tier — loose-typed here so Robots → Gameplay stays
+            // out of the asmdef graph, same idiom as BuildModeController's
+            // PlayerInputHandler lookup). Debris must fall along the same
+            // field or it drifts off on flat -Y; spherical-arenas.md §6
+            // lists debris explicitly. Added AFTER the disable loop above
+            // so it stays enabled.
+            Component chassisGravity = GetComponent("PlanetGravityBody");
+            if (chassisGravity != null)
+            {
+                detached.gameObject.AddComponent(chassisGravity.GetType());
+            }
+
             if (_debrisLifetime > 0f)
             {
                 Destroy(detached.gameObject, _debrisLifetime);
             }
         }
 
+        /// <summary>
+        /// While true, <see cref="CheckMassThreshold"/> is a no-op. Set by
+        /// <c>BuildModeController</c> for the duration of a garage edit —
+        /// deleting most of the chassis mid-edit is normal building, not
+        /// combat damage, and must not explode the chassis.
+        /// </summary>
+        public bool SuppressMassLossDestruction { get; set; }
+
         private void CheckMassThreshold()
         {
+            if (SuppressMassLossDestruction) return;
             if (IsDestroyed || InitialBlockMass <= 0f) return;
             float lossFraction = 1f - (TotalBlockMass / InitialBlockMass);
             if (lossFraction >= _massLossDestroyThreshold)

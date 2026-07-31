@@ -131,6 +131,29 @@ namespace Robogame.Gameplay
             if (blueprint == null) { Debug.LogError("[Robogame] ChassisAssembler.Assemble: blueprint is null.", root); return null; }
             if (library == null) { Debug.LogError("[Robogame] ChassisAssembler.Assemble: library is null.", root); return null; }
 
+            // TRACE[INV-3]: budget enforcement lives at THE assembly
+            // chokepoint so every spawn path — flat / water / planet
+            // arenas, garage respawn, networked server spawn — gets the
+            // same server-authoritative trim. Previously only the flat
+            // arena's player spawn trimmed, so the other paths fielded
+            // raw blueprints. TrimmedClone returns the source unchanged
+            // (no clone) when the build is within budget; the shared
+            // asset is never mutated.
+            if (Robogame.Core.NetworkContext.Instance.IsServer)
+            {
+                blueprint = CpuBudget.TrimmedClone(blueprint, library, out int stripped);
+                if (stripped > 0)
+                    Debug.LogWarning(
+                        $"[Robogame] '{blueprint.DisplayName}' was over the CPU budget; " +
+                        $"stripped {stripped} block(s) at spawn to fit.", root);
+
+                blueprint = ModuleBudget.TrimmedClone(blueprint, out int strippedModules);
+                if (strippedModules > 0)
+                    Debug.LogWarning(
+                        $"[Robogame] '{blueprint.DisplayName}' carried more than {ModuleBudget.MaxModules} modules; " +
+                        $"dropped {strippedModules} at spawn to fit.", root);
+            }
+
             // Build with the root deactivated so OnEnable on spawned
             // components runs ONCE, after we've wired serialised refs
             // via reflection. PlayerInputHandler in particular looks up

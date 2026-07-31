@@ -27,7 +27,8 @@ namespace Robogame.Block
     /// The blob carries exactly the gameplay-observable fields JSON
     /// round-trips: per-entry <see cref="ChassisBlueprint.Entry.EffectiveUp"/>
     /// (the same zero→+Y normalisation <see cref="BlueprintSerializer"/>
-    /// applies on serialize), position, dims, pitch, blockConfig; plus the
+    /// applies on serialize), position, dims, pitch, blockConfig,
+    /// concoctionId (v3 — ADR-0004 gameplay-observable); plus the
     /// four chassis tuning configs, kind, and rotorsGenerateLift.
     /// <c>displayName</c> and the JSON-only <c>createdUtc</c> are
     /// <em>deliberately excluded</em> (architect decision — handoff §5.3):
@@ -49,7 +50,7 @@ namespace Robogame.Block
         /// <summary>Wire format version. Bump whenever the byte layout or a
         /// tuning-config field set changes — <see cref="TryDecode"/> rejects
         /// a newer blob rather than silently misreading it.</summary>
-        public const byte CurrentBlobVersion = 2;
+        public const byte CurrentBlobVersion = 3;
 
         // Header: version(1) + kind(1) + flags(1) + entryCount(u16) + tableCount(u16).
         private const int HeaderSize = 7;
@@ -58,8 +59,17 @@ namespace Robogame.Block
         private const int ConfigFloatCount = 13;
         private const int ConfigBytes = ConfigFloatCount * 4;
 
-        // Per entry: tableIdx(u16) + pos(short*3) + up(short*3) + dims(float*3) + pitch(float) + blockConfig(float) + yaw(short, v2).
-        private const int EntrySize = 2 + 6 + 6 + 12 + 4 + 4 + 2; // = 32
+        // Per entry: tableIdx(u16) + pos(short*3) + up(short*3) + dims(float*3) + pitch(float) + blockConfig(float) + yaw(short, v2)
+        //            + concoctionIdx(u16, v3 — string-table index, NoConcoctionIndex when unset).
+        private const int EntrySizeV2 = 2 + 6 + 6 + 12 + 4 + 4 + 2; // = 32
+        private const int EntrySize = EntrySizeV2 + 2;              // = 34 (v3)
+
+        // v3: sentinel concoction index for "no concoction" — keeps the
+        // string table free of an interned empty string. ADR-0004: the
+        // dialed concoction is gameplay-observable (damage / blast size /
+        // CPU surcharge) so it MUST ride the wire, or client-built chassis
+        // arrive stripped while the server keeps them.
+        private const ushort NoConcoctionIndex = ushort.MaxValue;
 
         private const byte FlagRotorsGenerateLift = 0x01;
         private const int MaxIdByteLength = 255;   // string-table length prefix is one byte
@@ -91,12 +101,20 @@ namespace Robogame.Block
             int tableByteTotal = 0;
             for (int i = 0; i < entries.Length; i++)
             {
-                string id = entries[i].BlockId ?? string.Empty;
-                if (idToIndex.ContainsKey(id)) continue;
+                Intern(entries[i].BlockId ?? string.Empty, "BlockId");
+                // v3: non-empty concoction ids share the same table —
+                // they're strings under the same length cap.
+                string cid = entries[i].EffectiveConcoctionId;
+                if (cid.Length > 0) Intern(cid, "ConcoctionId");
+            }
+
+            void Intern(string id, string fieldLabel)
+            {
+                if (idToIndex.ContainsKey(id)) return;
                 byte[] b = Encoding.UTF8.GetBytes(id);
                 if (b.Length > MaxIdByteLength)
                     throw new ArgumentOutOfRangeException(nameof(blueprint),
-                        $"BlockId '{id}' is {b.Length} UTF-8 bytes; max {MaxIdByteLength}.");
+                        $"{fieldLabel} '{id}' is {b.Length} UTF-8 bytes; max {MaxIdByteLength}.");
                 idToIndex[id] = table.Count;
                 table.Add(id);
                 idBytes.Add(b);
@@ -143,6 +161,8 @@ namespace Robogame.Block
                 WriteFloat(buffer, ref o, e.Pitch);
                 WriteFloat(buffer, ref o, e.BlockConfig);
                 WriteShort(buffer, ref o, (short)e.EffectiveYaw); // v2
+                string cid = e.EffectiveConcoctionId;              // v3
+                WriteUShort(buffer, ref o, cid.Length > 0 ? (ushort)idToIndex[cid] : NoConcoctionIndex);
             }
 
             return buffer;
@@ -223,7 +243,8 @@ namespace Robogame.Block
                 out PlaneTuningConfig plane, out GroundTuningConfig ground,
                 out ChassisDampingConfig damping, out ThrusterTuningConfig thruster);
 
-            long entriesBytes = (long)entryCount * EntrySize;
+            int entrySize = version >= 3 ? EntrySize : EntrySizeV2;
+            long entriesBytes = (long)entryCount * entrySize;
             if (o + entriesBytes > buffer.Length)
             {
                 error = $"Truncated entries: need {entriesBytes} bytes for {entryCount} entries, {buffer.Length - o} left.";
@@ -247,13 +268,24 @@ namespace Robogame.Block
                 float pitch = ReadFloat(buffer, ref o);
                 float blockConfig = ReadFloat(buffer, ref o);
                 int yaw = ReadShort(buffer, ref o); // v2
+                string concoctionId = string.Empty; // v3; pre-v3 blobs carry none
+                if (version >= 3)
+                {
+                    ushort cidIdx = ReadUShort(buffer, ref o);
+                    if (cidIdx != NoConcoctionIndex)
+                    {
+                        if (cidIdx >= tableCount) { error = $"Entry {i} references concoction string-table index {cidIdx} (table size {tableCount})."; return false; }
+                        concoctionId = table[cidIdx];
+                    }
+                }
                 decoded[i] = new ChassisBlueprint.Entry(
                     table[idIdx],
                     new Vector3Int(px, py, pz),
                     new Vector3Int(ux, uy, uz),
                     new Vector3(dx, dy, dz),
                     pitch,
-                    blockConfig);
+                    blockConfig,
+                    concoctionId);
                 decoded[i].Yaw = yaw;
             }
 
