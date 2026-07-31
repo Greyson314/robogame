@@ -234,7 +234,7 @@ namespace Robogame.Gameplay
             if (_grid == null) return new ChassisStats(0, 0, 0, 0f);
             int used = 0, cpus = 0, count = 0;
             float mass = 0f;
-            foreach (var kvp in _grid.Blocks)
+            foreach (var kvp in _grid.BlocksNonAlloc)
             {
                 BlockBehaviour b = kvp.Value;
                 if (b == null || b.Definition == null) continue;

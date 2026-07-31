@@ -147,16 +147,29 @@ namespace Robogame.Player
             {
                 _ammoCacheTarget = target;
                 _ammoCached = target != null ? target.GetComponentInParent<WeaponAmmoState>() : null;
+                _ammoPoolsVersionSeen = -1; // force a re-read for the new chassis
             }
+            if (_ammoCached == null)
+            {
+                _anyCanFire = false;
+                _hasAnyPool = false;
+                _totalLoaded = 0;
+                return;
+            }
+            // Dirty-gate on the pools' version stamp — values only change
+            // on consume / reload transitions, and the index accessor keeps
+            // the loop allocation-free (the old iterator boxed per call).
+            if (_ammoCached.PoolsVersion == _ammoPoolsVersionSeen) return;
+            _ammoPoolsVersionSeen = _ammoCached.PoolsVersion;
             _anyCanFire = false;
             _hasAnyPool = false;
             _totalLoaded = 0;
-            if (_ammoCached == null) return;
-            foreach (var kvp in _ammoCached.EnumeratePools())
+            for (int i = 0; i < _ammoCached.PoolCount; i++)
             {
+                if (!_ammoCached.TryGetPoolAt(i, out _, out int current, out _, out bool reloading)) continue;
                 _hasAnyPool = true;
-                _totalLoaded += kvp.Value.current;
-                if (kvp.Value.current > 0 && !kvp.Value.reloading) _anyCanFire = true;
+                _totalLoaded += current;
+                if (current > 0 && !reloading) _anyCanFire = true;
             }
             if (_totalLoaded != _lastAmmoText)
             {
@@ -164,6 +177,8 @@ namespace Robogame.Player
                 _ammoText = _totalLoaded.ToString();
             }
         }
+
+        private int _ammoPoolsVersionSeen = -1;
 
         private void OnGUI()
         {

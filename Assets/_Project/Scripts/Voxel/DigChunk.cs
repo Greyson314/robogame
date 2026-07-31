@@ -211,6 +211,20 @@ namespace Robogame.Voxel
         }
 
         /// <summary>
+        /// Set the LOD level WITHOUT remeshing. The zone's scoped LOD
+        /// rebuild sets every transitioned chunk's level first, then
+        /// remeshes the affected set once with post-change neighbour
+        /// strides — <see cref="SetLodLevel"/>'s inline remesh ran with
+        /// stale strides and was immediately remeshed again by the old
+        /// full-zone pass.
+        /// </summary>
+        public void SetLodLevelQuiet(int newLevel)
+        {
+            if (newLevel < 0) newLevel = 0;
+            _currentLodLevel = newLevel;
+        }
+
+        /// <summary>
         /// Re-extract the surface mesh from <see cref="SdfWithApron"/> at
         /// the chunk's <see cref="CurrentLodLevel"/> and schedule an async
         /// <c>Physics.BakeMesh</c> on a worker. See Phase 2c's session log

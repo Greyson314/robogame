@@ -123,10 +123,6 @@ namespace Robogame.Gameplay
         // Update while airborne.
         private float _fallVel;
 
-        // Search buffer for the magnetic-pull overlap query. Static so
-        // multiple pickups share one allocation; per-step usage is fine
-        // because OverlapSphereNonAlloc is synchronous.
-        private static readonly Collider[] s_overlapBuf = new Collider[16];
 
         // -----------------------------------------------------------------
         // Public configuration
@@ -244,9 +240,19 @@ namespace Robogame.Gameplay
         // — none of those should act as "ground". A chassis cube IS a
         // valid ground surface for this purpose; scrap landing on a
         // moving chassis just rides it briefly until the trigger collects.
+        // Probe throttle while settled: the ground under a resting pickup
+        // rarely changes (it can — scrap rides a chassis that drives off —
+        // so the probe never fully sleeps), and dozens of pickups from a
+        // multi-bot kill each paid a per-frame raycast at exactly the
+        // moment debris/VFX load spikes.
+        private const float SettledProbeInterval = 0.25f;
+        private bool _settled;
+        private float _nextProbeAt;
+
         private void ApplyGravityRest(float dt)
         {
             if (_gravity <= 0f) return; // disabled — return to v0 floater behaviour
+            if (_settled && Time.time < _nextProbeAt) return;
             Vector3 probeOrigin = _anchorPosition + Vector3.up * 0.5f;
             if (Physics.Raycast(probeOrigin, Vector3.down, out RaycastHit hit,
                     _groundProbeDistance, ~0, QueryTriggerInteraction.Ignore))
@@ -254,6 +260,7 @@ namespace Robogame.Gameplay
                 float restY = hit.point.y + _restHeightAboveGround;
                 if (_anchorPosition.y > restY + 1e-3f)
                 {
+                    _settled = false;
                     _fallVel += _gravity * dt;
                     _anchorPosition.y -= _fallVel * dt;
                     if (_anchorPosition.y < restY) { _anchorPosition.y = restY; _fallVel = 0f; }
@@ -262,11 +269,14 @@ namespace Robogame.Gameplay
                 {
                     _anchorPosition.y = restY;
                     _fallVel = 0f;
+                    _settled = true;
+                    _nextProbeAt = Time.time + SettledProbeInterval;
                 }
             }
             else
             {
                 // No ground within probe range — keep falling.
+                _settled = false;
                 _fallVel += _gravity * dt;
                 _anchorPosition.y -= _fallVel * dt;
             }
@@ -274,18 +284,25 @@ namespace Robogame.Gameplay
 
         private static Robot FindNearestChassis(Vector3 worldPos, float radius)
         {
-            int n = Physics.OverlapSphereNonAlloc(
-                worldPos, radius, s_overlapBuf, ~0, QueryTriggerInteraction.Ignore);
+            // Iterate the chassis registry by root distance instead of an
+            // OverlapSphere: with mask ~0 the 16-slot buffer could saturate
+            // on a nearby hull's own block colliders or a fresh debris
+            // field (colliders with no Robot parent), silently dropping a
+            // real collector in range. Cheaper too — no physics query, no
+            // per-collider ancestor walks.
+            var chassis = Robogame.Core.ChassisRegistry.Active;
             Robot best = null;
             float bestSqr = radius * radius;
-            for (int i = 0; i < n; i++)
+            for (int i = 0; i < chassis.Count; i++)
             {
-                Collider c = s_overlapBuf[i];
-                if (c == null) continue;
-                Robot r = c.GetComponentInParent<Robot>();
+                Rigidbody rb = chassis[i];
+                if (rb == null) continue;
+                float sqr = (rb.transform.position - worldPos).sqrMagnitude;
+                if (sqr >= bestSqr) continue;
+                Robot r = rb.GetComponent<Robot>();
                 if (r == null || r.IsDestroyed) continue;
-                float sqr = (r.transform.position - worldPos).sqrMagnitude;
-                if (sqr < bestSqr) { bestSqr = sqr; best = r; }
+                bestSqr = sqr;
+                best = r;
             }
             return best;
         }

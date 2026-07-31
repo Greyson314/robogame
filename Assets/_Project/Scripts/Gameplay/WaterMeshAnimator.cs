@@ -140,6 +140,11 @@ namespace Robogame.Gameplay
             // collection would box the enumerator once per vertex.
             var bouys = BuoyancyController.Active;
 
+            // Hoist the four wave tweakables once — the per-vertex overload
+            // below otherwise pays 4 string-keyed dictionary probes per
+            // vertex (65×65 verts ≈ 17k probes per frame, §8.9).
+            WaterSurface.WaveParams wave = WaterSurface.WaveParams.Sample();
+
             for (int i = 0; i < _baseVerts.Length; i++)
             {
                 Vector3 b = _baseVerts[i];
@@ -148,7 +153,7 @@ namespace Robogame.Gameplay
                 // SampleHeight returns absolute Y (includes SurfaceY); we
                 // want the local offset relative to our transform.
                 float surfaceY = _volume != null
-                    ? WaterSurface.SampleHeight(_volume, worldX, worldZ, time)
+                    ? WaterSurface.SampleHeight(_volume, in wave, worldX, worldZ, time)
                     : baseY;
                 float dy = surfaceY - baseY;
                 _liveVerts[i] = new Vector3(b.x, dy, b.z);

@@ -117,9 +117,15 @@ namespace Robogame.Gameplay
             float submergedFractionSum = 0f;
             int blockCount = 0;
 
+            // Hoist wave tweakables once per fixed step (4 dict probes per
+            // block otherwise, §8.9).
+            WaterSurface.WaveParams wave = WaterSurface.WaveParams.Sample();
+
             // Iterate every authored block and accumulate buoyancy.
-            // Using the dictionary directly keeps allocation-free.
-            foreach (var kvp in _grid.Blocks)
+            // BlocksNonAlloc hands out the struct enumerator — foreach over
+            // the IReadOnlyDictionary-typed Blocks boxed it every step
+            // (INV-6; the old comment claimed otherwise).
+            foreach (var kvp in _grid.BlocksNonAlloc)
             {
                 BlockBehaviour b = kvp.Value;
                 if (b == null) continue;
@@ -128,7 +134,7 @@ namespace Robogame.Gameplay
                 // Per-block wave-aware surface height. Each block sees its
                 // own slice of the surface, so a long hull straddling a
                 // crest/trough rocks naturally instead of bobbing rigidly.
-                float surfaceY = WaterSurface.SampleHeight(water, worldCentre.x, worldCentre.z, time);
+                float surfaceY = WaterSurface.SampleHeight(water, in wave, worldCentre.x, worldCentre.z, time);
                 // World-space block bottom = centre - half-cell · world-up.
                 // We accept the small error from rotated chassis (the wing-on-its-side case)
                 // because the cubic approximation already drops orientation detail.

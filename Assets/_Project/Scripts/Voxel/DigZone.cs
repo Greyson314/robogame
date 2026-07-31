@@ -336,8 +336,12 @@ namespace Robogame.Voxel
 
             if (_enableLod)
             {
-                Camera cam = Camera.main;
-                if (cam != null) RefreshLod(cam.transform.position);
+                // Camera.main is a tag scan — cache it, re-resolve only
+                // when the cached camera dies or is disabled (scene camera
+                // swaps), per 109-audit finding 7's Camera.main half.
+                if (_lodCamera == null || !_lodCamera.isActiveAndEnabled)
+                    _lodCamera = Camera.main;
+                if (_lodCamera != null) RefreshLod(_lodCamera.transform.position);
             }
             for (int i = 0; i < _chunks.Length; i++)
             {
@@ -347,19 +351,27 @@ namespace Robogame.Voxel
 
         /// <summary>
         /// Choose a LOD level for every chunk based on its distance from
-        /// <paramref name="viewWorldPos"/>. Chunks whose level changes are
-        /// re-meshed (which schedules a fresh bake). If any chunk's LOD
-        /// changed, runs a full <see cref="RebuildAllMeshes"/> pass
-        /// afterwards so every chunk's <see cref="NeighbourLodStrides"/>
-        /// reflects the post-change LOD topology (Phase 4c — a chunk needs
-        /// its NEIGHBOUR's new LOD to decide whether to snap/suppress on
-        /// the shared face). Exposed for tests.
+        /// <paramref name="viewWorldPos"/>. Scoped rebuild: only the
+        /// transitioned chunks plus their face-neighbours remesh — the
+        /// neighbours' <see cref="NeighbourLodStrides"/> read the changed
+        /// chunk's LOD on the shared face (Phase 4c), and nothing else in
+        /// the zone is affected by a LOD flip (SDF is untouched, so
+        /// occupancy and the dig mask stay as-is). The old path ran a full
+        /// <see cref="RebuildAllMeshes"/> over all 36 chunks on ANY band
+        /// crossing — a recurring frame spike while simply driving
+        /// (109-audit finding 7) — and remeshed each transitioned chunk
+        /// twice (once inside SetLodLevel with stale strides, again in the
+        /// full pass). Exposed for tests.
         /// </summary>
         public void RefreshLod(Vector3 viewWorldPos)
         {
             if (_chunks == null) return;
             float d1Sq = _lodDistance1 * _lodDistance1;
             float d2Sq = _lodDistance2 * _lodDistance2;
+            if (_lodRemesh == null || _lodRemesh.Length != _chunks.Length)
+                _lodRemesh = new bool[_chunks.Length];
+            else
+                System.Array.Clear(_lodRemesh, 0, _lodRemesh.Length);
             bool anyChanged = false;
             for (int i = 0; i < _chunks.Length; i++)
             {
@@ -370,14 +382,33 @@ namespace Robogame.Voxel
                 if (distSq > d2Sq) lod = 2;
                 else if (distSq > d1Sq) lod = 1;
                 else lod = 0;
-                if (lod != c.CurrentLodLevel)
-                {
-                    c.SetLodLevel(lod);   // remeshes with stale strides …
-                    anyChanged = true;
-                }
+                if (lod == c.CurrentLodLevel) continue;
+                c.SetLodLevelQuiet(lod); // level only — remesh below, with final strides
+                anyChanged = true;
+                Vector3Int cc = c.ChunkCoord;
+                _lodRemesh[i] = true;
+                if (cc.x > 0)                    _lodRemesh[FlatIndex(cc.x - 1, cc.y, cc.z)] = true;
+                if (cc.x < _chunkGridSize.x - 1) _lodRemesh[FlatIndex(cc.x + 1, cc.y, cc.z)] = true;
+                if (cc.y > 0)                    _lodRemesh[FlatIndex(cc.x, cc.y - 1, cc.z)] = true;
+                if (cc.y < _chunkGridSize.y - 1) _lodRemesh[FlatIndex(cc.x, cc.y + 1, cc.z)] = true;
+                if (cc.z > 0)                    _lodRemesh[FlatIndex(cc.x, cc.y, cc.z - 1)] = true;
+                if (cc.z < _chunkGridSize.z - 1) _lodRemesh[FlatIndex(cc.x, cc.y, cc.z + 1)] = true;
             }
-            if (anyChanged) RebuildAllMeshes();  // … fresh strides land here.
+            if (!anyChanged) return;
+            // Every level is final before any apron builds, so each
+            // remeshed chunk sees post-change neighbour strides.
+            for (int i = 0; i < _chunks.Length; i++)
+            {
+                if (!_lodRemesh[i] || _chunks[i] == null) continue;
+                BuildApronFor(_chunks[i]);
+                _chunks[i].RemeshNow();
+            }
         }
+
+        // Scratch set for the scoped LOD rebuild (reused, no per-frame alloc).
+        private bool[] _lodRemesh;
+        // Cached Camera.main for the per-frame LOD distance test.
+        private Camera _lodCamera;
 
         private void EnsureInitialised()
         {

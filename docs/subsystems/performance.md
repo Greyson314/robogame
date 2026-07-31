@@ -683,8 +683,14 @@ change. Don't make it more aggressive than that.
 `Tweakables.Get(string)` is a `Dictionary.TryGetValue` — O(1) but
 with a string-hash on every call. **Calling it inside a per-vertex or
 per-block loop wastes cycles.** Always read once per frame at the
-loop entry; cache to a local. WaterMeshAnimator is the existing
-correct pattern (line 124 in `Update`).
+loop entry; cache to a local. The water system is the reference
+pattern: `WaterSurface.WaveParams.Sample()` hoists the four wave
+knobs once, and the hot `SampleHeight(volume, in wave, …)` overload
+takes them by ref — WaterMeshAnimator (per vertex) and
+BuoyancyController (per block) both hoist at loop entry. (An earlier
+revision of this section claimed WaterMeshAnimator already did this;
+it only hoisted the foam amplitude while `SampleHeight` re-read all
+four tweakables per call — fixed in the spring-cleaning perf pass.)
 
 ### 8.10 ProjectileGun fire-rate gating uses Time.time
 

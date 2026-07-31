@@ -146,6 +146,7 @@ namespace Robogame.Combat
                 p.ReloadStartsAt = Time.time + Mathf.Max(0f, p.AutoReloadDelay);
             }
             _pools[blockId] = p;
+            PoolsVersion++;
             return true;
         }
 
@@ -158,6 +159,7 @@ namespace Robogame.Combat
             if (p.ReloadEndsAt > Time.time) return;
             p.ReloadStartsAt = Time.time;
             _pools[blockId] = p;
+            PoolsVersion++;
         }
 
         /// <summary>R-key path: kick a reload on every non-full pool.</summary>
@@ -170,19 +172,32 @@ namespace Robogame.Combat
             for (int i = 0; i < keys.Count; i++) RequestReload(keys[i]);
         }
 
-        /// <summary>Enumerate every pool — used by the HUD to render an ammo row per weapon type.</summary>
-        public IEnumerable<KeyValuePair<string, (int current, int max, int instances, bool reloading, float reloadProgress)>> EnumeratePools()
+        // Key list mirroring _pools, so HUDs can read pools by index. The
+        // old yield-return EnumeratePools allocated its enumerator state
+        // machine on every call — two HUDs × every rendered frame (INV-6).
+        private readonly List<string> _poolKeys = new();
+
+        /// <summary>
+        /// Bumped on every discrete pool change (consume, reload start /
+        /// complete, recompute). HUDs gate their rebuild on this — pool
+        /// values only move on these events, never continuously.
+        /// </summary>
+        public int PoolsVersion { get; private set; }
+
+        /// <summary>Number of ammo pools (one per weapon type).</summary>
+        public int PoolCount => _poolKeys.Count;
+
+        /// <summary>Index-based pool read for per-frame HUD loops (allocation-free).</summary>
+        public bool TryGetPoolAt(int index, out string blockId, out int current, out int max, out bool reloading)
         {
-            foreach (var kvp in _pools)
-            {
-                Pool p = kvp.Value;
-                bool reloading = p.ReloadEndsAt > Time.time;
-                float progress = reloading
-                    ? 1f - Mathf.Clamp01((p.ReloadEndsAt - Time.time) / Mathf.Max(0.001f, p.ReloadDuration))
-                    : 0f;
-                yield return new KeyValuePair<string, (int, int, int, bool, float)>(
-                    kvp.Key, (p.Current, p.Max, p.Instances, reloading, progress));
-            }
+            blockId = null; current = 0; max = 0; reloading = false;
+            if (index < 0 || index >= _poolKeys.Count) return false;
+            blockId = _poolKeys[index];
+            if (!_pools.TryGetValue(blockId, out Pool p)) return false;
+            current = p.Current;
+            max = p.Max;
+            reloading = p.ReloadEndsAt > Time.time;
+            return true;
         }
 
         // -----------------------------------------------------------------
@@ -230,6 +245,7 @@ namespace Robogame.Combat
                     _pools[k] = _pendingPoolWrites[k];
                 }
                 _pendingPoolWrites.Clear();
+                PoolsVersion++;
             }
         }
 
@@ -358,6 +374,10 @@ namespace Robogame.Combat
                     };
                 }
             }
+            // Refresh the index-accessor key list + stamp the change.
+            _poolKeys.Clear();
+            foreach (var kvp in _pools) _poolKeys.Add(kvp.Key);
+            PoolsVersion++;
         }
 
         private static readonly Dictionary<string, int> _instanceCountScratch = new();

@@ -92,6 +92,7 @@ namespace Robogame.Player
                 _rb = _target != null ? _target.GetComponent<Rigidbody>() : null;
                 _robot = _target != null ? _target.GetComponent<Robot>() : null;
                 _ammo = _target != null ? _target.GetComponent<WeaponAmmoState>() : null;
+                _ammoPoolsVersionSeen = -1; // force ammo line rebuild for the new chassis
                 _module = _target != null ? _target.GetComponent<ModuleSystem>() : null;
                 // Capture the chassis's full block count on respawn so the
                 // BLOCKS line can render N/Max. Counts include every cell in
@@ -165,9 +166,19 @@ namespace Robogame.Player
                     : $"SCR  {scrap}";
             }
 
-            BuildAmmoLine();
-            _ammoText = _ammoLine.ToString();
+            // Dirty-gated like the sibling rows: pool values only change on
+            // consume / reload transitions (PoolsVersion), so rebuilding the
+            // string every frame was a steady ~30-50 B/frame GC drip.
+            int ammoVersion = _ammo != null ? _ammo.PoolsVersion : -2;
+            if (ammoVersion != _ammoPoolsVersionSeen)
+            {
+                _ammoPoolsVersionSeen = ammoVersion;
+                BuildAmmoLine();
+                _ammoText = _ammoLine.ToString();
+            }
         }
+
+        private int _ammoPoolsVersionSeen = -1;
 
         private void OnGUI()
         {
@@ -224,15 +235,14 @@ namespace Robogame.Player
                 return;
             }
             bool first = true;
-            foreach (var kvp in _ammo.EnumeratePools())
+            for (int i = 0; i < _ammo.PoolCount; i++)
             {
+                if (!_ammo.TryGetPoolAt(i, out string blockId, out int cur, out int max, out bool reloading)) continue;
                 if (!first) _ammoLine.Append(" · ");
                 first = false;
-                string shortName = ShortenWeaponId(kvp.Key);
-                int cur = kvp.Value.current;
-                int max = kvp.Value.max;
+                string shortName = ShortenWeaponId(blockId);
                 if (cur <= 0) _ammoAnyEmpty = true;
-                if (kvp.Value.reloading)
+                if (reloading)
                 {
                     _ammoLine.Append(shortName).Append(' ').Append('R');
                 }

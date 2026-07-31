@@ -113,10 +113,17 @@ namespace Robogame.Gameplay
             _follow = GetComponent<FollowCamera>();
         }
 
+        // Late-bind throttle: ArenaController normally calls BindMatch at
+        // attach, so this scene-wide scan is a startup fallback only —
+        // throttled so an arena whose match is still null doesn't pay a
+        // per-frame FindFirstObjectByType forever (best-practices §12.5).
+        private float _nextMatchScanAt;
+
         private void Update()
         {
-            if (_match == null)
+            if (_match == null && Time.unscaledTime >= _nextMatchScanAt)
             {
+                _nextMatchScanAt = Time.unscaledTime + 1f;
 #if UNITY_2023_1_OR_NEWER
                 ArenaController arena = Object.FindFirstObjectByType<ArenaController>();
 #else

@@ -39,6 +39,24 @@ namespace Robogame.Block
         public int Count => _blocks.Count;
         public IReadOnlyDictionary<Vector3Int, BlockBehaviour> Blocks => _blocks;
 
+        /// <summary>
+        /// Allocation-free iteration for hot per-frame loops: foreach over
+        /// the interface-typed <see cref="Blocks"/> boxes the Dictionary's
+        /// struct enumerator (one heap alloc per loop — INV-6); this
+        /// wrapper hands out the struct enumerator directly while keeping
+        /// the mutation surface closed (PlaceBlock/RemoveBlock own writes
+        /// so the events stay authoritative).
+        /// </summary>
+        public BlockCollection BlocksNonAlloc => new BlockCollection(_blocks);
+
+        /// <summary>Read-only foreach view over the concrete dictionary — see <see cref="BlocksNonAlloc"/>.</summary>
+        public readonly struct BlockCollection
+        {
+            private readonly Dictionary<Vector3Int, BlockBehaviour> _dict;
+            internal BlockCollection(Dictionary<Vector3Int, BlockBehaviour> dict) { _dict = dict; }
+            public Dictionary<Vector3Int, BlockBehaviour>.Enumerator GetEnumerator() => _dict.GetEnumerator();
+        }
+
         /// <summary>Fired immediately after a block is added to the grid.</summary>
         public event Action<BlockBehaviour> BlockPlaced;
 

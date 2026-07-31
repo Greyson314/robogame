@@ -96,7 +96,8 @@ namespace Robogame.Gameplay
             // CoL / CoT — weighted block centroids.
             Vector3 colSum = Vector3.zero, cotSum = Vector3.zero;
             float colW = 0f, cotW = 0f;
-            foreach (var kvp in robot.Grid.Blocks)
+            // Non-boxing enumeration (per-frame loop — INV-6).
+            foreach (var kvp in robot.Grid.BlocksNonAlloc)
             {
                 BlockBehaviour b = kvp.Value;
                 if (b == null || b.Definition == null) continue;

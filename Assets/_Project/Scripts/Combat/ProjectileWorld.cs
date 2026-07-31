@@ -499,14 +499,29 @@ namespace Robogame.Combat
             if (hitAny) HitLanded?.Invoke(spec.Owner, worldPoint);
         }
 
+        // Reused splash snapshot. Lethal TakeDamage removes the block from
+        // the grid synchronously (Destroyed → RemoveBlock), so the loop
+        // must not hold a live dictionary enumerator; the old
+        // GetComponentsInChildren snapshot allocated a fresh array per
+        // explosion on the FixedUpdate stack (INV-6, 109-audit finding 8)
+        // and also missed grid blocks reparented away from the chassis
+        // (rotor foils under a scene-root hub).
+        private static readonly List<BlockBehaviour> s_splashScratch = new(64);
+
         private static void DamageRobotInRadius(Robot robot, Vector3 worldPoint, float r2, float headlineDamage)
         {
             BlockGrid grid = robot.Grid;
             if (grid == null) return;
+            s_splashScratch.Clear();
+            foreach (var kvp in grid.BlocksNonAlloc)
+            {
+                if (kvp.Value != null) s_splashScratch.Add(kvp.Value);
+            }
             // Per-block quadratic falloff: 1 at centre, 0 at radius.
             // Same shape as the prior Bomb.DamageRobot path.
-            foreach (BlockBehaviour block in robot.GetComponentsInChildren<BlockBehaviour>(includeInactive: false))
+            for (int i = 0; i < s_splashScratch.Count; i++)
             {
+                BlockBehaviour block = s_splashScratch[i];
                 if (block == null || !block.IsAlive) continue;
                 Vector3 centre = block.transform.position;
                 float d2 = (centre - worldPoint).sqrMagnitude;
@@ -514,6 +529,7 @@ namespace Robogame.Combat
                 float t = 1f - (d2 / r2);
                 block.TakeDamage(headlineDamage * t);
             }
+            s_splashScratch.Clear();
         }
 
         // -----------------------------------------------------------------

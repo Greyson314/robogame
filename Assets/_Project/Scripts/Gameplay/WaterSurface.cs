@@ -59,17 +59,42 @@ namespace Robogame.Gameplay
         /// returned value is the absolute world Y of the surface — i.e.
         /// includes <see cref="WaterVolume.SurfaceY"/>.
         /// </summary>
+        /// <summary>
+        /// The four wave tweakables, hoisted once per frame/tick. Each
+        /// <see cref="Tweakables.Get(string)"/> is a string-keyed dictionary
+        /// probe; the per-vertex mesh loop (65×65 verts) plus the per-block
+        /// buoyancy loop were paying 4 probes per call — ~17k per rendered
+        /// frame (perf doc §8.9). Hot loops call <see cref="Sample"/> and
+        /// pass the params through.
+        /// </summary>
+        public readonly struct WaveParams
+        {
+            public readonly float Amplitude, Length, Speed, Steepness;
+            public WaveParams(float amplitude, float length, float speed, float steepness)
+            { Amplitude = amplitude; Length = length; Speed = speed; Steepness = steepness; }
+
+            public static WaveParams Sample() => new WaveParams(
+                Tweakables.Get(Tweakables.WaveAmplitude),
+                Mathf.Max(0.01f, Tweakables.Get(Tweakables.WaveLength)),
+                Tweakables.Get(Tweakables.WaveSpeed),
+                Mathf.Clamp01(Tweakables.Get(Tweakables.WaveSteepness)));
+        }
+
         public static float SampleHeight(WaterVolume water, float x, float z, float time)
+            => SampleHeight(water, WaveParams.Sample(), x, z, time);
+
+        /// <summary>Hot-loop overload — caller hoists <see cref="WaveParams.Sample"/> once.</summary>
+        public static float SampleHeight(WaterVolume water, in WaveParams p, float x, float z, float time)
         {
             if (water == null) return 0f;
 
             float baseY     = water.SurfaceY;
-            float amplitude = Tweakables.Get(Tweakables.WaveAmplitude);
+            float amplitude = p.Amplitude;
             if (amplitude <= 0f) return baseY;
 
-            float length    = Mathf.Max(0.01f, Tweakables.Get(Tweakables.WaveLength));
-            float speed     = Tweakables.Get(Tweakables.WaveSpeed);
-            float steepness = Mathf.Clamp01(Tweakables.Get(Tweakables.WaveSteepness));
+            float length    = p.Length;
+            float speed     = p.Speed;
+            float steepness = p.Steepness;
 
             float displacementY = 0f;
             for (int i = 0; i < s_dir.Length; i++)
