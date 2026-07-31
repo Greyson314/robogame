@@ -11,8 +11,8 @@ namespace Robogame.Combat
     /// <remarks>
     /// Session 139 animation pass. Sleeps (disabled) between shots; zero
     /// per-frame cost while idle and zero allocations after Attach.
-    /// TRACE[INV-3]: fire origin (ShootPoint) stays fixed under recoil.
     /// </remarks>
+    // TRACE[INV-3]: fire origin (ShootPoint) stays fixed under recoil.
     [DisallowMultipleComponent]
     public sealed class WeaponVisualKick : MonoBehaviour
     {

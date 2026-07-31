@@ -17,7 +17,7 @@ namespace Robogame.Gameplay
     /// double-booked — <c>FollowCamera</c> released the cursor AND
     /// <c>SettingsHud</c> toggled its full-screen panel on the same press,
     /// so "free my mouse" cost two Escapes and a settings flash.
-    /// TRACE[LOG-128]. The ladder is now: Escape in settings → back to
+    /// The ladder is now: Escape in settings → back to
     /// this menu; Escape here → resume (re-capturing the cursor if we
     /// took it); Escape while build-mode part tuning is on → exit tune
     /// mode; Escape in gameplay → open this menu.
@@ -32,6 +32,7 @@ namespace Robogame.Gameplay
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
+    // TRACE[LOG-128]: owns the Escape ladder (settings → menu → resume).
     public sealed class PauseMenuHud : MonoBehaviour
     {
         private static GameObject s_root;

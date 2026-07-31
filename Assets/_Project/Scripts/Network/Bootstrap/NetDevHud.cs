@@ -18,11 +18,13 @@ namespace Robogame.Network.Bootstrap
     /// StartMatchHud uses a hotkey). Display is a single status line
     /// docked under the FPS counter — the old 260×170 left-edge panel
     /// sat vertically centred and buried the garage's UGUI button stack
-    /// on shorter game views (IMGUI draws over UGUI). TRACE[LOG-128],
-    /// TRACE[DOC:hud-layout]. F9 = Host, F10 = Join, F8 = Server
+    /// on shorter game views (IMGUI draws over UGUI).
+    /// F9 = Host, F10 = Join, F8 = Server
     /// (Phase 6 dedicated, no local player), F11 = Stop, F5 = cycle the
     /// <see cref="NetcodeFakeLatencyController"/> preset.
     /// </remarks>
+    // TRACE[LOG-128]: docked layout — the old panel buried garage UGUI buttons.
+    // TRACE[DOC:hud-layout]: placement follows the HUD layout doc.
     [DisallowMultipleComponent]
     public sealed class NetDevHud : MonoBehaviour
     {

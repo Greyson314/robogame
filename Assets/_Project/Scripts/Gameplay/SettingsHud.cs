@@ -11,7 +11,7 @@ namespace Robogame.Gameplay
     /// Settings panel. Lives on the persistent Bootstrap object so a single
     /// instance survives scene transitions. Opened from the pause menu
     /// (<see cref="PauseMenuHud"/>) or the main menu — it no longer polls
-    /// Escape itself; the pause menu owns that key. TRACE[LOG-128]
+    /// Escape itself; the pause menu owns that key.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -29,6 +29,7 @@ namespace Robogame.Gameplay
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
+    // TRACE[LOG-128]: Escape handling moved to PauseMenuHud (the ladder owner).
     public sealed class SettingsHud : MonoBehaviour
     {
         private GameObject _root;

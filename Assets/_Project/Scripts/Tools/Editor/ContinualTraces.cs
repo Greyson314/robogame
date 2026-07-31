@@ -134,6 +134,10 @@ namespace Robogame.Tools.Editor
             string assets = Application.dataPath; // <root>/Assets
             foreach (string path in Directory.EnumerateFiles(assets, "*.cs", SearchOption.AllDirectories))
             {
+                // Self-exclusion: this file's inline `//` syntax examples
+                // (`TRACE[<id>]`, the index header literal) match the marker
+                // regex and reported as 2 permanently-dangling traces.
+                if (Path.GetFileName(path) == "ContinualTraces.cs") continue;
                 string[] lines = File.ReadAllLines(path);
                 string rel = path.Substring(root.Length).TrimStart('/', '\\').Replace('\\', '/');
                 for (int i = 0; i < lines.Length; i++)
@@ -197,9 +201,26 @@ namespace Robogame.Tools.Editor
             {
                 string name = id.Substring(4).Split('§', '#')[0].Trim();
                 if (name.Length == 0) { reason = "empty DOC name"; return false; }
-                if (Directory.Exists(docs) &&
-                    Directory.EnumerateFiles(docs, name, SearchOption.AllDirectories).Any()) return true;
-                reason = $"no file named '{name}' under docs/"; return false;
+                // Forgiving resolution — sites author ids in three shapes
+                // that the strict filename match reported as dangling even
+                // though every target exists (LOG-157 traces repair):
+                //  1. no extension ("best-practices§…") → append .md;
+                //  2. docs-relative path ("research/ui-design-handoff");
+                //  3. repo-root docs ("CLAUDE.md§…") — CLAUDE.md lives
+                //     outside docs/ by convention.
+                if (!name.EndsWith(".md", StringComparison.OrdinalIgnoreCase)) name += ".md";
+                bool hasPath = name.IndexOf('/') >= 0 || name.IndexOf('\\') >= 0;
+                if (hasPath)
+                {
+                    if (File.Exists(Path.Combine(docs, name))) return true;
+                }
+                else
+                {
+                    if (Directory.Exists(docs) &&
+                        Directory.EnumerateFiles(docs, name, SearchOption.AllDirectories).Any()) return true;
+                    if (File.Exists(Path.Combine(ProjectRoot(), name))) return true;
+                }
+                reason = $"no doc '{name}' under docs/ (or repo root)"; return false;
             }
 
             reason = "unrecognised id kind (expected ADR-/INV-/AUDIT-/LOG-/DOC:)";

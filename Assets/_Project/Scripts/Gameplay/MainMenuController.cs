@@ -25,13 +25,14 @@ namespace Robogame.Gameplay
     /// bottom-right.
     /// </para>
     /// <para>
-    /// TRACE[DOC:research/ui-design-handoff]: layout and treatments follow
+    /// Layout and treatments follow
     /// the unified-menu reference — paper ground with drafting grid,
     /// registration marks, ink brush title underline with vermilion splats,
     /// ink-blob primary button, wash-underline secondary buttons, and a
     /// mirror-written flavor line (the da Vinci easter egg).
     /// </para>
     /// </remarks>
+    // TRACE[DOC:research/ui-design-handoff]: unified-menu layout + treatments.
     [DisallowMultipleComponent]
     public sealed class MainMenuController : MonoBehaviour
     {

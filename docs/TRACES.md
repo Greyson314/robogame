@@ -5,13 +5,130 @@
 > Syntax: `// TRACE[id]: note` — see `ContinualTraces.cs` / `CLAUDE.md`.
 
 ## ADR-0002
-- `Assets/_Project/Scripts/Network/Robot/NetworkRobotMovement.cs:265` — forces go to the prediction mirror via the subsystem redirect
+- `Assets/_Project/Scripts/Network/Robot/NetworkRobotMovement.cs:280` — forces go to the prediction mirror via the subsystem redirect
+
+## ADR-0003
+- `Assets/_Project/Scripts/Combat/BombBayBlock.cs:62` — shared cooldown + ammo + dry-click gate (phase D)
+- `Assets/_Project/Scripts/Combat/CannonBlock.cs:89` — shared cooldown + ammo + dry-click gate (phase D)
+- `Assets/_Project/Scripts/Combat/CannonBlock.cs:153` — shared yaw/pitch/muzzle track (phase C); yaw
+- `Assets/_Project/Scripts/Combat/GrappleMagnetBlock.cs:266` — shared yaw/pitch/muzzle track (phase C); yaw
+- `Assets/_Project/Scripts/Combat/MortarBlock.cs:111` — shared cooldown + ammo + dry-click gate (phase D)
+- `Assets/_Project/Scripts/Combat/MortarBlock.cs:192` — shared yaw (phase C); the mortar drives its own
+- `Assets/_Project/Scripts/Combat/ProjectileGun.cs:67` — shared cooldown + ammo + dry-click gate (phase D)
+- `Assets/_Project/Scripts/Combat/WeaponAmmoState.cs:274` — ammo-weapon registry = "definition carries IWeaponStats" (phase B), replaces the hand-synced id list
+- `Assets/_Project/Scripts/Combat/WeaponAmmoState.cs:396` — single IWeaponStats cast (phase B), was a four-way try-cast
+- `Assets/_Project/Scripts/Combat/WeaponBlock.cs:90` — shared yaw/pitch/muzzle track (phase C); yaw
+- `Assets/_Project/Scripts/Network/Robot/NetworkRobotCombat.cs:145` — marker-interface silence walk (phase B) — replaces the hand-synced list
+
+## ADR-0006
+- `Assets/_Project/Scripts/Core/AudioRouter.cs:252` — ExpireAt must include the DSP-side wait —
+- `Assets/_Project/Scripts/Core/MusicConductor.cs:39` — grid facts survive a mid-play domain reload via
+- `Assets/_Project/Scripts/Tools/Editor/MusicScaffolder.cs:23` — the clip is rendered at exactly
+
+## ADR-0007
+- `Assets/_Project/Scripts/Core/MusicConductor.cs:51` — FMOD Core owns stem playback; native handles,
+- `Assets/_Project/Scripts/Core/MusicConductor.cs:420` — FMOD bypasses the Music AudioMixer bus, so the
+- `Assets/_Project/Scripts/Tools/Editor/MusicScaffolder.cs:52` — intensity-layer stems for the FMOD backend,
 
 ## AUDIT-1
-- `Assets/_Project/Scripts/Network/Robot/NetworkRobotMovement.cs:264` — re-step only the owner chassis in isolation — never global Physics.Simulate
+- `Assets/_Project/Scripts/Network/Robot/NetworkRobotMovement.cs:279` — re-step only the owner chassis in isolation — never global Physics.Simulate
+
+## AUDIT-15
+- `Assets/_Project/Scripts/Combat/CannonBlock.cs:228` — world gravity at the muzzle (was chassis-relative -parent.up)
+- `Assets/_Project/Scripts/Combat/ModuleEffects.cs:88` — skip teammates, not just the owner (EMP used to disable allies)
+- `Assets/_Project/Scripts/Combat/MortarBlock.cs:227` — unified muzzle gravity (was chassis-relative -parent.up)
+- `Assets/_Project/Scripts/Combat/ProjectileGravity.cs:13` — unified muzzle gravity — cannon/mortar were chassis-relative (-parent.up), banked launchers got sideways gravity; bomb was already correct
+- `Assets/_Project/Scripts/Robot/Teams.cs:11` — one friendly-fire predicate (was forked: ProjectileWorld vs EmpBurst, letting EMP hit teammates)
+
+## AUDIT-3
+- `Assets/_Project/Scripts/Combat/TurretYoke.cs:56` — local up = opposite gravity (was Vector3.up). No longer
+
+## DOC:CLAUDE.md§Known failure modes
+- `Assets/_Project/Scripts/Combat/DamageAttribution.cs:48` — statics survive domain
+- `Assets/_Project/Scripts/Combat/MusicalHits.cs:39` — statics survive domain
+
+## DOC:art-direction§Palette
+- `Assets/_Project/Scripts/Gameplay/GarageDecor.cs:23` — every decor color below is a
+
+## DOC:audio.md
+- `Assets/_Project/Scripts/Core/MusicalSfx.cs:76` — statics survive domain reload — reset below.
+
+## DOC:best-practices§statics
+- `Assets/_Project/Scripts/Core/HudPointerGuard.cs:32` — statics survive domain reload.
+
+## DOC:hud-layout
+- `Assets/_Project/Scripts/Network/Bootstrap/NetDevHud.cs:27` — placement follows the HUD layout doc.
+
+## DOC:research/ui-design-handoff
+- `Assets/_Project/Scripts/Core/HudStyles.cs:34` — "inventor + painter" palette
+- `Assets/_Project/Scripts/Core/HudStyles.cs:96` — one UI face for
+- `Assets/_Project/Scripts/Core/InkKit.cs:27` — shape language + token values.
+- `Assets/_Project/Scripts/Core/UguiPalette.cs:36` — inventor + painter tokens.
+- `Assets/_Project/Scripts/Gameplay/MainMenuController.cs:35` — unified-menu layout + treatments.
+- `Assets/_Project/Scripts/Gameplay/SettingsHud.cs:160` — Display face for UI text,
+- `Assets/_Project/Scripts/Gameplay/SettingsHud.cs:769` — "quantities live inside
+- `Assets/_Project/Scripts/Gameplay/SettingsHud.cs:845` — toggle rail spec.
+
+## DOC:research/ui-design-handoff-laboratory
+- `Assets/_Project/Scripts/Core/LabKit.cs:26` — colours, shapes, elevation.
+- `Assets/_Project/Scripts/Gameplay/LabController.cs:37` — layout + interaction language.
+
+## INV-1
+- `Assets/_Project/Scripts/Movement/ThrusterBlock.cs:125` — dev-only global multiplier; compile-stripped to 1.0 in
+
+## INV-3
+- `Assets/_Project/Scripts/Combat/WeaponVisualKick.cs:15` — fire origin (ShootPoint) stays fixed under recoil.
 
 ## INV-4
 - `Assets/_Project/Scripts/Network/Prediction/PredictionScene.cs:80` — the prediction mirror is the one sanctioned 2nd Rigidbody for a chassis
 
+## INV-6
+- `Assets/_Project/Scripts/Network/Bootstrap/NetDevHud.cs:74`
+
+## LOG-115
+- `Assets/_Project/Scripts/Combat/ProjectileWorld.cs:471` — friendly-fire spares damage but NOT knockback (bomb-jump)
+
+## LOG-127
+- `Assets/_Project/Scripts/Tools/Editor/BlockDefinitionWizard.cs:32` — cannon buff 60 -> 110 (survey-driven). The
+
+## LOG-128
+- `Assets/_Project/Scripts/Gameplay/PauseMenuHud.cs:35` — owns the Escape ladder (settings → menu → resume).
+- `Assets/_Project/Scripts/Gameplay/SceneTransitionHud.cs:454`
+- `Assets/_Project/Scripts/Gameplay/SettingsHud.cs:32` — Escape handling moved to PauseMenuHud (the ladder owner).
+- `Assets/_Project/Scripts/Network/Bootstrap/NetDevHud.cs:26` — docked layout — the old panel buried garage UGUI buttons.
+
+## LOG-131
+- `Assets/_Project/Scripts/Combat/TurretYoke.cs:72` — turrets ride the chassis — yaw about the block's
+
+## LOG-132
+- `Assets/_Project/Scripts/Block/BlockBehaviour.cs:194` — generic authored-model path — ends the "red host
+- `Assets/_Project/Scripts/Block/BlockDefinition.cs:97` — inventor-aesthetic model wiring — authored FBX
+- `Assets/_Project/Scripts/Combat/BombBayBlock.cs:108` — activation-order tolerant input re-resolve
+- `Assets/_Project/Scripts/Combat/CannonBlock.cs:167` — activation-order tolerant input re-resolve
+- `Assets/_Project/Scripts/Combat/MortarBlock.cs:261` — activation-order tolerant — a bind-once Awake
+- `Assets/_Project/Scripts/Gameplay/ChassisAssembler.cs:199` — weapon detection by definition
+- `Assets/_Project/Scripts/Gameplay/ChassisAssembler.cs:307` — fail loud — a rejected placement used
+- `Assets/_Project/Scripts/Movement/WheelBlock.cs:325` — authored wheel model (inventor cartwheel)
+- `Assets/_Project/Scripts/Tools/Editor/BlockMaterials.cs:64` — inventor oak-plank albedo overrides the slate
+- `Assets/_Project/Scripts/Tools/Editor/InventorModelWiring.cs:14` — inventor model wiring — weapons via the
+- `Assets/_Project/Scripts/Tools/Editor/InventorPlankTexture.cs:15` — structure-cube direction — continuous oak planks.
+
+## LOG-133
+- `Assets/_Project/Scripts/Movement/AeroSurfaceBlock.cs:439` — authored foil model rides the Wing transform's
+
+## LOG-147
+- `Assets/_Project/Scripts/Core/MusicMidi.cs:45` — the SMG is a hybrid voice — chip-damage notes
+
+## LOG-148
+- `Assets/_Project/Scripts/Core/GarageMusic.cs:209` — MPTK's own prefab carries the AudioSource +
+- `Assets/_Project/Scripts/Core/MusicMidi.cs:164` — instantiate MPTK's own prefab rather than
+- `Assets/_Project/Scripts/Gameplay/GarageController.cs:132` — garage theme — public-domain MIDI through the
+
+## LOG-149
+- `Assets/_Project/Scripts/Core/GarageMusic.cs:34` — original foggy-Victorian waltz composed for the
+
+## LOG-155
+- `Assets/_Project/Scripts/Block/BlockGrid.cs:360` — Fuse = splash-chain breaker. It absorbs its
+
 ---
-_3 traces across 2 files; 3 anchors, 0 dangling._
+_70 traces across 48 files; 28 anchors, 0 dangling._

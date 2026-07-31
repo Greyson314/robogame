@@ -6,7 +6,7 @@ namespace Robogame.Core
     /// Runtime-generated sprite kit + fonts for the "inventor + painter" UI
     /// direction: brush blobs, wash fills, underline swipes, splats, wax
     /// seals, dashed lines, paper grounds, drafting grids, registration
-    /// marks. TRACE[DOC:research/ui-design-handoff]: shape language and
+    /// marks. Shape language and
     /// token values come from the July 2026 design handoff.
     /// </summary>
     /// <remarks>
@@ -24,6 +24,7 @@ namespace Robogame.Core
     /// vermilion gradient is baked (it is never used in another colour).
     /// </para>
     /// </remarks>
+    // TRACE[DOC:research/ui-design-handoff]: shape language + token values.
     public static class InkKit
     {
         // -----------------------------------------------------------------

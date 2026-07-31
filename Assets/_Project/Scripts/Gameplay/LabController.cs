@@ -25,7 +25,7 @@ namespace Robogame.Gameplay
     /// plate (centre) and a live specimen vial (right) whose liquid wears
     /// the mix's <see cref="Concoction.MixedColor"/> and whose fill level
     /// tracks Size + Spread. Tokens/sprites in <see cref="LabKit"/>.
-    /// TRACE[DOC:research/ui-design-handoff-laboratory]: layout, elevation
+    /// Layout, elevation
     /// and interaction language come from the July 2026 Laboratory handoff.
     /// Full-screen overlay built procedurally (same UGUI approach as
     /// <see cref="VariantConfigPanel"/>); opens over the garage, closes on
@@ -34,6 +34,7 @@ namespace Robogame.Gameplay
     /// allocations; while closed <see cref="Update"/> early-outs on a bool.
     /// </remarks>
     [DisallowMultipleComponent]
+    // TRACE[DOC:research/ui-design-handoff-laboratory]: layout + interaction language.
     public sealed class LabController : MonoBehaviour
     {
         private BuildModeController _buildMode;

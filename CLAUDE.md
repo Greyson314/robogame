@@ -105,7 +105,7 @@ Read [docs/invariants.md](docs/invariants.md) before doing real work.
 - **`AddComponent<T>` runs `OnEnable` synchronously.** Reflection-based serialised-field assignment must happen with the root deactivated. See `ChassisFactory.Build`.
 - **`AssetDatabase.Refresh` invalidates C# refs.** Re-load by path right before `SerializedObject.FindProperty(...).objectReferenceValue = ...`.
 - **Input System UI doesn't gate over UI for free.** Use `EventSystem.current.IsPointerOverGameObject()` to suppress fire / camera-capture / etc. when the cursor's on the HUD.
-- **Pattern-matching to "Unity rope = ConfigurableJoint chain" is the wrong reflex.** PhysX joint chains are unstable under sustained spin and expensive to network. Custom Verlet solver is the migration target. Existing `RopeBlock` and `RotorBlock` use joints today; that's tech debt to migrate, not a pattern to extend. See [docs/subsystems/physics.md § 2](docs/subsystems/physics.md).
+- **Pattern-matching to "Unity rope = ConfigurableJoint chain" is the wrong reflex.** PhysX joint chains are unstable under sustained spin and expensive to network. The custom Verlet/PBD rope solver shipped (`VerletRopeSimulator`); `RotorBlock` is joint-free, and `RopeBlock` keeps exactly one sanctioned chassis↔tip leash `ConfigurableJoint`. Do not add new joint chains. See [docs/subsystems/physics.md § 2](docs/subsystems/physics.md).
 
 ## User preferences
 

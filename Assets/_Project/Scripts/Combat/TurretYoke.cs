@@ -53,7 +53,7 @@ namespace Robogame.Combat
             _maxPitch = maxPitch;
         }
 
-        // TRACE[AUDIT-8]: local up = opposite gravity (was Vector3.up). No longer
+        // TRACE[AUDIT-3]: local up = opposite gravity (was Vector3.up). No longer
         // the turret yaw axis — superseded by MountUp (LOG-131) — kept for
         // gravity-frame consumers and the pinned spherical regression tests.
         /// <summary>

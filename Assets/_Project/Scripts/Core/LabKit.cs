@@ -6,7 +6,7 @@ namespace Robogame.Core
     /// Night-workshop tokens + runtime-baked sprites for the Laboratory
     /// screen's "evil scientist" treatment — the one sanctioned dark
     /// departure from the parchment ground used everywhere else.
-    /// TRACE[DOC:research/ui-design-handoff-laboratory]: colours, shapes and
+    /// Colours, shapes and
     /// elevation language come from the July 2026 Laboratory design handoff.
     /// </summary>
     /// <remarks>
@@ -23,6 +23,7 @@ namespace Robogame.Core
     /// (9-slice frames) that InkKit has no use for.
     /// </para>
     /// </remarks>
+    // TRACE[DOC:research/ui-design-handoff-laboratory]: colours, shapes, elevation.
     public static class LabKit
     {
         // -----------------------------------------------------------------
