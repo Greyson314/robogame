@@ -27,6 +27,54 @@ namespace Robogame.Gameplay
     public static class BlockGhostFactory
     {
         /// <summary>
+        /// Per-instance placement context handed to a ghost recipe. Only
+        /// the shape-parametric recipes (foils, rope) read it; the fixed
+        /// rigs ignore it.
+        /// </summary>
+        public readonly struct GhostContext
+        {
+            public readonly Vector3 Dims;
+            public readonly Vector3Int TargetCell;
+            public readonly float PitchDeg;
+            public readonly float TeeterDeg;
+
+            public GhostContext(Vector3 dims, Vector3Int targetCell, float pitchDeg, float teeterDeg)
+            {
+                Dims = dims; TargetCell = targetCell;
+                PitchDeg = pitchDeg; TeeterDeg = teeterDeg;
+            }
+        }
+
+        /// <summary>A ghost rig recipe: build primitive children under <c>root</c>.</summary>
+        public delegate void GhostRecipe(Transform root, in GhostContext ctx);
+
+        // TRACE[ADR-0008]: per-block rig recipes — the ghost analogue of
+        // the definition's classification flags. One registration per
+        // block id replaces the old id-switch; unknown ids fall back to
+        // the plain cube so the editor keeps working while a new block's
+        // recipe is being authored. Plain static-initialised dictionary
+        // (no lazy init, no Unity objects inside) so it is domain-reload
+        // safe without a reset hook.
+        private static readonly System.Collections.Generic.Dictionary<string, GhostRecipe> s_recipes =
+            new System.Collections.Generic.Dictionary<string, GhostRecipe>
+            {
+                [BlockIds.Wheel]         = (Transform r, in GhostContext _) => BuildWheel(r),
+                [BlockIds.WheelSteer]    = (Transform r, in GhostContext _) => BuildWheel(r),
+                [BlockIds.Thruster]      = (Transform r, in GhostContext _) => BuildThruster(r),
+                [BlockIds.Aero]          = (Transform r, in GhostContext c) => BuildWing(r, c.Dims, c.TargetCell, c.PitchDeg, c.TeeterDeg),
+                [BlockIds.AeroFin]       = (Transform r, in GhostContext c) => BuildWing(r, c.Dims, c.TargetCell, c.PitchDeg, c.TeeterDeg),
+                [BlockIds.Wing]          = (Transform r, in GhostContext c) => BuildBatWing(r, c.Dims, c.TargetCell, c.PitchDeg, c.TeeterDeg),
+                [BlockIds.Rudder]        = (Transform r, in GhostContext _) => BuildRudder(r),
+                [BlockIds.Weapon]        = (Transform r, in GhostContext _) => BuildWeapon(r),
+                [BlockIds.GrappleMagnet] = (Transform r, in GhostContext _) => BuildGrappleMagnet(r),
+                [BlockIds.Rope]          = (Transform r, in GhostContext c) => BuildRope(r, c.Dims),
+                [BlockIds.Rotor]         = (Transform r, in GhostContext _) => BuildRotor(r),
+                [BlockIds.Hook]          = (Transform r, in GhostContext _) => BuildHook(r),
+                [BlockIds.Mace]          = (Transform r, in GhostContext _) => BuildMace(r),
+                [BlockIds.Magnet]        = (Transform r, in GhostContext _) => BuildMagnet(r),
+            };
+
+        /// <summary>
         /// Construct a ghost preview matching <paramref name="def"/>. The
         /// returned root has no colliders, no shadows, and a single shared
         /// material (the caller swaps between valid/invalid via
@@ -46,50 +94,12 @@ namespace Robogame.Gameplay
             // Parent will set position/rotation; root scale stays 1 so the
             // primitive child scales below behave like authored values.
 
-            switch (def != null ? def.Id : null)
-            {
-                case BlockIds.Wheel:
-                case BlockIds.WheelSteer:
-                    BuildWheel(root.transform);
-                    break;
-                case BlockIds.Thruster:
-                    BuildThruster(root.transform);
-                    break;
-                case BlockIds.Aero:
-                case BlockIds.AeroFin:
-                    BuildWing(root.transform, dims: dims, cellPos: targetCell, pitchDeg: pitchDeg, teeterDeg: teeterDeg);
-                    break;
-                case BlockIds.Wing:
-                    BuildBatWing(root.transform, dims: dims, cellPos: targetCell, pitchDeg: pitchDeg, teeterDeg: teeterDeg);
-                    break;
-                case BlockIds.Rudder:
-                    BuildRudder(root.transform);
-                    break;
-                case BlockIds.Weapon:
-                    BuildWeapon(root.transform);
-                    break;
-                case BlockIds.GrappleMagnet:
-                    BuildGrappleMagnet(root.transform);
-                    break;
-                case BlockIds.Rope:
-                    BuildRope(root.transform, dims);
-                    break;
-                case BlockIds.Rotor:
-                    BuildRotor(root.transform);
-                    break;
-                case BlockIds.Hook:
-                    BuildHook(root.transform);
-                    break;
-                case BlockIds.Mace:
-                    BuildMace(root.transform);
-                    break;
-                case BlockIds.Magnet:
-                    BuildMagnet(root.transform);
-                    break;
-                default:
-                    BuildCube(root.transform);
-                    break;
-            }
+            var ctx = new GhostContext(dims, targetCell, pitchDeg, teeterDeg);
+            string id = def != null ? def.Id : null;
+            if (id != null && s_recipes.TryGetValue(id, out GhostRecipe recipe))
+                recipe(root.transform, in ctx);
+            else
+                BuildCube(root.transform);
 
             ApplyToAll(root, initialMat);
             return root;

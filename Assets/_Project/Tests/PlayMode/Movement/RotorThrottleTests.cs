@@ -396,6 +396,8 @@ namespace Robogame.Tests.PlayMode.Movement
         bool    IInputSource.FireHeld       => false;
         bool    IInputSource.FirePressed    => false;
         bool    IInputSource.ReloadPressed  => false;
+        bool    IInputSource.FlipPressed    => false;
+        bool    IInputSource.HookReleasePressed => false;
         bool    IInputSource.GetModulePressed(int slot) => false;
     }
 }

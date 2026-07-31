@@ -52,5 +52,38 @@ namespace Robogame.Input
         /// logic.
         /// </summary>
         bool GetModulePressed(int slot);
+
+        /// <summary>
+        /// True for exactly one tick on the frame the player pressed the
+        /// self-right flip key (H). Consumed by <c>FlipController</c>,
+        /// which owns the cooldown + rotate. Routed through the input
+        /// source (not a local keyboard poll) so the verb rides the
+        /// netcode input command like every other action. Bots stub to
+        /// false.
+        /// </summary>
+        bool FlipPressed { get; }
+
+        /// <summary>
+        /// True for exactly one tick on the frame the player pressed the
+        /// grapple-release key (R — deliberately shared with
+        /// <see cref="ReloadPressed"/>). Consumed by
+        /// <c>RobotHookReleaseInput</c> to release every grappled hook on
+        /// the chassis. Bots stub to false.
+        /// </summary>
+        bool HookReleasePressed { get; }
+    }
+
+    /// <summary>
+    /// Implemented by delegating input sources (e.g. the netcode's
+    /// <c>NetworkInputSource</c>) so consumers that care WHO is behind
+    /// the input — not just its values — can unwrap to the inner source.
+    /// <c>WeaponAmmoState</c> uses this to keep its "is this the local
+    /// player's chassis" audio gate working once ownership wraps the
+    /// live <c>PlayerInputHandler</c>.
+    /// </summary>
+    public interface IInputSourceWrapper
+    {
+        /// <summary>The wrapped source, or null when none is bound.</summary>
+        IInputSource InnerSource { get; }
     }
 }

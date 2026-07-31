@@ -129,6 +129,33 @@ namespace Robogame.Input
             return true;
         }
 
+        /// <summary>
+        /// True only on the frame the player presses H (F is reserved, R is
+        /// grapple-release / reload). Direct keyboard read — same approach
+        /// as <see cref="ReloadPressed"/>. HUD-pointer suppression so a
+        /// press over the UI doesn't flip the chassis.
+        /// </summary>
+        public bool FlipPressed
+        {
+            get
+            {
+                Keyboard kb = Keyboard.current;
+                if (kb == null) return false;
+                if (!kb.hKey.wasPressedThisFrame) return false;
+                if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+                    return false;
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// True only on the frame the player presses R. Shares the key with
+        /// <see cref="ReloadPressed"/> on purpose — that pairing is the
+        /// pre-existing behaviour (both verbs polled R independently before
+        /// they moved onto the input source).
+        /// </summary>
+        public bool HookReleasePressed => ReloadPressed;
+
         private void OnEnable()
         {
             if (_actions == null)

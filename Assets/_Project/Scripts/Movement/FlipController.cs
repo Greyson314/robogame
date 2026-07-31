@@ -1,12 +1,11 @@
 using Robogame.Core;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace Robogame.Movement
 {
     /// <summary>
-    /// Self-righting flip hotkey on a player chassis. Polls
-    /// <see cref="Keyboard.current"/> for <see cref="_flipKey"/> and
+    /// Self-righting flip verb on a chassis. Reads
+    /// <see cref="Robogame.Input.IInputSource.FlipPressed"/> and
     /// rotates the chassis Rigidbody so its local +Y axis aligns with
     /// the local gravity-up direction — animated over
     /// <see cref="_flipDuration"/> seconds with an ease-in-out curve so
@@ -31,20 +30,17 @@ namespace Robogame.Movement
     /// rendering.
     /// </para>
     /// <para>
-    /// MP-shape: today this polls keyboard locally, identical to
-    /// <see cref="RobotHookReleaseInput"/>. When the netcode contract
-    /// adds a <c>FlipRequested</c> bit to the per-tick input command,
-    /// this becomes a server-side validate-cooldown-and-rotate; the
-    /// rotation logic in <see cref="StartFlip"/> + <see cref="FixedUpdate"/>
-    /// stays unchanged.
+    /// MP-shape: the verb rides <see cref="Robogame.Input.IInputSource.FlipPressed"/>
+    /// (H on the player handler, a serialized bit on the netcode
+    /// <c>InputCommand</c>), so this component works unchanged on a
+    /// server applying a remote owner's command. The cooldown gate here
+    /// is the server-side validation.
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Rigidbody))]
     public sealed class FlipController : MonoBehaviour
     {
-        [Tooltip("Hotkey that triggers the flip. Default H — F is reserved, R is grapple-release.")]
-        [SerializeField] private Key _flipKey = Key.H;
 
         [Tooltip("How long the rotate-to-upright animation takes, in seconds. ~0.4–0.6 s reads as " +
                  "a confident self-right; longer feels sluggish, shorter feels like a teleport.")]
@@ -64,6 +60,7 @@ namespace Robogame.Movement
         [SerializeField, Min(0.1f)] private float _vfxScale = 1.5f;
 
         private Rigidbody _rb;
+        private Robogame.Input.IInputSource _input;
         private float _nextFlipTime;
 
         // Active-flip state. _flipping is false outside of an in-progress
@@ -86,10 +83,15 @@ namespace Robogame.Movement
 
         private void Update()
         {
-            Keyboard kb = Keyboard.current;
-            if (kb == null || _rb == null) return;
-            if (_flipping) return;
-            if (!kb[_flipKey].wasPressedThisFrame) return;
+            if (_rb == null || _flipping) return;
+            // Late-resolve: OnEnable ordering can land this component
+            // before the input source (LOG-132 activation-order class).
+            if (_input == null)
+            {
+                _input = GetComponentInParent<Robogame.Input.IInputSource>();
+                if (_input == null) return;
+            }
+            if (!_input.FlipPressed) return;
             if (Time.time < _nextFlipTime) return;
 
             StartFlip();

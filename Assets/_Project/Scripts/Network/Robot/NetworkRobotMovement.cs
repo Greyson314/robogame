@@ -174,6 +174,8 @@ namespace Robogame.Network.Robot
                     FireHeld = _netInput.FireHeld,
                     FirePressed = _netInput.FirePressed,
                     ReloadPressed = _netInput.ReloadPressed,
+                    FlipPressed = _netInput.FlipPressed,
+                    HookReleasePressed = _netInput.HookReleasePressed,
                     ModuleMask = InputCommand.PackModuleMask(_netInput),
                 };
                 _buffer.Store(in cmd);

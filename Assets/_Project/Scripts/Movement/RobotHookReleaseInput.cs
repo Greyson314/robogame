@@ -1,13 +1,13 @@
 using Robogame.Block;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 namespace Robogame.Movement
 {
     /// <summary>
-    /// Player-facing hotkey wrapper: pressing <c>R</c> releases every
-    /// active grapple on this chassis. Lives on the chassis root (added
-    /// by <c>ChassisFactory.Build</c>) and walks the chassis's
+    /// Grapple-release verb: <see cref="Robogame.Input.IInputSource.HookReleasePressed"/>
+    /// (R on the player handler) releases every active grapple on this
+    /// chassis. Lives on the chassis root (added by
+    /// <c>ChassisFactory.Build</c>) and walks the chassis's
     /// <see cref="BlockGrid"/> for any <see cref="HookBlock"/> in a
     /// grappled state, calling <see cref="HookBlock.Release"/>.
     /// </summary>
@@ -20,19 +20,17 @@ namespace Robogame.Movement
     /// of GameObject parent.
     /// </para>
     /// <para>
-    /// Reads <see cref="Keyboard.current"/> directly so we don't have
-    /// to edit the project's <c>InputSystem_Actions.inputactions</c>.
-    /// Same pattern <see cref="Player.FollowCamera"/> uses for cursor
-    /// release.
+    /// MP-shape: the verb rides the input source (a serialized bit on
+    /// the netcode <c>InputCommand</c>), so this component works
+    /// unchanged on a server applying a remote owner's command.
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(BlockGrid))]
     public sealed class RobotHookReleaseInput : MonoBehaviour
     {
-        [SerializeField] private Key _releaseKey = Key.R;
-
         private BlockGrid _grid;
+        private Robogame.Input.IInputSource _input;
 
         private void OnEnable()
         {
@@ -41,9 +39,15 @@ namespace Robogame.Movement
 
         private void Update()
         {
-            Keyboard kb = Keyboard.current;
-            if (kb == null || _grid == null) return;
-            if (!kb[_releaseKey].wasPressedThisFrame) return;
+            if (_grid == null) return;
+            // Late-resolve: OnEnable ordering can land this component
+            // before the input source (LOG-132 activation-order class).
+            if (_input == null)
+            {
+                _input = GetComponentInParent<Robogame.Input.IInputSource>();
+                if (_input == null) return;
+            }
+            if (!_input.HookReleasePressed) return;
 
             int released = 0;
             foreach (var kv in _grid.Blocks)

@@ -112,9 +112,19 @@ namespace Robogame.Combat
         // correct for the chassis the player is driving — every AI bot
         // carries a WeaponAmmoState too, and ungated cues played a
         // full-volume click for every bot reload anywhere on the map.
-        // MP note: when ownership lands, the delegating NetworkInputSource
-        // must surface its inner source for this check.
-        private bool IsLocalPlayerChassis => _input is PlayerInputHandler;
+        // Delegating sources (NetworkInputSource) surface their inner
+        // source via IInputSourceWrapper, so the check keeps working when
+        // MP ownership wraps the live PlayerInputHandler. A server-copy
+        // wrapper has a null inner source — correctly "not local".
+        private bool IsLocalPlayerChassis
+        {
+            get
+            {
+                IInputSource src = _input;
+                while (src is IInputSourceWrapper wrapper) src = wrapper.InnerSource;
+                return src is PlayerInputHandler;
+            }
+        }
 
         // -----------------------------------------------------------------
         // Public API (called from weapon block Update paths)

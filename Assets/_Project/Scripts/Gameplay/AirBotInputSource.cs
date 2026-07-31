@@ -47,7 +47,7 @@ namespace Robogame.Gameplay
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
-    public class AirBotInputSource : MonoBehaviour, IInputSource
+    public class AirBotInputSource : BotInputSourceBase
     {
         public enum BotState
         {
@@ -128,47 +128,15 @@ namespace Robogame.Gameplay
         [SerializeField, Range(-1f, 0f)] private float _lowHealthVertical = -0.3f;
 
         // -----------------------------------------------------------------
-        // Cached refs
+        // Cached refs (chassis refs + IInputSource plumbing live in
+        // BotInputSourceBase)
         // -----------------------------------------------------------------
 
-        private RobotDrive _drive;
-        private Robot _robot;
         private Rigidbody _targetRb;
         private Transform _targetRbTransform;
-
-        // -----------------------------------------------------------------
-        // IInputSource
-        // -----------------------------------------------------------------
-
-        private Vector2 _move;
-        private float _vertical;
-        private bool _fireHeld;
         private BotState _state = BotState.Cruise;
 
-        public Vector2 Move => _move;
-        public Vector2 Look => Vector2.zero;
-        public float Vertical => _vertical;
-        public bool FireHeld => _fireHeld;
-        // Bots don't author single-shot weapons (grapple magnet) yet.
-        public bool FirePressed => false;
-        // Bots auto-reload on empty — they never manually press R.
-        public bool ReloadPressed => false;
-        // Bots don't trigger modules yet.
-        public bool GetModulePressed(int slot) => false;
         public BotState State => _state;
-
-        public float HealthFraction
-        {
-            get
-            {
-                if (_healthOverride.HasValue) return _healthOverride.Value;
-                if (_robot != null && _robot.InitialBlockCount > 0)
-                    return (float)_robot.BlockCount / _robot.InitialBlockCount;
-                return 1f;
-            }
-            set => _healthOverride = value;
-        }
-        private float? _healthOverride;
 
         public Transform Target { get => _target; set { _target = value; _targetRb = null; _targetRbTransform = null; } }
         public bool FireAtTarget { get => _fireAtTarget; set => _fireAtTarget = value; }
@@ -182,27 +150,14 @@ namespace Robogame.Gameplay
         public float LowHealthFraction { get => _lowHealthFraction; set => _lowHealthFraction = Mathf.Clamp01(value); }
 
         // -----------------------------------------------------------------
-        // Lifecycle
+        // Per-frame brain (Update cadence + lifecycle in BotInputSourceBase)
         // -----------------------------------------------------------------
-
-        private void Awake()
-        {
-            _drive = GetComponent<RobotDrive>();
-            _robot = GetComponent<Robot>();
-        }
-
-        private void OnDisable()
-        {
-            if (_drive != null) _drive.AimPointOverride = null;
-        }
-
-        private void Update() => UpdateBrain();
 
         /// <summary>
         /// One brain tick. Public so tests can drive it without running the
         /// full Unity Update loop.
         /// </summary>
-        public virtual void UpdateBrain()
+        public override void UpdateBrain()
         {
             using var _scope = PerfMarkers.BotInputUpdate.Auto();
 
@@ -210,10 +165,7 @@ namespace Robogame.Gameplay
             if (_robot != null && _robot.IsDestroyed)
             {
                 _state = BotState.Dead;
-                _move = Vector2.zero;
-                _vertical = 0f;
-                _fireHeld = false;
-                if (_drive != null) _drive.AimPointOverride = null;
+                ZeroOutputs();
                 return;
             }
 

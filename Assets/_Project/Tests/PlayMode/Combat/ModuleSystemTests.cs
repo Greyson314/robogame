@@ -28,6 +28,8 @@ namespace Robogame.Tests.PlayMode.Combat
             public bool FireHeld => false;
             public bool FirePressed => false;
             public bool ReloadPressed => false;
+            public bool FlipPressed => false;
+            public bool HookReleasePressed => false;
             public bool GetModulePressed(int slot) => slot >= 0 && slot < 4 && _pressed[slot];
             public void SetPressed(int slot, bool v) { if (slot >= 0 && slot < 4) _pressed[slot] = v; }
         }

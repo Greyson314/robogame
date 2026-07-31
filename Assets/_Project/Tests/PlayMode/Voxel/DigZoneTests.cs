@@ -693,6 +693,8 @@ namespace Robogame.Tests.PlayMode.Voxel
             public bool FireHeld => ReportFireHeld;
             public bool FirePressed => false;
             public bool ReloadPressed => false;
+            public bool FlipPressed => false;
+            public bool HookReleasePressed => false;
             public bool GetModulePressed(int slot) => false;
         }
 

@@ -17,6 +17,8 @@ namespace Robogame.Network.Robot
         public bool FireHeld;
         public bool FirePressed;
         public bool ReloadPressed;
+        public bool FlipPressed;
+        public bool HookReleasePressed;
         // Bit i (0..3) set = module slot i pressed this tick. One byte covers
         // the ModuleBudget.MaxModules ability bar (replaced the single
         // ModulePressed bool when modules went multi-slot, session 105).
@@ -31,6 +33,8 @@ namespace Robogame.Network.Robot
             serializer.SerializeValue(ref FireHeld);
             serializer.SerializeValue(ref FirePressed);
             serializer.SerializeValue(ref ReloadPressed);
+            serializer.SerializeValue(ref FlipPressed);
+            serializer.SerializeValue(ref HookReleasePressed);
             serializer.SerializeValue(ref ModuleMask);
         }
 
@@ -73,7 +77,7 @@ namespace Robogame.Network.Robot
     /// </para>
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class NetworkInputSource : MonoBehaviour, IInputSource
+    public sealed class NetworkInputSource : MonoBehaviour, IInputSource, IInputSourceWrapper
     {
         private InputCommand _cmd;
         private IInputSource _live;
@@ -114,6 +118,16 @@ namespace Robogame.Network.Robot
         public bool FireHeld => UseCmd ? _cmd.FireHeld : _live.FireHeld;
         public bool FirePressed => UseCmd ? _cmd.FirePressed : _live.FirePressed;
         public bool ReloadPressed => UseCmd ? _cmd.ReloadPressed : _live.ReloadPressed;
+        public bool FlipPressed => UseCmd ? _cmd.FlipPressed : _live.FlipPressed;
+        public bool HookReleasePressed => UseCmd ? _cmd.HookReleasePressed : _live.HookReleasePressed;
+
+        /// <summary>
+        /// The bound live source (owner client) — lets consumers that
+        /// gate on WHO drives the chassis (WeaponAmmoState's local-player
+        /// audio check) unwrap through the delegation. Null on the server
+        /// copy, which is exactly the "not the local player" answer.
+        /// </summary>
+        public IInputSource InnerSource => _live;
 
         public bool GetModulePressed(int slot)
         {
