@@ -50,6 +50,15 @@ review, including the two still-open HIGH items from the 109 audit.
 
 ## Verification
 
-- EditMode + PlayMode suites green (numbers in commit message).
-- perf-checker dispatched post-batch per invariant #7 — verdict
-  recorded in the commit/summary.
+- EditMode 458/459 + PlayMode 122/123, 0 failed (test-rig batch run).
+- `PerfBaselineHarness` (PlayMode, `Perf` category, live editor):
+  - Arena idle, 600 frames, live chassis + HUD:
+    **gcPerFrame = 0.0 B** (avg 5.027 ms / 198.9 fps, p99 6.5 ms).
+  - Garage idle, 600 frames: **gcPerFrame = 0.0 B**
+    (avg 2.010 ms / 497.6 fps).
+  - Render probe passes (592 block renderers, attribution unchanged).
+- Coverage note: the harness has no water-arena scene, so
+  BuoyancyController's zero-alloc claim is code-level (boxing removed),
+  not profiler-measured. An earlier perf-checker attempt could not
+  navigate MainMenu → match and returned UNVERIFIABLE; the baseline
+  harness above is the documented measurement path and supersedes it.

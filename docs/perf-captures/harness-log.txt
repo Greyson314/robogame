@@ -1,3 +1,6 @@
 2026-05-17 15:18:52  [PERF-BASELINE] scene=Arena state=idle frames=600 avg=0.318ms median=0.300ms min=0.254ms p99=0.509ms p99.9=0.576ms fps=3139.9 gcTotal=0B gcPerFrame=0.0B
 2026-05-17 15:18:57  [PERF-BASELINE] scene=Garage state=idle frames=600 avg=0.208ms median=0.193ms min=0.168ms p99=0.340ms p99.9=0.412ms fps=4818.9 gcTotal=0B gcPerFrame=0.0B
 2026-05-17 15:19:01  [RENDER-PROBE] blocks=227 | away=0.317ms(3156fps) baseline=0.323ms(3094fps) noChassisShadowCast=0.314ms(3182fps) noSunShadows=0.315ms(3180fps) | chassis-in-view cost=0.006ms, chassis-shadowcast cost=0.009ms, all-shadow cost=0.009ms
+2026-07-30 20:08:48  [PERF-BASELINE] scene=Arena state=idle frames=600 avg=5.027ms median=5.016ms min=3.288ms p99=6.506ms p99.9=19.068ms fps=198.9 gcTotal=0B gcPerFrame=0.0B
+2026-07-30 20:08:55  [PERF-BASELINE] scene=Garage state=idle frames=600 avg=2.010ms median=1.968ms min=1.587ms p99=2.891ms p99.9=4.069ms fps=497.6 gcTotal=0B gcPerFrame=0.0B
+2026-07-30 20:09:06  [RENDER-PROBE] blocks=592 | away=2.230ms(448fps) baseline=4.368ms(229fps) noChassisShadowCast=4.412ms(227fps) noSunShadows=3.793ms(264fps) | chassis-in-view cost=2.137ms, chassis-shadowcast cost=-0.045ms, all-shadow cost=0.575ms
