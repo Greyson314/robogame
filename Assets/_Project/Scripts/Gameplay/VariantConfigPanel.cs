@@ -9,15 +9,17 @@ namespace Robogame.Gameplay
 {
     /// <summary>
     /// Build-mode side panel that surfaces the per-instance "variable
-    /// part" config for the currently-selected hotbar block. Per
-    /// <c>FOIL_ROTATION_PLAN.md §3.4</c>, the layout is:
+    /// part" config for the currently-selected hotbar block. Sections are
+    /// schema-driven: each block family declares a <see cref="TuneSchema"/>
+    /// (preset row, slider fields, live readout) in
+    /// <see cref="TuneSchemaRegistry"/>, and one generic builder here
+    /// turns it into the UGUI layout from <c>FOIL_ROTATION_PLAN.md §3.4</c>:
     ///   1. Header (block name).
-    ///   2. Preset cards — 3-4 named buttons that snap dims + pitch
-    ///      to sensible defaults for the role.
-    ///   3. Primary slider — the single dominant parameter (foil =
-    ///      pitch / incidence; rotor = collective; rope = segment count).
-    ///   4. Advanced expander — explicit sliders for the rest (foil
-    ///      span / thickness / chord). Toggle to show/hide.
+    ///   2. Preset cards — named buttons that snap several caches at once.
+    ///   3. Primary sliders.
+    ///   4. Advanced expander — power-user sliders, collapsed by default.
+    /// The concoction chooser (ADR-0004) is the one hand-built section —
+    /// its dynamic asset-backed option list doesn't fit the field kinds.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -53,82 +55,61 @@ namespace Robogame.Gameplay
         // ----- UGUI -----
         private GameObject _root;
         private Text _titleText;
-        private GameObject _foilSection, _ropeSection, _rotorSection, _hoverSection, _moduleSection, _explosiveSection, _weaponSection, _pogoSection;
 
-        // Foil controls
-        private Slider _foilPitchPrimary;
-        private Text _foilPitchValue;
-        private Slider _foilTeeterSlider;
-        private Text _foilTeeterValue;
-        private Text _foilReadout;
-        private GameObject _foilAdvanced;
-        private Text _foilAdvancedToggleText;
-        private Slider _foilSpanSlider, _foilThicknessSlider, _foilChordSlider;
-        private Text _foilSpanValue, _foilThicknessValue, _foilChordValue;
-        // Rope controls
-        private Slider _ropeSegmentSlider;
-        private Text _ropeSegmentValue;
-        // Rotor controls
-        private Slider _rotorCollectiveSlider;
-        private Text _rotorCollectiveValue;
-        private Slider _rotorRpmSlider;
-        private Text _rotorRpmValue;
-        private Text _rotorReadout;
-        // Hover blade controls
-        private Slider _hoverSizeSlider;
-        private Text _hoverSizeValue;
-        private Text _hoverReadout;
-        // Module controls — one "Power" slider (writes ConfigValue) with a
-        // live cooldown readout. Slider range is reconfigured per kind.
-        private Slider _modulePowerSlider;
-        private Text _modulePowerValue;
-        private Text _moduleReadout;
-        private ModuleKind _moduleKind;
+        // ----- Schema-driven sections -----
+        // TRACE[LOG-163]: one runtime section per TuneSchemaRegistry entry;
+        // the per-family hand-anchored builders this replaces lived here
+        // until session 163.
+        private sealed class FieldRow
+        {
+            public TuneField Field;
+            public Slider Slider;
+            public Text Value;
+        }
+
+        private sealed class SchemaSection
+        {
+            public TuneSchema Schema;
+            public GameObject Root;
+            public FieldRow[] Rows;      // parallel to Schema.Fields
+            public Text Readout;
+            public GameObject Advanced;  // null when no advanced fields
+            public Text AdvancedToggleText;
+            public bool AdvancedExpanded;
+        }
+
+        private readonly Dictionary<TuneSchema, SchemaSection> _schemaSections =
+            new Dictionary<TuneSchema, SchemaSection>();
+        private SchemaSection _activeSchemaSection;
+
         // Explosive controls — a click-to-open concoction chooser (ADR-0004).
         // Caption button shows the current pick; tapping it reveals a list of
         // "(none)" + every saved concoction. A live readout shows the CPU
         // surcharge the chosen recipe adds to this block.
+        private GameObject _explosiveSection;
         private Button _concoctionCaptionButton;
         private Text _concoctionCaptionText;
         private Image _concoctionCaptionChip;
         private GameObject _concoctionList;
         private Text _concoctionCpuReadout;
         private bool _concoctionListOpen;
-        // Ammo-configurable turret controls (SMG / Cannon) — one "Ammo"
-        // multiplier slider (writes ConfigValue) with a live clip + CPU +
-        // mass readout. See WeaponAmmoDefaults.
-        private Slider _weaponAmmoSlider;
-        private Text _weaponAmmoValue;
-        private Text _weaponReadout;
-        // Pogo controls — one "Power" multiplier slider (writes ConfigValue,
-        // a bounce-HEIGHT multiplier) with a live hop-apex readout. See
-        // PogoDefaults.
-        private Slider _pogoPowerSlider;
-        private Text _pogoPowerValue;
-        private Text _pogoReadout;
 
         private string _activeBlockId;
         private bool _suppressCallbacks;
-        private bool _foilAdvancedExpanded;
 
         // ----- Content-sized panel -----
         // The panel grows/shrinks to the active section instead of holding
-        // one fixed worst-case height. Heights are the sum of each
-        // section's hand-anchored rows (56px slider slots, 36px preset
-        // rows, 22px readouts, ...) — update them when a section gains or
-        // loses a row. The tip-strip band is always reserved at the bottom
-        // so a hover tip never covers the last slider.
+        // one fixed worst-case height. Schema sections compute their height
+        // from their row counts (SchemaContentHeight); the concoction
+        // section keeps hand-tracked constants. The tip-strip band is
+        // always reserved at the bottom so a hover tip never covers the
+        // last slider.
         private RectTransform _panelRT;
         private int _concoctionRows;
         private const float PanelWidth   = 360f;
         private const float TitleBandH   = 40f;  // top margin + title row
         private const float FooterGapH   = 12f;
         private const float TipStripH    = 64f;
-        private const float FoilContentCollapsedH = 282f;
-        private const float FoilContentExpandedH  = 398f;
-        private const float RopeContentH   = 50f;
-        private const float RotorContentH  = 194f;
-        private const float ScalarContentH = 82f;  // hover / module / weapon: one slider + readout
         private const float ExplosiveContentH = 86f;
         private const float ConcoctionRowH = 28f;
 
@@ -140,26 +121,47 @@ namespace Robogame.Gameplay
             _panelRT.sizeDelta = new Vector2(PanelWidth, TitleBandH + contentHeight + FooterGapH + TipStripH);
         }
 
+        // Content height of one schema section in the given expansion
+        // state. Row geometry: 56px slot pitch (36px preset row, 50px
+        // slider rows), 4px gap + 22px readout line, 4px gap + 28px
+        // Advanced toggle, 4px gap + 56px per advanced row when expanded.
+        private static float SchemaContentHeight(TuneSchema schema, bool expanded)
+        {
+            int primary = 0, advanced = 0;
+            for (int i = 0; i < schema.Fields.Length; i++)
+            {
+                if (schema.Fields[i].Group == TuneFieldGroup.Advanced) advanced++;
+                else primary++;
+            }
+            int slots = (schema.Presets != null && schema.Presets.Length > 0 ? 1 : 0) + primary;
+            // Without a readout the section ends at the last 50px row
+            // (slot pitch minus the 6px row gap).
+            float h = slots * 56f + (schema.Readout != null ? 26f : -6f);
+            if (advanced > 0)
+            {
+                h += 32f; // gap + toggle button
+                if (expanded) h += 4f + advanced * 56f;
+            }
+            return h;
+        }
+
         // Content height of the currently-active section in its current
-        // expansion state — single source for section switches, the foil
+        // expansion state — single source for section switches, the
         // Advanced toggle, and the concoction list open/close.
         private float ActiveContentHeight()
         {
             string id = _activeBlockId;
-            if (string.IsNullOrEmpty(id)) return RopeContentH;
-            if (id == BlockIds.Aero || id == BlockIds.AeroFin || id == BlockIds.Wing)
-                return _foilAdvancedExpanded ? FoilContentExpandedH : FoilContentCollapsedH;
-            if (id == BlockIds.Rope) return RopeContentH;
-            if (id == BlockIds.Rotor) return RotorContentH;
+            if (string.IsNullOrEmpty(id)) return 50f;
+            float h = 0f;
+            if (TuneSchemaRegistry.TryGet(id, out TuneSchema schema)
+                && _schemaSections.TryGetValue(schema, out SchemaSection s))
+                h += SchemaContentHeight(schema, s.AdvancedExpanded);
+            // Combined mode (SMG / Cannon since session 141): the
+            // concoction chooser stacks below the schema-driven ammo
+            // section.
             if (ConcoctionRegistry.IsConcoctableBlock(id))
-            {
-                float h = ExplosiveContentH + (_concoctionListOpen ? _concoctionRows * ConcoctionRowH : 0f);
-                // Combined mode (SMG / Cannon since session 141): the ammo
-                // slider section stacks above the concoction chooser.
-                if (WeaponAmmoDefaults.IsAmmoConfigurable(id)) h += ScalarContentH;
-                return h;
-            }
-            return ScalarContentH;
+                h += ExplosiveContentH + (_concoctionListOpen ? _concoctionRows * ConcoctionRowH : 0f);
+            return h > 0f ? h : 50f;
         }
 
         // Visual constants — Robogame orange used for active-state accents
@@ -170,6 +172,9 @@ namespace Robogame.Gameplay
         private static readonly Color s_btnIdle     = UguiPalette.ButtonIdle;
         private static readonly Color s_btnHighlight = UguiPalette.Accent;
         private static readonly Color s_btnPressed  = UguiPalette.AccentPressed;
+        // Stall-warning red. Predates palette centralization; kept verbatim
+        // so the schema rework stays pixel-identical.
+        private static readonly Color s_warnValue = new Color(1f, 0.3f, 0.3f, 1f);
 
         public BuildHotbar Hotbar
         {
@@ -304,462 +309,159 @@ namespace Robogame.Gameplay
         private void HandleSelectedBlockChanged(string blockId)
         {
             _activeBlockId = blockId;
-            // The Wing shares the whole foil section (same three dims +
-            // pitch/teeter); only its slider bounds and zero-dim
-            // fallbacks differ (WingDefaults) — see ApplyFoilSliderBounds.
-            bool foil = blockId == BlockIds.Aero || blockId == BlockIds.AeroFin
-                || blockId == BlockIds.Wing;
-            bool rope = blockId == BlockIds.Rope;
-            bool rotor = blockId == BlockIds.Rotor;
-            bool hover = blockId == BlockIds.HoverBlade;
-            bool module = ModuleKinds.IsModuleId(blockId);
-            bool explosive = ConcoctionRegistry.IsConcoctableBlock(blockId);
-            bool weaponAmmo = WeaponAmmoDefaults.IsAmmoConfigurable(blockId);
-            bool pogo = blockId == BlockIds.Pogo;
-            bool any = foil || rope || rotor || hover || module || explosive || weaponAmmo || pogo;
+            TuneSchemaRegistry.TryGet(blockId, out TuneSchema schema);
+            bool explosive = !string.IsNullOrEmpty(blockId) && ConcoctionRegistry.IsConcoctableBlock(blockId);
+            bool any = schema != null || explosive;
             SetVisible(any);
             if (!any) return;
 
             if (_titleText != null)
             {
-                // "Editing" prefix + danger colour when a placed instance is
+                // "Tuning" prefix + danger colour when a placed instance is
                 // bound (Edit-mode click), so the player knows the sliders
                 // drive that one block, not the next-placement defaults.
                 bool editing = _session != null && _session.EditingInstance != null;
-                string lead = editing ? "Tuning" : "Variant";
                 // Danger (vermilion) while instance-editing — white was
                 // unreadable on the cream panel, and the mode change should
                 // still read at a glance.
                 _titleText.color = editing ? UguiPalette.Danger : s_accent;
-                if (foil) _titleText.text = blockId == BlockIds.AeroFin
-                    ? $"{lead} — Tail fin"
-                    : blockId == BlockIds.Wing
-                        ? $"{lead} — Wing"
-                        : $"{lead} — Aero wing";
-                else if (rope) _titleText.text = $"{lead} — Rope";
-                else if (rotor) _titleText.text = $"{lead} — Rotor";
-                else if (hover) _titleText.text = $"{lead} — Hover blade";
-                // weaponAmmo wins the title over explosive: SMG / Cannon are
-                // BOTH since session 141 (combined ammo + concoction panel)
-                // and must not read as "Bomb bay".
-                else if (weaponAmmo) _titleText.text = blockId == BlockIds.Cannon
-                    ? $"{lead} — Cannon"
-                    : $"{lead} — SMG";
-                else if (explosive) _titleText.text = blockId == BlockIds.Mortar
-                    ? $"{lead} — Mortar"
-                    : $"{lead} — Bomb bay";
-                else if (pogo) _titleText.text = $"{lead} — Pogo";
-                else _titleText.text = $"{(editing ? "Tuning" : "Module")} — {ModuleKinds.Label(ModuleKinds.ForBlockId(blockId) ?? ModuleKind.EmpBurst)}";
+                if (schema != null)
+                {
+                    // Schema title wins over explosive: SMG / Cannon are
+                    // BOTH since session 141 (combined ammo + concoction
+                    // panel) and must not read as "Bomb bay".
+                    string lead = editing ? "Tuning" : schema.IdleLead;
+                    _titleText.text = $"{lead} — {schema.Title(blockId)}";
+                }
+                else
+                {
+                    string lead = editing ? "Tuning" : "Variant";
+                    _titleText.text = blockId == BlockIds.Mortar
+                        ? $"{lead} — Mortar"
+                        : $"{lead} — Bomb bay";
+                }
             }
-            _foilSection.SetActive(foil);
-            _ropeSection.SetActive(rope);
-            _rotorSection.SetActive(rotor);
-            _hoverSection.SetActive(hover);
-            _moduleSection.SetActive(module);
-            _explosiveSection.SetActive(explosive);
-            _weaponSection.SetActive(weaponAmmo);
-            _pogoSection.SetActive(pogo);
 
-            _suppressCallbacks = true;
-            if (foil)
+            SchemaSection active = null;
+            if (schema != null) _schemaSections.TryGetValue(schema, out active);
+            foreach (KeyValuePair<TuneSchema, SchemaSection> kv in _schemaSections)
+                kv.Value.Root.SetActive(kv.Value == active);
+            _activeSchemaSection = active;
+            if (_explosiveSection != null) _explosiveSection.SetActive(explosive);
+
+            if (active != null) RefreshSchemaSection(active, blockId);
+            if (explosive)
             {
-                ApplyFoilSliderBounds(blockId);
-                Vector3 cached = GetDimsForBlock(blockId);
-                float pitch = GetPitchForBlock(blockId);
-                float teeter = GetTeeterForBlock(blockId);
-                AeroShape.ResolveDims(blockId, cached,
-                    out float span, out float thickness, out float chord);
-                _foilSpanSlider.value      = span;
-                _foilThicknessSlider.value = thickness;
-                _foilChordSlider.value     = chord;
-                _foilPitchPrimary.value    = pitch;
-                _foilTeeterSlider.value    = teeter;
-                UpdateValueText(_foilSpanValue,      span,      "F2");
-                UpdateValueText(_foilThicknessValue, thickness, "F2");
-                UpdateValueText(_foilChordValue,     chord,     "F2");
-                UpdateFoilPitchValue(pitch);
-                UpdateValueText(_foilTeeterValue, teeter, "F0");
-                UpdateFoilReadout();
+                // Combined mode: stack the concoction chooser below the
+                // schema-driven ammo section (offset by its content height).
+                var ert = _explosiveSection != null ? _explosiveSection.GetComponent<RectTransform>() : null;
+                if (ert != null)
+                    ert.offsetMax = new Vector2(-12f,
+                        schema != null ? -40f - SchemaContentHeight(schema, expanded: false) : -40f);
+                CloseConcoctionList();
+                RefreshConcoctionCaption();
             }
-            else if (rope)
-            {
-                Vector3 cached = GetDimsForBlock(blockId);
-                int cells = cached.x > 0f ? Mathf.RoundToInt(cached.x) : RopeBlock.DefaultLengthCells;
-                _ropeSegmentSlider.value = cells;
-                UpdateValueText(_ropeSegmentValue, cells, "F0");
-            }
-            else if (rotor)
-            {
-                float pitch = GetPitchForBlock(blockId);
-                _rotorCollectiveSlider.value = pitch;
-                UpdateValueText(_rotorCollectiveValue, pitch, "F0");
-                // Config cache 0 = "use default" — display the default RPM
-                // without writing the cache, so an untouched rotor keeps
-                // the 0 sentinel in its blueprint entry.
-                float rpm = RotorDefaults.ResolveRpm(GetConfigForBlock(blockId));
-                _rotorRpmSlider.value = rpm;
-                UpdateValueText(_rotorRpmValue, rpm, "F0");
-                UpdateRotorReadout();
-            }
-            else if (hover)
-            {
-                Vector3 cached = GetDimsForBlock(blockId);
-                int size = BlockOccupancy.ResolveHoverBladeSize(cached);
-                _hoverSizeSlider.value = size;
-                UpdateValueText(_hoverSizeValue, size, "F0");
-                UpdateHoverReadout();
-            }
-            else if (module)
-            {
-                _moduleKind = ModuleKinds.ForBlockId(blockId) ?? ModuleKind.EmpBurst;
-                float def = ModuleTuning.DefaultPower(_moduleKind);
-                float cachedPower = GetConfigForBlock(blockId);
-                float power = cachedPower > 0f ? cachedPower : def;
-                // Reconfigure the single slider to this kind's power range.
-                _modulePowerSlider.minValue = ModuleTuning.MinPower(_moduleKind);
-                _modulePowerSlider.maxValue = ModuleTuning.MaxPower(_moduleKind);
-                _modulePowerSlider.value = power;
-                UpdateValueText(_modulePowerValue, power, "F1");
-                UpdateModuleReadout(power);
-            }
-            else if (pogo)
-            {
-                // Config cache 0 = "use default 1×" — display without
-                // writing the cache (rotor-RPM pattern), so an untouched
-                // pogo keeps the 0 sentinel in its blueprint entry.
-                float power = PogoDefaults.ResolvePower(GetConfigForBlock(blockId));
-                _pogoPowerSlider.value = power;
-                UpdateValueText(_pogoPowerValue, power, "F2");
-                UpdatePogoReadout(power);
-            }
-            else
-            {
-                // Explosive + weaponAmmo are no longer exclusive (SMG /
-                // Cannon carry both since session 141) — refresh each
-                // independently and stack the concoction section below the
-                // ammo slider in combined mode.
-                if (explosive)
-                {
-                    var ert = _explosiveSection != null ? _explosiveSection.GetComponent<RectTransform>() : null;
-                    if (ert != null)
-                        ert.offsetMax = new Vector2(-12f, weaponAmmo ? -40f - ScalarContentH : -40f);
-                    CloseConcoctionList();
-                    RefreshConcoctionCaption();
-                }
-                if (weaponAmmo)
-                {
-                    // Config cache 0 = "use default" — display 1.0× without
-                    // writing the cache (rotor-RPM pattern), so an untouched
-                    // turret keeps the 0 sentinel in its blueprint entry.
-                    float mult = WeaponAmmoDefaults.ResolveMultiplier(GetConfigForBlock(blockId));
-                    _weaponAmmoSlider.value = mult;
-                    UpdateValueText(_weaponAmmoValue, mult, "F2");
-                    UpdateWeaponReadout(mult);
-                }
-            }
-            _suppressCallbacks = false;
             SetContentHeight(ActiveContentHeight());
         }
 
         // -----------------------------------------------------------------
-        // Slider callbacks — snap on commit
+        // Schema section runtime — one generic refresh / write / readout
+        // path for every registered family.
         // -----------------------------------------------------------------
 
-        // Length dims snap to 0.25 m, pitch / segments to integers.
-        private static float SnapLength(float v) => Mathf.Round(v * 4f) * 0.25f;
-        private static float SnapInt(float v)    => Mathf.Round(v);
-
-        private void OnFoilSpanChanged(float v)
+        private void RefreshSchemaSection(SchemaSection s, string blockId)
         {
-            if (_suppressCallbacks) return;
-            float snapped = SnapLength(v);
-            ApplyFoilDim(0, snapped, _foilSpanSlider, _foilSpanValue, "F2");
+            _suppressCallbacks = true;
+            var ctx = new TuneContext(blockId, _session);
+            for (int i = 0; i < s.Rows.Length; i++)
+            {
+                FieldRow row = s.Rows[i];
+                // Bounds go in before values so Unity's slider clamping
+                // can't mangle a cached value (per-id bounds: Wing vs Aero,
+                // module power per kind).
+                if (row.Field.Min != null) row.Slider.minValue = row.Field.Min(blockId);
+                if (row.Field.Max != null) row.Slider.maxValue = row.Field.Max(blockId);
+                float v = row.Field.Resolve != null ? row.Field.Resolve(ctx) : 0f;
+                row.Slider.value = v;
+                UpdateFieldValueText(row, v);
+            }
+            UpdateSchemaReadout(s);
+            _suppressCallbacks = false;
         }
 
-        private void OnFoilThicknessChanged(float v)
+        private void OnSchemaFieldChanged(FieldRow row, float v)
         {
             if (_suppressCallbacks) return;
-            float snapped = SnapLength(v);
-            ApplyFoilDim(1, snapped, _foilThicknessSlider, _foilThicknessValue, "F2");
-        }
-
-        private void OnFoilChordChanged(float v)
-        {
-            if (_suppressCallbacks) return;
-            float snapped = SnapLength(v);
-            ApplyFoilDim(2, snapped, _foilChordSlider, _foilChordValue, "F2");
-        }
-
-        private void OnFoilPitchChanged(float v)
-        {
-            if (_suppressCallbacks) return;
-            float snapped = SnapInt(v);
             string id = _activeBlockId;
             if (string.IsNullOrEmpty(id)) return;
+            float snapped = row.Field.Snap != null ? row.Field.Snap(v) : v;
             _suppressCallbacks = true;
-            _foilPitchPrimary.value = snapped;
+            row.Slider.value = snapped;
             _suppressCallbacks = false;
-            _session?.SetVariantPitch(id, snapped);
-            UpdateFoilPitchValue(snapped);
-            UpdateFoilReadout();
+            WriteTarget(id, row.Field.Target, snapped);
+            UpdateFieldValueText(row, snapped);
+            UpdateSchemaReadout(_activeSchemaSection);
         }
 
-        private void OnFoilTeeterChanged(float v)
+        private void WriteTarget(string id, TuneTarget target, float v)
         {
-            if (_suppressCallbacks) return;
-            float snapped = SnapInt(v);
-            string id = _activeBlockId;
-            if (string.IsNullOrEmpty(id)) return;
-            _suppressCallbacks = true;
-            _foilTeeterSlider.value = snapped;
-            _suppressCallbacks = false;
-            _session?.SetVariantTeeter(id, snapped);
-            UpdateValueText(_foilTeeterValue, snapped, "F0");
+            if (_session == null) return;
+            switch (target)
+            {
+                case TuneTarget.DimsX: { Vector3 d = _session.GetVariantDims(id); d.x = v; _session.SetVariantDims(id, d); break; }
+                case TuneTarget.DimsY: { Vector3 d = _session.GetVariantDims(id); d.y = v; _session.SetVariantDims(id, d); break; }
+                case TuneTarget.DimsZ: { Vector3 d = _session.GetVariantDims(id); d.z = v; _session.SetVariantDims(id, d); break; }
+                case TuneTarget.Pitch: _session.SetVariantPitch(id, v); break;
+                case TuneTarget.Teeter: _session.SetVariantTeeter(id, v); break;
+                case TuneTarget.Config: _session.SetVariantConfig(id, v); break;
+            }
         }
 
-        private void OnRopeSegmentCountChanged(float v)
+        private void UpdateFieldValueText(FieldRow row, float v)
         {
-            if (_suppressCallbacks) return;
-            int rounded = Mathf.RoundToInt(v);
-            _suppressCallbacks = true;
-            _ropeSegmentSlider.value = rounded;
-            _suppressCallbacks = false;
-            string id = _activeBlockId;
-            if (string.IsNullOrEmpty(id)) return;
-            Vector3 dims = GetDimsForBlock(id);
-            dims.x = rounded;
-            _session?.SetVariantDims(id, dims);
-            UpdateValueText(_ropeSegmentValue, rounded, "F0");
+            if (row.Value == null) return;
+            row.Value.text = v.ToString(row.Field.Format) + row.Field.Suffix;
+            if (row.Field.Warn != null)
+                row.Value.color = row.Field.Warn(v) ? s_warnValue : s_accent;
         }
 
-        private void OnRotorCollectiveChanged(float v)
+        private void UpdateSchemaReadout(SchemaSection s)
         {
-            if (_suppressCallbacks) return;
-            float snapped = SnapInt(v);
-            string id = _activeBlockId;
-            if (string.IsNullOrEmpty(id)) return;
-            _suppressCallbacks = true;
-            _rotorCollectiveSlider.value = snapped;
-            _suppressCallbacks = false;
-            _session?.SetVariantPitch(id, snapped);
-            UpdateValueText(_rotorCollectiveValue, snapped, "F0");
-            UpdateRotorReadout();
+            if (s == null || s.Readout == null || s.Schema.Readout == null) return;
+            TuneReadout r = s.Schema.Readout(new TuneContext(_activeBlockId, _session));
+            s.Readout.text = r.Text;
+            s.Readout.color = r.Warn ? s_warnValue : s_dim;
         }
 
-        private void OnRotorRpmChanged(float v)
-        {
-            if (_suppressCallbacks) return;
-            float snapped = Mathf.Round(v / 10f) * 10f; // 10 RPM steps
-            string id = _activeBlockId;
-            if (string.IsNullOrEmpty(id)) return;
-            _suppressCallbacks = true;
-            _rotorRpmSlider.value = snapped;
-            _suppressCallbacks = false;
-            _session?.SetVariantConfig(id, snapped);
-            UpdateValueText(_rotorRpmValue, snapped, "F0");
-            UpdateRotorReadout();
-        }
-
-        private void OnHoverSizeChanged(float v)
-        {
-            if (_suppressCallbacks) return;
-            int snapped = Mathf.Clamp(
-                Mathf.RoundToInt(v),
-                BlockOccupancy.HoverBladeMinSize,
-                BlockOccupancy.HoverBladeMaxSize);
-            string id = _activeBlockId;
-            if (string.IsNullOrEmpty(id)) return;
-            _suppressCallbacks = true;
-            _hoverSizeSlider.value = snapped;
-            _suppressCallbacks = false;
-            Vector3 dims = GetDimsForBlock(id);
-            dims.x = snapped;
-            _session?.SetVariantDims(id, dims);
-            UpdateValueText(_hoverSizeValue, snapped, "F0");
-            UpdateHoverReadout();
-        }
-
-        private void UpdateHoverReadout()
-        {
-            if (_hoverReadout == null) return;
-            Vector3 cached = GetDimsForBlock(_activeBlockId);
-            int n = BlockOccupancy.ResolveHoverBladeSize(cached);
-            // N² lift scaling: size-2 = 1.0× baseline (~800 N/m spring),
-            // size-3 = 2.25×, size-4 = 4×. Mass/CPU don't scale per-instance
-            // in v1, so the readout focuses on footprint + lift multiplier.
-            float multiplier = (n / (float)BlockOccupancy.HoverBladeDefaultSize) *
-                               (n / (float)BlockOccupancy.HoverBladeDefaultSize);
-            _hoverReadout.text = $"{n}×{n}×1 footprint  •  {multiplier:F2}× lift";
-        }
-
-        // Snap-and-cache helper for foil dim sliders (span/thickness/chord).
-        private void ApplyFoilDim(int axis, float snapped, Slider slider, Text valueText, string fmt)
-        {
-            string id = _activeBlockId;
-            if (string.IsNullOrEmpty(id)) return;
-            _suppressCallbacks = true;
-            slider.value = snapped;
-            _suppressCallbacks = false;
-            Vector3 dims = GetDimsForBlock(id);
-            if (axis == 0) dims.x = snapped;
-            else if (axis == 1) dims.y = snapped;
-            else dims.z = snapped;
-            _session?.SetVariantDims(id, dims);
-            UpdateValueText(valueText, snapped, fmt);
-            UpdateFoilReadout();
-        }
-
-        private void UpdateFoilPitchValue(float pitchDeg)
-        {
-            if (_foilPitchValue == null) return;
-            _foilPitchValue.text = $"{pitchDeg:F0}°";
-            // Stall warning past ±18° (BlueprintValidator soft limit).
-            bool stall = Mathf.Abs(pitchDeg) > BlueprintValidator.PitchSoftLimitDeg;
-            _foilPitchValue.color = stall ? new Color(1f, 0.3f, 0.3f, 1f) : s_accent;
-        }
-
-        // -----------------------------------------------------------------
-        // Live consequence readouts (Phase 4)
-        // -----------------------------------------------------------------
-        // Mirrors the AeroSurfaceBlock.FixedUpdate lift formula so the
-        // player can see the consequence of their tuning before they
-        // place anything. Reference values:
-        //   - Free-wing cruise: 30 m/s (typical plane forward speed).
-        //   - Rotor blade: ω×r at the DIALED RPM and 1 m radius. Disc
-        //     lift assumes 4 default blades; player-built rotors with
-        //     bigger blades will lift more than the readout suggests
-        //     (it's a conservative estimate, not a per-build calculation
-        //     — that needs the live chassis).
-
-        private const float CruiseSpeedMs       = 30f;
-        private const float RotorRadiusNominal  = 1f;
-        private const int   RotorBladeCount     = 4;
-        private const float LiftCoefDefault     = 0.95f;   // matches AeroSurfaceBlock._liftCoef
-        private const float StallAoaRad         = 0.35f;   // matches AeroSurfaceBlock._stallAoA
-        private const float PostStallLift       = 0.55f;   // matches AeroSurfaceBlock._postStallLift
-
-        // Static estimate of lift in newtons for one foil at the given
-        // dims and pitch, mirroring AeroSurfaceBlock.FixedUpdate's math.
-        // Vertical=true (i.e. how the binder configures every player-placed
-        // foil) means biasTerm=0 — at zero pitch you get zero estimated
-        // lift, which IS the correct result and the player education we
-        // want from this readout.
-        private static float EstimateFoilLift(float span, float chord, float pitchDeg, float airspeedMs)
-        {
-            float pitchRad = pitchDeg * Mathf.Deg2Rad;
-            float aoaClamped = Mathf.Clamp(pitchRad, -StallAoaRad, StallAoaRad);
-            float stallFalloff = Mathf.Abs(pitchRad) > StallAoaRad
-                ? Mathf.Lerp(1f, PostStallLift,
-                    Mathf.Clamp01((Mathf.Abs(pitchRad) - StallAoaRad) / StallAoaRad))
-                : 1f;
-            float liftFactor = aoaClamped * stallFalloff; // biasTerm=0 for vertical=true
-            float areaScale = (span * chord) / (AeroSurfaceBlock.DefaultSpan * AeroSurfaceBlock.DefaultChord);
-            return airspeedMs * airspeedMs * LiftCoefDefault * areaScale * liftFactor;
-        }
-
-        private void UpdateFoilReadout()
-        {
-            if (_foilReadout == null) return;
-            string id = _activeBlockId;
-            Vector3 cached = GetDimsForBlock(id);
-            float pitch = GetPitchForBlock(id);
-            AeroShape.ResolveDims(id, cached, out float span, out _, out float chord);
-            float lift = EstimateFoilLift(span, chord, pitch, CruiseSpeedMs);
-            bool stall = Mathf.Abs(pitch) > BlueprintValidator.PitchSoftLimitDeg;
-            _foilReadout.text = stall
-                ? $"≈ {lift:F0} N @ {CruiseSpeedMs:F0} m/s — STALL"
-                : $"≈ {lift:F0} N @ {CruiseSpeedMs:F0} m/s";
-            _foilReadout.color = stall ? new Color(1f, 0.3f, 0.3f, 1f) : s_dim;
-        }
-
-        private void UpdateRotorReadout()
-        {
-            if (_rotorReadout == null) return;
-            float collective = GetPitchForBlock(_activeBlockId);
-            // collective=0 in the cache means "use rotor's authored
-            // default" (RotorBlock._collectivePitchDeg, currently 8°).
-            // Mirror that for the readout so the player sees the actual
-            // post-place value.
-            float effectiveCollective = collective > 0f ? collective : 8f;
-            float rpmCfg = GetConfigForBlock(_activeBlockId);
-            float rpm = RotorDefaults.ResolveRpm(rpmCfg);
-            float omega = rpm * Mathf.PI * 2f / 60f;
-            float tipSpeed = omega * RotorRadiusNominal;
-            float perBlade = EstimateFoilLift(
-                AeroSurfaceBlock.DefaultSpan,
-                AeroSurfaceBlock.DefaultChord,
-                effectiveCollective,
-                tipSpeed);
-            float total = perBlade * RotorBladeCount;
-            // Live CPU price at this RPM — the consequence the player is
-            // trading lift against. Same pricing core the spend bar and
-            // spawn-time TrimToFit use (RotorDefaults.CpuCostFor).
-            BlockDefinition rotorDef = GameStateController.Instance != null && GameStateController.Instance.Library != null
-                ? GameStateController.Instance.Library.Get(BlockIds.Rotor)
-                : null;
-            string cpuPart = rotorDef != null
-                ? $"  •  CPU {RotorDefaults.CpuCostFor(rotorDef.CpuCost, rpmCfg)}"
-                : string.Empty;
-            _rotorReadout.text =
-                $"≈ {total:F0} N disc ({RotorBladeCount} blades @ {rpm:F0} RPM){cpuPart}";
-        }
-
-        // -----------------------------------------------------------------
-        // Presets
-        // -----------------------------------------------------------------
-
-        // Foil presets per FOIL_ROTATION_PLAN §3.5. (span, thickness, chord, pitchDeg).
-        private static readonly (string label, float span, float thickness, float chord, float pitch)[] s_foilPresets =
-        {
-            ("Heli Blade",  1.50f, 0.06f, 0.60f,  8f),
-            ("Plane Wing",  4.00f, 0.08f, 0.90f,  2f),
-            ("Tail Stab",   2.00f, 0.08f, 0.70f, -1f),
-            ("Vert Fin",    2.00f, 0.08f, 0.90f,  0f),
-        };
-
-        // Rotor presets — per FOIL_ROTATION_PLAN §3.4. Collective + RPM
-        // (per-rotor RPM landed with the RPM slider; direction is still
-        // deferred). RPM choices straddle the 240 default so the CPU
-        // price spread is visible: Heavy Lift pays ~2.25× sticker,
-        // Light pays ~0.4×.
-        private static readonly (string label, float collective, float rpm)[] s_rotorPresets =
-        {
-            ("Heavy Lift", 12f, 360f),
-            ("Standard",    8f, 240f),
-            ("Light",       5f, 150f),
-        };
-
-        private void ApplyFoilPreset(float span, float thickness, float chord, float pitchDeg)
+        private void ApplyPreset(TunePreset preset)
         {
             string id = _activeBlockId;
             if (string.IsNullOrEmpty(id) || _session == null) return;
-            _session.SetVariantDims(id, new Vector3(span, thickness, chord));
-            _session.SetVariantPitch(id, pitchDeg);
-            // Presets are full role snapshots — reset teeter so "Plane
-            // Wing" after a teetered experiment really is a flat wing.
-            _session.SetVariantTeeter(id, 0f);
+            Vector3 dims = _session.GetVariantDims(id);
+            bool dimsTouched = false;
+            for (int i = 0; i < preset.Writes.Length; i++)
+            {
+                (TuneTarget target, float v) = preset.Writes[i];
+                switch (target)
+                {
+                    case TuneTarget.DimsX: dims.x = v; dimsTouched = true; break;
+                    case TuneTarget.DimsY: dims.y = v; dimsTouched = true; break;
+                    case TuneTarget.DimsZ: dims.z = v; dimsTouched = true; break;
+                    case TuneTarget.Pitch: _session.SetVariantPitch(id, v); break;
+                    case TuneTarget.Teeter: _session.SetVariantTeeter(id, v); break;
+                    case TuneTarget.Config: _session.SetVariantConfig(id, v); break;
+                }
+            }
+            if (dimsTouched) _session.SetVariantDims(id, dims);
             HandleSelectedBlockChanged(id); // re-syncs sliders
         }
 
-        private void ApplyRotorPreset(float collective, float rpm)
+        private void ToggleAdvanced(SchemaSection s)
         {
-            string id = _activeBlockId;
-            if (string.IsNullOrEmpty(id) || _session == null) return;
-            _session.SetVariantPitch(id, collective);
-            _session.SetVariantConfig(id, rpm);
-            HandleSelectedBlockChanged(id);
-        }
-
-        // -----------------------------------------------------------------
-        // Advanced expander
-        // -----------------------------------------------------------------
-
-        private void ToggleFoilAdvanced()
-        {
-            _foilAdvancedExpanded = !_foilAdvancedExpanded;
-            if (_foilAdvanced != null) _foilAdvanced.SetActive(_foilAdvancedExpanded);
-            if (_foilAdvancedToggleText != null)
-                _foilAdvancedToggleText.text = _foilAdvancedExpanded ? "Advanced ▲" : "Advanced ▼";
+            s.AdvancedExpanded = !s.AdvancedExpanded;
+            if (s.Advanced != null) s.Advanced.SetActive(s.AdvancedExpanded);
+            if (s.AdvancedToggleText != null)
+                s.AdvancedToggleText.text = s.AdvancedExpanded ? "Advanced ▲" : "Advanced ▼";
             SetContentHeight(ActiveContentHeight());
         }
 
@@ -806,29 +508,137 @@ namespace Robogame.Gameplay
                 anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
                 size: 18, style: FontStyle.Bold, anchor: TextAnchor.MiddleLeft, color: s_accent);
 
-            _foilSection  = BuildFoilSection(panel.transform);
-            _ropeSection  = BuildRopeSection(panel.transform);
-            _rotorSection = BuildRotorSection(panel.transform);
-            _hoverSection = BuildHoverSection(panel.transform);
-            _moduleSection = BuildModuleSection(panel.transform);
+            foreach (TuneSchema schema in TuneSchemaRegistry.All)
+            {
+                SchemaSection section = BuildSchemaSection(panel.transform, schema);
+                _schemaSections[schema] = section;
+                section.Root.SetActive(false);
+            }
             _explosiveSection = BuildExplosiveSection(panel.transform);
-            _weaponSection = BuildWeaponSection(panel.transform);
-            _pogoSection = BuildPogoSection(panel.transform);
+            _explosiveSection.SetActive(false);
 
             BuildTipStrip(panel.transform);
+        }
 
-            _foilSection.SetActive(false);
-            _ropeSection.SetActive(false);
-            _rotorSection.SetActive(false);
-            _hoverSection.SetActive(false);
-            _moduleSection.SetActive(false);
-            _explosiveSection.SetActive(false);
-            _weaponSection.SetActive(false);
-            _pogoSection.SetActive(false);
+        // Build one schema-driven section: optional preset row, primary
+        // slider rows, optional readout line, optional Advanced expander
+        // (toggle + collapsed container holding the advanced rows).
+        private SchemaSection BuildSchemaSection(Transform parent, TuneSchema schema)
+        {
+            var s = new SchemaSection { Schema = schema };
+            var section = NewChild("TuneSection", parent);
+            s.Root = section;
+            var rt = section.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.offsetMin = new Vector2(12f, 12f);
+            rt.offsetMax = new Vector2(-12f, -40f);
+
+            int slot = 0;
+            if (schema.Presets != null && schema.Presets.Length > 0)
+                BuildPresetRow(section.transform, slot++, schema.Presets);
+
+            int fieldCount = schema.Fields.Length;
+            s.Rows = new FieldRow[fieldCount];
+            int advancedCount = 0;
+            for (int i = 0; i < fieldCount; i++)
+                if (schema.Fields[i].Group == TuneFieldGroup.Advanced) advancedCount++;
+
+            for (int i = 0; i < fieldCount; i++)
+            {
+                if (schema.Fields[i].Group != TuneFieldGroup.Primary) continue;
+                s.Rows[i] = BuildFieldRow(section.transform, schema.Fields[i], slot++);
+            }
+
+            float primaryBottom = slot * 56f;
+            float readoutH = 0f;
+            if (schema.Readout != null)
+            {
+                s.Readout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
+                    anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
+                    size: 12, style: FontStyle.Italic, anchor: TextAnchor.MiddleCenter, color: s_dim);
+                var rrt = s.Readout.rectTransform;
+                rrt.pivot = new Vector2(0.5f, 1f);
+                rrt.anchoredPosition = new Vector2(0f, -primaryBottom - 4f);
+                rrt.sizeDelta = new Vector2(0f, 22f);
+                readoutH = 26f;
+            }
+
+            if (advancedCount > 0)
+            {
+                float toggleY = -primaryBottom - readoutH - 4f;
+                var toggleGo = NewChild("AdvancedToggle", section.transform);
+                var trt = toggleGo.GetComponent<RectTransform>();
+                trt.anchorMin = new Vector2(0f, 1f);
+                trt.anchorMax = new Vector2(1f, 1f);
+                trt.pivot = new Vector2(0.5f, 1f);
+                trt.sizeDelta = new Vector2(0f, 28f);
+                trt.anchoredPosition = new Vector2(0f, toggleY);
+                var img = toggleGo.AddComponent<Image>();
+                img.color = UguiPalette.ButtonIdle;
+                var btn = toggleGo.AddComponent<Button>();
+                btn.targetGraphic = img;
+                btn.onClick.AddListener(() => ToggleAdvanced(s));
+                s.AdvancedToggleText = AddText(toggleGo.transform, "Advanced ▼",
+                    Vector2.zero, Vector2.zero,
+                    anchorMin: Vector2.zero, anchorMax: Vector2.one,
+                    size: 12, style: FontStyle.Bold, anchor: TextAnchor.MiddleCenter, color: s_dim);
+
+                // Advanced container — built inactive; the toggle shows it.
+                s.Advanced = NewChild("Advanced", section.transform);
+                var art = s.Advanced.GetComponent<RectTransform>();
+                art.anchorMin = new Vector2(0f, 1f);
+                art.anchorMax = new Vector2(1f, 1f);
+                art.pivot = new Vector2(0.5f, 1f);
+                art.sizeDelta = new Vector2(0f, advancedCount * 56f);
+                art.anchoredPosition = new Vector2(0f, toggleY - 28f - 4f);
+
+                int advSlot = 0;
+                for (int i = 0; i < fieldCount; i++)
+                {
+                    if (schema.Fields[i].Group != TuneFieldGroup.Advanced) continue;
+                    s.Rows[i] = BuildFieldRow(s.Advanced.transform, schema.Fields[i], advSlot++);
+                }
+                s.Advanced.SetActive(false);
+            }
+
+            return s;
+        }
+
+        private FieldRow BuildFieldRow(Transform parent, TuneField field, int slot)
+        {
+            var row = new FieldRow { Field = field };
+            // Bounds and value are placeholders — RefreshSchemaSection
+            // applies the per-id bounds and the resolved cache value before
+            // the section is ever shown.
+            row.Slider = BuildLabeledSlider(parent, field.Label, slot,
+                min: 0f, max: 1f, def: 0f,
+                onChanged: v => OnSchemaFieldChanged(row, v), out row.Value,
+                tip: field.Tip);
+            if (field.Kind == TuneFieldKind.IntSlider) row.Slider.wholeNumbers = true;
+            return row;
+        }
+
+        private void BuildPresetRow(Transform parent, int slot, TunePreset[] presets)
+        {
+            var row = NewChild("Presets", parent);
+            var rt = row.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.sizeDelta = new Vector2(0f, 36f);
+            rt.anchoredPosition = new Vector2(0f, -slot * 56f);
+            for (int i = 0; i < presets.Length; i++)
+            {
+                TunePreset p = presets[i];
+                AddPresetButton(row.transform, p.Label, i, () => ApplyPreset(p));
+            }
         }
 
         // -----------------------------------------------------------------
-        // Explosive section — concoction chooser (ADR-0004)
+        // Explosive section — concoction chooser (ADR-0004). Hand-built:
+        // its option set is a live ConcoctionRegistry read with per-row
+        // pigment chips, which doesn't reduce to a TuneField kind.
         // -----------------------------------------------------------------
 
         private GameObject BuildExplosiveSection(Transform parent)
@@ -1023,407 +833,9 @@ namespace Robogame.Gameplay
             return def != null ? Mathf.Max(0, def.CpuCost) : 0;
         }
 
-        private GameObject BuildHoverSection(Transform parent)
-        {
-            var section = NewChild("Hover", parent);
-            var rt = section.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 0f);
-            rt.anchorMax = new Vector2(1f, 1f);
-            rt.offsetMin = new Vector2(12f, 12f);
-            rt.offsetMax = new Vector2(-12f, -40f);
-
-            // Single integer slider 2-4. SnapInt in the callback enforces
-            // integer steps; the slider's wholeNumbers flag is set for
-            // visual feedback during drag.
-            _hoverSizeSlider = BuildLabeledSlider(section.transform, "Size", slot: 0,
-                min: BlockOccupancy.HoverBladeMinSize,
-                max: BlockOccupancy.HoverBladeMaxSize,
-                def: BlockOccupancy.HoverBladeDefaultSize,
-                onChanged: OnHoverSizeChanged, out _hoverSizeValue,
-                tip: "Blade footprint in cells (N×N). Lift scales with the square of the size — see the readout below.");
-            _hoverSizeSlider.wholeNumbers = true;
-
-            _hoverReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
-                anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
-                size: 12, style: FontStyle.Italic, anchor: TextAnchor.MiddleCenter, color: s_dim);
-            var rrt = _hoverReadout.rectTransform;
-            rrt.pivot = new Vector2(0.5f, 1f);
-            rrt.anchoredPosition = new Vector2(0f, -56f - 4f);
-            rrt.sizeDelta = new Vector2(0f, 22f);
-
-            return section;
-        }
-
-        private GameObject BuildModuleSection(Transform parent)
-        {
-            var section = NewChild("Module", parent);
-            var rt = section.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 0f);
-            rt.anchorMax = new Vector2(1f, 1f);
-            rt.offsetMin = new Vector2(12f, 12f);
-            rt.offsetMax = new Vector2(-12f, -40f);
-
-            // Single "Power" slider; its range is reconfigured per module kind
-            // in HandleSelectedBlockChanged. Writing it caches ConfigValue,
-            // which rides the blueprint and trades power for cooldown.
-            _modulePowerSlider = BuildLabeledSlider(section.transform, "Power", slot: 0,
-                min: 0f, max: 1f, def: 0f, onChanged: OnModulePowerChanged, out _modulePowerValue,
-                tip: "Module strength. Higher power means a stronger effect but a longer cooldown (see readout below).");
-
-            _moduleReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
-                anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
-                size: 12, style: FontStyle.Italic, anchor: TextAnchor.MiddleCenter, color: s_dim);
-            var rrt = _moduleReadout.rectTransform;
-            rrt.pivot = new Vector2(0.5f, 1f);
-            rrt.anchoredPosition = new Vector2(0f, -56f - 4f);
-            rrt.sizeDelta = new Vector2(0f, 22f);
-
-            return section;
-        }
-
-        private GameObject BuildWeaponSection(Transform parent)
-        {
-            var section = NewChild("Weapon", parent);
-            var rt = section.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 0f);
-            rt.anchorMax = new Vector2(1f, 1f);
-            rt.offsetMin = new Vector2(12f, 12f);
-            rt.offsetMax = new Vector2(-12f, -40f);
-
-            // Single "Ammo" multiplier slider; writing it caches ConfigValue,
-            // which rides the blueprint and trades CPU + mass for clip size.
-            _weaponAmmoSlider = BuildLabeledSlider(section.transform, "Ammo ×", slot: 0,
-                min: WeaponAmmoDefaults.MinMultiplier, max: WeaponAmmoDefaults.MaxMultiplier,
-                def: WeaponAmmoDefaults.DefaultMultiplier,
-                onChanged: OnWeaponAmmoChanged, out _weaponAmmoValue,
-                tip: "Clip-size multiplier for this weapon. Bigger clips cost extra CPU and mass (see readout below).");
-
-            _weaponReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
-                anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
-                size: 12, style: FontStyle.Italic, anchor: TextAnchor.MiddleCenter, color: s_dim);
-            var rrt = _weaponReadout.rectTransform;
-            rrt.pivot = new Vector2(0.5f, 1f);
-            rrt.anchoredPosition = new Vector2(0f, -56f - 4f);
-            rrt.sizeDelta = new Vector2(0f, 22f);
-
-            return section;
-        }
-
-        private void OnWeaponAmmoChanged(float v)
-        {
-            if (_suppressCallbacks) return;
-            float snapped = Mathf.Round(v * 4f) / 4f; // 0.25× steps
-            string id = _activeBlockId;
-            if (string.IsNullOrEmpty(id)) return;
-            _suppressCallbacks = true;
-            _weaponAmmoSlider.value = snapped;
-            _suppressCallbacks = false;
-            _session?.SetVariantConfig(id, snapped);
-            UpdateValueText(_weaponAmmoValue, snapped, "F2");
-            UpdateWeaponReadout(snapped);
-        }
-
-        private void UpdateWeaponReadout(float mult)
-        {
-            if (_weaponReadout == null) return;
-            string id = _activeBlockId;
-            BlockDefinition def = GameStateController.Instance != null && GameStateController.Instance.Library != null
-                ? GameStateController.Instance.Library.Get(id)
-                : null;
-            // Live consequences at this multiplier — same pricing/mass cores
-            // the spend bar, spawn-time TrimToFit and Robot aggregates use.
-            int clip = def != null && def.ComponentData is Robogame.Combat.IWeaponStats stats
-                ? WeaponAmmoDefaults.ClipFor(stats.ClipSize, mult)
-                : 0;
-            int cpu = def != null ? WeaponAmmoDefaults.CpuCostFor(def.CpuCost, mult) : 0;
-            float massScale = WeaponAmmoDefaults.MassScaleFor(mult);
-            _weaponReadout.text = clip > 0
-                ? $"{clip} rds/gun  •  CPU {cpu}  •  {massScale:F2}× mass"
-                : $"CPU {cpu}  •  {massScale:F2}× mass";
-        }
-
-        private void OnModulePowerChanged(float v)
-        {
-            if (_suppressCallbacks) return;
-            float snapped = Mathf.Round(v * 2f) / 2f; // 0.5 steps
-            string id = _activeBlockId;
-            if (string.IsNullOrEmpty(id)) return;
-            _suppressCallbacks = true;
-            _modulePowerSlider.value = snapped;
-            _suppressCallbacks = false;
-            _session?.SetVariantConfig(id, snapped);
-            UpdateValueText(_modulePowerValue, snapped, "F1");
-            UpdateModuleReadout(snapped);
-        }
-
-        private void UpdateModuleReadout(float power)
-        {
-            if (_moduleReadout == null) return;
-            float cd = ModuleTuning.CooldownFor(_moduleKind, power);
-            _moduleReadout.text = $"{power:F1} power  •  {cd:F1}s cooldown";
-        }
-
-        // -----------------------------------------------------------------
-        // Pogo section — bounce-height power slider (PogoDefaults)
-        // -----------------------------------------------------------------
-
-        private GameObject BuildPogoSection(Transform parent)
-        {
-            var section = NewChild("Pogo", parent);
-            var rt = section.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 0f);
-            rt.anchorMax = new Vector2(1f, 1f);
-            rt.offsetMin = new Vector2(12f, 12f);
-            rt.offsetMax = new Vector2(-12f, -40f);
-
-            // Single "Power" multiplier slider; writing it caches
-            // ConfigValue, which rides the blueprint as a bounce-height
-            // multiplier (PogoBlock takes √power on takeoff speed).
-            _pogoPowerSlider = BuildLabeledSlider(section.transform, "Power ×", slot: 0,
-                min: PogoDefaults.MinPower, max: PogoDefaults.MaxPower,
-                def: PogoDefaults.DefaultPower,
-                onChanged: OnPogoPowerChanged, out _pogoPowerValue,
-                tip: "Bounce-height multiplier for this pogo. Momentum from drops stacks on top either way.");
-
-            _pogoReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
-                anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
-                size: 12, style: FontStyle.Italic, anchor: TextAnchor.MiddleCenter, color: s_dim);
-            var prt = _pogoReadout.rectTransform;
-            prt.pivot = new Vector2(0.5f, 1f);
-            prt.anchoredPosition = new Vector2(0f, -56f - 4f);
-            prt.sizeDelta = new Vector2(0f, 22f);
-
-            return section;
-        }
-
-        private void OnPogoPowerChanged(float v)
-        {
-            if (_suppressCallbacks) return;
-            float snapped = Mathf.Round(v * 20f) / 20f; // 0.05× steps
-            string id = _activeBlockId;
-            if (string.IsNullOrEmpty(id)) return;
-            _suppressCallbacks = true;
-            _pogoPowerSlider.value = snapped;
-            _suppressCallbacks = false;
-            _session?.SetVariantConfig(id, snapped);
-            UpdateValueText(_pogoPowerValue, snapped, "F2");
-            UpdatePogoReadout(snapped);
-        }
-
-        private void UpdatePogoReadout(float power)
-        {
-            if (_pogoReadout == null) return;
-            _pogoReadout.text =
-                $"{power:F2}× bounce height  •  ≈ {PogoDefaults.NominalApexMeters * power:F1} m solo hop";
-        }
-
-        // The foil section UI is shared by the whole aero family; the
-        // slider BOUNDS are per-id (FoilDefaults vs WingDefaults), so
-        // they're re-applied on every aero-family selection. Bounds go
-        // in before values (HandleSelectedBlockChanged) so Unity's
-        // slider clamping can't mangle a cached value.
-        private void ApplyFoilSliderBounds(string id)
-        {
-            bool wing = id == BlockIds.Wing;
-            SetSliderRange(_foilSpanSlider,
-                wing ? WingDefaults.MinSpan : AeroSurfaceBlock.MinSpan,
-                wing ? WingDefaults.MaxSpan : AeroSurfaceBlock.MaxSpan);
-            SetSliderRange(_foilThicknessSlider,
-                wing ? WingDefaults.MinThickness : AeroSurfaceBlock.MinThickness,
-                wing ? WingDefaults.MaxThickness : AeroSurfaceBlock.MaxThickness);
-            SetSliderRange(_foilChordSlider,
-                wing ? WingDefaults.MinChord : AeroSurfaceBlock.MinChord,
-                wing ? WingDefaults.MaxChord : AeroSurfaceBlock.MaxChord);
-        }
-
-        private static void SetSliderRange(Slider s, float min, float max)
-        {
-            if (s == null) return;
-            s.minValue = min;
-            s.maxValue = max;
-        }
-
-        private GameObject BuildFoilSection(Transform parent)
-        {
-            var section = NewChild("Foil", parent);
-            var rt = section.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 0f);
-            rt.anchorMax = new Vector2(1f, 1f);
-            rt.offsetMin = new Vector2(12f, 12f);
-            rt.offsetMax = new Vector2(-12f, -40f);
-
-            // Layout (top → bottom):
-            //   Preset row (4 buttons)             — slot 0
-            //   Primary: span / thickness / chord  — slots 1, 2, 3
-            //   Live lift readout text             — below slot 3
-            //   Advanced toggle button             — below readout
-            //   Advanced container: pitch slider   — below toggle (collapsed by default)
-            //
-            // Pitch is in Advanced because the dim sliders are what most
-            // players reach for (it's where the foil's GEOMETRY lives);
-            // pitch is the power-user knob.
-            BuildFoilPresetRow(section.transform, slot: 0);
-
-            _foilSpanSlider      = BuildLabeledSlider(section.transform, "Span (m)",      slot: 1,
-                AeroSurfaceBlock.MinSpan,      AeroSurfaceBlock.MaxSpan,      AeroSurfaceBlock.DefaultSpan,
-                OnFoilSpanChanged,      out _foilSpanValue,
-                tip: "Wingtip-to-wingtip length. Lift scales with span × chord (wing area); longer wings also make a bigger target.");
-            _foilThicknessSlider = BuildLabeledSlider(section.transform, "Thickness (m)", slot: 2,
-                AeroSurfaceBlock.MinThickness, AeroSurfaceBlock.MaxThickness, AeroSurfaceBlock.DefaultThickness,
-                OnFoilThicknessChanged, out _foilThicknessValue,
-                tip: "Vertical depth of the wing body. Shape and hitbox only — lift comes from span × chord.");
-            _foilChordSlider     = BuildLabeledSlider(section.transform, "Chord (m)",     slot: 3,
-                AeroSurfaceBlock.MinChord,     AeroSurfaceBlock.MaxChord,     AeroSurfaceBlock.DefaultChord,
-                OnFoilChordChanged,     out _foilChordValue,
-                tip: "Front-to-back width of the wing. Lift scales with span × chord (wing area).");
-
-            // Live lift readout — sits under the chord slider.
-            const float primaryBottom = 56f * 4f; // = 4 slots' worth of vertical
-            _foilReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
-                anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
-                size: 12, style: FontStyle.Italic, anchor: TextAnchor.MiddleCenter, color: s_dim);
-            var rrt = _foilReadout.rectTransform;
-            rrt.pivot = new Vector2(0.5f, 1f);
-            rrt.anchoredPosition = new Vector2(0f, -primaryBottom - 4f);
-            rrt.sizeDelta = new Vector2(0f, 22f);
-
-            // Advanced toggle: small button below the readout.
-            const float toggleY = -primaryBottom - 4f - 22f - 4f;
-            var toggleGo = NewChild("AdvancedToggle", section.transform);
-            var trt = toggleGo.GetComponent<RectTransform>();
-            trt.anchorMin = new Vector2(0f, 1f);
-            trt.anchorMax = new Vector2(1f, 1f);
-            trt.pivot = new Vector2(0.5f, 1f);
-            trt.sizeDelta = new Vector2(0f, 28f);
-            trt.anchoredPosition = new Vector2(0f, toggleY);
-            var img = toggleGo.AddComponent<Image>();
-            img.color = UguiPalette.ButtonIdle;
-            var btn = toggleGo.AddComponent<Button>();
-            btn.targetGraphic = img;
-            btn.onClick.AddListener(ToggleFoilAdvanced);
-            _foilAdvancedToggleText = AddText(toggleGo.transform, "Advanced ▼",
-                Vector2.zero, Vector2.zero,
-                anchorMin: Vector2.zero, anchorMax: Vector2.one,
-                size: 12, style: FontStyle.Bold, anchor: TextAnchor.MiddleCenter, color: s_dim);
-
-            // Advanced container — pitch + teeter sliders live here. Built
-            // inactive; expander toggle shows it.
-            _foilAdvanced = NewChild("Advanced", section.transform);
-            var art = _foilAdvanced.GetComponent<RectTransform>();
-            art.anchorMin = new Vector2(0f, 1f);
-            art.anchorMax = new Vector2(1f, 1f);
-            art.pivot = new Vector2(0.5f, 1f);
-            art.sizeDelta = new Vector2(0f, 112f);
-            art.anchoredPosition = new Vector2(0f, toggleY - 28f - 4f);
-
-            _foilPitchPrimary = BuildLabeledSlider(_foilAdvanced.transform, "Pitch", slot: 0,
-                min: -18f, max: 18f, def: 0f,
-                onChanged: OnFoilPitchChanged, out _foilPitchValue,
-                tip: "Fixed mounting tilt (degrees). Positive pitch angles the wing into the airflow for lift at speed; past the stall angle lift collapses.");
-            UpdateFoilPitchValue(0f);
-
-            // Teeter — chord-axis tilt (tip up/down). Visual-only in v1, so
-            // a wider range than pitch is safe: no stall consequence.
-            _foilTeeterSlider = BuildLabeledSlider(_foilAdvanced.transform, "Teeter", slot: 1,
-                min: -45f, max: 45f, def: 0f,
-                onChanged: OnFoilTeeterChanged, out _foilTeeterValue,
-                tip: "Tilts the wing along its chord axis, raising or drooping the tip. Cosmetic for now — no effect on lift.");
-
-            _foilAdvanced.SetActive(false);
-            _foilAdvancedExpanded = false;
-
-            return section;
-        }
-
-        private GameObject BuildRopeSection(Transform parent)
-        {
-            var section = NewChild("Rope", parent);
-            var rt = section.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 0f);
-            rt.anchorMax = new Vector2(1f, 1f);
-            rt.offsetMin = new Vector2(12f, 12f);
-            rt.offsetMax = new Vector2(-12f, -40f);
-
-            _ropeSegmentSlider = BuildLabeledSlider(section.transform, "Length (cells)", 0,
-                RopeBlock.MinLengthCells, RopeBlock.MaxLengthCells, RopeBlock.DefaultLengthCells,
-                OnRopeSegmentCountChanged, out _ropeSegmentValue,
-                tip: "Rest length of the rope, in build-grid cells.");
-
-            return section;
-        }
-
-        private GameObject BuildRotorSection(Transform parent)
-        {
-            var section = NewChild("Rotor", parent);
-            var rt = section.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 0f);
-            rt.anchorMax = new Vector2(1f, 1f);
-            rt.offsetMin = new Vector2(12f, 12f);
-            rt.offsetMax = new Vector2(-12f, -40f);
-
-            BuildRotorPresetRow(section.transform, slot: 0);
-
-            _rotorCollectiveSlider = BuildLabeledSlider(section.transform, "Collective", slot: 1,
-                min: 0f, max: 18f, def: 0f,
-                onChanged: OnRotorCollectiveChanged, out _rotorCollectiveValue,
-                tip: "Blade pitch applied to every foil the rotor adopts. More collective = more lift per revolution, at more drag.");
-
-            _rotorRpmSlider = BuildLabeledSlider(section.transform, "Max RPM", slot: 2,
-                min: RotorDefaults.MinRpm, max: RotorDefaults.MaxRpm, def: RotorDefaults.DefaultRpm,
-                onChanged: OnRotorRpmChanged, out _rotorRpmValue,
-                tip: "Top rotor speed. Faster spin means more blade lift and a higher CPU price (see readout below).");
-
-            _rotorReadout = AddText(section.transform, "", new Vector2(0f, 0f), new Vector2(0f, 24f),
-                anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
-                size: 12, style: FontStyle.Italic, anchor: TextAnchor.MiddleCenter, color: s_dim);
-            var rrt = _rotorReadout.rectTransform;
-            rrt.pivot = new Vector2(0.5f, 1f);
-            rrt.anchoredPosition = new Vector2(0f, -56f * 3f - 4f);
-            rrt.sizeDelta = new Vector2(0f, 22f);
-
-            return section;
-        }
-
-        private void BuildFoilPresetRow(Transform parent, int slot)
-        {
-            var row = NewChild("FoilPresets", parent);
-            var rt = row.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 1f);
-            rt.anchorMax = new Vector2(1f, 1f);
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.sizeDelta = new Vector2(0f, 36f);
-            rt.anchoredPosition = new Vector2(0f, -slot * 56f);
-            for (int i = 0; i < s_foilPresets.Length; i++)
-            {
-                var p = s_foilPresets[i];
-                AddPresetButton(row.transform, p.label, i, () => ApplyFoilPreset(p.span, p.thickness, p.chord, p.pitch));
-            }
-        }
-
-        private void BuildRotorPresetRow(Transform parent, int slot)
-        {
-            var row = NewChild("RotorPresets", parent);
-            var rt = row.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 1f);
-            rt.anchorMax = new Vector2(1f, 1f);
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.sizeDelta = new Vector2(0f, 36f);
-            rt.anchoredPosition = new Vector2(0f, -slot * 56f);
-            for (int i = 0; i < s_rotorPresets.Length; i++)
-            {
-                var p = s_rotorPresets[i];
-                AddPresetButton(row.transform, p.label, i, () => ApplyRotorPreset(p.collective, p.rpm));
-            }
-        }
-
         // -----------------------------------------------------------------
         // UGUI primitives
         // -----------------------------------------------------------------
-
-        private static void UpdateValueText(Text t, float v, string fmt)
-        {
-            if (t != null) t.text = v.ToString(fmt);
-        }
 
         private void SetVisible(bool visible)
         {
