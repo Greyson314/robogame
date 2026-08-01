@@ -46,10 +46,22 @@ one-alloc-on-start; one-shots ride the existing pooled router).
   at idle volume; zero exceptions, zero missing-cue logs.
 - Headless rig + qa-verifier: see verdicts at session end.
 
-## Out of scope, flagged
+## Follow-up (same session): unwired-cue audit
 
-Pre-existing unwired cues that gameplay code already fires
-(HoverBladeLoop, RepairPad*, Scrap*, LabSave, LowHealthAlert,
-RoundClockTick, FlipActivate, HoverBladeContactLost) silently no-op —
-they have no AudioCueWizard rows. Spawned as a background task chip;
-needs an intentional-vs-missing audit before wiring.
+The pre-existing gap flagged above was picked up immediately: 13 cues
+fired from gameplay code had no wizard rows and silently no-oped
+(HoverBladeLoop + ContactLost, FlipActivate, the four RepairPad cues,
+the three Scrap cues, LabSave, LowHealthAlert, RoundClockTick). Audit
+confirmed none are documented intentional omissions — those are only
+ThrusterIgnite/Shutdown and ReloadStart. All 13 got rows; library now
+**66 wired / 0 missing**.
+
+Notable calls: LowHealthAlert is wired as a solo whisper-volume UI
+double-note (the HUD fires discrete PlayUI pulses, not a PlayLoop —
+the enum comment says "looped" but the code pulses); HoverBladeLoop's
+row volume is just the pre-ramp default since HoverBladeBlock drives
+SetBaseVolume itself; RepairPadEnter/Cancel use the 1000ms-up/500ms-down
+charge pair so enter/cancel read as one field energising and dying.
+
+All clip choices this session were filename-picked, not auditioned —
+an ear pass in a live session is the remaining polish item.

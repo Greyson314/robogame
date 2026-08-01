@@ -235,6 +235,49 @@ namespace Robogame.Tools.Editor
             // skating off a wedge sparkles instead of machine-gunning
             // one identical ping.
             new CueRow(AudioCue.ArmorDeflect,      "WEAPONS/Firearms/Ricochets/RICOCHET_Bullet_01_mono.wav",                                                    AudioBus.Sfx,   spatial: 1f, vol: 0.50f, jitter: 0.15f, solo: false),
+
+            // -----------------------------------------------------------
+            // Unwired-cue audit (session 162 follow-up). These 13 cues
+            // were fired from gameplay code but had no rows, so they
+            // silently no-oped. Only ThrusterIgnite/Shutdown and
+            // ReloadStart (documented above) are intentional omissions.
+            // First-pass filename-picked clips — tune by ear in a live
+            // session.
+            // -----------------------------------------------------------
+            // HoverBladeLoop: low fan whoosh under a lifting blade.
+            // HoverBladeBlock drives volume itself via SetBaseVolume
+            // (starts at 0, ramps with lift), so the row vol is only the
+            // pre-ramp default. Per-blade loops, not solo.
+            new CueRow(AudioCue.HoverBladeLoop,        "MACHINES/Industrial/MACHINE_Industrial_Fan_Run_Medium_loop_mono.wav",                                   AudioBus.Sfx,   spatial: 1f, vol: 0.45f, jitter: 0f,    solo: false),
+            // HoverBladeContactLost: ground dropped out from under the
+            // blade — a short shut-down burst reads as the lift dying.
+            new CueRow(AudioCue.HoverBladeContactLost, "ROBOTICS/Short_Bursts/ROBOTIC_Short_Burst_05_Shut_Down_mono.wav",                                       AudioBus.Sfx,   spatial: 1f, vol: 0.50f, jitter: 0.05f, solo: true),
+            // FlipActivate: the self-righting "schwop" — one fast air whoosh.
+            new CueRow(AudioCue.FlipActivate,          "WHOOSHES/Air/WHOOSH_Air_Fast_Bright_RR1_mono.wav",                                                      AudioBus.Sfx,   spatial: 1f, vol: 0.60f, jitter: 0.08f, solo: false),
+            // Repair pad: enter = 1s rising charge ("field engages"),
+            // cancel = 500ms falling charge (de-energise), complete =
+            // bright 8-bit notification chime, per-block respawn = soft
+            // dark pop (jittered — it fires once per rebuilt cell).
+            new CueRow(AudioCue.RepairPadEnter,        "CHARGE_UPS_DOWNS/CHARGE_Complex_Wet_12_Semi_Up_1000ms_mono.wav",                                        AudioBus.Sfx,   spatial: 1f, vol: 0.60f, jitter: 0f,    solo: true),
+            new CueRow(AudioCue.RepairBlockRespawn,    "CARTOON/POP_Mouth_Darker_mono.wav",                                                                     AudioBus.Sfx,   spatial: 1f, vol: 0.30f, jitter: 0.10f, solo: false),
+            new CueRow(AudioCue.RepairComplete,        "NOTIFICATIONS/NOTIFICATION_8bit_01_mono.wav",                                                           AudioBus.Sfx,   spatial: 1f, vol: 0.55f, jitter: 0f,    solo: true),
+            new CueRow(AudioCue.RepairCancel,          "CHARGE_UPS_DOWNS/CHARGE_Complex_Wet_12_Semi_Down_500ms_mono.wav",                                       AudioBus.Sfx,   spatial: 1f, vol: 0.50f, jitter: 0f,    solo: true),
+            // Scrap loop: drop = coin clink, collect = bright two-note
+            // pickup, depot tick = quiet dry tap (the metronome pulse).
+            new CueRow(AudioCue.ScrapDrop,             "MONEY_CASH_CURRENCY/SLOT_MACHINE_Insert_Coin_01_mono.wav",                                              AudioBus.Sfx,   spatial: 1f, vol: 0.50f, jitter: 0.10f, solo: false),
+            new CueRow(AudioCue.ScrapCollect,          "8BIT/Coin_Collect/8BIT_RETRO_Coin_Collect_Two_Note_Bright_Fast_mono.wav",                               AudioBus.Sfx,   spatial: 1f, vol: 0.60f, jitter: 0.05f, solo: false),
+            new CueRow(AudioCue.ScrapTick,             "USER_INTERFACES/Clicks_Taps/UI_Click_TapBack_01_mono.wav",                                              AudioBus.Sfx,   spatial: 1f, vol: 0.25f, jitter: 0f,    solo: true),
+            // LabSave: soft confirmation chime at the Lab bench (3D — it
+            // plays at the bench's world position).
+            new CueRow(AudioCue.LabSave,               "USER_INTERFACES/Beeps/UI_Beep_Double_Clean_Up_stereo.wav",                                              AudioBus.Sfx,   spatial: 1f, vol: 0.40f, jitter: 0f,    solo: true),
+            // LowHealthAlert: fired repeatedly by LowHealthVignetteHud as
+            // discrete PlayUI pulses (not a PlayLoop) — a muffled low
+            // double-note at whisper volume. Solo so overlapping pulses
+            // replace instead of stacking.
+            new CueRow(AudioCue.LowHealthAlert,        "USER_INTERFACES/Errors/UI_Error_Double_Note_Down_Muffled_Short_stereo.wav",                             AudioBus.UI,    spatial: 0f, vol: 0.25f, jitter: 0f,    solo: true),
+            // RoundClockTick: final-10s countdown — a real clock
+            // mechanism tick, dry and urgent without being an alarm.
+            new CueRow(AudioCue.RoundClockTick,        "FOLEY/CLOCKS/CLOCK_Grandfather_Clock_01_RR01_mono.wav",                                                 AudioBus.UI,    spatial: 0f, vol: 0.50f, jitter: 0f,    solo: true),
         };
 
         private readonly struct CueRow
