@@ -122,5 +122,11 @@ namespace Robogame.Core
         StingerTimpaniPhrase,
 
         WeaponOverheat,    // SMG heat lockout trips (session 155) — pressure-release hiss / hot metal tick
+
+        // Wave-1 FX/audio pass (invariant #8 debt from session 155)
+        GyroLoop,          // looped electric flywheel hum while a gyro block is live — volume swells with steer input
+        PogoBounce,        // one-shot cartoon spring bounce when the winning pogo foot fires — replaces the SpringLaunch placeholder
+        ArmorSpikeHit,     // enemy spike armor procs its ram bonus — brutal metal jab on top of the ram thud
+        ArmorDeflect,      // wedge armor deflects a glancing projectile — bright ricochet ping
     }
 }

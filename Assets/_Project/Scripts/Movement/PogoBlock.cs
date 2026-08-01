@@ -183,9 +183,15 @@ namespace Robogame.Movement
                     {
                         _rb.AddForce(-castDir * deltaV, ForceMode.VelocityChange);
                         _bounceCooldown = _bounceIntervalSeconds;
-                        // SpringLaunch "boing" reused as the placeholder cue
-                        // (invariant #8) until the pogo gets its own recording.
-                        Robogame.Core.AudioRouter.PlayOneShot(Robogame.Core.AudioCue.SpringLaunch, origin);
+                        // Bespoke cartoon-spring cue (wave-1 FX/audio pass;
+                        // the session-155 placeholder reused SpringLaunch).
+                        // Only the arbiter-winning foot reaches this line,
+                        // so a multi-pogo landing plays ONE boing.
+                        Robogame.Core.AudioRouter.PlayOneShot(Robogame.Core.AudioCue.PogoBounce, origin);
+                        // Dust kick at the contact point, aimed along the
+                        // launch direction — SpringBurst is the closest
+                        // authored kind (cone of pale dust on a jump axis).
+                        Robogame.Core.VfxSpawner.Spawn(Robogame.Core.VfxKind.SpringBurst, hit.point, -castDir);
                     }
                 }
                 return;

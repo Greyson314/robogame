@@ -206,6 +206,35 @@ namespace Robogame.Tools.Editor
             new CueRow(AudioCue.StingerTimpaniNote,     GeneratedRoot + "/stinger_timpani_note.wav",     AudioBus.Music, spatial: 0f, vol: 0.65f, jitter: 0f, solo: false),
             new CueRow(AudioCue.StingerTimpaniFlourish, GeneratedRoot + "/stinger_timpani_flourish.wav", AudioBus.Music, spatial: 0f, vol: 0.75f, jitter: 0f, solo: false),
             new CueRow(AudioCue.StingerTimpaniPhrase,   GeneratedRoot + "/stinger_timpani_phrase.wav",   AudioBus.Music, spatial: 0f, vol: 0.85f, jitter: 0f, solo: true),
+
+            // Wave-1 FX/audio pass (invariant #8 debt from session 155).
+            // WeaponOverheat: the SMG's 4s-sustain lockout tripping — a
+            // compressed-air pressure release reads as steam venting off
+            // hot metal. Solo: one gun trips at a time per chassis and a
+            // double-trip should replace, not stack.
+            new CueRow(AudioCue.WeaponOverheat,    "TOOLS/Impact_Wrench/TOOL_Impact_Wrench_Comperssed_Air_Medium_Burst_No_Resistance_01_mono.wav",             AudioBus.Sfx,   spatial: 1f, vol: 0.70f, jitter: 0.05f, solo: true),
+            // GyroLoop: quiet electric hum of the always-spinning reaction
+            // wheel. GyroBlock swells the volume with steer input via
+            // SetBaseVolume, so the library vol is the FULL-steer ceiling.
+            // Zero jitter — it's a loop; not solo, each gyro hums.
+            new CueRow(AudioCue.GyroLoop,          "MACHINES/Factory/MACHINE_Press_Machine_Electric_Hum_loop_mono.wav",                                        AudioBus.Sfx,   spatial: 1f, vol: 0.30f, jitter: 0f,    solo: false),
+            // PogoBounce: actual cartoon spring bounce for the pogo's
+            // contact-fire hop (the SpringLaunch 8-bit powerup was the
+            // session-155 placeholder). Chunky jitter — sustained hopping
+            // is the block's whole identity and must not read as a stuck
+            // note. Not solo: the arbiter already caps one bounce per
+            // chassis window; simultaneous bounces from DIFFERENT bots
+            // should stack naturally.
+            new CueRow(AudioCue.PogoBounce,        "CARTOON/CARTOON_Spring_Bounce_01_mono.wav",                                                                 AudioBus.Sfx,   spatial: 1f, vol: 0.50f, jitter: 0.12f, solo: false),
+            // ArmorSpikeHit: enemy spike procs its ring-0 ram bonus — a
+            // hard metal-on-metal jab layered over the ChassisRam thud so
+            // being spiked sounds distinctly nastier than a plain ram.
+            new CueRow(AudioCue.ArmorSpikeHit,     "IMPACTS/Metal/IMPACT_Metal_Crowbar_Hard_Surface_mono.wav",                                                  AudioBus.Sfx,   spatial: 1f, vol: 0.90f, jitter: 0.08f, solo: false),
+            // ArmorDeflect: wedge sheds a glancing projectile — classic
+            // bright ricochet whine. High jitter so sustained SMG fire
+            // skating off a wedge sparkles instead of machine-gunning
+            // one identical ping.
+            new CueRow(AudioCue.ArmorDeflect,      "WEAPONS/Firearms/Ricochets/RICOCHET_Bullet_01_mono.wav",                                                    AudioBus.Sfx,   spatial: 1f, vol: 0.50f, jitter: 0.15f, solo: false),
         };
 
         private readonly struct CueRow

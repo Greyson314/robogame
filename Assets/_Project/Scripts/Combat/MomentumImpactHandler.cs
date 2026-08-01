@@ -171,6 +171,13 @@ namespace Robogame.Combat
                 && otherBlock.Definition.Id == BlockIds.SpikeArmor)
             {
                 ring0Mul *= ArmorConfig.Instance.SpikeDamageMultiplier;
+                // Spike proc feedback (invariant #8): a metal jab layered
+                // over the ChassisRam thud + RamSpark below, so being
+                // spiked reads distinctly nastier than a plain ram. Runs
+                // on the VICTIM's handler — the sound localises to the
+                // chassis that got hurt.
+                AudioRouter.PlayOneShot(AudioCue.ArmorSpikeHit, contact.point);
+                VfxSpawner.Spawn(VfxKind.HitSpark, contact.point, contact.normal, 1.5f);
             }
             BlockBehaviour selfBlock = contact.thisCollider != null
                 ? contact.thisCollider.GetComponentInParent<BlockBehaviour>()

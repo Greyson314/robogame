@@ -438,12 +438,26 @@ namespace Robogame.Combat
             // deal reduced damage. 1 for every non-wedge target.
             BlockBehaviour hitBlock = hit.collider.GetComponentInParent<BlockBehaviour>();
             float deflect = ArmorDeflection.ComputeMultiplier(hitBlock, hit.normal, travelDir);
+            PlayDeflectFeedback(deflect, hit.point);
             target.TakeDamage(spec.Damage * deflect);
             DamageAttribution.Report(spec.Owner, targetRobot, spec.Damage * deflect);
             MusicalHits.Report(spec.Owner, targetRobot, spec.Kind, spec.Damage * deflect);
             if (spec.Knockback > 0f)
                 ApplyKineticKnockback(targetRobot, travelDir, spec.Knockback, spec.KnockbackSmoothed);
             HitLanded?.Invoke(spec.Owner, hit.point);
+        }
+
+        /// <summary>
+        /// Wedge-deflection feedback (invariant #8, wave-1 FX/audio pass):
+        /// a bright ricochet ping when a wedge sheds meaningful damage.
+        /// Threshold skips near-full-damage hits so only a real graze
+        /// pings; the generic impact VFX from DispatchImpactFx still
+        /// plays either way. Ram-path deflections stay silent — the
+        /// RamSpark + ChassisRam pair already covers those.
+        /// </summary>
+        private static void PlayDeflectFeedback(float deflect, Vector3 point)
+        {
+            if (deflect < 0.9f) AudioRouter.PlayOneShot(AudioCue.ArmorDeflect, point);
         }
 
         private void ApplyRingSplashOnHit(in ProjectileSpec spec, RaycastHit hit, Vector3 travelDir)
@@ -462,6 +476,7 @@ namespace Robogame.Combat
                     // splash falloff through the rest of the chassis is
                     // unchanged.
                     float deflect = ArmorDeflection.ComputeMultiplier(block, hit.normal, travelDir);
+                    PlayDeflectFeedback(deflect, hit.point);
                     targetRobot.Grid.ApplySplashDamage(block.GridPosition, spec.SplashRings, deflect);
                     DamageAttribution.Report(spec.Owner, targetRobot, spec.SplashRings[0] * deflect);
                     MusicalHits.Report(spec.Owner, targetRobot, spec.Kind, spec.SplashRings[0] * deflect);

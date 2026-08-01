@@ -1,4 +1,5 @@
 using Robogame.Block;
+using Robogame.Core;
 using UnityEngine;
 
 namespace Robogame.Movement
@@ -46,6 +47,16 @@ namespace Robogame.Movement
         private float Authority => _bb != null && _bb.ConfigValue > 0f ? _bb.ConfigValue : DefaultAuthority;
 
         private Rigidbody _rb;
+
+        // Audio — flywheel hum, looped for the block's live lifetime.
+        // Idles quiet and swells toward the library ceiling with steer
+        // input; the two consts are absolute base volumes (the library
+        // row's Volume is the full-steer ceiling, 0.30).
+        private const float LoopIdleVolume = 0.10f;
+        private const float LoopFullVolume = 0.30f;
+        private AudioLoopHandle _loop;
+        private float _loopVolume = LoopIdleVolume;
+
         // CSP replay redirect (ADR-0002): when non-null, Tick drives this
         // prediction-mirror body instead of the chassis. Null in normal play.
         private Rigidbody _replayBody;
@@ -64,11 +75,28 @@ namespace Robogame.Movement
             _rb = GetComponentInParent<Rigidbody>();
             _drive = GetComponentInParent<RobotDrive>();
             _drive?.Register(this);
+
+            // HoverBladeBlock pattern: idempotent re-check via IsValid so
+            // re-enable doesn't double-allocate a loop voice.
+            if (_loop == null || !_loop.IsValid)
+            {
+                _loop = AudioRouter.PlayLoop(AudioCue.GyroLoop, transform);
+                _loopVolume = LoopIdleVolume;
+                _loop?.SetBaseVolume(_loopVolume);
+            }
         }
 
         private void OnDisable()
         {
             _drive?.Unregister(this);
+            _loop?.Stop();
+            _loop = null;
+        }
+
+        private void OnDestroy()
+        {
+            _loop?.Stop();
+            _loop = null;
         }
 
         public void Tick(in DriveControl control)
@@ -86,6 +114,16 @@ namespace Robogame.Movement
             if (!Mathf.Approximately(steer, 0f))
             {
                 body.AddTorque(chassis.up * (steer * authority), ForceMode.Force);
+            }
+
+            // Hum swells with steer effort. Skipped during CSP replay —
+            // replay re-runs many ticks per frame and audio is
+            // presentation, not simulation.
+            if (_replayBody == null && _loop != null && _loop.IsValid)
+            {
+                float target = Mathf.Lerp(LoopIdleVolume, LoopFullVolume, Mathf.Abs(steer));
+                _loopVolume = Mathf.MoveTowards(_loopVolume, target, 1.5f * Time.fixedDeltaTime);
+                _loop.SetBaseVolume(_loopVolume);
             }
 
             // Roll/pitch rate damping: counter the angular-velocity

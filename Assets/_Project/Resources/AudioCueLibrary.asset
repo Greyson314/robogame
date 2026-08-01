@@ -397,6 +397,46 @@ MonoBehaviour:
     PitchJitter: 0
     Phrase: 0
     Solo: 1
+  - Cue: 64
+    Clip: {fileID: 8300000, guid: 7aa65596e0925ab4e80e22ec297ff19e, type: 3}
+    Bus: 1
+    SpatialBlend: 1
+    Volume: 0.7
+    PitchJitter: 0.05
+    Phrase: 0
+    Solo: 1
+  - Cue: 65
+    Clip: {fileID: 8300000, guid: 2e0f63d8c6d24b6439996f862fde3463, type: 3}
+    Bus: 1
+    SpatialBlend: 1
+    Volume: 0.3
+    PitchJitter: 0
+    Phrase: 0
+    Solo: 0
+  - Cue: 66
+    Clip: {fileID: 8300000, guid: 8268eb3226526244eb4701c4fe9b573d, type: 3}
+    Bus: 1
+    SpatialBlend: 1
+    Volume: 0.5
+    PitchJitter: 0.12
+    Phrase: 0
+    Solo: 0
+  - Cue: 67
+    Clip: {fileID: 8300000, guid: 1ec9781d87266244ca0df270cb9d2794, type: 3}
+    Bus: 1
+    SpatialBlend: 1
+    Volume: 0.9
+    PitchJitter: 0.08
+    Phrase: 0
+    Solo: 0
+  - Cue: 68
+    Clip: {fileID: 8300000, guid: 37ed34552be866246923ac3a0133cecd, type: 3}
+    Bus: 1
+    SpatialBlend: 1
+    Volume: 0.5
+    PitchJitter: 0.15
+    Phrase: 0
+    Solo: 0
   _masterGroup: {fileID: 0}
   _sfxGroup: {fileID: 0}
   _musicGroup: {fileID: 0}

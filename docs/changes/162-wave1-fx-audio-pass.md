@@ -1,0 +1,55 @@
+# 162 — Wave-1 FX/audio pass
+
+Closes the invariant #8 debt recorded in
+[155-wave1-prototype-suite.md](155-wave1-prototype-suite.md) § Known gaps:
+gyro/pogo had no audio, spike/wedge armor had neither bespoke VFX nor
+audio, and `AudioCue.WeaponOverheat` had no clip.
+
+## Shipped
+
+Five new library rows (AudioCueWizard table → auto-rebuilt asset, now
+53 wired / 0 missing). Four new cues appended to `AudioCue` (append-only
+zone honoured):
+
+- **WeaponOverheat** (clip only — cue + call site existed): impact-wrench
+  compressed-air medium burst, the steam-off-hot-metal pressure release.
+- **GyroLoop** + `GyroBlock` loop lifecycle (HoverBladeBlock pattern:
+  IsValid re-check on enable, Stop on disable/destroy). Electric
+  press-machine hum, idles at 0.10 base volume and swells to the 0.30
+  library ceiling with |steer| via `SetBaseVolume` in `Tick`. Skipped
+  when `_replayBody` is set — CSP replay re-runs many ticks per frame
+  and audio is presentation.
+- **PogoBounce**: real cartoon spring-bounce clip replaces the
+  SpringLaunch 8-bit placeholder at the bounce site. Only the
+  arbiter-winning foot plays it. Plus VFX: `SpringBurst` dust kick at
+  `hit.point` aimed along the launch axis (closest authored kind).
+- **ArmorSpikeHit**: metal-crowbar jab + 1.5× `HitSpark` when the spike
+  ring-0 bonus procs in `MomentumImpactHandler` — layered over the
+  existing ChassisRam/RamSpark pair so being spiked reads nastier than
+  a plain ram. Fires on the victim's handler, localised to the hurt
+  chassis.
+- **ArmorDeflect**: ricochet ping (0.15 pitch jitter) when wedge
+  deflection sheds meaningful damage. `ProjectileWorld.PlayDeflectFeedback`
+  gates at deflect < 0.9 and covers both ApplyDirect and
+  ApplyRingSplashOnHit; the ram-path deflection stays silent by design
+  (RamSpark + ChassisRam already cover it).
+
+No new physics objects, no per-frame allocations (loop voice is
+one-alloc-on-start; one-shots ride the existing pooled router).
+
+## Verification
+
+- Live editor via MCP bridge (raw HTTP :8080): all 16 assemblies
+  compiled, 0 errors; wizard rebuild logged 53/0.
+- Play-mode probe: all five cues resolve to their intended clips and
+  fire; a spawned `GyroBlock` creates a playing `Loop_GyroLoop` voice
+  at idle volume; zero exceptions, zero missing-cue logs.
+- Headless rig + qa-verifier: see verdicts at session end.
+
+## Out of scope, flagged
+
+Pre-existing unwired cues that gameplay code already fires
+(HoverBladeLoop, RepairPad*, Scrap*, LabSave, LowHealthAlert,
+RoundClockTick, FlipActivate, HoverBladeContactLost) silently no-op —
+they have no AudioCueWizard rows. Spawned as a background task chip;
+needs an intentional-vs-missing audit before wiring.
