@@ -15,12 +15,12 @@ namespace Robogame.Gameplay
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>How the drawing is made:</b> every occupied cell contributes its
-    /// three camera-facing faces (+Y, +X, +Z); every face contributes its
-    /// four lattice edges into a counting set; edges seen exactly once are
-    /// the silhouette + step lines, edges seen twice are interior seams and
-    /// are dropped. That union-outline is precisely how a draftsman would
-    /// ink the part — no cell grid soup.
+    /// <b>How the drawing is made:</b> every occupied cell contributes all
+    /// six faces into an edge-counting set, tiered by visibility: edges of
+    /// exactly one camera-facing exposed face ink the silhouette + steps at
+    /// full strength; seams between two visible faces draw the block grid
+    /// semi-transparent; buried and away-facing edges render as a faint
+    /// X-ray. Every block is in the drawing, the silhouette still leads.
     /// </para>
     /// <para>
     /// Built once on menu load (allocation at build time only). The only
@@ -54,6 +54,11 @@ namespace Robogame.Gameplay
         // far edges fade — the union outline stops reading as wire soup.
         private const float LineAlphaNear = 0.62f;
         private const float LineAlphaFar = 0.28f;
+        // Tiered wireframe (Grey, Aug 18): visible-surface block seams and
+        // buried/away-facing edges render see-through, so every block is in
+        // the drawing without drowning the silhouette.
+        private const float SeamAlpha = 0.15f;
+        private const float HiddenAlpha = 0.07f;
         private const int MaxFocusTints = 56; // stay well inside the tween pool
 
         // Projection basis: +X right-down, +Z left-down, +Y up. Cells whose
@@ -330,36 +335,60 @@ namespace Robogame.Gameplay
             }
 
             // ---------------- face → edge accumulation ----------------
-            // Key: lattice corner pair (ordered); value: hit count + owner.
-            var edges = new Dictionary<(Vector3Int, Vector3Int), (int count, BlockCategory cat)>(cells.Count * 12);
-            void AddEdge(Vector3Int a, Vector3Int b, BlockCategory cat)
+            // Every cell contributes all six faces, so every block is in
+            // the drawing (Grey, Aug 18 — the union outline alone didn't
+            // read as the actual bot). Edges tier by how visible they are:
+            //   tier 1  edge of exactly one camera-facing exposed face —
+            //           the silhouette + steps (full ink, depth-faded)
+            //   tier 2  seam between two visible faces — the block grid on
+            //           an exposed surface (semi-transparent)
+            //   tier 3  everything buried or facing away — the X-ray
+            //           innards (faint whisper)
+            var edges = new Dictionary<(Vector3Int, Vector3Int), (int vis, BlockCategory cat)>(cells.Count * 12);
+            void AddEdge(Vector3Int a, Vector3Int b, BlockCategory cat, bool visibleFace)
             {
                 // Normalize order so shared edges collide.
                 if (a.x > b.x || (a.x == b.x && (a.y > b.y || (a.y == b.y && a.z > b.z))))
                     (a, b) = (b, a);
                 var key = (a, b);
-                edges[key] = edges.TryGetValue(key, out var v) ? (v.count + 1, v.cat) : (1, cat);
+                edges[key] = edges.TryGetValue(key, out var v)
+                    ? (v.vis + (visibleFace ? 1 : 0), v.cat)
+                    : (visibleFace ? 1 : 0, cat);
             }
-            void AddFace(Vector3Int c0, Vector3Int c1, Vector3Int c2, Vector3Int c3, BlockCategory cat)
+            void AddFace(Vector3Int c0, Vector3Int c1, Vector3Int c2, Vector3Int c3, BlockCategory cat, bool visible)
             {
-                AddEdge(c0, c1, cat); AddEdge(c1, c2, cat);
-                AddEdge(c2, c3, cat); AddEdge(c3, c0, cat);
+                AddEdge(c0, c1, cat, visible); AddEdge(c1, c2, cat, visible);
+                AddEdge(c2, c3, cat, visible); AddEdge(c3, c0, cat, visible);
             }
 
             foreach (KeyValuePair<Vector3Int, BlockCategory> kv in cells)
             {
                 Vector3Int p = kv.Key;
                 BlockCategory cat = kv.Value;
-                if (!cells.ContainsKey(p + Vector3Int.up))
-                    AddFace(new(p.x, p.y + 1, p.z), new(p.x + 1, p.y + 1, p.z),
-                            new(p.x + 1, p.y + 1, p.z + 1), new(p.x, p.y + 1, p.z + 1), cat);
-                if (!cells.ContainsKey(p + Vector3Int.right))
-                    AddFace(new(p.x + 1, p.y, p.z), new(p.x + 1, p.y + 1, p.z),
-                            new(p.x + 1, p.y + 1, p.z + 1), new(p.x + 1, p.y, p.z + 1), cat);
-                if (!cells.ContainsKey(p + Vector3Int.forward))
-                    AddFace(new(p.x, p.y, p.z + 1), new(p.x + 1, p.y, p.z + 1),
-                            new(p.x + 1, p.y + 1, p.z + 1), new(p.x, p.y + 1, p.z + 1), cat);
+                // Camera-facing trio — visible when exposed.
+                AddFace(new(p.x, p.y + 1, p.z), new(p.x + 1, p.y + 1, p.z),
+                        new(p.x + 1, p.y + 1, p.z + 1), new(p.x, p.y + 1, p.z + 1), cat,
+                        visible: !cells.ContainsKey(p + Vector3Int.up));
+                AddFace(new(p.x + 1, p.y, p.z), new(p.x + 1, p.y + 1, p.z),
+                        new(p.x + 1, p.y + 1, p.z + 1), new(p.x + 1, p.y, p.z + 1), cat,
+                        visible: !cells.ContainsKey(p + Vector3Int.right));
+                AddFace(new(p.x, p.y, p.z + 1), new(p.x + 1, p.y, p.z + 1),
+                        new(p.x + 1, p.y + 1, p.z + 1), new(p.x, p.y + 1, p.z + 1), cat,
+                        visible: !cells.ContainsKey(p + Vector3Int.forward));
+                // Away-facing trio — never visible from this viewpoint, but
+                // their edges give the X-ray its buried geometry.
+                AddFace(new(p.x, p.y, p.z), new(p.x + 1, p.y, p.z),
+                        new(p.x + 1, p.y, p.z + 1), new(p.x, p.y, p.z + 1), cat, visible: false);
+                AddFace(new(p.x, p.y, p.z), new(p.x, p.y + 1, p.z),
+                        new(p.x, p.y + 1, p.z + 1), new(p.x, p.y, p.z + 1), cat, visible: false);
+                AddFace(new(p.x, p.y, p.z), new(p.x + 1, p.y, p.z),
+                        new(p.x + 1, p.y + 1, p.z), new(p.x, p.y + 1, p.z), cat, visible: false);
             }
+
+            // Faint tiers are additive charm on small bots and soup on huge
+            // ones — drop them past a budget rather than drawing thousands
+            // of whisper lines (menu-only cost, but still).
+            bool drawHidden = edges.Count <= 2600;
 
             // ---------------- fit to the host rect ----------------
             Vector2 min = new(float.MaxValue, float.MaxValue);
@@ -367,7 +396,6 @@ namespace Robogame.Gameplay
             float depthMin = float.MaxValue, depthMax = float.MinValue;
             foreach (var kv in edges)
             {
-                if (kv.Value.count != 1) continue;
                 Vector2 a = Project(kv.Key.Item1);
                 Vector2 b = Project(kv.Key.Item2);
                 min = Vector2.Min(min, Vector2.Min(a, b));
@@ -393,16 +421,39 @@ namespace Robogame.Gameplay
             Vector2 P(Vector3Int c) => (Project(c) - center) * scale;
             Vector2 PF(Vector3 v) => (ProjectF(v) - center) * scale;
 
-            // ---------------- draw the union outline ----------------
+            // ---------------- draw the tiered wireframe ----------------
             Color tp = HudStyles.TextPrimary;
             float depthSpan = Mathf.Max(0.001f, depthMax - depthMin);
             foreach (var kv in edges)
             {
-                if (kv.Value.count != 1) continue;
-                float depth = (kv.Key.Item1.x + kv.Key.Item1.z + kv.Key.Item2.x + kv.Key.Item2.z) * 0.5f;
-                float near01 = (depth - depthMin) / depthSpan;
-                var idle = new Color(tp.r, tp.g, tp.b, Mathf.Lerp(LineAlphaFar, LineAlphaNear, near01));
-                Image line = DrawLine(lines.transform, P(kv.Key.Item1), P(kv.Key.Item2), LineThickness, idle);
+                int vis = kv.Value.vis;
+                if (vis == 0 && !drawHidden) continue;
+                float thickness;
+                Color idle;
+                if (vis == 1)
+                {
+                    // Silhouette + steps — full ink, depth-faded.
+                    float depth = (kv.Key.Item1.x + kv.Key.Item1.z + kv.Key.Item2.x + kv.Key.Item2.z) * 0.5f;
+                    float near01 = (depth - depthMin) / depthSpan;
+                    idle = new Color(tp.r, tp.g, tp.b, Mathf.Lerp(LineAlphaFar, LineAlphaNear, near01));
+                    thickness = LineThickness;
+                }
+                else if (vis >= 2)
+                {
+                    // Seam between two visible faces — the block grid on an
+                    // exposed surface. Semi-transparent so blocks read
+                    // without turning the surface into graph paper.
+                    idle = new Color(tp.r, tp.g, tp.b, SeamAlpha);
+                    thickness = 2f;
+                }
+                else
+                {
+                    // Buried / facing away — the X-ray whisper.
+                    idle = new Color(tp.r, tp.g, tp.b, HiddenAlpha);
+                    thickness = 2f;
+                }
+                Image line = DrawLine(lines.transform, P(kv.Key.Item1), P(kv.Key.Item2), thickness, idle);
+                if (vis != 1) continue; // only strong lines join the focus tints
                 switch (kv.Value.cat)
                 {
                     case BlockCategory.Cpu:
