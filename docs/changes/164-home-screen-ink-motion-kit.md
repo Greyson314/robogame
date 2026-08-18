@@ -142,6 +142,19 @@ diagram from day one · MPTK-soundfont voicing · home + kit scope.
 - **Diagram went wordless**: fig. caption, block-count line, dimension
   line + "≈ N cells wide", and the mirror note all removed from
   `BotInkDiagram` — only the hover-focus answers remain as text.
+- **Part glyphs** (research via Explore sub-agent; spec mirrors
+  BlockGhostFactory's 3D rigs): the figure now applies the session-131
+  composition rule — solid where you shoot it, skeletal where it moves.
+  Skeletal ids (wheels, thruster, aero/fin/wing at real `Dims` spans,
+  rudder, hoverblade at footprint N, gyro, pogo, spring, rotor, rope at
+  `Dims.x` cells, tips) contribute no cube; their shape is drawn from the
+  entry's local frame (`BlockGrid.OrientationFromUp(EffectiveUp,
+  EffectiveYaw)`). Weapons keep their mass + gain barrels (SMG/cannon/
+  mortar-at-35°/grapple prongs/drill cone). Movement glyphs joined the
+  "tension the works" focus tint. Not glyphed (stay cubes): bombbay, the
+  seven module blocks, structure variants — nothing in code gives them a
+  shape. Rotor-adopted foils draw as normal foils (adoption detection
+  skipped; noted for the garage-panel pass).
 
 ## Follow-ups
 
