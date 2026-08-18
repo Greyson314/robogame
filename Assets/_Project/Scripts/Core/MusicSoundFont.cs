@@ -60,6 +60,19 @@ namespace Robogame.Core
             if (synth == null) return false;
             if (IsReady(synth)) return true;
 
+            // Batch Unity (headless test rig, CI) runs with audio disabled;
+            // MPTK will still schedule voices against sample data that never
+            // gets built and NREs per note (the Tuba-D1 GEN_FILTERQ failure
+            // that broke Garage_Idle_Baseline — deterministic whenever the
+            // async bank load beat the perf capture window). No audio device
+            // means MIDI has no job here; callers keep their WAV fallbacks.
+            // TRACE[LOG-164]: root fix, preferred over LogAssert.Expect.
+            if (Application.isBatchMode)
+            {
+                LogOnce("[MusicSoundFont] Batch mode — MIDI voices stay off.");
+                return false;
+            }
+
             if (!Exists)
             {
                 LogOnce("[MusicSoundFont] No soundfont at StreamingAssets/" + StreamingRelativePath +
