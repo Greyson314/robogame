@@ -38,7 +38,7 @@ namespace Robogame.Core
             s_blob = null; s_barFill = null; s_washFill = null;
             s_underline = null; s_splat = null; s_waxSeal = null;
             s_dashTile = null; s_gridTile = null; s_paper = null;
-            s_regMark = null;
+            s_regMark = null; s_wipeBrush = null; s_arrowTip = null;
         }
 
         // -----------------------------------------------------------------
@@ -84,7 +84,7 @@ namespace Robogame.Core
 
         private static Sprite s_blob, s_barFill, s_washFill, s_underline;
         private static Sprite s_splat, s_waxSeal, s_dashTile, s_gridTile;
-        private static Sprite s_paper, s_regMark;
+        private static Sprite s_paper, s_regMark, s_wipeBrush, s_arrowTip;
 
         /// <summary>Organic button blob (irregular corners, white). Tint ink for primary buttons.</summary>
         public static Sprite BrushBlob => s_blob ??= BakeSuperellipse(
@@ -119,6 +119,18 @@ namespace Robogame.Core
 
         /// <summary>Registration cross (+) for screen corners. Tint ink @ ~45% alpha.</summary>
         public static Sprite RegMark => s_regMark ??= BakeRegMark();
+
+        /// <summary>
+        /// Vertical brush edge for the full-screen page wipe: solid on the
+        /// left, jagged dry-brush alpha on the right. Stretch to screen
+        /// height at the leading edge of the ink cover (mirror for the
+        /// trailing edge), tint ink.
+        /// </summary>
+        // TRACE[DOC:research/ui-design-handoff-motion]: ink-wipe transition.
+        public static Sprite WipeBrush => s_wipeBrush ??= BakeWipeBrush("Ink_WipeBrush", 128, 512, seed: 41);
+
+        /// <summary>Small triangle arrowhead (points +X) for dimension lines and leaders. Tint ink/faded.</summary>
+        public static Sprite ArrowTip => s_arrowTip ??= BakeArrowTip("Ink_ArrowTip", 32);
 
         // -----------------------------------------------------------------
         // Bakers
@@ -310,6 +322,57 @@ namespace Robogame.Core
             tex.SetPixels(px);
             tex.Apply(false, true);
             return ToSprite(tex, name, fullRect: true);
+        }
+
+        /// <summary>
+        /// Brush edge strip: alpha 1 at x=0 fading through a two-band sine
+        /// wobble edge — the dry side of a loaded brush stroke.
+        /// </summary>
+        private static Sprite BakeWipeBrush(string name, int w, int h, int seed)
+        {
+            var rng = new System.Random(seed);
+            float p0 = (float)(rng.NextDouble() * Mathf.PI * 2f);
+            float p1 = (float)(rng.NextDouble() * Mathf.PI * 2f);
+            var tex = NewTex(w, h);
+            var px = new Color32[w * h];
+            for (int y = 0; y < h; y++)
+            {
+                float v = y / (float)h;
+                // Edge position 0.30–0.85 of width, organic two-band wobble.
+                float edge = w * (0.55f + 0.22f * Mathf.Sin(v * 9.3f * Mathf.PI + p0)
+                                        + 0.08f * Mathf.Sin(v * 23.7f * Mathf.PI + p1));
+                for (int x = 0; x < w; x++)
+                {
+                    // 3px soft edge; occasional dry-brush streak past it.
+                    float a = Mathf.Clamp01((edge - x) / 3f);
+                    px[y * w + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+                }
+            }
+            tex.SetPixels32(px);
+            tex.Apply(false, true);
+            return ToSprite(tex, name, fullRect: true);
+        }
+
+        /// <summary>Anti-aliased triangle pointing +X, drawn with a slightly concave back edge.</summary>
+        private static Sprite BakeArrowTip(string name, int s)
+        {
+            var tex = NewTex(s, s);
+            var px = new Color32[s * s];
+            for (int y = 0; y < s; y++)
+            {
+                for (int x = 0; x < s; x++)
+                {
+                    // Triangle: tip at (s-2, s/2), base at x=2 spanning full height.
+                    float t = (x - 2f) / (s - 4f);                    // 0 base → 1 tip
+                    float halfHeight = Mathf.Lerp(s * 0.42f, 0.8f, t); // taper
+                    float dy = Mathf.Abs(y + 0.5f - s * 0.5f);
+                    float a = Mathf.Clamp01((halfHeight - dy) / 1.4f) * Mathf.Clamp01((s - 2f - x) / 1.4f) * Mathf.Clamp01((x - 1f) / 1.4f);
+                    px[y * s + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+                }
+            }
+            tex.SetPixels32(px);
+            tex.Apply(false, true);
+            return ToSprite(tex, name);
         }
 
         private static Sprite BakeRegMark()

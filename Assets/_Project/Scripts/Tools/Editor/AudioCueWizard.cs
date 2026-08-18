@@ -160,6 +160,14 @@ namespace Robogame.Tools.Editor
             new CueRow(AudioCue.UiHover,           "USER_INTERFACES/Beeps/UI_Beep_Bend_Short_stereo.wav",                                                       AudioBus.UI,    spatial: 0f, vol: 0.40f, jitter: 0f,    solo: false),
             new CueRow(AudioCue.UiClick,           "USER_INTERFACES/Clicks_Taps/UI_Click_Metallic_Bright_mono.wav",                                             AudioBus.UI,    spatial: 0f, vol: 0.85f, jitter: 0f,    solo: false),
             new CueRow(AudioCue.UiBack,            "USER_INTERFACES/Clicks_Taps/UI_Click_TapBack_01_mono.wav",                                                  AudioBus.UI,    spatial: 0f, vol: 0.85f, jitter: 0f,    solo: false),
+            // Ink & Motion UI kit (session 164). Placeholder pack voices —
+            // the D-minor re-voice rides the composite layer in UiCues
+            // (piano flourish, timpani page-land) and the owed ear pass.
+            new CueRow(AudioCue.UiToggleOn,        "MECHANICS/MECHANICS_Metal_Mechanism_01_mono.wav",                                                           AudioBus.UI,    spatial: 0f, vol: 0.50f, jitter: 0.04f, solo: false),
+            new CueRow(AudioCue.UiToggleOff,       "MECHANICS/MECHANICS_Metal_Mechanism_03_mono.wav",                                                           AudioBus.UI,    spatial: 0f, vol: 0.45f, jitter: 0.04f, solo: false),
+            new CueRow(AudioCue.UiSlideTick,       "MECHANICS/MECHANICS_Metal_Mechanism_08_mono.wav",                                                           AudioBus.UI,    spatial: 0f, vol: 0.28f, jitter: 0.10f, solo: false),
+            new CueRow(AudioCue.UiSealStamp,       "THUDS_THUMPS/THUD_Smooth_01_mono.wav",                                                                      AudioBus.UI,    spatial: 0f, vol: 0.65f, jitter: 0.05f, solo: false),
+            new CueRow(AudioCue.UiPageTurn,        "WHOOSHES/Air/WHOOSH_Air_Slow_RR1_mono.wav",                                                                 AudioBus.UI,    spatial: 0f, vol: 0.55f, jitter: 0f,    solo: true),
             new CueRow(AudioCue.MatchStart,        "8BIT/Coin_Collect/8BIT_RETRO_Coin_Collect_Two_Note_Bright_Twinkle_mono.wav",                                AudioBus.UI,    spatial: 0f, vol: 1.00f, jitter: 0f,    solo: true),
             new CueRow(AudioCue.MatchEndVictory,   "MUSIC_EFFECTS/MUSIC_EFFECT_Platform_Positive_01_stereo.wav",                                                AudioBus.UI,    spatial: 0f, vol: 1.00f, jitter: 0f,    solo: true),
             new CueRow(AudioCue.MatchEndDefeat,    "MUSIC_EFFECTS/MUSIC_EFFECT_Platform_Negative_01_stereo.wav",                                                AudioBus.UI,    spatial: 0f, vol: 1.00f, jitter: 0f,    solo: true),

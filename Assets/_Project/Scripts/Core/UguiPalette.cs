@@ -85,6 +85,9 @@ namespace Robogame.Core
         /// <summary>Hovered ink surface (#322B21).</summary>
         public static readonly Color InkHover = new(0.196f, 0.169f, 0.129f, 1f);
 
+        /// <summary>Pressed ink surface (#1C1813) — one step darker than <see cref="Ink"/>, the stamp landing.</summary>
+        public static readonly Color InkPressed = new(0.110f, 0.094f, 0.075f, 1f);
+
         /// <summary>Cream text (#F1E9D4) for labels on ink surfaces.</summary>
         public static readonly Color CreamText = HudStyles.CreamText;
 

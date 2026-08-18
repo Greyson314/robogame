@@ -154,6 +154,13 @@ namespace Robogame.Core
         // construction since pausing is a singleplayer-only concept.
         public const string SettingsPause = "QoL.PauseOnSettings";
 
+        // Accessibility: collapse UI entrance choreography to a quick fade
+        // and freeze idle loops (spin-arc dashes etc.). State feedback —
+        // hover washes, press stamps, value fills — always stays. Pure
+        // presentation (INV-1 by construction); read via UiMotion.Reduced.
+        // TRACE[DOC:research/ui-design-handoff-motion]: reduced-motion rule.
+        public const string UiReducedMotion = "QoL.ReduceUiMotion";
+
         // Air dummy bot: same idea, plane chassis. Spawn/Fire toggles.
         // Like the tank: spawn flag drops the bot into the arena passively
         // (Patrol-only, no target); fire flag binds the player as the target
@@ -406,6 +413,7 @@ namespace Robogame.Core
 
             // QoL.
             RegisterBool(SettingsPause, "QoL", "Pause When Settings Open", true);
+            RegisterBool(UiReducedMotion, "QoL", "Reduce UI Motion", false);
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
             // Dev-only chassis-tuning override layer. Off by default; flip

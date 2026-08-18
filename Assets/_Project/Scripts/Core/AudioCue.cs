@@ -128,5 +128,14 @@ namespace Robogame.Core
         PogoBounce,        // one-shot cartoon spring bounce when the winning pogo foot fires — replaces the SpringLaunch placeholder
         ArmorSpikeHit,     // enemy spike armor procs its ram bonus — brutal metal jab on top of the ram thud
         ArmorDeflect,      // wedge armor deflects a glancing projectile — bright ricochet ping
+
+        // Ink & Motion UI kit (session 164). UiConfirm has no row here on
+        // purpose — the Begin flourish is a pitched composite of
+        // StingerPianoNote, built in UiCues.Confirm().
+        UiToggleOn,        // settings toggle commits ON — mechanism clack, up-voiced
+        UiToggleOff,       // settings toggle commits OFF — mechanism clack, down-voiced
+        UiSlideTick,       // slider crosses a ruler division — dry ratchet tick, rate-capped by the caller
+        UiSealStamp,       // wax-seal checkbox / kill-feed splat lands — soft stamp thud (UiCues.Seal adds the piano D under it)
+        UiPageTurn,        // full-screen ink wipe launches — brush swish (UiCues.PageTurnLand adds the timpani touch)
     }
 }
