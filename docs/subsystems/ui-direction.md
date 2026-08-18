@@ -13,6 +13,9 @@
 > [research/ui-design-handoff.md](../research/ui-design-handoff.md); rollout
 > log: [changes/134](../changes/134-inventor-ui-pass-1.md) (pass 1: tokens,
 > main menu, settings; combat-HUD component shapes are pass 2).
+> Motion / tactility / UI-sound layer **proposed** in
+> [research/ui-design-handoff-motion.md](../research/ui-design-handoff-motion.md)
+> with an interactive prototype (session 164, awaiting sign-off).
 
 ## The two theme helpers (both in `Robogame.Core`)
 
