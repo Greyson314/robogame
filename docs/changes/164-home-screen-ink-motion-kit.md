@@ -106,8 +106,18 @@ diagram from day one · MPTK-soundfont voicing · home + kit scope.
 - perf-checker skipped (zero physics objects; steady-state cost = one ring
   transform write + the tween driver's slot scan). qa-verifier not
   dispatched — build/console/visual/flow were all verified first-hand
-  above; the remaining gate is the test suite, run after the test-drafter's
-  files land (see below).
+  above.
+- Tests: test-drafter added `Tests/EditMode/UI/UiMotionTests.cs` (5 —
+  easing endpoints exact, clamping, monotonic no-bounce sweep) and
+  `Tests/PlayMode/UI/UiTweenTests.cs` (13 — retarget-from-current,
+  CompleteAll through delay holds, stale-handle safety, delay hold,
+  destroyed-target release, RotZ short path, exact end values on all six
+  channels, 160-slot eviction). Two CS0104 ambiguous-`Object` fixes applied
+  to the draft. Final suites: EditMode **500/500**, PlayMode **135/136,
+  0 failed** (the one skip is the pre-existing annotated SpawnBot ignore).
+  Known drafter-declared gaps: `UiMotion.Reduced` pass-through untested;
+  cross-channel same-frame retarget untested; INV-6 zero-alloc left to
+  perf tooling.
 
 ## Follow-ups
 

@@ -6,17 +6,17 @@ Run Window → Test Runner → EditMode → DumpAllPresets to refresh.
 ## Tank
 
 ```
-Blueprint 'Tank' (Ground, 26 cells)
+Blueprint 'Tank' (Ground, 33 cells)
 RotorsGenerateLift: False
 Bounds: x[-2..2] y[0..1] z[-2..3]
 
 Layer y=1:
       -2 -1  0  1  2
   3   .  .  G  .  . 
-  2   .  .  .  .  . 
-  1   .  .  .  .  . 
-  0   .  .  .  .  . 
- -1   .  .  .  .  . 
+  2   .  #  .  #  . 
+  1   .  #  .  #  . 
+  0   .  #  .  #  . 
+ -1   .  .  ?  .  . 
  -2   .  .  ?  .  . 
 
 Layer y=0:
@@ -52,7 +52,7 @@ Layer y=2:
 
 Layer y=1:
       -1  0  1
-  3   .  G  . 
+  3   .  ?  . 
   2   .  .  . 
   1   .  .  . 
   0   .  .  . 
@@ -100,17 +100,17 @@ Validation: OK
 ## Boat
 
 ```
-Blueprint 'Boat' (Ground, 38 cells)
+Blueprint 'Boat' (Ground, 39 cells)
 RotorsGenerateLift: False
 Bounds: x[-2..2] y[-1..1] z[-3..3]
 
 Layer y=1:
       -2 -1  0  1  2
-  3   .  .  G  .  . 
+  3   .  .  ?  .  . 
   2   .  .  .  .  . 
   1   .  .  .  .  . 
   0   .  .  .  .  . 
- -1   .  .  .  .  . 
+ -1   .  .  ?  .  . 
  -2   .  .  .  .  . 
  -3   .  .  T  .  . 
 
@@ -250,9 +250,9 @@ Validation: OK
 ## Helicopter
 
 ```
-Blueprint 'Helicopter' (Ground, 38 cells)
+Blueprint 'Helicopter' (Ground, 40 cells)
 RotorsGenerateLift: True
-Bounds: x[-2..2] y[0..3] z[-5..3]
+Bounds: x[-2..2] y[-3..3] z[-5..3]
 
 Layer y=3:
       -2 -1  0  1  2
@@ -302,6 +302,42 @@ Layer y=0:
  -4   .  .  #  .  . 
  -5   .  .  #  .  . 
 
+Layer y=-1:
+      -2 -1  0  1  2
+  3   .  .  .  .  . 
+  2   .  .  .  .  . 
+  1   .  .  |  .  . 
+  0   .  .  .  .  . 
+ -1   .  .  .  .  . 
+ -2   .  .  .  .  . 
+ -3   .  .  .  .  . 
+ -4   .  .  .  .  . 
+ -5   .  .  .  .  . 
+
+Layer y=-2:
+      -2 -1  0  1  2
+  3   .  .  .  .  . 
+  2   .  .  .  .  . 
+  1   .  .  .  .  . 
+  0   .  .  .  .  . 
+ -1   .  .  .  .  . 
+ -2   .  .  .  .  . 
+ -3   .  .  .  .  . 
+ -4   .  .  .  .  . 
+ -5   .  .  .  .  . 
+
+Layer y=-3:
+      -2 -1  0  1  2
+  3   .  .  .  .  . 
+  2   .  .  .  .  . 
+  1   .  .  m  .  . 
+  0   .  .  .  .  . 
+ -1   .  .  .  .  . 
+ -2   .  .  .  .  . 
+ -3   .  .  .  .  . 
+ -4   .  .  .  .  . 
+ -5   .  .  .  .  . 
+
 Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
 ```
 
@@ -310,9 +346,16 @@ Validation: OK
 ## DrillBot
 
 ```
-Blueprint 'DrillBot' (Ground, 14 cells)
+Blueprint 'DrillBot' (Ground, 15 cells)
 RotorsGenerateLift: False
-Bounds: x[-2..2] y[0..0] z[-1..2]
+Bounds: x[-2..2] y[0..1] z[-1..2]
+
+Layer y=1:
+      -2 -1  0  1  2
+  2   .  .  .  .  . 
+  1   .  .  G  .  . 
+  0   .  .  .  .  . 
+ -1   .  .  .  .  . 
 
 Layer y=0:
       -2 -1  0  1  2
