@@ -162,6 +162,10 @@ diagram from day one · MPTK-soundfont voicing · home + kit scope.
   Honest limit: still idealized cubes + hand glyphs, not the actual
   meshes; if it's still not close enough, the endgame is rendering the
   real bot to a texture through an ink edge pass — its own session.
+- **REVERTED both diagram passes** (0245aba9): Grey judged that nothing
+  short of the actual models will read right — diagram is back to the v1
+  cube union outline until a render-to-texture ink session. Glyph + X-ray
+  work preserved in history (396f7cda, 13b17b15) for reference.
 
 ## Follow-ups
 
