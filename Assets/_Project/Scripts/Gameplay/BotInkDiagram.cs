@@ -15,12 +15,12 @@ namespace Robogame.Gameplay
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>How the drawing is made:</b> every occupied cell contributes all
-    /// six faces into an edge-counting set, tiered by visibility: edges of
-    /// exactly one camera-facing exposed face ink the silhouette + steps at
-    /// full strength; seams between two visible faces draw the block grid
-    /// semi-transparent; buried and away-facing edges render as a faint
-    /// X-ray. Every block is in the drawing, the silhouette still leads.
+    /// <b>How the drawing is made:</b> every occupied cell contributes its
+    /// three camera-facing faces (+Y, +X, +Z); every face contributes its
+    /// four lattice edges into a counting set; edges seen exactly once are
+    /// the silhouette + step lines, edges seen twice are interior seams and
+    /// are dropped. That union-outline is precisely how a draftsman would
+    /// ink the part — no cell grid soup.
     /// </para>
     /// <para>
     /// Built once on menu load (allocation at build time only). The only
@@ -54,224 +54,12 @@ namespace Robogame.Gameplay
         // far edges fade — the union outline stops reading as wire soup.
         private const float LineAlphaNear = 0.62f;
         private const float LineAlphaFar = 0.28f;
-        // Tiered wireframe (Grey, Aug 18): visible-surface block seams and
-        // buried/away-facing edges render see-through, so every block is in
-        // the drawing without drowning the silhouette.
-        private const float SeamAlpha = 0.15f;
-        private const float HiddenAlpha = 0.07f;
         private const int MaxFocusTints = 56; // stay well inside the tween pool
 
         // Projection basis: +X right-down, +Z left-down, +Y up. Cells whose
         // x+z is larger sit lower on screen (nearer the viewer).
         private static Vector2 Project(Vector3Int c)
             => new(c.x - c.z, c.y * 1.15f - (c.x + c.z) * 0.5f);
-
-        private static Vector2 ProjectF(Vector3 c)
-            => new(c.x - c.z, c.y * 1.15f - (c.x + c.z) * 0.5f);
-
-        // -----------------------------------------------------------------
-        // Part glyphs — "solid where you shoot it, skeletal where it moves"
-        // (the session-131 composition rule). Skeletal ids contribute no
-        // cube to the union outline; their shape IS the drawing. Weapons
-        // keep their mass and gain a barrel. Geometry is authored in the
-        // entry's local frame (localY = EffectiveUp, yaw folded in) and
-        // mirrors the 3D rigs in BlockGhostFactory / the block classes.
-        // -----------------------------------------------------------------
-
-        private struct GlyphSeg
-        {
-            public Vector3 A, B;     // blueprint-space endpoints
-            public float Thickness;
-            public bool Works;       // tinted by the "tension the works" focus
-        }
-
-        private static readonly HashSet<string> s_skeletalIds = new()
-        {
-            "block.movement.wheel", "block.movement.wheel.steer",
-            "block.movement.thruster", "block.movement.aero",
-            "block.movement.aero.fin", "block.movement.wing",
-            "block.movement.rudder", "block.movement.hoverblade",
-            "block.movement.gyro", "block.movement.pogo",
-            "block.movement.spring",        // Module category, moving part
-            "block.cosmetic.rotor", "block.cosmetic.rope",
-            "block.weapon.tip.hook", "block.weapon.tip.mace", "block.weapon.tip.magnet",
-        };
-
-        /// <summary>Append the ink glyph for one entry; returns false when the id has no glyph.</summary>
-        private static bool BuildGlyph(ChassisBlueprint.Entry e, List<GlyphSeg> outSegs)
-        {
-            Quaternion r = BlockGrid.OrientationFromUp(e.EffectiveUp, e.EffectiveYaw);
-            Vector3 x = r * Vector3.right, y = r * Vector3.up, z = r * Vector3.forward;
-            Vector3 c = (Vector3)e.Position + new Vector3(0.5f, 0.5f, 0.5f);
-            Vector3 d = e.Dims;
-
-            void Seg(Vector3 a, Vector3 b, float t, bool works = true)
-                => outSegs.Add(new GlyphSeg { A = a, B = b, Thickness = t, Works = works });
-            void Circle(Vector3 center, Vector3 u, Vector3 v, float radius, int segs, float t, bool works = true)
-            {
-                Vector3 prev = center + u * radius;
-                for (int i = 1; i <= segs; i++)
-                {
-                    float a = i / (float)segs * Mathf.PI * 2f;
-                    Vector3 p = center + u * (Mathf.Cos(a) * radius) + v * (Mathf.Sin(a) * radius);
-                    Seg(prev, p, t, works);
-                    prev = p;
-                }
-            }
-            void Rect(Vector3 center, Vector3 u, Vector3 v, float halfU, float halfV, float t, bool works = true)
-            {
-                Vector3 a = center - u * halfU - v * halfV, b = center + u * halfU - v * halfV;
-                Vector3 g = center + u * halfU + v * halfV, h = center - u * halfU + v * halfV;
-                Seg(a, b, t, works); Seg(b, g, t, works); Seg(g, h, t, works); Seg(h, a, t, works);
-            }
-
-            switch (e.BlockId)
-            {
-                case "block.movement.wheel":
-                case "block.movement.wheel.steer":
-                    // Tyre + hub, disc ⊥ the mount axis; stem back to the host face.
-                    Circle(c, x, z, 0.5f, 14, 2.6f);
-                    Circle(c, x, z, 0.15f, 8, 2f);
-                    Seg(c, c - y * 0.5f, 2f);
-                    return true;
-
-                case "block.movement.thruster":
-                    // Body profile + exhaust flare out the tail (thrust = +localZ).
-                    Rect(c, z, y, 0.45f, 0.3f, 2.4f);
-                    Seg(c - z * 0.45f + y * 0.18f, c - z * 0.8f + y * 0.32f, 2f);
-                    Seg(c - z * 0.45f - y * 0.18f, c - z * 0.8f - y * 0.32f, 2f);
-                    return true;
-
-                case "block.movement.aero":
-                case "block.movement.aero.fin":
-                {
-                    float span = d.x > 0f ? d.x : 1.0f;
-                    float chord = d.z > 0f ? d.z : 0.9f;
-                    Rect(c + y * (span * 0.5f - 0.5f), y, z, span * 0.5f, chord * 0.5f, 2.4f);
-                    return true;
-                }
-
-                case "block.movement.wing":
-                {
-                    float span = d.x > 0f ? d.x : 1.828f;
-                    float chord = d.z > 0f ? d.z : 1.004f;
-                    Vector3 mid = c + y * (span * 0.5f - 0.5f);
-                    Rect(mid, y, z, span * 0.5f, chord * 0.5f, 2.4f);
-                    // One sweep stroke so it reads bat-wing, not plank.
-                    Seg(mid - y * (span * 0.5f) + z * (chord * 0.5f),
-                        mid + y * (span * 0.5f) + z * (chord * 0.15f), 2f);
-                    return true;
-                }
-
-                case "block.movement.rudder":
-                    Rect(c + y * 0.2f, y, z, 0.45f, 0.35f, 2.4f);
-                    return true;
-
-                case "block.movement.hoverblade":
-                {
-                    int n = Mathf.Clamp(d.x > 0f ? Mathf.RoundToInt(d.x) : 2, 2, 4);
-                    Vector3 center = c + (x + z) * ((n - 1) * 0.5f);
-                    Circle(center, x, z, n * 0.5f, 18, 2.6f);
-                    Circle(center, x, z, 0.15f, 6, 2f);
-                    return true;
-                }
-
-                case "block.movement.gyro":
-                    Circle(c, x, z, 0.42f, 12, 2.4f);
-                    return true;
-
-                case "block.movement.pogo":
-                    Seg(c, c + y * 0.5f, 2.2f);
-                    Circle(c + y * 0.55f, x, z, 0.2f, 8, 2.2f);
-                    return true;
-
-                case "block.movement.spring":
-                    // Coil zigzag + foot pad.
-                    Seg(c - y * 0.15f - x * 0.2f, c - y * 0.02f + x * 0.2f, 2f);
-                    Seg(c - y * 0.02f + x * 0.2f, c + y * 0.11f - x * 0.2f, 2f);
-                    Seg(c + y * 0.11f - x * 0.2f, c + y * 0.24f + x * 0.2f, 2f);
-                    Circle(c + y * 0.5f, x, z, 0.3f, 8, 2.2f);
-                    return true;
-
-                case "block.cosmetic.rotor":
-                    // Mast up to the mechanism cell; disc + crossed bars there.
-                    Seg(c - y * 0.5f, c + y * 1.0f, 3f);
-                    Circle(c + y * 1.0f, x, z, 0.35f, 12, 2.4f);
-                    Seg(c + y * 1.0f - x * 0.475f, c + y * 1.0f + x * 0.475f, 2.2f);
-                    Seg(c + y * 1.0f - z * 0.475f, c + y * 1.0f + z * 0.475f, 2.2f);
-                    return true;
-
-                case "block.cosmetic.rope":
-                {
-                    int len = Mathf.Clamp(d.x > 0f ? Mathf.RoundToInt(d.x) : 4, 1, 16);
-                    Vector3 start = c - y * 0.5f;
-                    for (int k = 0; k < len; k++)
-                        Seg(start + y * (k + 0.15f), start + y * (k + 0.6f), 2f);
-                    return true;
-                }
-
-                // ---- weapons: mass stays, the business end is inked on ----
-                case "block.weapon.hitscan":
-                    Seg(c + y * 0.5f, c + y * 0.5f + z * 1.0f, 3.2f, works: false);
-                    return true;
-
-                case "block.weapon.cannon":
-                {
-                    Vector3 muzzle = c + y * 0.4f + z * 1.25f;
-                    Seg(c + y * 0.4f, muzzle, 4.4f, works: false);
-                    Seg(muzzle - x * 0.2f, muzzle + x * 0.2f, 3f, works: false);
-                    return true;
-                }
-
-                case "block.weapon.mortar":
-                {
-                    Vector3 dir = (z * Mathf.Cos(35f * Mathf.Deg2Rad) + y * Mathf.Sin(35f * Mathf.Deg2Rad)).normalized;
-                    Seg(c + y * 0.45f, c + y * 0.45f + dir * 0.85f, 5f, works: false);
-                    return true;
-                }
-
-                case "block.weapon.grapple_magnet":
-                {
-                    Vector3 muzzle = c + y * 0.5f + z * 1.0f;
-                    Seg(c + y * 0.5f, muzzle, 4f, works: false);
-                    Seg(muzzle, muzzle + z * 0.25f + x * 0.16f, 2.2f, works: false);
-                    Seg(muzzle, muzzle + z * 0.25f - x * 0.16f, 2.2f, works: false);
-                    return true;
-                }
-
-                case "block.tool.drill":
-                {
-                    Vector3 apex = c + y * 1.1f;
-                    Circle(c + y * 0.5f, x, z, 0.25f, 8, 2.2f, works: false);
-                    Seg(c + y * 0.5f + x * 0.25f, apex, 2.4f, works: false);
-                    Seg(c + y * 0.5f - x * 0.25f, apex, 2.4f, works: false);
-                    return true;
-                }
-
-                case "block.weapon.tip.hook":
-                    Seg(c, c + z * 0.5f, 2.8f, works: false);
-                    Seg(c + z * 0.5f, c + z * 0.62f - y * 0.32f, 2.8f, works: false);
-                    Seg(c + z * 0.62f - y * 0.32f, c + z * 0.35f - y * 0.48f, 2.8f, works: false);
-                    return true;
-
-                case "block.weapon.tip.mace":
-                    Circle(c, x, y, 0.35f, 10, 2.8f, works: false);
-                    Seg(c + (x + y) * 0.27f, c + (x + y) * 0.42f, 2.4f, works: false);
-                    Seg(c + (x - y) * 0.27f, c + (x - y) * 0.42f, 2.4f, works: false);
-                    Seg(c - (x + y) * 0.27f, c - (x + y) * 0.42f, 2.4f, works: false);
-                    Seg(c - (x - y) * 0.27f, c - (x - y) * 0.42f, 2.4f, works: false);
-                    return true;
-
-                case "block.weapon.tip.magnet":
-                    Seg(c - x * 0.25f + z * 0.6f, c - x * 0.25f, 2.8f, works: false);
-                    Seg(c - x * 0.25f, c + x * 0.25f, 2.8f, works: false);
-                    Seg(c + x * 0.25f, c + x * 0.25f + z * 0.6f, 2.8f, works: false);
-                    return true;
-
-                default:
-                    return false;
-            }
-        }
 
         /// <summary>
         /// Build the diagram for <see cref="GameStateController.CurrentBlueprint"/>
@@ -318,77 +106,45 @@ namespace Robogame.Gameplay
                 return;
             }
 
-            // ---------------- cells + glyphs ----------------
-            // Skeletal parts stay out of the occupancy map entirely, so the
-            // structure behind a wheel still closes its outline.
+            // ---------------- cells + category map ----------------
             var cells = new Dictionary<Vector3Int, BlockCategory>(bp.Entries.Length);
-            var glyphs = new List<GlyphSeg>(bp.Entries.Length * 4);
             foreach (ChassisBlueprint.Entry e in bp.Entries)
             {
-                bool skeletal = s_skeletalIds.Contains(e.BlockId);
-                if (!skeletal)
-                {
-                    BlockDefinition def = lib != null ? lib.Get(e.BlockId) : null;
-                    cells[e.Position] = def != null ? def.Category : BlockCategory.Structure;
-                }
-                BuildGlyph(e, glyphs);
+                BlockDefinition def = lib != null ? lib.Get(e.BlockId) : null;
+                cells[e.Position] = def != null ? def.Category : BlockCategory.Structure;
             }
 
             // ---------------- face → edge accumulation ----------------
-            // Every cell contributes all six faces, so every block is in
-            // the drawing (Grey, Aug 18 — the union outline alone didn't
-            // read as the actual bot). Edges tier by how visible they are:
-            //   tier 1  edge of exactly one camera-facing exposed face —
-            //           the silhouette + steps (full ink, depth-faded)
-            //   tier 2  seam between two visible faces — the block grid on
-            //           an exposed surface (semi-transparent)
-            //   tier 3  everything buried or facing away — the X-ray
-            //           innards (faint whisper)
-            var edges = new Dictionary<(Vector3Int, Vector3Int), (int vis, BlockCategory cat)>(cells.Count * 12);
-            void AddEdge(Vector3Int a, Vector3Int b, BlockCategory cat, bool visibleFace)
+            // Key: lattice corner pair (ordered); value: hit count + owner.
+            var edges = new Dictionary<(Vector3Int, Vector3Int), (int count, BlockCategory cat)>(cells.Count * 12);
+            void AddEdge(Vector3Int a, Vector3Int b, BlockCategory cat)
             {
                 // Normalize order so shared edges collide.
                 if (a.x > b.x || (a.x == b.x && (a.y > b.y || (a.y == b.y && a.z > b.z))))
                     (a, b) = (b, a);
                 var key = (a, b);
-                edges[key] = edges.TryGetValue(key, out var v)
-                    ? (v.vis + (visibleFace ? 1 : 0), v.cat)
-                    : (visibleFace ? 1 : 0, cat);
+                edges[key] = edges.TryGetValue(key, out var v) ? (v.count + 1, v.cat) : (1, cat);
             }
-            void AddFace(Vector3Int c0, Vector3Int c1, Vector3Int c2, Vector3Int c3, BlockCategory cat, bool visible)
+            void AddFace(Vector3Int c0, Vector3Int c1, Vector3Int c2, Vector3Int c3, BlockCategory cat)
             {
-                AddEdge(c0, c1, cat, visible); AddEdge(c1, c2, cat, visible);
-                AddEdge(c2, c3, cat, visible); AddEdge(c3, c0, cat, visible);
+                AddEdge(c0, c1, cat); AddEdge(c1, c2, cat);
+                AddEdge(c2, c3, cat); AddEdge(c3, c0, cat);
             }
 
             foreach (KeyValuePair<Vector3Int, BlockCategory> kv in cells)
             {
                 Vector3Int p = kv.Key;
                 BlockCategory cat = kv.Value;
-                // Camera-facing trio — visible when exposed.
-                AddFace(new(p.x, p.y + 1, p.z), new(p.x + 1, p.y + 1, p.z),
-                        new(p.x + 1, p.y + 1, p.z + 1), new(p.x, p.y + 1, p.z + 1), cat,
-                        visible: !cells.ContainsKey(p + Vector3Int.up));
-                AddFace(new(p.x + 1, p.y, p.z), new(p.x + 1, p.y + 1, p.z),
-                        new(p.x + 1, p.y + 1, p.z + 1), new(p.x + 1, p.y, p.z + 1), cat,
-                        visible: !cells.ContainsKey(p + Vector3Int.right));
-                AddFace(new(p.x, p.y, p.z + 1), new(p.x + 1, p.y, p.z + 1),
-                        new(p.x + 1, p.y + 1, p.z + 1), new(p.x, p.y + 1, p.z + 1), cat,
-                        visible: !cells.ContainsKey(p + Vector3Int.forward));
-                // Away-facing trio — never visible from this viewpoint, but
-                // their edges give the X-ray its buried geometry.
-                AddFace(new(p.x, p.y, p.z), new(p.x + 1, p.y, p.z),
-                        new(p.x + 1, p.y, p.z + 1), new(p.x, p.y, p.z + 1), cat, visible: false);
-                AddFace(new(p.x, p.y, p.z), new(p.x, p.y + 1, p.z),
-                        new(p.x, p.y + 1, p.z + 1), new(p.x, p.y, p.z + 1), cat, visible: false);
-                AddFace(new(p.x, p.y, p.z), new(p.x + 1, p.y, p.z),
-                        new(p.x + 1, p.y + 1, p.z), new(p.x, p.y + 1, p.z), cat, visible: false);
+                if (!cells.ContainsKey(p + Vector3Int.up))
+                    AddFace(new(p.x, p.y + 1, p.z), new(p.x + 1, p.y + 1, p.z),
+                            new(p.x + 1, p.y + 1, p.z + 1), new(p.x, p.y + 1, p.z + 1), cat);
+                if (!cells.ContainsKey(p + Vector3Int.right))
+                    AddFace(new(p.x + 1, p.y, p.z), new(p.x + 1, p.y + 1, p.z),
+                            new(p.x + 1, p.y + 1, p.z + 1), new(p.x + 1, p.y, p.z + 1), cat);
+                if (!cells.ContainsKey(p + Vector3Int.forward))
+                    AddFace(new(p.x, p.y, p.z + 1), new(p.x + 1, p.y, p.z + 1),
+                            new(p.x + 1, p.y + 1, p.z + 1), new(p.x, p.y + 1, p.z + 1), cat);
             }
-
-            // Faint tiers are additive charm on small bots and soup on huge
-            // ones — drop them past a budget rather than drawing thousands
-            // of whisper lines (menu-only cost, but still).
-            bool drawHidden = edges.Count <= 2600;
 
             // ---------------- fit to the host rect ----------------
             Vector2 min = new(float.MaxValue, float.MaxValue);
@@ -396,6 +152,7 @@ namespace Robogame.Gameplay
             float depthMin = float.MaxValue, depthMax = float.MinValue;
             foreach (var kv in edges)
             {
+                if (kv.Value.count != 1) continue;
                 Vector2 a = Project(kv.Key.Item1);
                 Vector2 b = Project(kv.Key.Item2);
                 min = Vector2.Min(min, Vector2.Min(a, b));
@@ -405,55 +162,23 @@ namespace Robogame.Gameplay
                 depthMin = Mathf.Min(depthMin, depth);
                 depthMax = Mathf.Max(depthMax, depth);
             }
-            foreach (GlyphSeg g in glyphs)
-            {
-                min = Vector2.Min(min, Vector2.Min(ProjectF(g.A), ProjectF(g.B)));
-                max = Vector2.Max(max, Vector2.Max(ProjectF(g.A), ProjectF(g.B)));
-                float depth = (g.A.x + g.A.z + g.B.x + g.B.z) * 0.5f;
-                depthMin = Mathf.Min(depthMin, depth);
-                depthMax = Mathf.Max(depthMax, depth);
-            }
             Vector2 span = max - min;
             if (span.x < 0.01f || span.y < 0.01f) return;
             const float fitW = 780f, fitH = 660f;
             float scale = Mathf.Min(fitW / span.x, fitH / span.y, 40f);
             Vector2 center = (min + max) * 0.5f;
             Vector2 P(Vector3Int c) => (Project(c) - center) * scale;
-            Vector2 PF(Vector3 v) => (ProjectF(v) - center) * scale;
 
-            // ---------------- draw the tiered wireframe ----------------
+            // ---------------- draw the union outline ----------------
             Color tp = HudStyles.TextPrimary;
             float depthSpan = Mathf.Max(0.001f, depthMax - depthMin);
             foreach (var kv in edges)
             {
-                int vis = kv.Value.vis;
-                if (vis == 0 && !drawHidden) continue;
-                float thickness;
-                Color idle;
-                if (vis == 1)
-                {
-                    // Silhouette + steps — full ink, depth-faded.
-                    float depth = (kv.Key.Item1.x + kv.Key.Item1.z + kv.Key.Item2.x + kv.Key.Item2.z) * 0.5f;
-                    float near01 = (depth - depthMin) / depthSpan;
-                    idle = new Color(tp.r, tp.g, tp.b, Mathf.Lerp(LineAlphaFar, LineAlphaNear, near01));
-                    thickness = LineThickness;
-                }
-                else if (vis >= 2)
-                {
-                    // Seam between two visible faces — the block grid on an
-                    // exposed surface. Semi-transparent so blocks read
-                    // without turning the surface into graph paper.
-                    idle = new Color(tp.r, tp.g, tp.b, SeamAlpha);
-                    thickness = 2f;
-                }
-                else
-                {
-                    // Buried / facing away — the X-ray whisper.
-                    idle = new Color(tp.r, tp.g, tp.b, HiddenAlpha);
-                    thickness = 2f;
-                }
-                Image line = DrawLine(lines.transform, P(kv.Key.Item1), P(kv.Key.Item2), thickness, idle);
-                if (vis != 1) continue; // only strong lines join the focus tints
+                if (kv.Value.count != 1) continue;
+                float depth = (kv.Key.Item1.x + kv.Key.Item1.z + kv.Key.Item2.x + kv.Key.Item2.z) * 0.5f;
+                float near01 = (depth - depthMin) / depthSpan;
+                var idle = new Color(tp.r, tp.g, tp.b, Mathf.Lerp(LineAlphaFar, LineAlphaNear, near01));
+                Image line = DrawLine(lines.transform, P(kv.Key.Item1), P(kv.Key.Item2), LineThickness, idle);
                 switch (kv.Value.cat)
                 {
                     case BlockCategory.Cpu:
@@ -492,19 +217,6 @@ namespace Robogame.Gameplay
                     _pilotLines.Add((tipImg, tipImg.color));
                 }
                 pilotAnchor = topCenter + new Vector2(0f, 30f);
-            }
-
-            // ---------------- part glyphs ----------------
-            // Slightly darker than the structure lines at equal depth so
-            // the working parts read as the machine's intent.
-            foreach (GlyphSeg g in glyphs)
-            {
-                float depth = (g.A.x + g.A.z + g.B.x + g.B.z) * 0.5f;
-                float near01 = (depth - depthMin) / depthSpan;
-                var col = new Color(tp.r, tp.g, tp.b,
-                    Mathf.Min(0.75f, Mathf.Lerp(LineAlphaFar, LineAlphaNear, near01) + 0.06f));
-                Image line = DrawLine(lines.transform, PF(g.A), PF(g.B), g.Thickness, col);
-                if (g.Works && _worksLines.Count < MaxFocusTints) _worksLines.Add((line, col));
             }
 
             // ---------------- figure extents ----------------
