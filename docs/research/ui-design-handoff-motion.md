@@ -30,7 +30,9 @@ implemented in Unity yet.
 Never bouncy. Paper is calm; the slapstick lives in the arena. A second
 unifying conceit: **every screen is a numbered sheet from the same notebook**
 (drafting title block bottom-right: `sheet no. 01 — home`, `02 — garage`, …),
-and moving between screens is an **ink wipe** (a brush edge crosses the frame).
+and moving between screens is an **ink wipe** — serpentine: horizontal brush
+strokes alternate left→right / right→left down the page, staggered 85 ms,
+painting over the scene (revised from the single full-frame sweep).
 
 ## Motion tokens (UiMotion)
 
@@ -68,15 +70,17 @@ Prototype voices are WebAudio sketches; final voices through AudioRouter
 - Menu column left third: title 96 px at (140, 208); brush underline (588 w)
   draws left→right, two vermilion splats stamp off its right end; tagline
   Space Mono italic at y 372; Begin blob 400×86 at (140, 512); Settings /
-  Take Leave wash buttons below (gap 30). Hover reveals a Space Mono
+  Quit wash buttons below (gap 30). Hover reveals a Space Mono
   annotation beside each button ("— to the workshop", "— calibrate the
-  instruments", "— close the notebook").
+  instruments", "— close the notebook"). Copy rule: no pirate/nautical
+  voice — plain words for actions ("Quit", "wide"), workshop-journal voice
+  for annotations.
 - Right two-thirds: **ink diagram of the aerial screw**, capybara on the deck
   (fig. 1 annotations, dimension lines, mirror-written note). Draws in on
   entrance; after that only the spin-arc dashes march (idle budget). Hovering
   a menu button makes the diagram answer: leader line draws + related group
-  tints indigo ("the pilot is ready" / "tension the works" / "tie her down
-  for the night").
+  tints indigo ("the pilot is ready" / "tension the works" / "shutter the
+  workshop for the night").
 - Bottom-left: Esc hint + mirror flavor line (kept). Bottom-right: **drafting
   title block** replaces the bare version string (project / sheet / version
   rows).

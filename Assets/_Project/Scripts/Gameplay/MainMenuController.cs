@@ -13,7 +13,7 @@ namespace Robogame.Gameplay
     /// current blueprint inked as fig. 1 on the right
     /// (<see cref="BotInkDiagram"/>), drafting title block bottom-right.
     /// Three actions: <b>Begin</b> (ink-wipe to the garage),
-    /// <b>Settings</b>, <b>Take Leave</b>.
+    /// <b>Settings</b>, <b>Quit</b>.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -178,8 +178,8 @@ namespace Robogame.Gameplay
             BuildGhostRow(canvasGO.transform, "Settings", "— calibrate the instruments", 642f, 0.64f,
                 BotInkDiagram.Focus.Works, HandleSettings,
                 WashColor(UguiPalette.Accent, 0.62f), WashColor(UguiPalette.Accent, 1f), AudioCue.UiClick);
-            BuildGhostRow(canvasGO.transform, "Take Leave", "— close the notebook", 712f, 0.72f,
-                BotInkDiagram.Focus.Moor, HandleExit,
+            BuildGhostRow(canvasGO.transform, "Quit", "— close the notebook", 712f, 0.72f,
+                BotInkDiagram.Focus.Rest, HandleExit,
                 WashColor(UguiPalette.Vermilion, 0.35f), WashColor(UguiPalette.Vermilion, 0.8f), AudioCue.UiBack);
 
             // ---- footer --------------------------------------------------

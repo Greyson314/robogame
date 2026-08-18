@@ -34,7 +34,7 @@ namespace Robogame.Gameplay
     [DisallowMultipleComponent]
     public sealed class BotInkDiagram : MonoBehaviour
     {
-        public enum Focus { None, Pilot, Works, Moor }
+        public enum Focus { None, Pilot, Works, Rest }
 
         /// <summary>Ordered for the entrance stagger: figure lines, annotations, spin ring.</summary>
         public CanvasGroup[] EntranceGroups { get; private set; }
@@ -44,7 +44,7 @@ namespace Robogame.Gameplay
         // every edge its own alpha, so "untint" must restore per-line.
         private readonly List<(Graphic g, Color idle)> _pilotLines = new();
         private readonly List<(Graphic g, Color idle)> _worksLines = new();
-        private CanvasGroup _fxPilot, _fxWorks, _fxMoor;
+        private CanvasGroup _fxPilot, _fxWorks, _fxRest;
         private Image _leadPilot, _leadWorks;
         private Color _lineFocus;
         private Focus _focus = Focus.None;
@@ -238,7 +238,7 @@ namespace Robogame.Gameplay
                 wide = Mathf.Max(cMax.x - cMin.x, cMax.z - cMin.z) + 1;
                 tall = cMax.y - cMin.y + 1;
             }
-            UguiKit.AddText(annots.transform, $"{bp.Entries.Length} blocks; {wide} abeam, {tall} tall", InkKit.Annotation, 15, FontStyle.Italic,
+            UguiKit.AddText(annots.transform, $"{bp.Entries.Length} blocks; {wide} wide, {tall} tall", InkKit.Annotation, 15, FontStyle.Italic,
                 HudStyles.TextMuted, TextAnchor.UpperLeft,
                 anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
                 offsetMin: new Vector2(52f, -126f), offsetMax: new Vector2(-20f, -96f),
@@ -252,7 +252,7 @@ namespace Robogame.Gameplay
             DrawLine(annots.transform, new Vector2(dimL + 6f, dimY), new Vector2(dimR - 6f, dimY), 1.4f, dimCol);
             AddArrow(annots.transform, new Vector2(dimL + 6f, dimY), 180f, dimCol);
             AddArrow(annots.transform, new Vector2(dimR - 6f, dimY), 0f, dimCol);
-            UguiKit.AddText(annots.transform, $"≈ {wide} cells abeam", InkKit.Annotation, 15, FontStyle.Italic,
+            UguiKit.AddText(annots.transform, $"≈ {wide} cells wide", InkKit.Annotation, 15, FontStyle.Italic,
                 HudStyles.TextMuted, TextAnchor.MiddleCenter,
                 anchorMin: new Vector2(0.5f, 0.5f), anchorMax: new Vector2(0.5f, 0.5f),
                 offsetMin: new Vector2((dimL + dimR) * 0.5f - 160f, dimY - 46f),
@@ -273,9 +273,9 @@ namespace Robogame.Gameplay
             _fxPilot = BuildFx("FxPilot", pilotAnchor == Vector2.zero ? new Vector2(0f, 60f) : pilotAnchor,
                 new Vector2(150f, 70f), "the pilot is ready", out _leadPilot, alignLeft: true);
             _fxWorks = BuildFx("FxWorks", worksAnchor, new Vector2(-170f, -60f), "tension the works", out _leadWorks, alignLeft: false);
-            _fxMoor = NewGroup("FxMoor");
-            _fxMoor.alpha = 0f;
-            UguiKit.AddText(_fxMoor.transform, "tie her down for the night", InkKit.Annotation, 17, FontStyle.Italic,
+            _fxRest = NewGroup("FxRest");
+            _fxRest.alpha = 0f;
+            UguiKit.AddText(_fxRest.transform, "shutter the workshop for the night", InkKit.Annotation, 17, FontStyle.Italic,
                 HudStyles.TextMuted, TextAnchor.MiddleLeft,
                 anchorMin: new Vector2(0f, 0f), anchorMax: new Vector2(0f, 0f),
                 offsetMin: new Vector2(70f, 118f), offsetMax: new Vector2(480f, 150f),
@@ -298,8 +298,8 @@ namespace Robogame.Gameplay
             TintList(_worksLines, f == Focus.Works);
             ShowFx(_fxPilot, _leadPilot, f == Focus.Pilot);
             ShowFx(_fxWorks, _leadWorks, f == Focus.Works);
-            if (_fxMoor != null)
-                UiTween.Alpha(_fxMoor, f == Focus.Moor ? 1f : 0f, UiMotion.Stroke);
+            if (_fxRest != null)
+                UiTween.Alpha(_fxRest, f == Focus.Rest ? 1f : 0f, UiMotion.Stroke);
         }
 
         private void TintList(List<(Graphic g, Color idle)> list, bool on)

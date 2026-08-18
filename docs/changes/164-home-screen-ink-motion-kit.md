@@ -119,6 +119,18 @@ diagram from day one · MPTK-soundfont voicing · home + kit scope.
   cross-channel same-frame retarget untested; INV-6 zero-alloc left to
   perf tooling.
 
+## Post-review tweaks (Grey, Aug 18)
+
+- PageWipe reworked to a **serpentine paint-over**: 5 horizontal strokes
+  alternating left→right / right→left down the page, 85 ms stagger
+  (cover now ~0.66 s vs 0.40 s — Grey wanted to try it knowing it might
+  read slow).
+- Copy de-piratified: "Take Leave" → "Quit", "tie her down for the night" →
+  "shutter the workshop for the night", "abeam" → "wide" (×2);
+  `BotInkDiagram.Focus.Moor` → `Focus.Rest`. Rule recorded in the
+  handoff-motion doc: plain words for actions, workshop-journal voice for
+  annotations, no nautical/pirate register.
+
 ## Follow-ups
 
 - Settings / garage panels / HUD pass 2 adopt the kit (rollout order in the
