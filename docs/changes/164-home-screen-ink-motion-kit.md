@@ -155,6 +155,13 @@ diagram from day one · MPTK-soundfont voicing · home + kit scope.
   seven module blocks, structure variants — nothing in code gives them a
   shape. Rotor-adopted foils draw as normal foils (adoption detection
   skipped; noted for the garage-panel pass).
+- **Tiered X-ray wireframe** (13b17b15, Grey's spec — figure still didn't
+  read as the actual bot): every block draws — silhouette/steps at full
+  depth-faded ink, visible-surface block seams at 15%, buried/away-facing
+  edges at 7% (faint tiers dropped past a 2600-edge budget on huge bots).
+  Honest limit: still idealized cubes + hand glyphs, not the actual
+  meshes; if it's still not close enough, the endgame is rendering the
+  real bot to a texture through an ink edge pass — its own session.
 
 ## Follow-ups
 
