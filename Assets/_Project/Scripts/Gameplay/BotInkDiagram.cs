@@ -8,10 +8,10 @@ namespace Robogame.Gameplay
 {
     /// <summary>
     /// Draws the player's current blueprint as an ink figure on the home
-    /// sheet — an isometric union-outline of the bot's cells, with fig.
-    /// annotations, a dimension line, and a slowly turning dashed
-    /// construction ring. "The sketch became the machine, and you can
-    /// still see the pencil marks."
+    /// sheet — an isometric union-outline of the bot's cells inside a
+    /// slowly turning dashed construction ring. Wordless by design: the
+    /// only text it ever shows is the hover-focus answers. "The sketch
+    /// became the machine, and you can still see the pencil marks."
     /// </summary>
     /// <remarks>
     /// <para>
@@ -219,54 +219,12 @@ namespace Robogame.Gameplay
                 pilotAnchor = topCenter + new Vector2(0f, 30f);
             }
 
-            // ---------------- annotations ----------------
-            string name = string.IsNullOrEmpty(bp.DisplayName) ? "the current contraption" : bp.DisplayName;
-            UguiKit.AddText(annots.transform, $"fig. 1 — {name}", InkKit.Annotation, 21, FontStyle.Italic,
-                HudStyles.TextMuted, TextAnchor.UpperLeft,
-                anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
-                offsetMin: new Vector2(52f, -96f), offsetMax: new Vector2(-20f, -52f),
-                raycastTarget: false, horizontalOverflow: true);
-            int wide = 0, tall = 0;
-            { // cell-space bounds for the caption
-                Vector3Int cMin = new(int.MaxValue, int.MaxValue, int.MaxValue);
-                Vector3Int cMax = new(int.MinValue, int.MinValue, int.MinValue);
-                foreach (var kv in cells)
-                {
-                    cMin = Vector3Int.Min(cMin, kv.Key);
-                    cMax = Vector3Int.Max(cMax, kv.Key);
-                }
-                wide = Mathf.Max(cMax.x - cMin.x, cMax.z - cMin.z) + 1;
-                tall = cMax.y - cMin.y + 1;
-            }
-            UguiKit.AddText(annots.transform, $"{bp.Entries.Length} blocks; {wide} wide, {tall} tall", InkKit.Annotation, 15, FontStyle.Italic,
-                HudStyles.TextMuted, TextAnchor.UpperLeft,
-                anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
-                offsetMin: new Vector2(52f, -126f), offsetMax: new Vector2(-20f, -96f),
-                raycastTarget: false, horizontalOverflow: true);
-
-            // Dimension line under the figure.
-            float dimY = (min.y - center.y) * scale - 34f;
+            // ---------------- figure extents ----------------
+            // No captions, stats, or dimension callouts — the sheet stays
+            // wordless and the drawing speaks for itself (Grey, Aug 18).
+            // These extents only anchor the focus leaders and size the ring.
             float dimL = (min.x - center.x) * scale;
             float dimR = (max.x - center.x) * scale;
-            Color dimCol = new(HudStyles.TextMuted.r, HudStyles.TextMuted.g, HudStyles.TextMuted.b, 0.6f);
-            DrawLine(annots.transform, new Vector2(dimL + 6f, dimY), new Vector2(dimR - 6f, dimY), 1.4f, dimCol);
-            AddArrow(annots.transform, new Vector2(dimL + 6f, dimY), 180f, dimCol);
-            AddArrow(annots.transform, new Vector2(dimR - 6f, dimY), 0f, dimCol);
-            UguiKit.AddText(annots.transform, $"≈ {wide} cells wide", InkKit.Annotation, 15, FontStyle.Italic,
-                HudStyles.TextMuted, TextAnchor.MiddleCenter,
-                anchorMin: new Vector2(0.5f, 0.5f), anchorMax: new Vector2(0.5f, 0.5f),
-                offsetMin: new Vector2((dimL + dimR) * 0.5f - 160f, dimY - 46f),
-                offsetMax: new Vector2((dimL + dimR) * 0.5f + 160f, dimY - 16f),
-                raycastTarget: false);
-
-            // Mirror-written flavor — the da Vinci easter egg, flipped in place.
-            Text mirror = UguiKit.AddText(annots.transform, "che l'aria si condensa", InkKit.Annotation, 15, FontStyle.Italic,
-                HudStyles.TextMuted, TextAnchor.MiddleCenter,
-                anchorMin: new Vector2(0f, 0f), anchorMax: new Vector2(0f, 0f),
-                offsetMin: new Vector2(70f, 76f), offsetMax: new Vector2(360f, 106f),
-                raycastTarget: false);
-            mirror.rectTransform.localScale = new Vector3(-1f, 1f, 1f);
-            Color mc = mirror.color; mc.a = 0.6f; mirror.color = mc;
 
             // ---------------- hover-focus annotations ----------------
             Vector2 worksAnchor = new((dimL + dimR) * 0.35f, (min.y - center.y) * scale + 8f);

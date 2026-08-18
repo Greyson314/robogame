@@ -253,6 +253,9 @@ namespace Robogame.Gameplay
             btnGo.AddComponent<InkButton>()
                 .WithFace(faceRt)
                 .WithFaceTint(faceImg, UguiPalette.Ink, UguiPalette.InkHover, UguiPalette.InkPressed)
+                // The blob leans toward the cursor and straightens from its
+                // resting -0.7° tilt — attention before the stamp.
+                .WithHoverPose(1.02f, -0.25f)
                 .WithAnnotation(annot, (RectTransform)annot.transform)
                 .WithClickVoice(clickVoice)
                 .OnClick(onClick)

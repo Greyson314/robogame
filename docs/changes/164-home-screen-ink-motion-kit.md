@@ -130,6 +130,18 @@ diagram from day one · MPTK-soundfont voicing · home + kit scope.
   `BotInkDiagram.Focus.Moor` → `Focus.Rest`. Rule recorded in the
   handoff-motion doc: plain words for actions, workshop-journal voice for
   annotations, no nautical/pirate register.
+- **PauseMenuHud gained "Main Menu"** — the missing way out of the garage.
+  Row 3 (slides up to row 2 when Return-to-Garage is hidden; panel grows
+  to fit in arenas), hidden when already on the main menu, exits via
+  `PageWipe.To("MainMenu", "no. 01", "Home")` after the same clean-close
+  discipline as Return to Garage.
+- **Begin hover pose**: `InkButton.WithHoverPose` — the blob scales to
+  1.02 and straightens from −0.7° to −0.25° on hover, press still stamps
+  to 0.96 (bigger down-beat from the raised pose), release lands on the
+  hover pose while the pointer stays.
+- **Diagram went wordless**: fig. caption, block-count line, dimension
+  line + "≈ N cells wide", and the mirror note all removed from
+  `BotInkDiagram` — only the hover-focus answers remain as text.
 
 ## Follow-ups
 

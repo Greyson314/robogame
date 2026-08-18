@@ -33,6 +33,9 @@ namespace Robogame.Core
     {
         private RectTransform _face;
         private Vector2 _faceRestPos;
+        private float _faceRestRotZ;
+        private float _hoverScale = 1f;
+        private float _hoverRotZ = float.NaN;   // NaN = no rotation on hover
 
         private Graphic _faceGraphic;              // primary style
         private Color _faceIdle, _faceHover, _facePressed;
@@ -66,6 +69,21 @@ namespace Robogame.Core
         {
             _face = face;
             _faceRestPos = face.anchoredPosition;
+            _faceRestRotZ = face.localEulerAngles.z;
+            return this;
+        }
+
+        /// <summary>
+        /// Hover pose for hero buttons: the face grows toward the cursor
+        /// and (optionally) straightens from its resting tilt — attention
+        /// before the stamp. Press still dips to
+        /// <see cref="UiMotion.PressScale"/>, so the down-beat reads
+        /// stronger from up here.
+        /// </summary>
+        public InkButton WithHoverPose(float scale, float rotZ = float.NaN)
+        {
+            _hoverScale = scale;
+            _hoverRotZ = rotZ;
             return this;
         }
 
@@ -137,6 +155,10 @@ namespace Robogame.Core
             AudioRouter.PlayUI(_hoverCue);
             if (_hasFaceTint && !_pressed)
                 UiTween.Tint(_faceGraphic, _faceHover, UiMotion.Tick);
+            if (_face != null && !_pressed && _hoverScale != 1f)
+                UiTween.Scale(_face, _hoverScale, UiMotion.Stroke);
+            if (_face != null && !float.IsNaN(_hoverRotZ))
+                UiTween.RotZ(_face, _hoverRotZ, UiMotion.Stroke);
             if (_hasWash)
             {
                 UiTween.Fill(_wash, 1f, UiMotion.Stroke);
@@ -157,6 +179,10 @@ namespace Robogame.Core
             _pressed = false;
             if (_hasFaceTint)
                 UiTween.Tint(_faceGraphic, _faceIdle, UiMotion.Tick);
+            if (_face != null && _hoverScale != 1f)
+                UiTween.Scale(_face, 1f, UiMotion.Stroke);
+            if (_face != null && !float.IsNaN(_hoverRotZ))
+                UiTween.RotZ(_face, _faceRestRotZ, UiMotion.Stroke);
             if (_hasWash)
             {
                 UiTween.Fill(_wash, _washIdleFill, UiMotion.Stroke);
@@ -201,7 +227,9 @@ namespace Robogame.Core
         private void ReleaseVisual()
         {
             if (_face == null) return;
-            UiTween.Scale(_face, 1f, UiMotion.Stroke);
+            // Coming up from a press lands on the hover pose while the
+            // pointer is still over us, the rest pose otherwise.
+            UiTween.Scale(_face, _hover ? _hoverScale : 1f, UiMotion.Stroke);
             UiTween.Move(_face, _faceRestPos, UiMotion.Stroke);
         }
     }

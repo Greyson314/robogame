@@ -4,12 +4,14 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Robogame.Gameplay
 {
     /// <summary>
-    /// Escape-owned pause menu: Resume / Settings / Return to Garage.
+    /// Escape-owned pause menu: Resume / Settings / Return to Garage /
+    /// Main Menu.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -51,6 +53,8 @@ namespace Robogame.Gameplay
 
         private GameObject _canvasRoot;
         private Button _returnButton;
+        private Button _menuButton;
+        private RectTransform _panelRT;
         private bool _open;
         // Whether the cursor was captured when the menu opened — Resume
         // hands it back to the FollowCamera only if we actually took it.
@@ -223,6 +227,19 @@ namespace Robogame.Gameplay
             AudioRouter.PlayUI(AudioCue.UiClick);
         }
 
+        private void HandleMainMenuClicked()
+        {
+            // Same clean-close discipline as Return to Garage: the next
+            // scene must never inherit a modal flag or a zeroed time scale.
+            _open = false;
+            _canvasRoot.SetActive(false);
+            HudPointerGuard.SetModalOpen(this, false);
+            Time.timeScale = 1f;
+            // TRACE[DOC:research/ui-design-handoff-motion]: every scene
+            // change is a page turn; the wipe plays its own cues.
+            PageWipe.To("MainMenu", "no. 01", "Home");
+        }
+
         private void HandleReturnClicked()
         {
             // Close cleanly BEFORE the transition so the next scene never
@@ -259,6 +276,18 @@ namespace Robogame.Gameplay
             bool inArena = state != null
                 && state.State is GameState.Arena or GameState.WaterArena or GameState.PlanetArena;
             _returnButton.gameObject.SetActive(inArena);
+
+            // Main Menu shows everywhere except the main menu itself, and
+            // slides up into Return-to-Garage's row when that one is hidden
+            // so the stack never shows a hole.
+            if (_menuButton == null) return;
+            bool showMenu = SceneManager.GetActiveScene().name != "MainMenu";
+            _menuButton.gameObject.SetActive(showMenu);
+            var menuRT = (RectTransform)_menuButton.transform;
+            int menuRow = inArena ? 3 : 2;
+            menuRT.anchoredPosition = new Vector2(0f, -84f - menuRow * 58f);
+            if (_panelRT != null)
+                _panelRT.sizeDelta = new Vector2(360f, inArena ? 388f : 330f);
         }
 
         // -----------------------------------------------------------------
@@ -310,6 +339,7 @@ namespace Robogame.Gameplay
             panelRT.anchorMin = panelRT.anchorMax = panelRT.pivot = new Vector2(0.5f, 0.5f);
             panelRT.sizeDelta = new Vector2(360f, 330f);
             panel.AddComponent<Image>().color = UguiPalette.PanelBg;
+            _panelRT = panelRT;
 
             // Accent strip along the panel top — same chrome family as the
             // scoreboard / stats panels.
@@ -341,6 +371,7 @@ namespace Robogame.Gameplay
             BuildButton(panel.transform, "ResumeButton", "Resume", row: 0, HandleResumeClicked);
             BuildButton(panel.transform, "SettingsButton", "Settings", row: 1, HandleSettingsClicked);
             _returnButton = BuildButton(panel.transform, "ReturnButton", "Return to Garage", row: 2, HandleReturnClicked);
+            _menuButton = BuildButton(panel.transform, "MainMenuButton", "Main Menu", row: 3, HandleMainMenuClicked);
 
             var hint = NewChild("Hint", panel.transform);
             var hintRT = hint.GetComponent<RectTransform>();
