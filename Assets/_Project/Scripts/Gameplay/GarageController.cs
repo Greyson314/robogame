@@ -105,6 +105,11 @@ namespace Robogame.Gameplay
         private void HandleBuildModeExited()
         {
             if (_buildMode == null) return;
+            // TRACE[LOG-166]: build → hangar is the natural commit point.
+            // Autosave the working USER blueprint so a forgotten Save (or a
+            // later quit) can't drop a tuning pass. No-op for preset clones
+            // and unsaved new robots — the Save button forks those.
+            GameStateController.Instance?.AutosaveIfDirty();
             if (_buildMode.ExitRequestedRespawn) Respawn();
         }
 

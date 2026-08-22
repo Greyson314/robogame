@@ -902,8 +902,16 @@ namespace Robogame.Movement
             // stress-tower override pins absolute RPM, so it skips throttle.
             if (RpmOverride < 0f && _inputSource != null)
             {
-                Vector3 axis = _spinAxisLocal.sqrMagnitude > 1e-6f
-                    ? _spinAxisLocal.normalized : Vector3.up;
+                // TRACE[LOG-166]: test the axis in CHASSIS space, not rotor
+                // space. _spinAxisLocal is rotor-local and is +Y for every
+                // placed rotor; only the mount rotation tells a forward-
+                // pointing prop from a lift rotor. The old rotor-local test
+                // sent every prop's throttle to Space/descend.
+                Vector3 axisWorld = transform.TransformDirection(
+                    _spinAxisLocal.sqrMagnitude > 1e-6f ? _spinAxisLocal : Vector3.up);
+                Vector3 axis = (chassis != null
+                    ? chassis.transform.InverseTransformDirection(axisWorld)
+                    : axisWorld).normalized;
                 float axisInput = 0f;
                 if (Mathf.Abs(axis.y) > 0.7f)      axisInput = _inputSource.Vertical;
                 else if (Mathf.Abs(axis.z) > 0.7f) axisInput = _inputSource.Move.y;

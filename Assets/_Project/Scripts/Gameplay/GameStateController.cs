@@ -101,6 +101,16 @@ namespace Robogame.Gameplay
         /// </summary>
         public string CurrentUserFileName { get; private set; }
 
+        // Revision of CurrentBlueprint at the last save / load, so IsDirty is
+        // an int compare (no entry diffing). Edits bump
+        // ChassisBlueprint.Revision through SetEntries / DisplayName.
+        private int _savedRevision;
+
+        /// <summary>True when <see cref="CurrentBlueprint"/> has edits that are not on disk.</summary>
+        public bool IsDirty => CurrentBlueprint != null && CurrentBlueprint.Revision != _savedRevision;
+
+        private void MarkClean() => _savedRevision = CurrentBlueprint != null ? CurrentBlueprint.Revision : 0;
+
         public int PresetCount => _presetBlueprints != null ? _presetBlueprints.Length : 0;
         public int TotalCatalogCount => PresetCount + _userBlueprints.Count;
 
@@ -132,6 +142,7 @@ namespace Robogame.Gameplay
             DontDestroyOnLoad(gameObject);
 
             CurrentBlueprint = CloneBlueprint(_defaultBlueprint);
+            MarkClean();
             // Try to align CurrentPresetIndex with the default blueprint so
             // the HUD dropdown shows the right starting selection.
             if (_presetBlueprints != null && _defaultBlueprint != null)
@@ -172,9 +183,11 @@ namespace Robogame.Gameplay
             ReturningFromArena = IsArenaState(State);
             SceneManager.LoadScene(GarageSceneName, LoadSceneMode.Single);
         }
-        public void EnterArena() => SceneManager.LoadScene(ArenaSceneName, LoadSceneMode.Single);
-        public void EnterWaterArena() => SceneManager.LoadScene(WaterArenaSceneName, LoadSceneMode.Single);
-        public void EnterPlanetArena() => SceneManager.LoadScene(PlanetArenaSceneName, LoadSceneMode.Single);
+        // Launch is a commit point: a user blueprint with unsaved garage edits
+        // is autosaved before the scene swap (no-op for presets / new robots).
+        public void EnterArena()       { AutosaveIfDirty(); SceneManager.LoadScene(ArenaSceneName, LoadSceneMode.Single); }
+        public void EnterWaterArena()  { AutosaveIfDirty(); SceneManager.LoadScene(WaterArenaSceneName, LoadSceneMode.Single); }
+        public void EnterPlanetArena() { AutosaveIfDirty(); SceneManager.LoadScene(PlanetArenaSceneName, LoadSceneMode.Single); }
 
         private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
         {
@@ -225,6 +238,7 @@ namespace Robogame.Gameplay
                 CurrentUserFileName = rec.FileName;
             }
 
+            MarkClean();
             CurrentPresetIndex = mergedIndex;
             PresetChanged?.Invoke(mergedIndex);
         }
@@ -239,6 +253,7 @@ namespace Robogame.Gameplay
             CurrentBlueprint = StarterBlueprints.CreateGroundStarter();
             CurrentPresetIndex = -1;
             CurrentUserFileName = null;
+            MarkClean();
             PresetChanged?.Invoke(-1);
         }
 
@@ -259,7 +274,12 @@ namespace Robogame.Gameplay
             CurrentBlueprint = dup;
             CurrentPresetIndex = -1;
             CurrentUserFileName = null;
-            return SaveCurrentBlueprint();
+            string fileName = SaveCurrentBlueprint();
+            // The working blueprint OBJECT changed (the garage build session
+            // is bound to the old one), so this save path still announces a
+            // blueprint swap — the garage respawns and rebinds off it.
+            PresetChanged?.Invoke(CurrentPresetIndex);
+            return fileName;
         }
 
         // Lowest unused "<base> Copy" / "<base> Copy N" among existing user
@@ -290,17 +310,38 @@ namespace Robogame.Gameplay
             if (CurrentBlueprint == null) return null;
             string fileName = UserBlueprintLibrary.Save(CurrentBlueprint, CurrentUserFileName);
             CurrentUserFileName = fileName;
+            MarkClean();
             // RefreshUserBlueprints fires BlueprintCatalogChanged; after it
             // returns we re-derive the merged index for the saved file.
             RefreshUserBlueprints(notify: true);
             int idx = FindUserIndex(fileName);
-            if (idx >= 0)
-            {
-                CurrentPresetIndex = PresetCount + idx;
-                PresetChanged?.Invoke(CurrentPresetIndex);
-            }
+            if (idx >= 0) CurrentPresetIndex = PresetCount + idx;
+            // TRACE[LOG-166]: deliberately NOT PresetChanged. The blueprint
+            // object is unchanged — only its catalog slot moved — and
+            // PresetChanged made the garage respawn the chassis mid-build,
+            // orphaning the tune-mode binding (slider edits silently dropped
+            // after a Save). The HUD picker repopulates off
+            // BlueprintCatalogChanged and reads CurrentPresetIndex then.
             return fileName;
         }
+
+        /// <summary>
+        /// Autosave: persist <see cref="CurrentBlueprint"/> when it is a user
+        /// blueprint (already has a file) with unsaved edits. Preset clones and
+        /// brand-new robots are left alone — the explicit Save button is what
+        /// forks those into a user file. Called at the natural commit points
+        /// (build-mode exit, launch, application quit). Returns true when a
+        /// write happened. TRACE[LOG-166].
+        /// </summary>
+        public bool AutosaveIfDirty()
+        {
+            if (CurrentBlueprint == null || string.IsNullOrEmpty(CurrentUserFileName) || !IsDirty) return false;
+            string fileName = SaveCurrentBlueprint();
+            Debug.Log($"[Robogame] Autosaved blueprint to '{fileName}'.");
+            return true;
+        }
+
+        private void OnApplicationQuit() => AutosaveIfDirty();
 
         /// <summary>
         /// Delete the user blueprint currently loaded (if any). After

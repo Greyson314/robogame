@@ -93,7 +93,8 @@ Robogame.Network      — NGO 2.x layer (sessions 86–94). Bootstrap/{NetworkBo
 ```
 Bootstrap.unity (persistent)
 ├─ GameBootstrap       — first-scene loader
-├─ GameStateController — singleton, owns CurrentBlueprint + presets
+├─ GameStateController — singleton, owns CurrentBlueprint + presets; dirty-tracked
+│                         autosave of USER blueprints on build exit / launch / quit (166)
 └─ SettingsHud         — Esc-toggled tweak panel
 
 Auto-bootstrapped (RuntimeInitializeOnLoadMethod, present in every scene)

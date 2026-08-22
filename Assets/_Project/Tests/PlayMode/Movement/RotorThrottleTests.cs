@@ -128,6 +128,26 @@ namespace Robogame.Tests.PlayMode.Movement
         }
 
         /// <summary>
+        /// Place a rotor the way the GAME does for a puller/pusher prop: the
+        /// rotor-local spin axis stays +Y (default) and the whole block is
+        /// rotated so that local +Y points along chassis +Z. This is the real
+        /// forward-mount case (Entry.Up = (0,0,1)); PlaceForwardAxisRotor's
+        /// local-Z override is the unit-level shortcut.
+        /// </summary>
+        private RotorBlock PlaceForwardMountedRotor(Vector3Int cell)
+        {
+            BlockDefinition def = MakeDef("block.rotor.throttle.test");
+            BlockBehaviour bb = _grid.PlaceBlock(def, cell);
+            Assert.IsNotNull(bb, $"PlaceBlock failed at {cell}");
+            bb.gameObject.SetActive(false);
+            RotorBlock rotor = bb.gameObject.AddComponent<RotorBlock>();
+            _grid.RebuildFromChildren();
+            bb.transform.localRotation = Quaternion.FromToRotation(Vector3.up, Vector3.forward);
+            bb.gameObject.SetActive(true);
+            return rotor;
+        }
+
+        /// <summary>
         /// Attach a <see cref="StubInputSource"/> to the chassis root and
         /// return it so the test can set Vertical / Move.
         /// </summary>
@@ -321,6 +341,44 @@ namespace Robogame.Tests.PlayMode.Movement
             Assert.Greater(afterMoveY, 0.3f,
                 $"Z-axis rotor throttle stayed at {afterMoveY:F4} with Move.y=1 after 10 steps. " +
                 "Forward-axis rotor must ramp on Move.y.");
+        }
+
+        /// <summary>
+        /// Session 166 regression: a forward-MOUNTED prop (rotor-local axis
+        /// still +Y, block rotated so that axis is chassis +Z — what placing a
+        /// rotor with Up=(0,0,1) produces) must throttle on Move.y, not Vertical.
+        /// The axis test ran in rotor-local space, so every real prop plane
+        /// took the helicopter's Space/descend throttle.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator RotorBlock_Throttle_ForwardMountedRotor_UsesMoveY_NotVertical()
+        {
+            StubInputSource input = AttachInputSource();
+            RotorBlock rotor = PlaceForwardMountedRotor(Vector3Int.zero);
+
+            FieldInfo fi = typeof(RotorBlock).GetField(
+                "_throttle01", BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(fi, "RotorBlock._throttle01 not found via reflection.");
+            fi.SetValue(rotor, 0.3f);
+            rotor.RpmOverride = -1f;
+
+            // Space held, no W/S → a prop must NOT throttle up.
+            input.Vertical    = 1f;
+            input.MoveVector  = Vector2.zero;
+            for (int i = 0; i < 5; i++) yield return new WaitForFixedUpdate();
+            float afterVertical = (float)fi.GetValue(rotor);
+            Assert.AreEqual(0.3f, afterVertical, 1e-4f,
+                $"Forward-mounted rotor throttle changed to {afterVertical:F4} on Vertical=1 — " +
+                "a prop pointing along chassis forward must ignore the heli throttle key.");
+
+            // W held → the prop throttles up.
+            input.Vertical    = 0f;
+            input.MoveVector  = new Vector2(0f, 1f);
+            for (int i = 0; i < 10; i++) yield return new WaitForFixedUpdate();
+            float afterMoveY = (float)fi.GetValue(rotor);
+            Assert.Greater(afterMoveY, 0.3f,
+                $"Forward-mounted rotor throttle stayed at {afterMoveY:F4} with Move.y=1 after 10 steps. " +
+                "A prop pointing along chassis forward must ramp on W/S.");
         }
 
         /// <summary>

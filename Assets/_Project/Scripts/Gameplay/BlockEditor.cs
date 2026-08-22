@@ -73,8 +73,45 @@ namespace Robogame.Gameplay
         // actually bound, because that's when the sliders need it. Driven
         // off the session event so every unbind path (click, Escape rung,
         // mode exit, build exit) releases the hold consistently.
+        // Cell + definition id of the tune-mode bound block, captured at bind
+        // time so the binding can be re-established on the replacement chassis
+        // after a respawn (the bound BlockBehaviour itself dies with the old one).
+        private Vector3Int _boundCell;
+        private string _boundId;
+
+        // Called when Update notices the build-mode chassis was swapped while a
+        // tune-mode instance is bound. Re-binds to the block at the same cell
+        // (same definition id) on the new grid, or clears the binding when the
+        // respawn dropped that block.
+        private void RebindInstanceAfterRespawn()
+        {
+            if (_session == null) return;
+            // C# null check on purpose: a destroyed-but-still-bound instance is
+            // Unity-null, and that is exactly the case being repaired.
+            if (ReferenceEquals(_session.EditingInstance, null)) return;
+            BlockBehaviour replacement = null;
+            if (_grid != null && !string.IsNullOrEmpty(_boundId)
+                && _grid.Blocks.TryGetValue(_boundCell, out BlockBehaviour b)
+                && b != null && b.Definition != null && b.Definition.Id == _boundId)
+            {
+                replacement = b;
+            }
+            if (replacement == null)
+            {
+                ClearInstanceEdit();
+                return;
+            }
+            _session.SetEditingInstance(replacement);
+            HighlightInstance(replacement);
+        }
+
         private void HandleEditingInstanceChanged(BlockBehaviour bound)
         {
+            if (bound != null && bound.Definition != null)
+            {
+                _boundCell = bound.GridPosition;
+                _boundId = bound.Definition.Id;
+            }
             Camera cam = Camera.main;
             if (cam != null)
             {
@@ -365,9 +402,16 @@ namespace Robogame.Gameplay
                 if (_buildMode.IsActive) HandleEntered();
             }
             if (_buildMode == null || !_buildMode.IsActive) return;
-            if (_grid == null)
+            if (_grid == null || (_buildMode.Chassis != null && _grid.transform != _buildMode.Chassis))
             {
+                // TRACE[LOG-166]: the garage can respawn the chassis under a
+                // live build session (Duplicate / preset swap fire
+                // PresetChanged → Respawn). Re-point at the new grid and carry
+                // a tune-mode binding across to the same cell — otherwise the
+                // bound instance is a destroyed block and every slider edit is
+                // silently dropped while the panel still says EDITING.
                 _grid = _buildMode.Chassis != null ? _buildMode.Chassis.GetComponent<BlockGrid>() : null;
+                RebindInstanceAfterRespawn();
                 if (_grid == null) return;
             }
             UpdateTarget();

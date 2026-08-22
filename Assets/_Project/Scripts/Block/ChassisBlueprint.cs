@@ -227,7 +227,12 @@ namespace Robogame.Block
         public string DisplayName
         {
             get => _displayName;
-            set => _displayName = value;
+            set
+            {
+                if (_displayName == value) return;
+                _displayName = value;
+                Revision++;
+            }
         }
 
         public ChassisKind Kind
@@ -283,6 +288,15 @@ namespace Robogame.Block
         public Entry[] Entries => _entries;
 
         /// <summary>
+        /// Runtime edit counter (not serialized). Bumped by every mutation a
+        /// save would persist — <see cref="SetEntries"/> and
+        /// <see cref="DisplayName"/> — so <c>GameStateController</c> can tell
+        /// dirty from clean with an int compare instead of diffing entries.
+        /// TRACE[LOG-166].
+        /// </summary>
+        public int Revision { get; private set; }
+
+        /// <summary>
         /// Replace the entries array. Used by the editor wizard and the
         /// in-game garage. The chokepoint that enforces canonical ordering:
         /// every path that mutates the entry list goes through here so the
@@ -298,6 +312,7 @@ namespace Robogame.Block
         {
             _entries = entries ?? Array.Empty<Entry>();
             BlockEntries.SortCanonical(_entries);
+            Revision++;
         }
     }
 }
