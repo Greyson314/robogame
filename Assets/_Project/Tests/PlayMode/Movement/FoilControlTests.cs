@@ -199,6 +199,94 @@ namespace Robogame.Tests.PlayMode.Movement
                 $"Roll torque ratio {ratio:F1}× exceeds area × lever — lever double-counted?");
         }
 
+        // Same rig as BuildBareWingBot but stamps each wing's BlockBehaviour.
+        // ConfigValue right after placement — the same direct-assignment
+        // mechanism ChassisAssembler uses post-PlaceBlock, and the same one
+        // BuildSessionInstanceEditTests uses to drive per-instance config in
+        // tests (`target.ConfigValue = newConfig`). PlaceFoil (above)
+        // doesn't hand back its BlockBehaviour, so this is a small parallel
+        // helper rather than a PlaceFoil edit.
+        private void BuildBareWingBotWithThrow(float wingSpan, float configValue)
+        {
+            _root = new GameObject("FoilThrowBot");
+            _rb = _root.AddComponent<Rigidbody>();
+            _rb.useGravity = false;
+            BlockGrid grid = _root.AddComponent<BlockGrid>();
+            Robot robot = _root.AddComponent<Robot>();
+            _drive = _root.AddComponent<RobotDrive>();
+            _drive.Scheme = ControlScheme.Plane;
+
+            BlockDefinition cube = MakeDef(BlockIds.Cube, BlockCategory.Structure, 1f);
+            BlockDefinition cpu  = MakeDef(BlockIds.Cpu, BlockCategory.Cpu, 2f);
+            BlockDefinition aero = MakeDef(BlockIds.Aero, BlockCategory.Movement, 0.6f);
+
+            grid.PlaceBlock(cpu, new Vector3Int(0, 0, 0), Vector3Int.up);
+            for (int z = -2; z <= 2; z++)
+                if (z != 0) grid.PlaceBlock(cube, new Vector3Int(0, 0, z), Vector3Int.up);
+
+            Vector3 dims = new Vector3(wingSpan, 0.08f, 0.9f);
+            PlaceFoilWithThrow(grid, aero, new Vector3Int(-1, 0, 0), new Vector3Int(-1, 0, 0), dims, 0f, configValue);
+            PlaceFoilWithThrow(grid, aero, new Vector3Int(1, 0, 0), new Vector3Int(1, 0, 0), dims, 0f, configValue);
+            robot.RecalculateAggregates();
+        }
+
+        private static void PlaceFoilWithThrow(BlockGrid grid, BlockDefinition def, Vector3Int cell, Vector3Int up, Vector3 dims, float worldPitchDeg, float configValue)
+        {
+            float localPitch = BlockOrientation.NormalizePitchForUp(def, worldPitchDeg, up);
+            BlockBehaviour bb = grid.PlaceBlock(def, cell, up, dims, localPitch);
+            Assert.IsNotNull(bb, $"PlaceBlock failed at {cell}");
+            bb.ConfigValue = configValue;
+            AeroSurfaceBlock foil = bb.gameObject.AddComponent<AeroSurfaceBlock>();
+            foil.Vertical = true;
+        }
+
+        [UnityTest]
+        public IEnumerator ControlThrow_ConfigScalesDeflectionAuthority()
+        {
+            // Per-instance control throw (this session): AeroSurfaceBlock
+            // reads its commanded-deflection cap from
+            // Robogame.Block.FoilDefaults.ResolveControlThrow(BlockBehaviour.ConfigValue)
+            // each tick, instead of the compile-time FoilDefaults.ControlThrowDeg
+            // constant it uses today. ConfigValue = 0 is the sentinel for
+            // "authored default" (8°) so every pre-existing blueprint
+            // (ConfigValue never set) keeps flying identically — the same
+            // 0-means-default contract RotorBlock's ConfigValue-as-RPM-ceiling
+            // already uses (RotorDefaults.ResolveRpm).
+            //
+            // First pin the resolver's own sentinel contract directly (this
+            // is also the checklist item: the file will not compile until
+            // Robogame.Block.FoilDefaults.ResolveControlThrow exists).
+            Assert.AreEqual(FoilDefaults.ControlThrowDeg, FoilDefaults.ResolveControlThrow(0f), 1e-4f,
+                "ConfigValue=0 must resolve to the authored default throw (sentinel contract).");
+            Assert.AreEqual(16f, FoilDefaults.ResolveControlThrow(16f), 1e-4f,
+                "A positive ConfigValue must resolve to itself — a per-instance override, not rescaled.");
+
+            // Then pin the emergent PHYSICS behaviour: AeroControl.Deflection
+            // multiplies its clamped [-1,1] command by maxRad linearly, so a
+            // block that carries an authored throw must scale commanded roll
+            // authority by the same ratio — doubling the throw must double
+            // the deflection, and (one physics step from rest, before
+            // airflow/damping feed back) double the resulting roll torque.
+            // Same "torque = I_zz * omega_z / dt, dt cancels" trick as
+            // WiderWing_GainsRollLever_NotJustArea above.
+            BuildBareWingBotWithThrow(wingSpan: 1f, configValue: 0f); // sentinel -> 8°
+            yield return Fly(new Vector2(1f, 0f), 0f, steps: 1);
+            float torqueSentinel = Mathf.Abs(_rb.inertiaTensor.z * LocalOmega.z);
+            Object.Destroy(_root);
+            yield return null;
+
+            BuildBareWingBotWithThrow(wingSpan: 1f, configValue: 16f); // double the 8° sentinel
+            yield return Fly(new Vector2(1f, 0f), 0f, steps: 1);
+            float torqueDoubled = Mathf.Abs(_rb.inertiaTensor.z * LocalOmega.z);
+
+            Assert.Greater(torqueSentinel, 0f, "Sentinel-throw (ConfigValue=0 -> 8°) wings must produce some roll torque.");
+            float ratio = torqueDoubled / torqueSentinel;
+            Assert.GreaterOrEqual(ratio, 1.6f,
+                $"ConfigValue=16 (2× the 8° sentinel) must roughly double commanded roll authority; got {ratio:F2}×.");
+            Assert.LessOrEqual(ratio, 2.4f,
+                $"ConfigValue=16 roll-torque ratio {ratio:F2}× overshoots the ~2× doubled-throw expectation.");
+        }
+
         [UnityTest]
         public IEnumerator NoChassisLevelPlaneController_IsAttached()
         {

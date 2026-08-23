@@ -45,5 +45,21 @@ namespace Robogame.Block
         /// only — hands-off trim and span tradeoffs are untouched.
         /// </summary>
         public const float ControlThrowDeg = 8f;
+
+        /// <summary>Build-mode slider range for per-foil control throw.</summary>
+        public const float MinControlThrowDeg = 1f, MaxControlThrowDeg = 16f;
+
+        /// <summary>
+        /// Blueprint <c>BlockConfig</c> → effective control throw in degrees
+        /// (0 = "use the shared default"). Same sentinel shape as
+        /// <c>RotorDefaults.ResolveRpm</c> so old saves keep flying with
+        /// the 8° default. TRACE[ADR-0009]: per-instance authority knob —
+        /// throw scales this foil's commanded deflection only; its pitch /
+        /// roll / yaw share still comes from geometry.
+        /// </summary>
+        public static float ResolveControlThrow(float blockConfig)
+            => blockConfig > 0f
+                ? UnityEngine.Mathf.Clamp(blockConfig, MinControlThrowDeg, MaxControlThrowDeg)
+                : ControlThrowDeg;
     }
 }

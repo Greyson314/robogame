@@ -100,6 +100,20 @@ namespace Robogame.Gameplay
             // Escape-press frames, so no per-frame cost.
             if (!_open)
             {
+                // Move mode rung (169): first Escape cancels a carried
+                // block, the next exits move mode — then the ladder falls
+                // through to tune mode / pause as before.
+                BuildMoveMode move = FindAnyObjectByType<BuildMoveMode>();
+                if (move != null && move.Enabled)
+                {
+                    var garageForMove = FindAnyObjectByType<GarageController>();
+                    BlockEditor moveEditor = garageForMove != null ? garageForMove.BlockEditor : null;
+                    if (moveEditor != null && moveEditor.IsCarrying)
+                        moveEditor.CancelMoveCarry();
+                    else
+                        move.SetEnabled(false);
+                    return;
+                }
                 BuildEditMode tune = FindAnyObjectByType<BuildEditMode>();
                 if (tune != null && tune.Enabled)
                 {

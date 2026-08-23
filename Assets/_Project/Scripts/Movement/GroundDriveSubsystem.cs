@@ -258,7 +258,46 @@ namespace Robogame.Movement
                 // throttle plowing into the slope face (LOG-153).
                 Vector3 fwd = Vector3.ProjectOnPlane(transform.forward, groundNormal);
                 if (fwd.sqrMagnitude > 0.0001f) fwd.Normalize();
-                Body.AddForce(fwd * (control.Move.y * Acceleration * carryMul), ForceMode.Acceleration);
+                // TRACE[INV-11]: drive force is split across the WHEEL SET
+                // and applied at each wheel's ground-plane position at CoM
+                // HEIGHT (session 169, first slice of the ground
+                // migration). Design notes from the probe pass:
+                //  - split over ALL live wheels, not the per-frame grounded
+                //    subset — contact flickers on rough terrain, and a
+                //    flickering force centroid made the Tank snake and the
+                //    DrillBot spin out (pv13). The rigid LAYOUT is the
+                //    honest thrust distribution; the any-wheel-grounded
+                //    gate above still kills mid-air driving.
+                //  - project each force point to CoM height along chassis
+                //    up — thrust at wheel height added a wheelie moment the
+                //    tuned presets never had. Layout asymmetry (a shot-off
+                //    side) still shifts the centroid in the ground plane,
+                //    which is the invariant-#11 payoff: the bot pulls
+                //    toward its dead side under throttle.
+                // Steering / grip / self-right stay chassis-level pending
+                // their own probe-gated pass (a prior per-wheel grip
+                // attempt caused spurious roll torque).
+                Vector3 driveForce = fwd * (control.Move.y * Acceleration * carryMul);
+                int wheelCount = 0;
+                foreach (WheelBlock w in _wheels)
+                    if (w != null) wheelCount++;
+                if (wheelCount > 0)
+                {
+                    Vector3 com = Body.worldCenterOfMass;
+                    Vector3 chassisUp = transform.up;
+                    Vector3 perWheel = driveForce / wheelCount;
+                    foreach (WheelBlock w in _wheels)
+                    {
+                        if (w == null) continue;
+                        Vector3 p = w.transform.position;
+                        p += chassisUp * Vector3.Dot(com - p, chassisUp);
+                        Body.AddForceAtPosition(perWheel, p, ForceMode.Acceleration);
+                    }
+                }
+                else
+                {
+                    Body.AddForce(driveForce, ForceMode.Acceleration);
+                }
 
                 // Cap in-plane speed (leave the ground-normal component
                 // alone so suspension bounce isn't clamped).

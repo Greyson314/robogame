@@ -166,6 +166,11 @@ namespace Robogame.Gameplay
             // event. 0 means "use authored default", same convention
             // the pitch/dims paths follow.
             block.ConfigValue = config;
+            // Concoction too — this was the one tune field the propagation
+            // skipped, so picking a concoction on a BOUND weapon silently
+            // did nothing (169). Weapons read ConcoctionId at fire time,
+            // so a plain write is enough, same as ConfigValue above.
+            block.ConcoctionId = _session.GetVariantConcoctionId(blockId);
             // Persist the tune edit into the blueprint NOW. SyncBlueprint
             // previously ran only on place/remove, so a pure tune-then-
             // launch (or tune-then-save) session silently reverted every
@@ -206,6 +211,38 @@ namespace Robogame.Gameplay
                 _editMode = value;
                 if (_editMode != null) _editMode.Changed += HandleEditModeChanged;
             }
+        }
+
+        // Move-part mode (session 169): pick up a placed block with all its
+        // per-instance settings, re-place it via BuildSession.TryMove.
+        private BuildMoveMode _moveMode;
+        public BuildMoveMode MoveMode
+        {
+            get => _moveMode;
+            set
+            {
+                if (_moveMode != null) _moveMode.Changed -= HandleMoveModeChanged;
+                _moveMode = value;
+                if (_moveMode != null) _moveMode.Changed += HandleMoveModeChanged;
+            }
+        }
+
+        private Vector3Int _carrySourceCell;
+        private bool _carrying;
+        /// <summary>True while a block is picked up in move mode (Escape ladder consults this).</summary>
+        public bool IsCarrying => _carrying;
+
+        private void HandleMoveModeChanged(bool enabled)
+        {
+            if (!enabled) CancelMoveCarry();
+        }
+
+        /// <summary>Drop the carried block back where it was (no mutation ever happened — carrying is preview-only until the drop click).</summary>
+        public void CancelMoveCarry()
+        {
+            if (!_carrying) return;
+            _carrying = false;
+            Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.UiBack);
         }
 
         // Turning the Tune-part toggle OFF drops any bound instance + its
@@ -712,6 +749,17 @@ namespace Robogame.Gameplay
                 return;
             }
 
+            // MOVE mode (session 169): first left-click picks a block up
+            // (with its settings), the next drops it via the atomic
+            // BuildSession.TryMove; right-click cancels the carry.
+            if (_moveMode != null && _moveMode.Enabled)
+            {
+                HandleMoveClicks(mouse);
+                return;
+            }
+            // Mode exited by other means while carrying — self-heal.
+            if (_carrying) CancelMoveCarry();
+
             if (!_hasTarget) return;
 
             if (mouse.leftButton.wasPressedThisFrame)   TryPlace();
@@ -755,6 +803,78 @@ namespace Robogame.Gameplay
             if (_session == null || _session.EditingInstance == null) return;
             ClearInstanceEdit();
             Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.UiBack);
+        }
+
+        // Move-mode clicks (session 169). Carrying is PREVIEW-ONLY state:
+        // nothing mutates until the drop click, which runs the atomic
+        // TryMove — so cancel/exit/escape can never lose a block.
+        private void HandleMoveClicks(Mouse mouse)
+        {
+            if (mouse.rightButton.wasPressedThisFrame)
+            {
+                CancelMoveCarry();
+                return;
+            }
+            if (!mouse.leftButton.wasPressedThisFrame) return;
+
+            if (!_carrying)
+            {
+                if (_hasTarget) TryPickUpForMove();
+                return;
+            }
+
+            if (!_hasTarget || !_validPlacement)
+            {
+                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
+                return;
+            }
+            PlacementRules.PlacementError err =
+                _session.TryMove(_carrySourceCell, _targetPlaceCell, _targetPlaceUp);
+            if (err == PlacementRules.PlacementError.None)
+            {
+                _carrying = false;
+                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.BlockPlace);
+                DriveGhostRenderer();
+            }
+            else
+            {
+                // Ghost said valid but the verb disagreed (e.g. the
+                // destination's only support WAS the carried block). The
+                // block is untouched at its source — just buzz.
+                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
+            }
+        }
+
+        // Pick-up: light validation here (CPU-sacred, player-placeable id);
+        // the authoritative removal/orphan rules run inside TryMove at drop
+        // time, where failure is atomic. Reuses the eyedropper's cache-seed
+        // so the ghost previews the carried block's exact dims/settings.
+        private void TryPickUpForMove()
+        {
+            if (_session == null || _grid == null) return;
+            Vector3Int pickCell = BuildSession.ResolveMechanismOwnerCell(_grid.Blocks, _targetHitCell);
+            if (!_grid.Blocks.TryGetValue(pickCell, out BlockBehaviour b) || b == null || b.Definition == null) return;
+            BlockDefinition def = b.Definition;
+            if (def.Category == BlockCategory.Cpu)
+            {
+                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
+                return;
+            }
+            if (_hotbar == null || !_hotbar.SelectByBlockId(def.Id))
+            {
+                Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.InvalidPlacement);
+                return;
+            }
+            if (_session.EditingInstance != null) ClearInstanceEdit();
+            LoadBlockSettingsIntoCache(def, b);
+            if (_variantPanel != null) _variantPanel.RefreshForBlock(def.Id);
+            // Ghost + drop keep the block's yaw; TryMove re-captures it
+            // authoritatively from the live block at drop time.
+            _session.SetPlaceYaw(b.Yaw);
+            _carrySourceCell = pickCell;
+            _carrying = true;
+            Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.UiClick);
+            DriveGhostRenderer();
         }
 
         // Middle-click vs middle-drag discrimination state (see HandleClicks).
@@ -849,6 +969,9 @@ namespace Robogame.Gameplay
             _session.SetVariantPitch(def.Id, worldPitch);
             _session.SetVariantTeeter(def.Id, worldTeeter);
             _session.SetVariantConfig(def.Id, b.ConfigValue);
+            // Eyedropper previously dropped the concoction — copying a tuned
+            // mortar produced one firing the DEFAULT shell (169).
+            _session.SetVariantConcoctionId(def.Id, b.ConcoctionId);
         }
 
         // -----------------------------------------------------------------

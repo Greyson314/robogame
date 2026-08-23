@@ -209,20 +209,26 @@ These are real items the next session should be aware of. None block
 shipping the current branch; flagged so they don't decay into
 "why is this broken".
 
-- **Per-block movement migration is half done (ADR-0009, session 167).**
-  Aero is on the new model (intent layer + foil control surfaces,
-  `PlaneControlSubsystem` deleted). Still to migrate under invariant #11:
-  `GroundDriveSubsystem` / `HoverDriveSubsystem` (per-wheel / per-pad
-  actuation), rotor cyclic for helis (W/S on the Helicopter scheme
-  currently drives nothing), `RotorBlock` / `PogoBlock` reading raw input
-  instead of `DriveIntent`. Also open: a garage dropdown for the
-  `ControlScheme` override, per-foil control-throw slider, AirBot gains
-  unverified on foil control (no air bot in the default arena config),
-  rotor throttle spawning at 1.0 (W inert on a fresh prop). Baseline
-  numbers in [166](166-aircraft-pitch-pogo-save-pass.md), landing in
-  [167](167-foil-control-surfaces.md); lift moved to the foil's
-  geometric centre (throw 4° → 8°) in
-  [168](168-lift-at-geometric-center.md).
+- **Per-block movement migration: aero done, ground/hover thrust done,
+  assists grandfathered (ADR-0009/0010, sessions 167–169).**
+  Aero is fully on the new model; ground/hover drive THRUST is per-wheel
+  / per-pad since 169; rotor throttle + pogo tilt read the drive's
+  per-tick control. Still chassis-level (explicit grandfather cases,
+  ADR-0010 rule 1): ground steer torque, lateral grip, self-right,
+  jump, idle brake, speed caps, hover yaw — the grip/steer migration
+  needs its own probe-gated pass (a prior per-wheel grip attempt caused
+  spurious roll torque). Also open: rotor cyclic for helis (W/S on the
+  Helicopter scheme still drives nothing), a garage dropdown for the
+  `ControlScheme` override, AirBot gains unverified on foil control,
+  rotor throttle spawning at 1.0, wheel/thruster resize (blocked on the
+  scalable-parts cost-model decision), mirrored-pair Move semantics
+  (Move suspends mirror v1), CSP replay not covering WheelBlock /
+  HoverBladeBlock forces (pre-existing; per-wheel thrust now inherits
+  it — flagged in [169](169-unified-physics-tuning-pass.md)). History:
+  [166](166-aircraft-pitch-pogo-save-pass.md),
+  [167](167-foil-control-surfaces.md),
+  [168](168-lift-at-geometric-center.md),
+  [169](169-unified-physics-tuning-pass.md).
 
 - **Per-rotor `RotorsGenerateLift` opt-in.**
   Today the flag is auto-derived chassis-wide whenever any rotor is

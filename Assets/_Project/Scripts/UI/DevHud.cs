@@ -45,6 +45,15 @@ namespace Robogame.UI
 
         private void Awake()
         {
+            // TRACE[INV-1]: the dev HUD is a dev surface. In shipping
+            // builds it disables itself so F1 exposes nothing (the
+            // component stays on the scene object — file-level #if would
+            // leave a missing-script hole in Garage.unity). Session 169.
+            if (!Tweakables.DevSurfacesVisible)
+            {
+                enabled = false;
+                return;
+            }
             // Build the blocker up-front. EventSystem dispatches UGUI
             // clicks during Update, BEFORE OnGUI runs — so a blocker
             // created lazily inside OnGUI doesn't exist yet on the

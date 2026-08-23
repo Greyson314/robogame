@@ -27,10 +27,10 @@ namespace Robogame.Gameplay
     [DisallowMultipleComponent]
     public sealed class CenterOverlay : MonoBehaviour
     {
-        // Mirrors ThrusterBlock.DefaultMaxThrust (private) — a readout proxy for
-        // an untuned thruster's weight, same mirror-the-constant pattern the
-        // variant panel uses for lift estimates.
-        private const float ThrusterDefaultThrust = 310f;
+        // Single-sourced from ThrusterBlock: the old mirrored 310f had
+        // drifted (thruster default is 900 N since session 120), so the
+        // CoT marker under-weighted every untuned thruster ~3× (169).
+        private const float ThrusterDefaultThrust = Robogame.Movement.ThrusterBlock.DefaultMaxThrust;
         private const Key ToggleKey = Key.G;
 
         [SerializeField] private GarageController _garage;
@@ -104,13 +104,19 @@ namespace Robogame.Gameplay
                 string id = b.Definition.Id;
                 Vector3 p = b.transform.position;
 
-                if (id == BlockIds.Aero || id == BlockIds.AeroFin)
+                if (id == BlockIds.Aero || id == BlockIds.AeroFin || id == BlockIds.Wing)
                 {
-                    Vector3 d = b.Dims;
-                    float span  = d.x > 0f ? d.x : BlockOccupancy.FoilDefaultSpan;
-                    float chord = d.z > 0f ? d.z : BlockOccupancy.FoilDefaultChord;
+                    // Wing was missing here (bat-wing planes showed no CoL
+                    // sphere at all); AeroShape.ResolveDims handles the
+                    // per-id defaults for all three foil families (169).
+                    AeroShape.ResolveDims(id, b.Dims, out float span, out _, out float chord);
                     float area = span * chord;
-                    colSum += p * area; colW += area;
+                    // Weight at the foil's geometric centre — where lift
+                    // actually acts since session 168 — not the mount cell,
+                    // so a long wing pulls the CoL marker outboard for real.
+                    Vector3 liftPoint = b.transform.TransformPoint(
+                        Robogame.Movement.AeroSurfaceBlock.ComputeWingShift(b.GridPosition, span, rotorMode: false));
+                    colSum += liftPoint * area; colW += area;
                 }
                 else if (id == BlockIds.Thruster)
                 {

@@ -88,6 +88,11 @@ namespace Robogame.Movement
         // Input source on the chassis (player or AI). Resolved alongside
         // the chassis Rigidbody; invalidated by the same parent-change path.
         private IInputSource _inputSource;
+        // TRACE[ADR-0009]: throttle consumes the intent layer when the
+        // chassis has a RobotDrive (Heave = lift rotor, Surge = prop);
+        // _inputSource stays as the raw fallback for bare rigs with no
+        // drive. Cached with the same validity flag as the Rigidbody.
+        private RobotDrive _drive;
 
         /// <summary>
         /// Collective pitch actually applied at adopt time. Reads the
@@ -224,6 +229,7 @@ namespace Robogame.Movement
             // detach) moves the rotor under a different chassis.
             _chassisRbCached = GetComponentInParent<Rigidbody>();
             _inputSource = GetComponentInParent<IInputSource>();
+            _drive = GetComponentInParent<RobotDrive>();
             _chassisRbCacheValid = true;
             // When the rotor's own pitch (collective) is mutated through
             // BlockBehaviour.SetPitch — by BlockEditor's variant-change
@@ -871,6 +877,7 @@ namespace Robogame.Movement
             {
                 _chassisRbCached = GetComponentInParent<Rigidbody>();
                 _inputSource = GetComponentInParent<IInputSource>();
+                _drive = GetComponentInParent<RobotDrive>();
                 _chassisRbCacheValid = true;
             }
             Rigidbody chassis = _chassisRbCached;
@@ -900,7 +907,7 @@ namespace Robogame.Movement
             // value on release so the pilot isn't mashing space to hover.
             // Sideways-axis rotors take no throttle input and hold. The
             // stress-tower override pins absolute RPM, so it skips throttle.
-            if (RpmOverride < 0f && _inputSource != null)
+            if (RpmOverride < 0f && (_drive != null || _inputSource != null))
             {
                 // TRACE[LOG-166]: test the axis in CHASSIS space, not rotor
                 // space. _spinAxisLocal is rotor-local and is +Y for every
@@ -913,8 +920,24 @@ namespace Robogame.Movement
                     ? chassis.transform.InverseTransformDirection(axisWorld)
                     : axisWorld).normalized;
                 float axisInput = 0f;
-                if (Mathf.Abs(axis.y) > 0.7f)      axisInput = _inputSource.Vertical;
-                else if (Mathf.Abs(axis.z) > 0.7f) axisInput = _inputSource.Move.y;
+                if (_drive != null)
+                {
+                    // TRACE[ADR-0009]: verbs come from the intent layer, so
+                    // the blueprint's ControlScheme decides what Space / W
+                    // mean. Heave feeds a lift rotor (Space on Ground /
+                    // Helicopter schemes), Surge feeds a pusher / puller
+                    // prop (W/S on Ground / Plane schemes). While hooked
+                    // LastControl zeroes → throttle holds (hooked =
+                    // movement input disabled, session 169).
+                    DriveIntent intent = _drive.LastControl.Intent;
+                    if (Mathf.Abs(axis.y) > 0.7f)      axisInput = intent.Heave;
+                    else if (Mathf.Abs(axis.z) > 0.7f) axisInput = intent.Surge;
+                }
+                else
+                {
+                    if (Mathf.Abs(axis.y) > 0.7f)      axisInput = _inputSource.Vertical;
+                    else if (Mathf.Abs(axis.z) > 0.7f) axisInput = _inputSource.Move.y;
+                }
                 if (axisInput != 0f)
                     _throttle01 = Mathf.Clamp01(_throttle01 + axisInput * _throttleRampPerSec * dt);
             }

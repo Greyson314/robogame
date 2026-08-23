@@ -79,10 +79,10 @@ namespace Robogame.Gameplay
             // teetered experiment really is a flat wing.
             Presets = new[]
             {
-                new TunePreset { Label = "Heli Blade", Writes = new[] { (TuneTarget.DimsX, 1.50f), (TuneTarget.DimsY, 0.06f), (TuneTarget.DimsZ, 0.60f), (TuneTarget.Pitch,  8f), (TuneTarget.Teeter, 0f) } },
-                new TunePreset { Label = "Plane Wing", Writes = new[] { (TuneTarget.DimsX, 4.00f), (TuneTarget.DimsY, 0.08f), (TuneTarget.DimsZ, 0.90f), (TuneTarget.Pitch,  2f), (TuneTarget.Teeter, 0f) } },
-                new TunePreset { Label = "Tail Stab",  Writes = new[] { (TuneTarget.DimsX, 2.00f), (TuneTarget.DimsY, 0.08f), (TuneTarget.DimsZ, 0.70f), (TuneTarget.Pitch, -1f), (TuneTarget.Teeter, 0f) } },
-                new TunePreset { Label = "Vert Fin",   Writes = new[] { (TuneTarget.DimsX, 2.00f), (TuneTarget.DimsY, 0.08f), (TuneTarget.DimsZ, 0.90f), (TuneTarget.Pitch,  0f), (TuneTarget.Teeter, 0f) } },
+                new TunePreset { Label = "Heli Blade", Tip = "Short, high-pitch blade for a rotor to spin — place next to a rotor hub.", Writes = new[] { (TuneTarget.DimsX, 1.50f), (TuneTarget.DimsY, 0.06f), (TuneTarget.DimsZ, 0.60f), (TuneTarget.Pitch,  8f), (TuneTarget.Teeter, 0f) } },
+                new TunePreset { Label = "Plane Wing", Tip = "Long main wing with a little built-in lift tilt — carries the plane.", Writes = new[] { (TuneTarget.DimsX, 4.00f), (TuneTarget.DimsY, 0.08f), (TuneTarget.DimsZ, 0.90f), (TuneTarget.Pitch,  2f), (TuneTarget.Teeter, 0f) } },
+                new TunePreset { Label = "Tail Stab",  Tip = "Small horizontal tail wing (stabiliser). Mount at the back to steady the nose up/down.", Writes = new[] { (TuneTarget.DimsX, 2.00f), (TuneTarget.DimsY, 0.08f), (TuneTarget.DimsZ, 0.70f), (TuneTarget.Pitch, -1f), (TuneTarget.Teeter, 0f) } },
+                new TunePreset { Label = "Vert Fin",   Tip = "Vertical tail fin. Mount at the back, standing up, to keep the nose pointing where you fly.", Writes = new[] { (TuneTarget.DimsX, 2.00f), (TuneTarget.DimsY, 0.08f), (TuneTarget.DimsZ, 0.90f), (TuneTarget.Pitch,  0f), (TuneTarget.Teeter, 0f) } },
             },
             Fields = new[]
             {
@@ -127,10 +127,24 @@ namespace Robogame.Gameplay
                     // Teeter — chord-axis tilt (tip up/down). Visual-only in
                     // v1, so a wider range than pitch is safe: no stall
                     // consequence.
-                    Label = "Teeter", Target = TuneTarget.Teeter, Snap = SnapInt, Format = "F0",
+                    Label = "Teeter (visual)", Target = TuneTarget.Teeter, Snap = SnapInt, Format = "F0", Suffix = "°",
                     Min = _ => -45f, Max = _ => 45f,
                     Resolve = ctx => ctx.Teeter,
                     Tip = "Tilts the wing along its chord axis, raising or drooping the tip. Cosmetic for now — no effect on lift.",
+                },
+                new TuneField
+                {
+                    Group = TuneFieldGroup.Advanced,
+                    // TRACE[ADR-0009]: per-foil control authority knob. 0 in
+                    // the blueprint = "use the shared default throw"
+                    // (FoilDefaults.ControlThrowDeg) so old saves fly
+                    // identically; any non-zero value is this foil's own
+                    // full-stick deflection.
+                    Label = "Control Throw", Target = TuneTarget.Config, Snap = SnapInt,
+                    Format = "F0", Suffix = "°",
+                    Min = _ => FoilDefaults.MinControlThrowDeg, Max = _ => FoilDefaults.MaxControlThrowDeg,
+                    Resolve = ctx => FoilDefaults.ResolveControlThrow(ctx.Config),
+                    Tip = "How far this wing deflects at full stick (degrees). More throw = sharper response from THIS wing; its share of pitch vs roll still comes from where it sits on the bot.",
                 },
             },
             Readout = ctx =>
@@ -178,10 +192,13 @@ namespace Robogame.Gameplay
             {
                 new TuneField
                 {
-                    Label = "Collective", Target = TuneTarget.Pitch, Snap = SnapInt, Format = "F0",
+                    Label = "Collective", Target = TuneTarget.Pitch, Snap = SnapInt, Format = "F0", Suffix = "°",
                     Min = _ => 0f, Max = _ => 18f,
-                    Resolve = ctx => ctx.Pitch,
-                    Tip = "Blade pitch applied to every foil the rotor adopts. More collective = more lift per revolution, at more drag.",
+                    // 0 = "use the rotor's authored default" — display that
+                    // default instead of a misleading 0 (the sentinel rule
+                    // this class doc mandates; fixed 169).
+                    Resolve = ctx => ctx.Pitch > 0f ? ctx.Pitch : RotorDefaults.DefaultCollectiveDeg,
+                    Tip = "Blade pitch in degrees, applied to every foil the rotor adopts. More collective = more lift per revolution, at more drag.",
                 },
                 new TuneField
                 {
@@ -200,10 +217,9 @@ namespace Robogame.Gameplay
             {
                 float collective = ctx.Pitch;
                 // collective=0 in the cache means "use rotor's authored
-                // default" (RotorBlock._collectivePitchDeg, currently 8°).
-                // Mirror that for the readout so the player sees the actual
-                // post-place value.
-                float effectiveCollective = collective > 0f ? collective : 8f;
+                // default". Mirror that for the readout so the player sees
+                // the actual post-place value.
+                float effectiveCollective = collective > 0f ? collective : RotorDefaults.DefaultCollectiveDeg;
                 float rpmCfg = ctx.Config;
                 float rpm = RotorDefaults.ResolveRpm(rpmCfg);
                 float omega = rpm * Mathf.PI * 2f / 60f;
@@ -239,7 +255,7 @@ namespace Robogame.Gameplay
                     // IntSlider kind sets wholeNumbers for visual feedback
                     // during drag.
                     Kind = TuneFieldKind.IntSlider,
-                    Label = "Size", Target = TuneTarget.DimsX, Format = "F0",
+                    Label = "Footprint", Target = TuneTarget.DimsX, Format = "F0", Suffix = " cells",
                     Snap = v => Mathf.Clamp(Mathf.RoundToInt(v),
                         BlockOccupancy.HoverBladeMinSize, BlockOccupancy.HoverBladeMaxSize),
                     Min = _ => BlockOccupancy.HoverBladeMinSize,
@@ -276,7 +292,12 @@ namespace Robogame.Gameplay
                     Min = id => ModuleTuning.MinPower(KindFor(id)),
                     Max = id => ModuleTuning.MaxPower(KindFor(id)),
                     Resolve = ctx => ctx.Config > 0f ? ctx.Config : ModuleTuning.DefaultPower(KindFor(ctx.BlockId)),
-                    Tip = "Module strength. Higher power means a stronger effect but a longer cooldown (see readout below).",
+                    // "Power" means a different physical unit per module
+                    // kind (metres / seconds / HP / N·s / m/s) — the suffix
+                    // and tip resolve per id so the number is never
+                    // unit-less (169).
+                    SuffixFor = id => ModuleTuning.PowerUnit(KindFor(id)),
+                    TipFor = id => ModuleTuning.PowerTip(KindFor(id)),
                 },
             },
             Readout = ctx =>
@@ -284,7 +305,7 @@ namespace Robogame.Gameplay
                 ModuleKind kind = KindFor(ctx.BlockId);
                 float power = ctx.Config > 0f ? ctx.Config : ModuleTuning.DefaultPower(kind);
                 float cd = ModuleTuning.CooldownFor(kind, power);
-                return new TuneReadout($"{power:F1} power  •  {cd:F1}s cooldown");
+                return new TuneReadout($"{power:F1}{ModuleTuning.PowerUnit(kind)}  •  {cd:F1}s cooldown");
             },
         };
 

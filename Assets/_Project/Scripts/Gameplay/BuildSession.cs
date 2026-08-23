@@ -572,6 +572,85 @@ namespace Robogame.Gameplay
         }
 
         // -----------------------------------------------------------------
+        // Move (session 169)
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Atomic move: pick the block at <paramref name="fromCell"/> up and
+        /// re-place it at <paramref name="toCell"/> / <paramref name="toUp"/>
+        /// with every per-instance setting preserved — dims, pitch, teeter,
+        /// yaw, config scalar, concoction. Built entirely from
+        /// <see cref="TryRemove"/> + <see cref="TryPlace"/> so the rules
+        /// engine, the companion cascade and the blueprint sync are exactly
+        /// what a manual remove + re-place would run, with one guarantee on
+        /// top: if the destination is rejected the block is restored at the
+        /// source untouched. A failed move must never eat a tuned part.
+        /// </summary>
+        /// <remarks>
+        /// Mirror is suspended for the duration — v1 moves exactly one
+        /// block; what "moving half a mirrored pair" means is undesigned.
+        /// The per-id variant caches are seeded with the carried values
+        /// (TryPlace reads config / concoction from them). That side effect
+        /// is kept deliberately: after a move, the next fresh placement of
+        /// the same id inherits the moved block's settings — the same
+        /// contract as the middle-click eyedropper.
+        /// </remarks>
+        public PlacementRules.PlacementError TryMove(Vector3Int fromCell, Vector3Int toCell, Vector3Int toUp)
+        {
+            if (Grid == null || !Grid.TryGetBlock(fromCell, out BlockBehaviour block)
+                || block == null || block.Definition == null)
+                return PlacementRules.PlacementError.HostMissing;
+            if (fromCell == toCell && block.Up == toUp)
+                return PlacementRules.PlacementError.None; // no-op
+
+            BlockDefinition def = block.Definition;
+            Vector3Int fromUp = block.Up;
+            Vector3 dims = block.Dims;
+            int yaw = block.Yaw;
+            // Stored angles are local-frame; convert to world intent so the
+            // destination face re-normalizes them exactly like placement
+            // does (a side-mount → top-mount move keeps "tip toward sky").
+            float worldPitch  = BlockOrientation.NormalizePitchForUp(def, block.PitchDeg, fromUp);
+            float worldTeeter = BlockOrientation.NormalizePitchForUp(def, block.TeeterDeg, fromUp);
+
+            SetVariantDims(def.Id, dims);
+            SetVariantPitch(def.Id, worldPitch);
+            SetVariantTeeter(def.Id, worldTeeter);
+            SetVariantConfig(def.Id, block.ConfigValue);
+            SetVariantConcoctionId(def.Id, block.ConcoctionId);
+
+            bool mirrorWas = MirrorEnabled;
+            int yawWas = PlaceYaw;
+            SetMirrorEnabled(false);
+            SetPlaceYaw(yaw);
+            try
+            {
+                RemoveOutcome removed = TryRemove(fromCell);
+                if (removed.Primary != PlacementRules.PlacementError.None)
+                    return removed.Primary;
+
+                PlaceOutcome placed = TryPlace(def, toCell, toUp, dims, worldPitch, worldTeeter);
+                if (placed.Primary == PlacementRules.PlacementError.None)
+                    return PlacementRules.PlacementError.None;
+
+                // Destination rejected — put the block back. The source
+                // cell was freed by the remove above and nothing else has
+                // mutated, so this cannot reasonably fail; if it somehow
+                // does, scream: that IS the data-loss case this verb exists
+                // to prevent.
+                PlaceOutcome restored = TryPlace(def, fromCell, fromUp, dims, worldPitch, worldTeeter);
+                if (restored.Primary != PlacementRules.PlacementError.None)
+                    Debug.LogError($"[Robogame] TryMove rollback FAILED for '{def.Id}' at {fromCell}: {restored.Primary}. Block lost — report this.");
+                return placed.Primary;
+            }
+            finally
+            {
+                SetMirrorEnabled(mirrorWas);
+                SetPlaceYaw(yawWas);
+            }
+        }
+
+        // -----------------------------------------------------------------
         // Blueprint sync
         // -----------------------------------------------------------------
 

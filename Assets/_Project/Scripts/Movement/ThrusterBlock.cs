@@ -43,7 +43,7 @@ namespace Robogame.Movement
         // Session 120 playtest: 620 (the prior doubling) still read as "way
         // too weak", so the un-configured baseline is raised again. The live
         // Dev.Thruster.Power ×-knob covers finer feel iteration on top.
-        private const float DefaultMaxThrust = 900f;
+        public const float DefaultMaxThrust = 900f; // public: CenterOverlay weights un-configured thrusters by it (169)
         private BlockBehaviour _bb;
         private ThrusterTuningConfig _thrCfg = new();
         public float MaxThrust         => _bb != null && _bb.ConfigValue > 0f ? _bb.ConfigValue : DefaultMaxThrust;

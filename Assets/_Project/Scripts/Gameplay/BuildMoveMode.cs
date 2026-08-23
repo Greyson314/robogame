@@ -7,47 +7,31 @@ using UnityEngine.UI;
 namespace Robogame.Gameplay
 {
     /// <summary>
-    /// Build-mode "Tune part" toggle. When on, a left-click selects the
-    /// block under the cursor and binds it to the variant panel so the
-    /// player can retune its sliders in place — no delete, no orphaning.
-    /// When off, left/right-click place / remove as normal.
+    /// Build-mode "Move part" toggle (session 169). When on, a left-click
+    /// picks the block under the cursor UP (with all its per-instance
+    /// settings) and the next left-click on a valid face re-places it
+    /// there via <see cref="BuildSession.TryMove"/> — atomic, with
+    /// rollback, so a bad drop can never delete a tuned part. Right-click
+    /// cancels the carry.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// State + a clickable HUD button (plus a <c>T</c> hotkey). The actual
-    /// select-and-bind behaviour lives in <see cref="BlockEditor"/>, which
-    /// reads <see cref="Enabled"/> each frame; this component is the thin
-    /// adapter, same split as <see cref="BuildMirrorMode"/>. Wired in
-    /// <see cref="GarageController.EnsureBuildModeWired"/>.
-    /// </para>
-    /// <para>
-    /// Replaces the session-125 middle-click instance-edit, which the player
-    /// found fiddly. Middle-click reverts to a plain eyedropper (copy a
-    /// block's type + settings onto the next placement); editing an existing
-    /// block is now an explicit, discoverable mode behind this button.
-    /// </para>
-    /// <para>
-    /// Cursor flow (session 138 round 3): tune mode itself keeps the
-    /// locked-cursor reticle — the player AIMS at a glowing part exactly
-    /// like placement. Binding a part frees the cursor for the sliders
-    /// (<see cref="Robogame.Player.BuildFreeCam.ExternalCursorHold"/>,
-    /// driven by <see cref="BlockEditor"/> off the session's bind event);
-    /// deselecting re-locks. Escape is a ladder: bound part → deselect;
-    /// tune mode → exit; then <see cref="PauseMenuHud"/> opens.
-    /// </para>
+    /// Thin adapter in the <see cref="BuildEditMode"/> mold: state + a
+    /// clickable HUD button + a <c>V</c> hotkey; the pick/drop behaviour
+    /// lives in <see cref="BlockEditor"/>, which reads
+    /// <see cref="Enabled"/> each frame. Mutually exclusive with tune
+    /// mode — both claim the left click, so enabling one disables the
+    /// other. Wired in <see cref="GarageController"/>.
     /// </remarks>
     [DisallowMultipleComponent]
-    public sealed class BuildEditMode : MonoBehaviour
+    public sealed class BuildMoveMode : MonoBehaviour
     {
         [SerializeField] private BuildModeController _buildMode;
-        [Tooltip("Hotkey that toggles Tune-part mode while build mode is active. " +
-                 "T, not E — E is the free-cam's fly-up key, so the old E binding " +
-                 "jolted the camera on every toggle.")]
-        [SerializeField] private Key _toggleKey = Key.T;
+        [Tooltip("Hotkey that toggles Move-part mode while build mode is active.")]
+        [SerializeField] private Key _toggleKey = Key.V;
 
         public bool Enabled { get; private set; }
 
-        /// <summary>Raised whenever <see cref="Enabled"/> changes (button label + editor react).</summary>
+        /// <summary>Raised whenever <see cref="Enabled"/> changes.</summary>
         public event Action<bool> Changed;
 
         private GameObject _hudRoot;
@@ -77,18 +61,11 @@ namespace Robogame.Gameplay
             Enabled = enabled;
             if (enabled)
             {
-                // Exclusive with move mode — both interpret the left click
-                // (session 169).
-                BuildMoveMode move = FindAnyObjectByType<BuildMoveMode>();
-                if (move != null && move.Enabled) move.SetEnabled(false);
+                // Exclusive with tune mode — both interpret the left click.
+                BuildEditMode tune = FindAnyObjectByType<BuildEditMode>();
+                if (tune != null && tune.Enabled) tune.SetEnabled(false);
             }
             UpdateButtonVisual();
-            // Cursor policy lives in BlockEditor.HandleEditingInstanceChanged:
-            // the reticle stays locked while aiming in tune mode; the cursor
-            // frees only while a part is bound (session 138 round 3).
-            // Mode flips read better with an ear cue — one place for it so
-            // the T key, the HUD button, and the Escape back-out all sound
-            // the same.
             AudioRouter.PlayUI(enabled ? AudioCue.UiClick : AudioCue.UiBack);
             Changed?.Invoke(Enabled);
         }
@@ -119,8 +96,6 @@ namespace Robogame.Gameplay
             _subscribed = false;
         }
 
-        // Leaving build mode always drops edit mode so re-entering starts in
-        // plain placement.
         private void HandleBuildExited()
         {
             SetEnabled(false);
@@ -130,9 +105,6 @@ namespace Robogame.Gameplay
         private void Update()
         {
             if (_buildMode == null || !_buildMode.IsActive) return;
-            // Don't eat the keystroke while a text field is focused. Text
-            // fields ONLY — the old any-selection check left T dead after
-            // every button/slider click, because UGUI selection persists.
             bool typing = UguiNav.IsTextInputFocused();
             Keyboard kb = Keyboard.current;
             if (kb != null && !typing && kb[_toggleKey].wasPressedThisFrame) Toggle();
@@ -147,43 +119,39 @@ namespace Robogame.Gameplay
         private void UpdateButtonVisual()
         {
             if (_buttonText != null)
-                _buttonText.text = Enabled ? "Tuning Mode: on   [T]" : "Tuning Mode   [T]";
+                _buttonText.text = Enabled ? "Move Part: on   [V]" : "Move Part   [V]";
             if (_buttonImage != null)
                 _buttonImage.color = Enabled ? UguiPalette.Accent : UguiPalette.ButtonIdle;
-            // Cream text on the accent (on) state, ink on the cream idle
-            // button — white-on-cream was unreadable.
             if (_buttonText != null)
                 _buttonText.color = Enabled ? UguiPalette.CreamText : UguiPalette.Ink;
-            // The how-to hint only earns its pixels while the mode is on.
             if (_hintRoot != null) _hintRoot.SetActive(Enabled);
         }
 
         // -----------------------------------------------------------------
-        // HUD — clickable button, top-centre under the mirror banner.
+        // HUD — clickable button under the Tuning Mode button.
         // -----------------------------------------------------------------
 
         private void BuildHud()
         {
-            _hudRoot = new GameObject("BuildEditModeHud");
+            _hudRoot = new GameObject("BuildMoveModeHud");
             _hudRoot.transform.SetParent(transform, worldPositionStays: false);
             var canvas = _hudRoot.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.sortingOrder = 95;
-            // Match the Settings/Pause scaling so the HUD isn't tiny above 1080p.
             var scaler = _hudRoot.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             scaler.matchWidthOrHeight = 0.5f;
             _hudRoot.AddComponent<GraphicRaycaster>();
 
-            var go = NewChild("EditButton", _hudRoot.transform);
+            var go = NewChild("MoveButton", _hudRoot.transform);
             var rt = go.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0.5f, 1f);
             rt.anchorMax = new Vector2(0.5f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
             rt.sizeDelta = new Vector2(200f, 30f);
-            // Sits just below the mirror banner (that panel is 32 high at -12).
-            rt.anchoredPosition = new Vector2(0f, -50f);
+            // Under the Tuning Mode button (that one sits at -50, 30 high).
+            rt.anchoredPosition = new Vector2(0f, -86f);
             _buttonImage = go.AddComponent<Image>();
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = _buttonImage;
@@ -191,18 +159,15 @@ namespace Robogame.Gameplay
 
             _buttonText = AddText(go.transform);
 
-            // One-line how-to under the button, shown only while tuning:
-            // the mode is useless if the player doesn't know the next click
-            // is a selection, not a placement.
-            _hintRoot = NewChild("TuneHint", _hudRoot.transform);
+            // How-to line, shown only while the mode is on. Shares the
+            // -122 hint slot with tune mode's hint — the modes are
+            // mutually exclusive, so only one hint is ever visible.
+            _hintRoot = NewChild("MoveHint", _hudRoot.transform);
             var hrt = _hintRoot.GetComponent<RectTransform>();
             hrt.anchorMin = new Vector2(0.5f, 1f);
             hrt.anchorMax = new Vector2(0.5f, 1f);
             hrt.pivot = new Vector2(0.5f, 1f);
             hrt.sizeDelta = new Vector2(660f, 22f);
-            // -122, not -82: the Move Part button (session 169) occupies
-            // the -86 slot; both modes' hints share the -122 line (they
-            // are mutually exclusive, so only one shows at a time).
             hrt.anchoredPosition = new Vector2(0f, -122f);
             var hintBg = _hintRoot.AddComponent<Image>();
             hintBg.color = UguiPalette.Backdrop;
@@ -210,12 +175,9 @@ namespace Robogame.Gameplay
             _hintText = AddText(_hintRoot.transform);
             _hintText.fontSize = 12;
             _hintText.fontStyle = FontStyle.Normal;
-            // Ink on the light Backdrop — CreamText here was cream-on-cream
-            // (live screenshot, session 138); TipStrip pairs the same
-            // Backdrop with dark Text.
             _hintText.color = UguiPalette.Text;
             _hintText.raycastTarget = false;
-            _hintText.text = "Aim at a glowing part and click to tune  •  right-click deselects  •  T exits";
+            _hintText.text = "Click a part to pick it up (settings kept)  •  click a face to drop  •  right-click cancels  •  V exits";
             _hintRoot.SetActive(false);
         }
 

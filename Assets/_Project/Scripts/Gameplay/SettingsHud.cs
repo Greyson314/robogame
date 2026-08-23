@@ -297,8 +297,13 @@ namespace Robogame.Gameplay
             scroll.content = contentRT;
 
             _content = contentGO;
-            BuildActionRows();
-            BuildPerfBisectSection();
+            // TRACE[INV-1]: dev action buttons + perf-bisect toggles are dev
+            // surfaces — hidden from players in shipping builds (169).
+            if (Tweakables.DevSurfacesVisible)
+            {
+                BuildActionRows();
+                BuildPerfBisectSection();
+            }
             BuildTweakRows();
             BuildKeybindsSection();
         }
@@ -522,6 +527,9 @@ namespace Robogame.Gameplay
             GroupSection currentSection = null;
             foreach (Tweakables.Spec spec in Tweakables.All)
             {
+                // TRACE[INV-1]: dev-surface groups (Water / Rope / Stress)
+                // never render for players in shipping builds.
+                if (!Tweakables.IsPlayerFacing(spec) && !Tweakables.DevSurfacesVisible) continue;
                 if (spec.Group != lastGroup)
                 {
                     currentSection = AddFoldoutGroupHeader(spec.Group);
@@ -963,7 +971,19 @@ namespace Robogame.Gameplay
             AddKeybindRow(g, "Respawn player",           "K");
             AddKeybindRow(g, "Begin combat (warmup → live)", "`  (backtick)");
             AddKeybindRow(g, "Toggle settings",          "Esc");
-            AddKeybindRow(g, "Toggle dev HUD",           "F1");
+            if (Tweakables.DevSurfacesVisible)
+                AddKeybindRow(g, "Toggle dev HUD",       "F1");
+
+            // Build-mode keys were previously undocumented anywhere in the
+            // game (R = rotate had NO on-screen hint at all) — 169.
+            AddKeybindRow(g, "Build: place / remove",        "Mouse 1 / Mouse 2");
+            AddKeybindRow(g, "Build: rotate before placing", "R");
+            AddKeybindRow(g, "Build: copy block settings",   "Mouse 3");
+            AddKeybindRow(g, "Build: tuning mode (re-tune a placed block)", "T");
+            AddKeybindRow(g, "Build: move mode (pick up + re-place)",       "V");
+            AddKeybindRow(g, "Build: mirror mode / mirror axis", "M / B");
+            AddKeybindRow(g, "Build: centers overlay (mass / lift / thrust)", "G");
+            AddKeybindRow(g, "Build: hotbar slots / category", "1–9, Q / E");
 
             g.Expanded = false;
             ApplyGroupExpansion(g);

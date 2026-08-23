@@ -83,6 +83,39 @@ namespace Robogame.Block
             _ => new Row(1f, 10f, 0f),
         };
 
+        /// <summary>
+        /// Unit label for the power axis, shown after the slider value.
+        /// "Power" means a different physical quantity per kind (see the
+        /// Row comments) — surfacing the unit is what keeps the shared
+        /// slider honest (169).
+        /// </summary>
+        public static string PowerUnit(ModuleKind kind) => kind switch
+        {
+            ModuleKind.Spring       => " N·s",
+            ModuleKind.EmpBurst     => " m",
+            ModuleKind.SpeedBurst   => " m/s",
+            ModuleKind.DiscShield   => " m",
+            ModuleKind.Smoke        => " m",
+            ModuleKind.Invisibility => " s",
+            ModuleKind.Mines        => " HP",
+            ModuleKind.Repair       => " HP",
+            _ => "",
+        };
+
+        /// <summary>One-line player-facing meaning of the power slider for a kind.</summary>
+        public static string PowerTip(ModuleKind kind) => kind switch
+        {
+            ModuleKind.Spring       => "Launch impulse (N·s): how hard the spring throws your bot. Stronger launch, longer cooldown.",
+            ModuleKind.EmpBurst     => "Lockout radius in metres — enemy weapons inside are disabled for 3 s. Bigger radius, longer cooldown.",
+            ModuleKind.SpeedBurst   => "Instant forward speed boost in m/s. Bigger burst, longer cooldown.",
+            ModuleKind.DiscShield   => "Shield dome radius in metres (10 s lifetime). Bigger dome, longer cooldown.",
+            ModuleKind.Smoke        => "Smoke cloud radius in metres — bigger clouds also linger longer. Longer cooldown.",
+            ModuleKind.Invisibility => "Cloak duration in seconds. Longer cloak, longer cooldown.",
+            ModuleKind.Mines        => "Mine damage (HP) at the blast centre. Deadlier mines, longer cooldown.",
+            ModuleKind.Repair       => "HP restored to each of your blocks in range. Stronger heal, longer cooldown.",
+            _ => "Module strength.",
+        };
+
         /// <summary>Default power (slider centre / untuned value) for a kind.</summary>
         public static float DefaultPower(ModuleKind kind) => RowFor(kind).DefaultPower;
 

@@ -81,10 +81,24 @@ namespace Robogame.Gameplay
         public TuneFieldGroup Group = TuneFieldGroup.Primary;
         public string Label;
         public string Tip;
+        /// <summary>
+        /// Optional per-block-id tip — wins over <see cref="Tip"/> when set.
+        /// For schemas that serve many ids with different semantics (the
+        /// module family's "Power" means metres / seconds / HP depending on
+        /// the kind), the tip must explain the id's actual unit (169).
+        /// </summary>
+        public System.Func<string, string> TipFor;
         /// <summary>Value-text number format ("F0" / "F1" / "F2").</summary>
         public string Format = "F2";
         /// <summary>Appended after the formatted value ("°").</summary>
         public string Suffix = "";
+        /// <summary>Optional per-block-id suffix — wins over <see cref="Suffix"/> when set.</summary>
+        public System.Func<string, string> SuffixFor;
+
+        public string ResolveTip(string blockId)
+            => TipFor != null && blockId != null ? TipFor(blockId) : Tip;
+        public string ResolveSuffix(string blockId)
+            => SuffixFor != null && blockId != null ? SuffixFor(blockId) : Suffix;
         public TuneTarget Target;
         public System.Func<string, float> Min;
         public System.Func<string, float> Max;
@@ -103,6 +117,8 @@ namespace Robogame.Gameplay
     public sealed class TunePreset
     {
         public string Label;
+        /// <summary>Hover tip explaining what the preset is for (labels like "Tail Stab" are jargon on their own — 169).</summary>
+        public string Tip;
         public (TuneTarget target, float value)[] Writes;
     }
 

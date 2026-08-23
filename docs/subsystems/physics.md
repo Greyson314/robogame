@@ -161,8 +161,26 @@ Consequences to design around: zero authority at zero airspeed (taxi on
 wheels / thrust, spawn planes with forward speed); static stability is
 the builder's problem (CoL behind CoM or the plane is twitchy — the
 CoM/CoL overlay shows it); thrust-offset moments are no longer masked
-by a hidden torque. `GroundDriveSubsystem` / `HoverDriveSubsystem` are
-grandfathered chassis-level drives pending the same migration.
+by a hidden torque. Control throw is per-foil since session 169: the
+variant panel's "Control Throw" slider rides `Entry.BlockConfig`
+(`FoilDefaults.ResolveControlThrow`, 0 = the shared 8° default).
+
+### 2.3 Ground / hover — per-block thrust, grandfathered assists (ADR-0010, session 169)
+
+Drive thrust is per-block now: `GroundDriveSubsystem` splits the surge
+force across the GROUNDED wheels and applies it at each wheel's
+position; `HoverDriveSubsystem` splits it across the pads in ground
+effect at each pad's lift point. Symmetric layouts sum to the old CoM
+push; losing wheels/pads on one side skews the thrust centroid so the
+bot pulls under throttle — invariant #11's "losing parts costs
+control", now on the ground too. Still chassis-level and explicitly
+grandfathered (ADR-0010 rule 1): steer yaw torque, lateral grip,
+self-right + roll/pitch damping, jump, idle brake, speed caps, hover
+yaw. The per-wheel grip migration is its own future probe-gated pass —
+a previous attempt produced spurious roll torque (see the
+`WheelBlock` history note). Rotor throttle and pogo tilt read
+`RobotDrive.LastControl` (intent / raw axes) with a raw-`IInputSource`
+fallback for drive-less rigs; both go inert while hooked.
 
 ---
 

@@ -77,6 +77,12 @@ namespace Robogame.Movement
 
         private Rigidbody _rb;
         private Robogame.Input.IInputSource _input;
+        // TRACE[ADR-0009]: pogo tilt reads the raw Move axes carried on
+        // RobotDrive.LastControl (NOT DriveIntent — the Ground scheme
+        // zeroes pitch/roll intent, and extending it would deflect every
+        // ground bot's free foils on WASD; decided session 169). The raw
+        // IInputSource stays as fallback for drive-less rigs.
+        private RobotDrive _drive;
         private BlockBehaviour _bb;
         private PogoBounceArbiter _arbiter;
         private float _extension;
@@ -117,6 +123,7 @@ namespace Robogame.Movement
             // after block components exist, so an Awake-time lookup can miss
             // it (v2 bug class). Cheap null-guarded retry.
             if (_input == null) _input = GetComponentInParent<Robogame.Input.IInputSource>();
+            if (_drive == null) _drive = GetComponentInParent<RobotDrive>();
             if (_arbiter == null)
             {
                 _arbiter = _rb.gameObject.GetComponent<PogoBounceArbiter>();
@@ -200,11 +207,13 @@ namespace Robogame.Movement
             // Airborne: WASD tilts the chassis (pitch about right, roll
             // about forward). This is attitude control only — no lateral
             // force; travel comes from where the next bounce is aimed.
-            if (_input == null) return;
+            if (_drive == null && _input == null) return;
             Transform chassis = _rb.transform;
             Vector3 angVel = _rb.angularVelocity;
 
-            Vector2 move = _input.Move;
+            // Prefer the drive's per-tick snapshot (zeroes while hooked =
+            // no air-tilt on a hooked bot); raw source only for bare rigs.
+            Vector2 move = _drive != null ? _drive.LastControl.Move : _input.Move;
             if (move.sqrMagnitude > 0.01f)
             {
                 Vector3 tilt = (chassis.right * move.y - chassis.forward * move.x) * _tiltTorque;

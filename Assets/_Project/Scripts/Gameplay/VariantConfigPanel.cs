@@ -65,6 +65,7 @@ namespace Robogame.Gameplay
             public TuneField Field;
             public Slider Slider;
             public Text Value;
+            public HoverTip Hover; // "?" chip relay; retargeted per block id on refresh (169)
         }
 
         private sealed class SchemaSection
@@ -381,6 +382,7 @@ namespace Robogame.Gameplay
                 // module power per kind).
                 if (row.Field.Min != null) row.Slider.minValue = row.Field.Min(blockId);
                 if (row.Field.Max != null) row.Slider.maxValue = row.Field.Max(blockId);
+                if (row.Hover != null) row.Hover.Tip = row.Field.ResolveTip(blockId);
                 float v = row.Field.Resolve != null ? row.Field.Resolve(ctx) : 0f;
                 row.Slider.value = v;
                 UpdateFieldValueText(row, v);
@@ -420,7 +422,7 @@ namespace Robogame.Gameplay
         private void UpdateFieldValueText(FieldRow row, float v)
         {
             if (row.Value == null) return;
-            row.Value.text = v.ToString(row.Field.Format) + row.Field.Suffix;
+            row.Value.text = v.ToString(row.Field.Format) + row.Field.ResolveSuffix(_activeBlockId);
             if (row.Field.Warn != null)
                 row.Value.color = row.Field.Warn(v) ? s_warnValue : s_accent;
         }
@@ -614,7 +616,8 @@ namespace Robogame.Gameplay
             row.Slider = BuildLabeledSlider(parent, field.Label, slot,
                 min: 0f, max: 1f, def: 0f,
                 onChanged: v => OnSchemaFieldChanged(row, v), out row.Value,
-                tip: field.Tip);
+                tip: field.Tip ?? (field.TipFor != null ? string.Empty : null),
+                tipHover: out row.Hover);
             if (field.Kind == TuneFieldKind.IntSlider) row.Slider.wholeNumbers = true;
             return row;
         }
@@ -631,7 +634,7 @@ namespace Robogame.Gameplay
             for (int i = 0; i < presets.Length; i++)
             {
                 TunePreset p = presets[i];
-                AddPresetButton(row.transform, p.Label, i, () => ApplyPreset(p));
+                AddPresetButton(row.transform, p.Label, i, () => ApplyPreset(p), p.Tip);
             }
         }
 
@@ -821,7 +824,25 @@ namespace Robogame.Gameplay
                     _concoctionCpuReadout.text =
                         $"dmg ×{cc.DamageMultiplier:0.0}  size ×{cc.SizeMultiplier:0.0}  kb ×{cc.KnockbackMultiplier:0.0}  spd ×{cc.SpeedMultiplier:0.0}  spr ×{cc.SpreadMultiplier:0.0}  •  +{surcharge} CPU";
                 }
+                EnsureConcoctionReadoutTip();
             }
+        }
+
+        // The readout's abbreviations (dmg/size/kb/spd/spr) were never
+        // expanded anywhere in the game — hover the stat line for the
+        // legend (169). Idempotent: attaches the HoverTip once.
+        private void EnsureConcoctionReadoutTip()
+        {
+            if (_concoctionCpuReadout == null) return;
+            var hover = _concoctionCpuReadout.GetComponent<HoverTip>();
+            if (hover == null)
+            {
+                _concoctionCpuReadout.raycastTarget = true;
+                hover = _concoctionCpuReadout.gameObject.AddComponent<HoverTip>();
+                hover.Show = ShowTip;
+                hover.Hide = HideTip;
+            }
+            hover.Tip = "Multipliers vs the default shell — dmg: damage, size: blast size, kb: knockback, spd: projectile speed, spr: spread. CPU is the extra cost of this concoction.";
         }
 
         // Best-effort base CPU lookup for the readout (the live garage bar is
@@ -886,8 +907,9 @@ namespace Robogame.Gameplay
         // the shared bottom strip.
         private Slider BuildLabeledSlider(Transform parent, string label, int slot,
             float min, float max, float def, UnityEngine.Events.UnityAction<float> onChanged, out Text valueText,
-            string tip = null)
+            string tip, out HoverTip tipHover)
         {
+            tipHover = null;
             var row = NewChild($"Row_{label}", parent);
             var rt = row.GetComponent<RectTransform>();
             rt.anchorMin = new Vector2(0f, 1f);
@@ -902,7 +924,9 @@ namespace Robogame.Gameplay
                 anchorMin: new Vector2(0f, 0f), anchorMax: new Vector2(0f, 1f),
                 size: 14, style: FontStyle.Normal, anchor: TextAnchor.MiddleLeft, color: UguiPalette.Text);
 
-            if (!string.IsNullOrEmpty(tip))
+            // tip == null → no chip. tip == "" → chip whose text is filled
+            // later (per-block-id tips retargeted in RefreshSchemaSection).
+            if (tip != null)
             {
                 var tipGo = NewChild("TipChip", row.transform);
                 var tipRT = tipGo.GetComponent<RectTransform>();
@@ -923,6 +947,7 @@ namespace Robogame.Gameplay
                 hover.Tip = tip;
                 hover.Show = ShowTip;
                 hover.Hide = HideTip;
+                tipHover = hover;
             }
 
             valueText = AddText(row.transform, def.ToString("F2"), new Vector2(-8f, 0f), new Vector2(-8f, 0f),
@@ -987,7 +1012,7 @@ namespace Robogame.Gameplay
             return slider;
         }
 
-        private void AddPresetButton(Transform parent, string label, int index, System.Action onClick)
+        private void AddPresetButton(Transform parent, string label, int index, System.Action onClick, string tip = null)
         {
             // Buttons are evenly distributed across the row width using
             // anchor stretching. Index drives anchorMin/Max.x so a row of
@@ -1019,6 +1044,16 @@ namespace Robogame.Gameplay
             AddText(go.transform, label, Vector2.zero, Vector2.zero,
                 anchorMin: Vector2.zero, anchorMax: Vector2.one,
                 size: 12, style: FontStyle.Bold, anchor: TextAnchor.MiddleCenter, color: UguiPalette.Ink);
+
+            // Preset names are role jargon ("Tail Stab", "Vert Fin") — hover
+            // the whole button for the plain-language explanation (169).
+            if (!string.IsNullOrEmpty(tip))
+            {
+                var hover = go.AddComponent<HoverTip>();
+                hover.Tip = tip;
+                hover.Show = ShowTip;
+                hover.Hide = HideTip;
+            }
         }
 
         private static GameObject NewChild(string name, Transform parent)

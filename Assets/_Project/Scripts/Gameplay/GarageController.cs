@@ -54,6 +54,7 @@ namespace Robogame.Gameplay
         private LabController _lab;
         private BuildMirrorMode _mirrorMode;
         private BuildEditMode _editMode;
+        private BuildMoveMode _moveMode;
         private bool _concoctionLibrarySubscribed;
         private BlockGhostRenderer _ghostRenderer;
         private PlacementFeedbackHud _feedbackHud;
@@ -70,6 +71,8 @@ namespace Robogame.Gameplay
 
         /// <summary>The plain-C# build-mode model shared by every driver component.</summary>
         public BuildSession BuildSession => _buildSession;
+        /// <summary>Live block editor (null until build mode is wired). Escape ladder consults it for the move-carry rung (169).</summary>
+        public BlockEditor BlockEditor => _editor;
 
         private void OnEnable()
         {
@@ -367,6 +370,13 @@ namespace Robogame.Gameplay
             if (_editMode == null) _editMode = gameObject.AddComponent<BuildEditMode>();
             _editMode.BuildMode = _buildMode;
             _editor.EditMode = _editMode;
+
+            // Move-part toggle (button + V hotkey, session 169). Pick a
+            // placed block up with all its per-instance settings and
+            // re-place it atomically. Exclusive with tune mode.
+            if (_moveMode == null) _moveMode = gameObject.AddComponent<BuildMoveMode>();
+            _moveMode.BuildMode = _buildMode;
+            _editor.MoveMode = _moveMode;
 
             // Ghost preview + placement-error feedback are split out of
             // the editor so the editor's MonoBehaviour stays a thin

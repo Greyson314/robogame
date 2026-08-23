@@ -29,6 +29,14 @@ namespace Robogame.Block
         public const float MinRpm = 30f, MaxRpm = 600f;
 
         /// <summary>
+        /// Collective (blade pitch, degrees) when the blueprint entry's
+        /// Pitch is 0 ("use default"). Mirrors RotorBlock's authored
+        /// <c>_collectivePitchDeg</c>; single source for the variant
+        /// panel's sentinel display + readout (169).
+        /// </summary>
+        public const float DefaultCollectiveDeg = 8f;
+
+        /// <summary>
         /// RPM at which a rotor costs exactly its authored
         /// <see cref="BlockDefinition.CpuCost"/>. Equals
         /// <see cref="DefaultRpm"/> so an untouched rotor pays the

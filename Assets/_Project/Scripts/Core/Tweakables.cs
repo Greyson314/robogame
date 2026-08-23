@@ -181,12 +181,10 @@ namespace Robogame.Core
         // path doesn't exist).
         public const string DevOverrideChassisTuning   = "Dev.OverrideChassisTuning"; // 0/1 master toggle
 
-        public const string DevPlanePitchPower         = "Dev.Plane.PitchPower";
-        public const string DevPlaneRollPower          = "Dev.Plane.RollPower";
-        public const string DevPlaneYawFromBank        = "Dev.Plane.YawFromBank";
-        public const string DevPlanePitchDamping       = "Dev.Plane.PitchDamping";
-        public const string DevPlaneRollDamping        = "Dev.Plane.RollDamping";
-        public const string DevPlaneYawDamping         = "Dev.Plane.YawDamping";
+        // Dev.Plane.* sliders removed in session 169: PlaneControlSubsystem
+        // (their only consumer) was deleted by ADR-0009 in session 167, so
+        // they were dead knobs. Foil feel now tunes per-instance via the
+        // Control Throw slider in the variant panel.
 
         public const string DevGroundAcceleration      = "Dev.Ground.Acceleration";
         public const string DevGroundMaxSpeed          = "Dev.Ground.MaxSpeed";
@@ -252,6 +250,35 @@ namespace Robogame.Core
         {
             get { EnsureInitialized(); return _specs; }
         }
+
+        // TRACE[INV-1]: no Tweakable may affect gameplay outcomes for
+        // players. Only these groups are player-facing; every other group
+        // (Water / Rope / Stress / ...) is a dev surface that must not
+        // render in shipping builds. The Dev.* group is additionally
+        // compile-stripped above. Session 169.
+        private static readonly HashSet<string> s_playerGroups =
+            new HashSet<string> { "Audio", "QoL" };
+
+        /// <summary>
+        /// True when dev-only tweak surfaces (non-player groups, dev HUDs,
+        /// dev action buttons) may render: editor and development builds
+        /// only. Shipping builds hide them so players never see sliders
+        /// that would change gameplay outcomes (invariant #1).
+        /// </summary>
+        public static bool DevSurfacesVisible
+        {
+            get
+            {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+                return true;
+#else
+                return false;
+#endif
+            }
+        }
+
+        /// <summary>Player-facing specs render everywhere; the rest only when <see cref="DevSurfacesVisible"/>.</summary>
+        public static bool IsPlayerFacing(Spec s) => s_playerGroups.Contains(s.Group);
 
         // -----------------------------------------------------------------
         // Public API
@@ -423,16 +450,6 @@ namespace Robogame.Core
             // toggling on with sliders untouched preserves the old
             // per-machine feel for a sanity check. See DevTuningOverride.
             RegisterBool(DevOverrideChassisTuning, "Dev (Override Chassis Tuning)", "Master Enable", false);
-
-            Register(DevPlanePitchPower,    "Dev (Override Chassis Tuning)", "Plane: Pitch Power",   10.0f,  0f, 30f);
-            // Session-99 retune put the default at the prior max (30); bumped
-            // the upper bound to 50 so the slider still has headroom for
-            // further iteration above the new baseline.
-            Register(DevPlaneRollPower,     "Dev (Override Chassis Tuning)", "Plane: Roll Power",    30.0f,  0f, 50f);
-            Register(DevPlaneYawFromBank,   "Dev (Override Chassis Tuning)", "Plane: Yaw From Bank",  2.0f,  0f, 10f);
-            Register(DevPlanePitchDamping,  "Dev (Override Chassis Tuning)", "Plane: Pitch Damping",  3.5f,  0f, 15f);
-            Register(DevPlaneRollDamping,   "Dev (Override Chassis Tuning)", "Plane: Roll Damping",   0.8f,  0f, 15f);
-            Register(DevPlaneYawDamping,    "Dev (Override Chassis Tuning)", "Plane: Yaw Damping",    1.6f,  0f, 15f);
 
             Register(DevGroundAcceleration, "Dev (Override Chassis Tuning)", "Ground: Acceleration",  26.25f, 0f, 100f);
             Register(DevGroundMaxSpeed,     "Dev (Override Chassis Tuning)", "Ground: Max Speed",     13.5f,  0f, 60f);

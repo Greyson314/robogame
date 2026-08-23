@@ -145,7 +145,10 @@ namespace Robogame.Movement
         private float _controlRad;          // last applied deflection (rad)
         private float _controlVisualDeg;    // last deflection pushed to the mesh (deg)
         private Quaternion _wingBaseRot = Quaternion.identity; // ComputeWingPose rotation, pre-deflection
-        private const float ControlThrowRad = FoilDefaults.ControlThrowDeg * Mathf.Deg2Rad;
+        // Control throw is per-instance since 169: BlockBehaviour.ConfigValue
+        // carries the player's throw in degrees (0 sentinel = shared
+        // FoilDefaults.ControlThrowDeg). Resolved live in FixedUpdate — no
+        // cache, matching how RotorBlock reads its RPM config.
         private const float ControlVisualStepDeg = 0.25f; // don't re-pose the mesh for sub-quarter-degree changes
 
         /// <summary>True for tail fins / rudders. Set this BEFORE the first FixedUpdate (e.g. from a binder right after AddComponent).</summary>
@@ -423,7 +426,9 @@ namespace Robogame.Movement
                     Transform chassis = _forceTargetRb.transform;
                     Vector3 rLocal = chassis.InverseTransformPoint(worldPos) - _forceTargetRb.centerOfMass;
                     Vector3 liftLocal = chassis.InverseTransformDirection(liftAxis);
-                    controlRad = AeroControl.Deflection(intent, rLocal, liftLocal, ControlThrowRad);
+                    float throwRad = FoilDefaults.ResolveControlThrow(
+                        _block != null ? _block.ConfigValue : 0f) * Mathf.Deg2Rad;
+                    controlRad = AeroControl.Deflection(intent, rLocal, liftLocal, throwRad);
                 }
             }
             if (controlRad != _controlRad)

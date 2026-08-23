@@ -41,18 +41,9 @@ namespace Robogame.Block
         private static bool Active => Tweakables.GetBool(Tweakables.DevOverrideChassisTuning);
 #endif
 
-        public static void ApplyPlane(ref PlaneTuningConfig cfg)
-        {
-#if UNITY_EDITOR || DEVELOPMENT_BUILD
-            if (!Active) return;
-            cfg.PitchPower   = Tweakables.Get(Tweakables.DevPlanePitchPower);
-            cfg.RollPower    = Tweakables.Get(Tweakables.DevPlaneRollPower);
-            cfg.YawFromBank  = Tweakables.Get(Tweakables.DevPlaneYawFromBank);
-            cfg.PitchDamping = Tweakables.Get(Tweakables.DevPlanePitchDamping);
-            cfg.RollDamping  = Tweakables.Get(Tweakables.DevPlaneRollDamping);
-            cfg.YawDamping   = Tweakables.Get(Tweakables.DevPlaneYawDamping);
-#endif
-        }
+        // ApplyPlane deleted in session 169: orphaned since ADR-0009 removed
+        // PlaneControlSubsystem (session 167). PlaneTuningConfig itself stays
+        // on the blueprint for save round-trip only.
 
         public static void ApplyGround(ref GroundTuningConfig cfg)
         {

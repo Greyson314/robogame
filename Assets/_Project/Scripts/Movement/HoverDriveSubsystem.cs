@@ -286,7 +286,39 @@ namespace Robogame.Movement
                 Vector3 fwd = transform.forward;
                 fwd.y = 0f;
                 if (fwd.sqrMagnitude > 0.0001f) fwd.Normalize();
-                Body.AddForce(fwd * (control.Move.y * accel * carryMul), ForceMode.Acceleration);
+                // TRACE[INV-11]: thrust splits across the PAD SET and acts
+                // at each pad's lift point projected to CoM height (169,
+                // hover slice of the per-block migration). Same probe-pass
+                // findings as the ground drive: distributing over the
+                // per-frame in-contact subset makes the force centroid
+                // flicker on rough ground, and pad-height force points add
+                // a pitch couple the tuned presets never had. The rigid
+                // layout is the honest distribution — losing a pad still
+                // skews the centroid so the bot pulls under throttle — and
+                // the surrounding AnyBladeInContact gate keeps "no mid-air
+                // propulsion". Yaw + altitude stay chassis-level (trim
+                // state, not authority; see class doc).
+                Vector3 thrust = fwd * (control.Move.y * accel * carryMul);
+                int padCount = 0;
+                foreach (HoverBladeBlock b in _blades)
+                    if (b != null) padCount++;
+                if (padCount > 0)
+                {
+                    Vector3 com = Body.worldCenterOfMass;
+                    Vector3 chassisUp = transform.up;
+                    Vector3 perPad = thrust / padCount;
+                    foreach (HoverBladeBlock b in _blades)
+                    {
+                        if (b == null) continue;
+                        Vector3 p = b.WorldLiftPosition;
+                        p += chassisUp * Vector3.Dot(com - p, chassisUp);
+                        Body.AddForceAtPosition(perPad, p, ForceMode.Acceleration);
+                    }
+                }
+                else
+                {
+                    Body.AddForce(thrust, ForceMode.Acceleration);
+                }
 
                 Vector3 v = Body.linearVelocity;
                 Vector3 horiz = new Vector3(v.x, 0f, v.z);

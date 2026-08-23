@@ -219,6 +219,15 @@ namespace Robogame.Movement
         //
         // _aabbCenterShiftChassis is in cell units; multiply by CellSize to
         // get a world-metre delta before applying the chassis transform.
+        /// <summary>
+        /// World point the blade's lift acts at — the AABB centre of its
+        /// N×N footprint. Public since 169: HoverDriveSubsystem applies
+        /// per-pad thrust at the same point so thrust and lift can't
+        /// disagree about where the pad "is" (a mismatch would inject a
+        /// spurious pitch couple).
+        /// </summary>
+        public Vector3 WorldLiftPosition => GetLiftWorldPosition();
+
         private Vector3 GetLiftWorldPosition()
         {
             if (_grid == null) return transform.position;
