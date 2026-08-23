@@ -43,10 +43,23 @@ namespace Robogame.Movement
         /// </summary>
         public readonly float SpeedMultiplier;
 
+        /// <summary>
+        /// The pilot's six-DOF demand for this step, produced from
+        /// <see cref="Move"/> / <see cref="Vertical"/> through the chassis'
+        /// control scheme by <see cref="RobotDrive"/>. New consumers read
+        /// THIS, not the raw axes (ADR-0009); <see cref="Move"/> /
+        /// <see cref="Vertical"/> stay for the not-yet-migrated drives.
+        /// </summary>
+        public readonly DriveIntent Intent;
+
         public DriveControl(Vector2 move, float vertical, bool fireHeld, Vector3 aimPoint, float dt, float speedMultiplier = 1f)
+            : this(move, vertical, DriveIntent.Zero, fireHeld, aimPoint, dt, speedMultiplier) { }
+
+        public DriveControl(Vector2 move, float vertical, DriveIntent intent, bool fireHeld, Vector3 aimPoint, float dt, float speedMultiplier = 1f)
         {
             Move = move;
             Vertical = vertical;
+            Intent = intent;
             FireHeld = fireHeld;
             AimPoint = aimPoint;
             DeltaTime = dt;

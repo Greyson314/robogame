@@ -107,6 +107,20 @@ defined ceilings. Crossing them is the trigger for chunking work or
 LOD work — not a "ship it and hope." See
 [subsystems/terraforming.md § 7](subsystems/terraforming.md).
 
+## 11. Movement authority derives from block geometry
+
+The size **and position** of parts must change how a bot performs, and
+damage must cost control. A placed block applies its own force at its
+own position (`ThrusterBlock`, `RudderBlock`, `GyroBlock`, foil control
+surfaces via `AeroControl`); keys are interpreted once, by the chassis
+`ControlScheme`, into a `DriveIntent` that blocks serve. No chassis-level
+torque or force may be added "because a block of type X exists
+somewhere" — that is layout-blind by construction, and it is exactly
+what made a shot-off wing a no-op. The remaining chassis-level drives
+(`GroundDriveSubsystem`, `HoverDriveSubsystem`) are grandfathered until
+their per-block migration; do not add new ones. See
+[decisions/0009](decisions/0009-movement-authority-from-block-geometry.md).
+
 ---
 
 ## How to change one of these

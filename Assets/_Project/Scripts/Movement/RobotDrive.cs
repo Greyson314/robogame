@@ -54,7 +54,46 @@ namespace Robogame.Movement
         /// asmdef edge; Movement must NOT reach Robot (Robots → Movement),
         /// so the blueprint rides RobotDrive, not Robot, for subsystems.
         /// </summary>
-        public ChassisBlueprint Blueprint { get; set; }
+        private ChassisBlueprint _blueprint;
+        public ChassisBlueprint Blueprint
+        {
+            get => _blueprint;
+            set { _blueprint = value; _schemeResolved = false; }
+        }
+
+        // TRACE[ADR-0009]: the control scheme is resolved ONCE per chassis
+        // from the frozen blueprint (explicit override or composition) and
+        // turns the raw axes into a DriveIntent every tick. Set by
+        // ChassisAssembler (definition-aware); lazily id-resolved otherwise.
+        private ControlScheme _scheme = ControlScheme.Auto;
+        private bool _schemeResolved;
+
+        /// <summary>Concrete control scheme in force for this chassis (never Auto once resolved).</summary>
+        public ControlScheme Scheme
+        {
+            get
+            {
+                if (!_schemeResolved || _scheme == ControlScheme.Auto)
+                {
+                    _scheme = ControlSchemes.ResolveFromIds(_blueprint);
+                    _schemeResolved = true;
+                }
+                return _scheme;
+            }
+            set
+            {
+                _scheme = value == ControlScheme.Auto ? ControlSchemes.ResolveFromIds(_blueprint) : value;
+                _schemeResolved = true;
+            }
+        }
+
+        /// <summary>
+        /// The control snapshot from the most recent <see cref="ApplyMovement"/>,
+        /// for consumers that are not <see cref="IDriveSubsystem"/>s (passive
+        /// aero surfaces serving pitch/roll/yaw demands). Zero intent while
+        /// hooked or before the first tick.
+        /// </summary>
+        public DriveControl LastControl { get; private set; }
 
         private Vector3 CenterOfMassOffset => _tuning != null ? _tuning.CenterOfMassOffset : _centerOfMassOffset;
         private float LinearDamping  => Blueprint != null ? Blueprint.ChassisDamping.LinearDamping  : _linearDamping;
@@ -280,15 +319,21 @@ namespace Robogame.Movement
             // subsystems skip their tick — no thrust, no yaw, no ground
             // drive, no hover thrust. The chassis Rigidbody remains
             // dynamic so the grapple joint can pull it around physically.
-            if (IsHooked) return;
+            if (IsHooked)
+            {
+                LastControl = new DriveControl(Vector2.zero, 0f, DriveIntent.Zero, false, _aimPoint, deltaTime, CarrySpeedMultiplier);
+                return;
+            }
 
             DriveControl control = new DriveControl(
                 move,
                 vertical,
+                DriveIntent.FromScheme(Scheme, move, vertical),
                 _input != null && _input.FireHeld,
                 _aimPoint,
                 deltaTime,
                 CarrySpeedMultiplier);
+            LastControl = control;
 
             for (int i = 0; i < _subs.Count; i++)
             {

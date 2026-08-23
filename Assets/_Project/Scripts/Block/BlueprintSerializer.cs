@@ -99,7 +99,9 @@ namespace Robogame.Block
     /// </remarks>
     public static class BlueprintSerializer
     {
-        public const int CurrentSchemaVersion = 9;
+        // v10 (session 167): controlScheme string (ADR-0009). Absent in
+        // v1–v9 JSON → Enum default Auto, behaviour-identical for old saves.
+        public const int CurrentSchemaVersion = 10;
 
         // -----------------------------------------------------------------
         // DTOs (private — JsonUtility needs concrete [Serializable] types)
@@ -113,6 +115,8 @@ namespace Robogame.Block
             public string kind;
             public string createdUtc;
             public bool rotorsGenerateLift;
+            // v10: key→intent scheme override ("Auto" | "Ground" | "Plane" | "Helicopter").
+            public string controlScheme;
             // v4: server-authoritative chassis-level drive tuning. Nested
             // [Serializable] classes; absent in v1–v3 JSON and coalesced
             // to defaults on load (TryFromJson).
@@ -202,6 +206,7 @@ namespace Robogame.Block
                 kind = blueprint.Kind.ToString(),
                 createdUtc = DateTime.UtcNow.ToString("o"),
                 rotorsGenerateLift = blueprint.RotorsGenerateLift,
+                controlScheme = blueprint.ControlScheme.ToString(),
                 planeTuning = blueprint.PlaneTuning,
                 groundTuning = blueprint.GroundTuning,
                 chassisDamping = blueprint.ChassisDamping,
@@ -289,6 +294,12 @@ namespace Robogame.Block
             bp.DisplayName = string.IsNullOrEmpty(dto.displayName) ? "Untitled" : dto.displayName;
             bp.Kind = kind;
             bp.RotorsGenerateLift = dto.rotorsGenerateLift;
+            // v10 controlScheme; absent or unparsable → Auto (composition-derived).
+            if (!string.IsNullOrEmpty(dto.controlScheme)
+                && Enum.TryParse(dto.controlScheme, ignoreCase: true, out ControlScheme scheme))
+            {
+                bp.ControlScheme = scheme;
+            }
             // v5's activeModuleKind is intentionally ignored — modules are now
             // per-block (the block ids in `entries` self-describe the ability).
             // v1–v3 saves have no tuning objects; JsonUtility leaves the

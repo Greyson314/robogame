@@ -87,7 +87,7 @@ namespace Robogame.Block
 
         [Tooltip("Chassis-level drive subsystem this block implies. ChassisAssembler " +
                  "unions the needs over the blueprint: Ground -> GroundDriveSubsystem, " +
-                 "Flight -> PlaneControlSubsystem, Hover -> HoverDriveSubsystem. " +
+                 "Flight -> aero control surfaces via the Plane control scheme (ADR-0009), Hover -> HoverDriveSubsystem. " +
                  "None for blocks with purely per-block behaviour (thruster, rudder). " +
                  "ADR-0008.")]
         [SerializeField] private DriveNeed _driveNeed = DriveNeed.None;

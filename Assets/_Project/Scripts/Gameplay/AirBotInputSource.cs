@@ -18,7 +18,7 @@ namespace Robogame.Gameplay
     /// activates it, so <see cref="Robogame.Player.PlayerController.Awake"/>'s
     /// <c>GetComponent&lt;IInputSource&gt;</c> resolves it without any
     /// special wiring. The inputs are read by the same drive subsystems
-    /// (<see cref="PlaneControlSubsystem"/>) the human pilots — so the
+    /// (the Plane control scheme → foil control surfaces, ADR-0009) the human pilots — so the
     /// MP-readiness rule of "AI feeds inputs, not state" holds.
     /// </para>
     /// <para>

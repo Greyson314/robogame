@@ -58,15 +58,15 @@ Layer y=1:
   0   .  .  . 
  -1   .  .  . 
  -2   .  #  . 
- -3   .  T  . 
+ -3   .  .  . 
 
 Layer y=0:
       -1  0  1
   3   .  #  . 
   2   .  #  . 
   1   A  #  A 
-  0   A  C  A 
- -1   .  #  . 
+  0   .  C  . 
+ -1   A  #  A 
  -2   A  #  A 
  -3   .  #  . 
 
@@ -78,7 +78,7 @@ Layer y=-1:
   0   .  .  . 
  -1   .  .  . 
  -2   .  |  . 
- -3   .  .  . 
+ -3   .  T  . 
 
 Layer y=-2:
       -1  0  1
@@ -164,15 +164,15 @@ Layer y=1:
   0   .  .  . 
  -1   .  .  . 
  -2   .  #  . 
- -3   .  T  . 
+ -3   .  .  . 
 
 Layer y=0:
       -1  0  1
   3   .  #  . 
   2   .  #  . 
   1   A  #  A 
-  0   A  C  A 
- -1   .  #  . 
+  0   .  C  . 
+ -1   A  #  A 
  -2   A  #  A 
  -3   .  #  . 
 
@@ -184,7 +184,7 @@ Layer y=-1:
   0   .  B  . 
  -1   .  .  . 
  -2   .  .  . 
- -3   .  .  . 
+ -3   .  T  . 
 
 Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
 ```
@@ -194,7 +194,7 @@ Validation: OK
 ## Prop Plane
 
 ```
-Blueprint 'Prop Plane' (Plane, 21 cells)
+Blueprint 'Prop Plane' (Plane, 19 cells)
 RotorsGenerateLift: True
 Bounds: x[-1..1] y[-1..2] z[-2..5]
 
@@ -227,7 +227,7 @@ Layer y=0:
   3   .  #  . 
   2   .  #  . 
   1   A  #  A 
-  0   A  C  A 
+  0   .  C  . 
  -1   .  #  . 
  -2   A  #  A 
 

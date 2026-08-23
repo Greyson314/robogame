@@ -205,8 +205,13 @@ namespace Robogame.Block
                  "supports per-cell config.")]
         [SerializeField] private bool _rotorsGenerateLift = false;
 
-        [Tooltip("Server-authoritative chassis-level plane control tuning. " +
-                 "Migrated off the per-machine Plane.* Tweakables.")]
+        [Tooltip("Key → intent mapping for this chassis. Auto derives it from the block " +
+                 "composition at spawn (lift rotor → Helicopter, thrust + wings → Plane, " +
+                 "else Ground); set explicitly to override for hybrids. ADR-0009.")]
+        [SerializeField] private ControlScheme _controlScheme = ControlScheme.Auto;
+
+        [Tooltip("LEGACY (session 167): the chassis-level PlaneControlSubsystem that read " +
+                 "this is retired (ADR-0009); kept so existing saves round-trip unchanged.")]
         [SerializeField] private PlaneTuningConfig _planeTuning = new();
 
         [Tooltip("Server-authoritative chassis-level ground drive tuning. " +
@@ -253,6 +258,25 @@ namespace Robogame.Block
         {
             get => _rotorsGenerateLift;
             set => _rotorsGenerateLift = value;
+        }
+
+        /// <summary>
+        /// Key → intent mapping. <see cref="ControlScheme.Auto"/> (default)
+        /// derives the scheme from composition at spawn via
+        /// <see cref="ControlSchemes.Resolve"/>; anything else is an
+        /// explicit per-blueprint override. Persisted (JSON + blob) and
+        /// frozen at match start. A change is a saveable edit, so it bumps
+        /// <see cref="Revision"/>.
+        /// </summary>
+        public ControlScheme ControlScheme
+        {
+            get => _controlScheme;
+            set
+            {
+                if (_controlScheme == value) return;
+                _controlScheme = value;
+                Revision++;
+            }
         }
 
         /// <summary>

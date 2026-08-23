@@ -272,8 +272,16 @@ namespace Robogame.Gameplay
                     EnsureComponent<RobotModuleBinder>(root);
                     if (hasModule) EnsureComponent<ModuleSystem>(root);
 
-                    if (hasAero || blueprint.Kind == ChassisKind.Plane)
-                        EnsureComponent<PlaneControlSubsystem>(root);
+                    // TRACE[ADR-0009]: no chassis-level plane controller any
+                    // more. Pitch / roll / yaw come from the foils' own
+                    // control-surface deflection (AeroSurfaceBlock +
+                    // AeroControl), keyed off the Plane control scheme that
+                    // RobotDrive resolves from this blueprint. Authority now
+                    // depends on where the wings are and how big they are.
+                    // Definition-aware scheme resolution (ADR-0008 flags for
+                    // wheels / hover / aero; thrust axes off the entries).
+                    EnsureComponent<RobotDrive>(root).Scheme =
+                        ControlSchemes.Resolve(blueprint, hasWheels, hasHovers, hasAero);
 
                     if (hasWeapon)
                         EnsureWeaponMountAndBinder(root);

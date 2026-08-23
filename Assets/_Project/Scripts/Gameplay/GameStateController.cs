@@ -398,6 +398,7 @@ namespace Robogame.Gameplay
             // on every spawn, leaving rotors cosmetic. Add new flags
             // here when ChassisBlueprint grows them.
             clone.RotorsGenerateLift = source.RotorsGenerateLift;
+            clone.ControlScheme = source.ControlScheme;
 
             // Server-authoritative tuning configs must round-trip too —
             // every CurrentBlueprint assignment funnels through this clone,

@@ -15,6 +15,7 @@ MonoBehaviour:
   _displayName: Tank
   _kind: 0
   _rotorsGenerateLift: 0
+  _controlScheme: 0
   _planeTuning:
     PitchPower: 10
     RollPower: 30

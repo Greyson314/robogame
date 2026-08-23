@@ -213,8 +213,8 @@ Reading input in `Update`, applying force in `Update`: don't.
 This is what [PlayerController.FixedUpdate](Assets/_Project/Scripts/Player/PlayerController.cs#L35)
 already does and what every drive subsystem
 ([GroundDriveSubsystem](Assets/_Project/Scripts/Movement/GroundDriveSubsystem.cs),
-[PlaneControlSubsystem](Assets/_Project/Scripts/Movement/PlaneControlSubsystem.cs),
-`AeroSurfaceBlock`) follows. Don't break the pattern.
+[RudderBlock](Assets/_Project/Scripts/Movement/RudderBlock.cs),
+`AeroSurfaceBlock` reading `RobotDrive.LastControl`) follows. Don't break the pattern.
 
 Default Fixed Timestep is **0.02s (50Hz)**. Leave it. Lowering to
 0.01s doubles physics cost. If your wheels feel jittery, the fix is

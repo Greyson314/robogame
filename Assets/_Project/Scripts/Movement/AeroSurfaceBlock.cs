@@ -129,6 +129,18 @@ namespace Robogame.Movement
         // FixedUpdate, no per-frame conversion.
         private float _pitchRad;
 
+        // TRACE[ADR-0009]: control-surface path. A free (non-rotor) foil reads
+        // the chassis' last DriveIntent and deflects by AeroControl.Deflection
+        // — sign and share decided purely by where it sits relative to the
+        // CoM and which way its lift points. _drive is the chassis RobotDrive
+        // (null for rotor blades parented under the hub, and in bare tests).
+        private RobotDrive _drive;
+        private float _controlRad;          // last applied deflection (rad)
+        private float _controlVisualDeg;    // last deflection pushed to the mesh (deg)
+        private Quaternion _wingBaseRot = Quaternion.identity; // ComputeWingPose rotation, pre-deflection
+        private const float ControlThrowRad = FoilDefaults.ControlThrowDeg * Mathf.Deg2Rad;
+        private const float ControlVisualStepDeg = 0.25f; // don't re-pose the mesh for sub-quarter-degree changes
+
         /// <summary>True for tail fins / rudders. Set this BEFORE the first FixedUpdate (e.g. from a binder right after AddComponent).</summary>
         public bool Vertical
         {
@@ -171,6 +183,9 @@ namespace Robogame.Movement
             RecomputePitch();
             ApplyOrientationToVisual();
             RecomputeAreaScale();
+            // Chassis drive for the control-surface path. Rotor blades live
+            // under the hub at scene root and resolve null → no surfaces.
+            _drive = GetComponentInParent<RobotDrive>();
 
             // If a rotor builder already injected an explicit force
             // target via ConfigureRotorMode, don't clobber it here.
@@ -380,7 +395,28 @@ namespace Robogame.Movement
             // the foil a built-in AoA without the player having to fake
             // it via mounting tilt.
             float airflowAoa = forward > 0.05f ? Mathf.Atan2(-crossVel, forward) : 0f;
-            float aoa = airflowAoa + _pitchRad;
+            // Control-surface deflection (ADR-0009). Free foils only: a
+            // rotor blade's hub spin is not a pilot demand. The chassis
+            // frame is the force target's transform; r is measured from the
+            // live CoM so a shot-off wing re-roles every survivor at once.
+            float controlRad = 0f;
+            if (!_rotorMode && _drive != null)
+            {
+                DriveIntent intent = _drive.LastControl.Intent;
+                if (intent.HasRotation)
+                {
+                    Transform chassis = _forceTargetRb.transform;
+                    Vector3 rLocal = chassis.InverseTransformPoint(worldPos) - _forceTargetRb.centerOfMass;
+                    Vector3 liftLocal = chassis.InverseTransformDirection(liftAxis);
+                    controlRad = AeroControl.Deflection(intent, rLocal, liftLocal, ControlThrowRad);
+                }
+            }
+            if (controlRad != _controlRad)
+            {
+                _controlRad = controlRad;
+                ApplyControlVisual(controlRad);
+            }
+            float aoa = airflowAoa + _pitchRad + controlRad;
             float aoaClamped = Mathf.Clamp(aoa, -_stallAoA, _stallAoA);
             // Soft stall: past the stall angle, retain only postStallLift × cap.
             float stallFalloff = Mathf.Abs(aoa) > _stallAoA
@@ -679,8 +715,26 @@ namespace Robogame.Movement
             ComputeWingPose(gridPos, span, pitchDeg, teeterDeg, _rotorMode,
                 out Vector3 pos, out Quaternion rot);
             _wingMesh.localPosition = pos;
-            _wingMesh.localRotation = rot;
+            // Control deflection rides on top of the authored pose about the
+            // same feather axis ComputeWingPose used (span axis, local +Y).
+            _wingBaseRot = rot;
+            _wingMesh.localRotation = rot * Quaternion.AngleAxis(_controlVisualDeg, Vector3.up);
             SyncWingModel();
+        }
+
+        // Visual half of the control-surface path: tilt the wing mesh by the
+        // live deflection so the pilot sees the elevator / aileron move. No
+        // allocation; the mesh is only re-posed when the deflection moved by
+        // more than a quarter degree. Anchors at the cell centre rather than
+        // re-running the attachment-face anchor math — at ≤10° the offset is
+        // cosmetic and this keeps the per-tick cost to one quaternion.
+        private void ApplyControlVisual(float controlRad)
+        {
+            if (_wingMesh == null) return;
+            float deg = controlRad * Mathf.Rad2Deg;
+            if (Mathf.Abs(deg - _controlVisualDeg) < ControlVisualStepDeg) return;
+            _controlVisualDeg = deg;
+            _wingMesh.localRotation = _wingBaseRot * Quaternion.AngleAxis(deg, Vector3.up);
         }
     }
 }

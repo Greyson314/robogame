@@ -209,15 +209,18 @@ These are real items the next session should be aware of. None block
 shipping the current branch; flagged so they don't decay into
 "why is this broken".
 
-- **Aircraft pitch feel is a design call, measured but not changed
-  (session 166).** Thrust-offset nose-down moment (preset thruster 1.2 m
-  above COM), aero damping 3–4× the explicit `PitchDamping`, and the 0.3
-  inertia-authority floor together make any user-scale plane pitch at
-  ~17°/s max. Options on the table: rate-command control, arcade thrust
-  trim, re-anchored floor. See
-  [166-aircraft-pitch-pogo-save-pass.md](166-aircraft-pitch-pogo-save-pass.md).
-  Related: heli Space = collective AND pitch-up torque; rotor throttle
-  spawns at 1.0 so W is inert on a fresh prop — a control-scheme pass.
+- **Per-block movement migration is half done (ADR-0009, session 167).**
+  Aero is on the new model (intent layer + foil control surfaces,
+  `PlaneControlSubsystem` deleted). Still to migrate under invariant #11:
+  `GroundDriveSubsystem` / `HoverDriveSubsystem` (per-wheel / per-pad
+  actuation), rotor cyclic for helis (W/S on the Helicopter scheme
+  currently drives nothing), `RotorBlock` / `PogoBlock` reading raw input
+  instead of `DriveIntent`. Also open: a garage dropdown for the
+  `ControlScheme` override, per-foil control-throw slider, AirBot gains
+  unverified on foil control (no air bot in the default arena config),
+  rotor throttle spawning at 1.0 (W inert on a fresh prop). Baseline
+  numbers in [166](166-aircraft-pitch-pogo-save-pass.md), landing in
+  [167](167-foil-control-surfaces.md).
 
 - **Per-rotor `RotorsGenerateLift` opt-in.**
   Today the flag is auto-derived chassis-wide whenever any rotor is

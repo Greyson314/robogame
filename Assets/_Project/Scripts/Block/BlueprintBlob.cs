@@ -72,6 +72,10 @@ namespace Robogame.Block
         private const ushort NoConcoctionIndex = ushort.MaxValue;
 
         private const byte FlagRotorsGenerateLift = 0x01;
+        // Bits 1–2 of the flags byte carry the ControlScheme override (ADR-0009,
+        // session 167). Previously always zero → older blobs decode as Auto.
+        private const int  SchemeShift = 1;
+        private const byte SchemeMask  = 0x03;
         private const int MaxIdByteLength = 255;   // string-table length prefix is one byte
 
         // -----------------------------------------------------------------
@@ -130,7 +134,8 @@ namespace Robogame.Block
 
             buffer[o++] = CurrentBlobVersion;
             buffer[o++] = (byte)blueprint.Kind;
-            buffer[o++] = blueprint.RotorsGenerateLift ? FlagRotorsGenerateLift : (byte)0;
+            buffer[o++] = (byte)((blueprint.RotorsGenerateLift ? FlagRotorsGenerateLift : (byte)0)
+                                 | (((byte)blueprint.ControlScheme & SchemeMask) << SchemeShift));
             WriteUShort(buffer, ref o, (ushort)entries.Length);
             WriteUShort(buffer, ref o, (ushort)table.Count);
 
@@ -292,6 +297,7 @@ namespace Robogame.Block
             ChassisBlueprint bp = ScriptableObject.CreateInstance<ChassisBlueprint>();
             bp.Kind = (ChassisKind)kindByte;
             bp.RotorsGenerateLift = (flags & FlagRotorsGenerateLift) != 0;
+            bp.ControlScheme = (ControlScheme)((flags >> SchemeShift) & SchemeMask);
             bp.PlaneTuning = plane;
             bp.GroundTuning = ground;
             bp.ChassisDamping = damping;

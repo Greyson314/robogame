@@ -24,6 +24,12 @@ namespace Robogame.Tools.Editor
     /// </remarks>
     public static class GameplayScaffolder
     {
+        // Tail-stab incidence (world degrees) shared by the four plane
+        // presets. Session 167 (ADR-0009): with pitch coming from the foils,
+        // the airframe must trim itself — -2.5° on the (3 × 0.9) tail
+        // cancels the belly thruster's nose-up moment around cruise.
+        private const float TailTrimDeg = -2.5f;
+
         private const string SoFolder = "Assets/_Project/ScriptableObjects";
         private const string BlueprintFolder = SoFolder + "/Blueprints";
         private const string LibraryAssetPath = SoFolder + "/BlockDefinitionLibrary.asset";
@@ -225,6 +231,7 @@ namespace Robogame.Tools.Editor
             //   - Tail rope+hook on -Y face of (0,0,-2).
             Vector3 wingDims  = new Vector3(4f, 0.08f, 0.9f);
             Vector3 stabDims  = new Vector3(2f, 0.08f, 0.7f);
+            Vector3 tailDims  = new Vector3(3f, 0.08f, 0.9f);
             Vector3 finDims   = new Vector3(2f, 0.08f, 0.9f);
             Vector3Int upRight = new Vector3Int( 1, 0, 0);
             Vector3Int upTop   = new Vector3Int( 0, 1, 0);
@@ -244,10 +251,15 @@ namespace Robogame.Tools.Editor
                 sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -1), backStep);
                 sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -2), backStep);
                 sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -3), backStep);
-                // Thruster on +Y face of the tail-end cube. up=+Y is the
-                // only orientation that gives ThrusterBlock the correct
-                // forward axis (chassis +Z) for push direction.
-                sb.Place(BlockIds.Thruster, new Vector3Int(0, 1, -3), upTop);
+                // Thruster on the -Y (belly) face of the tail-end cube.
+                // up=-Y also resolves ThrusterBlock's forward axis to
+                // chassis +Z (BlockGrid.OrientationFromUp keeps +Z for
+                // both ±Y mounts). Belly rather than top (session 167,
+                // ADR-0009): with no chassis-level pitch torque masking
+                // it, a thruster 1.2 m above the CoM nosed the plane over
+                // at ~1 rad/s hands-off; the belly mount halves the arm
+                // and flips it nose-up, which the tail trim cancels.
+                sb.Place(BlockIds.Thruster, new Vector3Int(0, -1, -3), upDown);
                 // Nose cannon (LOG-153, was SMG): a fixed-forward gun on a
                 // strafing airframe only gets brief facing windows —
                 // AirBotInputSource's 0.6 facing gate exists for exactly
@@ -256,9 +268,15 @@ namespace Robogame.Tools.Editor
                 sb.Place(BlockIds.Cannon, new Vector3Int(0, 1, 3), upTop);
                 // Main wings + canards + tail stabs — mirrored.
                 sb.MirrorX(b => b
-                    .Place(BlockIds.Aero, new Vector3Int(1, 0,  0), upRight, wingDims)
+                    // Session 167 (ADR-0009): main wing one cell AFT so the
+                    // centre of lift sits behind the CoM (statically stable
+                    // without a chassis torque), bigger tail stabs carrying
+                    // a -2.5° trim that cancels the belly thruster's nose-up
+                    // moment at ~35-40 m/s. Probed: hands-off = gentle
+                    // phugoid, Space ≈ 1.2 rad/s, A/D ≈ 2 rad/s.
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -1), upRight, wingDims)
                     .Place(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)
-                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, stabDims));
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, tailDims, TailTrimDeg));
                 // Vertical fin: riser cube on top of (0,0,-2), then the
                 // fin top-mounted on the riser.
                 sb.Place(BlockIds.Cube,    new Vector3Int(0, 1, -2), upTop);
@@ -285,6 +303,7 @@ namespace Robogame.Tools.Editor
             // future preset.)
             Vector3 wingDims  = new Vector3(4f, 0.08f, 0.9f);
             Vector3 stabDims  = new Vector3(2f, 0.08f, 0.7f);
+            Vector3 tailDims  = new Vector3(3f, 0.08f, 0.9f);
             Vector3 finDims   = new Vector3(2f, 0.08f, 0.9f);
             Vector3Int upRight = new Vector3Int( 1, 0, 0);
             Vector3Int upTop   = new Vector3Int( 0, 1, 0);
@@ -310,8 +329,12 @@ namespace Robogame.Tools.Editor
                 // tail cube. So we stack two thrusters at (0,1,-3) and
                 // (0,1,-1), hosted by spine cubes (0,0,-3) and (0,0,-1).
                 // Twice the forward thrust, no airframe restructure.
-                sb.Place(BlockIds.Thruster, new Vector3Int(0, 1, -3), upTop);
-                sb.Place(BlockIds.Thruster, new Vector3Int(0, 1, -1), upTop);
+                // Session 167 (ADR-0009): belly-mounted like the default
+                // Plane's thruster — up=-Y resolves forward to +Z too, and
+                // the shorter arm keeps the twin thrust from nosing the
+                // airframe over. (0,-1,-2) stays free for the magnet.
+                sb.Place(BlockIds.Thruster, new Vector3Int(0, -1, -3), new Vector3Int(0, -1, 0));
+                sb.Place(BlockIds.Thruster, new Vector3Int(0, -1, -1), new Vector3Int(0, -1, 0));
                 // Grapple magnet on the bottom-rear face of the tail-
                 // boom cube (0, 0, -2). Same mount as the default
                 // Plane's tail rope+hook, on purpose: apples-to-apples
@@ -325,9 +348,15 @@ namespace Robogame.Tools.Editor
                 // Same wing kit as the default plane: main wings on the
                 // CPU, canards forward, stabs back.
                 sb.MirrorX(b => b
-                    .Place(BlockIds.Aero, new Vector3Int(1, 0,  0), upRight, wingDims)
+                    // Session 167 (ADR-0009): main wing one cell AFT so the
+                    // centre of lift sits behind the CoM (statically stable
+                    // without a chassis torque), bigger tail stabs carrying
+                    // a -2.5° trim that cancels the belly thruster's nose-up
+                    // moment at ~35-40 m/s. Probed: hands-off = gentle
+                    // phugoid, Space ≈ 1.2 rad/s, A/D ≈ 2 rad/s.
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -1), upRight, wingDims)
                     .Place(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)
-                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, stabDims));
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, tailDims, TailTrimDeg));
                 // Vertical fin: riser cube on top of (0,0,-2), fin on top.
                 sb.Place(BlockIds.Cube,    new Vector3Int(0, 1, -2), upTop);
                 sb.Place(BlockIds.AeroFin, new Vector3Int(0, 2, -2), upTop, finDims);
@@ -396,6 +425,7 @@ namespace Robogame.Tools.Editor
             // resolves correctly — see plane's note on ThrusterBlock.
             Vector3 wingDims = new Vector3(5f, 0.08f, 1.0f);
             Vector3 stabDims = new Vector3(2f, 0.08f, 0.7f);
+            Vector3 tailDims = new Vector3(3f, 0.08f, 0.9f);
             Vector3 finDims  = new Vector3(2f, 0.08f, 0.9f);
             Vector3Int upRight = new Vector3Int( 1, 0, 0);
             Vector3Int upTop   = new Vector3Int( 0, 1, 0);
@@ -414,14 +444,21 @@ namespace Robogame.Tools.Editor
                 sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -1), backStep);
                 sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -2), backStep);
                 sb.Place(BlockIds.Cube, new Vector3Int(0, 0, -3), backStep);
-                sb.Place(BlockIds.Thruster, new Vector3Int(0, 1, -3), upTop);
+                // Belly thruster (session 167, ADR-0009) — see BuildPlanePlan.
+                sb.Place(BlockIds.Thruster, new Vector3Int(0, -1, -3), upDown);
                 // Bomb bay on CPU's -Y face.
                 sb.Place(BlockIds.BombBay, new Vector3Int(0, -1, 0), upDown);
                 // Wings + canards + tail stabs mirrored.
                 sb.MirrorX(b => b
-                    .Place(BlockIds.Aero, new Vector3Int(1, 0,  0), upRight, wingDims)
+                    // Session 167 (ADR-0009): main wing one cell AFT so the
+                    // centre of lift sits behind the CoM (statically stable
+                    // without a chassis torque), bigger tail stabs carrying
+                    // a -2.5° trim that cancels the belly thruster's nose-up
+                    // moment at ~35-40 m/s. Probed: hands-off = gentle
+                    // phugoid, Space ≈ 1.2 rad/s, A/D ≈ 2 rad/s.
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -1), upRight, wingDims)
                     .Place(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)
-                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, stabDims));
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, tailDims, TailTrimDeg));
                 // Vertical fin riser + fin.
                 sb.Place(BlockIds.Cube,    new Vector3Int(0, 1, -2), upTop);
                 sb.Place(BlockIds.AeroFin, new Vector3Int(0, 2, -2), upTop, finDims);
@@ -438,6 +475,7 @@ namespace Robogame.Tools.Editor
             // RotorsGenerateLift is set on the blueprint.
             Vector3 wingDims = new Vector3(4f, 0.08f, 0.9f);
             Vector3 stabDims = new Vector3(2f, 0.08f, 0.7f);
+            Vector3 tailDims = new Vector3(3f, 0.08f, 0.9f);
             Vector3 finDims  = new Vector3(2f, 0.08f, 0.9f);
             Vector3Int upRight = new Vector3Int( 1, 0, 0);
             Vector3Int upTop   = new Vector3Int( 0, 1, 0);
@@ -457,9 +495,16 @@ namespace Robogame.Tools.Editor
                 // belongs to the capybara (1x1x2 command cockpit).
                 sb.Place(BlockIds.Weapon, new Vector3Int(0, 1, 3), Vector3Int.up);
                 sb.MirrorX(b => b
-                    .Place(BlockIds.Aero, new Vector3Int(1, 0,  0), upRight, wingDims)
-                    .Place(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)
-                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, stabDims));
+                    // Session 167 (ADR-0009): the nose rotor assembly puts
+                    // the CoM well forward (z≈+0.7), so this airframe gets
+                    // the classic prop layout instead of the Plane's kit:
+                    // main wing at z=+1 (right at the CoM, in place of the
+                    // canards), big tail far aft with +1° nose-up trim to
+                    // hold the rotor's above-CoM thrust moment. The Plane's
+                    // aft-wing / -2.5° kit on this nose-heavy frame dove into
+                    // the ground hands-off and left full Space at ~0.15 rad/s.
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, wingDims)
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, tailDims, 1f));
                 sb.Place(BlockIds.Cube,    new Vector3Int(0, 1, -2), upTop);
                 sb.Place(BlockIds.AeroFin, new Vector3Int(0, 2, -2), upTop, finDims);
                 // Nose rotor with 4-foil propeller ring. spinAxis = +Z

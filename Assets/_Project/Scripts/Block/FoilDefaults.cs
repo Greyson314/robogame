@@ -30,5 +30,16 @@ namespace Robogame.Block
         public const float MinThickness = 0.02f, MaxThickness = 0.40f;
         /// <summary>Build-mode slider range for chord.</summary>
         public const float MinChord     = 0.20f, MaxChord     = 2.50f;
+
+        /// <summary>
+        /// Control-surface throw (degrees of extra incidence at full stick)
+        /// every free foil / wing gets. Shared by all aero ids: authority
+        /// differences come from area, speed and lever arm, not from a
+        /// per-id constant (ADR-0009). These are ALL-MOVING surfaces (the
+        /// whole foil pivots, not a hinged flap), so the throw is small:
+        /// 10° gave the stock plane 3.5 rad/s pitch and 6 rad/s roll at
+        /// cruise (session-167 probe); 4° lands near 1.5 / 2 rad/s.
+        /// </summary>
+        public const float ControlThrowDeg = 4f;
     }
 }

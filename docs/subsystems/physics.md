@@ -130,6 +130,34 @@ for cases that genuinely need geometric constraints (rope chains,
 spinning rotors with adopted bodies), and even those are migrating
 toward Verlet per § 2.
 
+### 2.2 Aero control surfaces — authority from geometry (ADR-0009, session 167)
+
+There is no chassis-level plane controller. Pitch, roll and yaw on a
+winged bot come from the foils themselves:
+[`RobotDrive`](../../Assets/_Project/Scripts/Movement/RobotDrive.cs)
+maps the raw axes through the blueprint's `ControlScheme` into a
+six-DOF [`DriveIntent`](../../Assets/_Project/Scripts/Movement/DriveIntent.cs)
+once per tick; every free (non-rotor)
+[`AeroSurfaceBlock`](../../Assets/_Project/Scripts/Movement/AeroSurfaceBlock.cs)
+reads it and deflects by
+[`AeroControl.Deflection`](../../Assets/_Project/Scripts/Movement/AeroControl.cs)
+— the demand dotted with the surface's own moment direction
+`r × liftAxis` about the *live* CoM, capped at
+`FoilDefaults.ControlThrowDeg` (10°). The deflection adds to the foil's
+AoA, so the existing lift formula (speed² × area × slope) sets the
+magnitude. Nothing decides "this is the elevator": a surface behind the
+CoM sheds lift to pitch up, one ahead adds lift, left/right wings
+oppose for roll, a fin behind the CoM yaws the nose the right way, and a
+surface on the CoM does nothing. Shoot a wing off and the CoM moves, so
+every survivor re-roles on the spot — invariant #11.
+
+Consequences to design around: zero authority at zero airspeed (taxi on
+wheels / thrust, spawn planes with forward speed); static stability is
+the builder's problem (CoL behind CoM or the plane is twitchy — the
+CoM/CoL overlay shows it); thrust-offset moments are no longer masked
+by a hidden torque. `GroundDriveSubsystem` / `HoverDriveSubsystem` are
+grandfathered chassis-level drives pending the same migration.
+
 ---
 
 ## 3. Damage model for kinetic / contact weapons

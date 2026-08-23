@@ -98,7 +98,7 @@ namespace Robogame.Tests.EditMode.Blueprints
             Assert.AreEqual(DriveNeed.Flight, Def(BlockIds.Aero).DriveSubsystemNeed);
             Assert.AreEqual(DriveNeed.Flight, Def(BlockIds.AeroFin).DriveSubsystemNeed);
             Assert.AreEqual(DriveNeed.Flight, Def(BlockIds.Wing).DriveSubsystemNeed,
-                "Wing-only chassis must get PlaneControlSubsystem — the pre-ADR-0008 id list missed it.");
+                "Wing-only chassis must count as Flight (Plane control scheme + aero binder) — the pre-ADR-0008 id list missed it.");
             Assert.AreEqual(DriveNeed.Hover, Def(BlockIds.HoverBlade).DriveSubsystemNeed);
             Assert.AreEqual(DriveNeed.None, Def(BlockIds.Rudder).DriveSubsystemNeed,
                 "A rudder alone must not grant plane-control authority (ADR-0008).");

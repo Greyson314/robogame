@@ -16,7 +16,8 @@ Robogame.Block        — BlockDefinition, BlockGrid, BlockBinder, BlockIds, Blo
                          IBlueprintEntryTransform, PlacementRules,
                          ChassisBlueprint, BlockDefinitionLibrary,
                          BlueprintBuilder, BlueprintValidator, BlueprintAsciiDump
-Robogame.Movement     — RobotDrive, GroundDriveSubsystem, PlaneControlSubsystem,
+Robogame.Movement     — RobotDrive (+ DriveIntent / ControlScheme mapping), GroundDriveSubsystem,
+                         AeroControl (foil control surfaces, ADR-0009),
                          ThrusterBlock, AeroSurfaceBlock, WheelBlock, RudderBlock,
                          RopeBlock, RopeTip, RotorBlock,
                          VerletRopeSimulator, VerletRopeChain,

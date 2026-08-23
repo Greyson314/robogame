@@ -15,6 +15,7 @@ MonoBehaviour:
   _displayName: Bomber
   _kind: 1
   _rotorsGenerateLift: 0
+  _controlScheme: 0
   _planeTuning:
     PitchPower: 10
     RollPower: 30
@@ -36,6 +37,15 @@ MonoBehaviour:
     IdleThrottle: 0.4
     ThrottleResponse: 3.5
   _entries:
+  - BlockId: block.movement.thruster
+    Position: {x: 0, y: -1, z: -3}
+    Up: {x: 0, y: -1, z: 0}
+    Dims: {x: 0, y: 0, z: 0}
+    Pitch: 0
+    Yaw: 0
+    Teeter: 0
+    BlockConfig: 0
+    ConcoctionId: 
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: -3}
     Up: {x: 0, y: 0, z: -1}
@@ -45,20 +55,11 @@ MonoBehaviour:
     Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
-  - BlockId: block.movement.thruster
-    Position: {x: 0, y: 1, z: -3}
-    Up: {x: 0, y: 1, z: 0}
-    Dims: {x: 0, y: 0, z: 0}
-    Pitch: 0
-    Yaw: 0
-    Teeter: 0
-    BlockConfig: 0
-    ConcoctionId: 
   - BlockId: block.movement.aero
     Position: {x: -1, y: 0, z: -2}
     Up: {x: -1, y: 0, z: 0}
-    Dims: {x: 2, y: 0.08, z: 0.7}
-    Pitch: -0
+    Dims: {x: 3, y: 0.08, z: 0.9}
+    Pitch: 2.5
     Yaw: 0
     Teeter: 0
     BlockConfig: 0
@@ -75,8 +76,8 @@ MonoBehaviour:
   - BlockId: block.movement.aero
     Position: {x: 1, y: 0, z: -2}
     Up: {x: 1, y: 0, z: 0}
-    Dims: {x: 2, y: 0.08, z: 0.7}
-    Pitch: 0
+    Dims: {x: 3, y: 0.08, z: 0.9}
+    Pitch: -2.5
     Yaw: 0
     Teeter: 0
     BlockConfig: 0
@@ -99,10 +100,28 @@ MonoBehaviour:
     Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
+  - BlockId: block.movement.aero
+    Position: {x: -1, y: 0, z: -1}
+    Up: {x: -1, y: 0, z: 0}
+    Dims: {x: 5, y: 0.08, z: 1}
+    Pitch: -0
+    Yaw: 0
+    Teeter: 0
+    BlockConfig: 0
+    ConcoctionId: 
   - BlockId: block.structure.cube
     Position: {x: 0, y: 0, z: -1}
     Up: {x: 0, y: 0, z: -1}
     Dims: {x: 0, y: 0, z: 0}
+    Pitch: 0
+    Yaw: 0
+    Teeter: 0
+    BlockConfig: 0
+    ConcoctionId: 
+  - BlockId: block.movement.aero
+    Position: {x: 1, y: 0, z: -1}
+    Up: {x: 1, y: 0, z: 0}
+    Dims: {x: 5, y: 0.08, z: 1}
     Pitch: 0
     Yaw: 0
     Teeter: 0
@@ -117,28 +136,10 @@ MonoBehaviour:
     Teeter: 0
     BlockConfig: 0
     ConcoctionId: 
-  - BlockId: block.movement.aero
-    Position: {x: -1, y: 0, z: 0}
-    Up: {x: -1, y: 0, z: 0}
-    Dims: {x: 5, y: 0.08, z: 1}
-    Pitch: -0
-    Yaw: 0
-    Teeter: 0
-    BlockConfig: 0
-    ConcoctionId: 
   - BlockId: block.cpu.standard
     Position: {x: 0, y: 0, z: 0}
     Up: {x: 0, y: 1, z: 0}
     Dims: {x: 0, y: 0, z: 0}
-    Pitch: 0
-    Yaw: 0
-    Teeter: 0
-    BlockConfig: 0
-    ConcoctionId: 
-  - BlockId: block.movement.aero
-    Position: {x: 1, y: 0, z: 0}
-    Up: {x: 1, y: 0, z: 0}
-    Dims: {x: 5, y: 0.08, z: 1}
     Pitch: 0
     Yaw: 0
     Teeter: 0
