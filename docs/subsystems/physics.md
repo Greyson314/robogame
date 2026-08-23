@@ -143,9 +143,15 @@ reads it and deflects by
 [`AeroControl.Deflection`](../../Assets/_Project/Scripts/Movement/AeroControl.cs)
 — the demand dotted with the surface's own moment direction
 `r × liftAxis` about the *live* CoM, capped at
-`FoilDefaults.ControlThrowDeg` (10°). The deflection adds to the foil's
+`FoilDefaults.ControlThrowDeg` (8°). The deflection adds to the foil's
 AoA, so the existing lift formula (speed² × area × slope) sets the
-magnitude. Nothing decides "this is the elevator": a surface behind the
+magnitude. Since session 168 every aerodynamic force on a free foil
+acts at the foil's *geometric centre* (the `ComputeWingShift` mesh
+centre, `(span−1)/2` outboard of the mount cell), not at the mount
+cell — so span buys roll lever, the wing tip sees `ω×r` damping
+(∝ arm², which is why the throw went 4° → 8°), and where you mount a
+wing along its span matters. Rotor blades keep the hub-adjacent force
+point; their disc symmetry is tuned to it. Nothing decides "this is the elevator": a surface behind the
 CoM sheds lift to pitch up, one ahead adds lift, left/right wings
 oppose for roll, a fin behind the CoM yaws the nose the right way, and a
 surface on the CoM does nothing. Shoot a wing off and the CoM moves, so

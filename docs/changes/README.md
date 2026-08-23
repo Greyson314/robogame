@@ -220,7 +220,9 @@ shipping the current branch; flagged so they don't decay into
   unverified on foil control (no air bot in the default arena config),
   rotor throttle spawning at 1.0 (W inert on a fresh prop). Baseline
   numbers in [166](166-aircraft-pitch-pogo-save-pass.md), landing in
-  [167](167-foil-control-surfaces.md).
+  [167](167-foil-control-surfaces.md); lift moved to the foil's
+  geometric centre (throw 4° → 8°) in
+  [168](168-lift-at-geometric-center.md).
 
 - **Per-rotor `RotorsGenerateLift` opt-in.**
   Today the flag is auto-derived chassis-wide whenever any rotor is

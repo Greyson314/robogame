@@ -145,6 +145,60 @@ namespace Robogame.Tests.PlayMode.Movement
                 $"Shooting off a wing must produce an uncommanded roll; got {oneWingRoll:F3} vs {symmetricRoll:F3} rad/s.");
         }
 
+        // Spine + one wing pair only (no stabs), span parametrised — the
+        // minimal rig for measuring pure aileron roll torque.
+        private void BuildBareWingBot(float wingSpan)
+        {
+            _root = new GameObject("FoilLeverBot");
+            _rb = _root.AddComponent<Rigidbody>();
+            _rb.useGravity = false;
+            BlockGrid grid = _root.AddComponent<BlockGrid>();
+            Robot robot = _root.AddComponent<Robot>();
+            _drive = _root.AddComponent<RobotDrive>();
+            _drive.Scheme = ControlScheme.Plane;
+
+            BlockDefinition cube = MakeDef(BlockIds.Cube, BlockCategory.Structure, 1f);
+            BlockDefinition cpu  = MakeDef(BlockIds.Cpu, BlockCategory.Cpu, 2f);
+            BlockDefinition aero = MakeDef(BlockIds.Aero, BlockCategory.Movement, 0.6f);
+
+            grid.PlaceBlock(cpu, new Vector3Int(0, 0, 0), Vector3Int.up);
+            for (int z = -2; z <= 2; z++)
+                if (z != 0) grid.PlaceBlock(cube, new Vector3Int(0, 0, z), Vector3Int.up);
+
+            Vector3 dims = new Vector3(wingSpan, 0.08f, 0.9f);
+            PlaceFoil(grid, aero, new Vector3Int(-1, 0, 0), new Vector3Int(-1, 0, 0), dims, 0f);
+            PlaceFoil(grid, aero, new Vector3Int(1, 0, 0), new Vector3Int(1, 0, 0), dims, 0f);
+            robot.RecalculateAggregates();
+        }
+
+        [UnityTest]
+        public IEnumerator WiderWing_GainsRollLever_NotJustArea()
+        {
+            // Lift acts at the foil's geometric centre (session 168): a 4×
+            // span wing on the same mount lifts 4× AND levers from 2.5× the
+            // arm, so its roll torque is ~10× a stock wing's. If the force
+            // point ever snaps back to the mount cell, the ratio collapses
+            // to area alone (~4×) and tinkering with span stops mattering
+            // for roll. One physics step from rest so aero damping (ω×r)
+            // hasn't fed back yet: torque = I_zz · ω_z / dt, dt cancels.
+            BuildBareWingBot(1f);
+            yield return Fly(new Vector2(1f, 0f), 0f, steps: 1);
+            float torqueSpan1 = Mathf.Abs(_rb.inertiaTensor.z * LocalOmega.z);
+            Object.Destroy(_root);
+            yield return null;
+
+            BuildBareWingBot(4f);
+            yield return Fly(new Vector2(1f, 0f), 0f, steps: 1);
+            float torqueSpan4 = Mathf.Abs(_rb.inertiaTensor.z * LocalOmega.z);
+
+            Assert.Greater(torqueSpan1, 0f, "Span-1 wings must produce some roll torque.");
+            float ratio = torqueSpan4 / torqueSpan1;
+            Assert.Greater(ratio, 6f,
+                $"4× span must out-torque 1× by area × lever (≈10×), not area alone (≈4×); got {ratio:F1}×.");
+            Assert.Less(ratio, 14f,
+                $"Roll torque ratio {ratio:F1}× exceeds area × lever — lever double-counted?");
+        }
+
         [UnityTest]
         public IEnumerator NoChassisLevelPlaneController_IsAttached()
         {

@@ -36,10 +36,14 @@ namespace Robogame.Block
         /// every free foil / wing gets. Shared by all aero ids: authority
         /// differences come from area, speed and lever arm, not from a
         /// per-id constant (ADR-0009). These are ALL-MOVING surfaces (the
-        /// whole foil pivots, not a hinged flap), so the throw is small:
-        /// 10° gave the stock plane 3.5 rad/s pitch and 6 rad/s roll at
-        /// cruise (session-167 probe); 4° lands near 1.5 / 2 rad/s.
+        /// whole foil pivots, not a hinged flap), so the throw is small.
+        /// Retuned 4° → 8° in session 168 when lift moved to the foil's
+        /// geometric centre: the outboard force point raised roll damping
+        /// (∝ arm²) faster than roll authority (∝ arm), so 4° left the
+        /// stock plane at a third of the 1.5 / 2 rad/s pitch-roll target
+        /// the 167 probe tuned for. Throw scales COMMANDED deflection
+        /// only — hands-off trim and span tradeoffs are untouched.
         /// </summary>
-        public const float ControlThrowDeg = 4f;
+        public const float ControlThrowDeg = 8f;
     }
 }

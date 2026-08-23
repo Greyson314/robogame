@@ -124,6 +124,13 @@ namespace Robogame.Movement
         // preserved; equals N for an N× larger wing. Recomputed on
         // OnEnable + DimsChanged, never per-frame.
         private float _liftAreaScale = 1f;
+        // Cached outward offset (foil-local +Y, metres) from the mount cell
+        // to the foil's geometric centre — the same shift ComputeWingShift
+        // gives the mesh, 0 at default span. Aerodynamic forces act HERE,
+        // not at the mount cell, so span buys roll lever + tip damping and
+        // not just area. Rotor blades ignore it (see FixedUpdate).
+        // TRACE[ADR-0009]: authority from geometry — includes the force point.
+        private float _aeroCenterShift;
         // Cached pitch in radians (per-instance AoA offset). Refreshed on
         // OnEnable + PitchChanged. Added to airflow-derived AoA in
         // FixedUpdate, no per-frame conversion.
@@ -241,6 +248,7 @@ namespace Robogame.Movement
             Vector3 dims = _block != null ? _block.Dims : Vector3.zero;
             AeroShape.ResolveDims(ShapeId(), dims, out float span, out _, out float chord);
             _liftAreaScale = (span * chord) / (FoilDefaults.DefaultSpan * FoilDefaults.DefaultChord);
+            _aeroCenterShift = ComputeWingShift(Vector3Int.zero, span, rotorMode: false).y;
         }
 
         // Which aero family this instance renders/resolves as — the Wing
@@ -331,7 +339,14 @@ namespace Robogame.Movement
             using var _scope = Robogame.Core.PerfMarkers.AeroSurfaceFixedUpdate.Auto();
             if (_velocityRb == null || _forceTargetRb == null) return;
 
-            Vector3 worldPos = transform.position;
+            // Aerodynamic forces act (and airflow is sampled) at the foil's
+            // geometric centre — the point ComputeWingShift centres the mesh
+            // on — so a long wing levers roll with its own span and its tip
+            // sees ω×r damping. Rotor blades keep the hub-adjacent mount
+            // point: the disc's symmetry and ω×r sampling are tuned to it.
+            Vector3 worldPos = _rotorMode || _aeroCenterShift <= 0f
+                ? transform.position
+                : transform.TransformPoint(0f, _aeroCenterShift, 0f);
             // Velocity sampling differs between plane wings and rotor blades:
             //
             // Plane wing: full point velocity (chassis bulk + chassis angular
