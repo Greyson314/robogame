@@ -212,21 +212,18 @@ namespace Robogame.Gameplay
                 // blueprint contents. Skipped on passive targets.
                 if (options.AddDriveSubsystems)
                 {
-                    bool hasWheels = false, hasAero = false, hasWeapon = false, hasHovers = false, hasModule = false;
+                    bool hasWheels = false, hasAero = false, hasHovers = false, hasModule = false;
                     foreach (ChassisBlueprint.Entry e in blueprint.Entries)
                     {
                         if (ModuleKinds.IsModuleId(e.BlockId)) hasModule = true;
-                        // TRACE[ADR-0008]: subsystem needs + weapon presence
-                        // ride the definition — the hand-synced id lists
+                        // TRACE[ADR-0008]: subsystem needs ride the
+                        // definition — the hand-synced id lists
                         // (Wheel||WheelSteer, Aero||AeroFin, HoverBlade) are
                         // gone. This generalises TRACE[LOG-132]'s mortar
                         // lesson (the old weapon id list missed the mortar:
                         // red host cube, dead trigger) and closes the same
                         // trap that was still armed for Wing — a Wing-only
-                        // chassis got no PlaneControlSubsystem. Tip blocks
-                        // are Weapon-category too; the binder's own
-                        // ShouldBind skips them, so an idle binder on a
-                        // tips-only bot is the only cost.
+                        // chassis got no PlaneControlSubsystem.
                         BlockDefinition def = library.Get(e.BlockId);
                         if (def == null) continue;
                         switch (def.DriveSubsystemNeed)
@@ -235,14 +232,15 @@ namespace Robogame.Gameplay
                             case DriveNeed.Flight: hasAero   = true; break;
                             case DriveNeed.Hover:  hasHovers = true; break;
                         }
-                        if (def.Category == BlockCategory.Weapon) hasWeapon = true;
                     }
 
-                    if (hasWheels)
-                    {
-                        EnsureComponent<GroundDriveSubsystem>(root);
-                        EnsureComponent<RobotWheelBinder>(root);
-                    }
+                    if (hasWheels) EnsureComponent<GroundDriveSubsystem>(root);
+                    // Wheel binder is unconditional — same drag-on rationale
+                    // as the aero binder below. TRACE[LOG-170]: a gated
+                    // binder meant the first wheel placed on a wheel-less
+                    // bot in the garage stayed a bare host cube (no
+                    // WheelBlock until relaunch).
+                    EnsureComponent<RobotWheelBinder>(root);
 
                     if (hasHovers)
                     {
@@ -283,8 +281,17 @@ namespace Robogame.Gameplay
                     EnsureComponent<RobotDrive>(root).Scheme =
                         ControlSchemes.Resolve(blueprint, hasWheels, hasHovers, hasAero);
 
-                    if (hasWeapon)
-                        EnsureWeaponMountAndBinder(root);
+                    // Weapon mount + binder are unconditional — same
+                    // drag-on rationale as the aero binder above.
+                    // TRACE[LOG-170]: the hasWeapon gate meant the FIRST
+                    // weapon placed on a weaponless bot in the garage got
+                    // no behaviour component: bare red host cube (the
+                    // session-132 mortar bug one level up — the detection
+                    // list was fixed, but detection still ran only at
+                    // spawn). Tip blocks are Weapon-category too; the
+                    // binder's own ShouldBind skips them, so an idle
+                    // binder is the only cost on a weaponless bot.
+                    EnsureWeaponMountAndBinder(root);
                 }
 
                 // Phase 3 — rig binders. Tip-binder MUST come before

@@ -29,6 +29,13 @@ namespace Robogame.Combat
             // freely from the rope. Skip them here.
             string id = block.Definition.Id;
             if (BlockIds.IsTipId(id)) return false;
+            // The drill is Weapon-category for the hotbar but its
+            // behaviour is attached by RobotDrillBinder. TRACE[LOG-170]:
+            // without this skip the generic fallthrough below stacked
+            // WeaponBlock + ProjectileGun onto every drill on an armed
+            // bot — drills yaw-tracked the reticle and fired hitscan
+            // rounds on the dig trigger.
+            if (id == BlockIds.Drill) return false;
             return true;
         }
 
