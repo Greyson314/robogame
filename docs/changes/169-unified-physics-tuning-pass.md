@@ -112,10 +112,15 @@ verbs — no layout changes needed. Asset diff = exactly 10 foil
 entries gaining `BlockConfig` (4 Plane, 6 Bomber). The rebake ran in
 the test-rig batch Unity: the interactive editor wedged mid-compile
 (importer-worker crash earlier in the session; `isCompiling` stuck
-true 8+ min) — flagged to the user; a live feel probe of the retuned
-Plane/Bomber is owed once the editor recovers (throw scaling is
-linear per the `ControlThrow_ConfigScalesDeflectionAuthority` test,
-so expected deltas: Plane roll ×1.25, Bomber authority ×0.63).
+true 8+ min) — a window focus cleared it. Gotcha found on recovery:
+the editor did NOT re-import the externally-copied .asset files, so
+the first probe flew the stale all-8° presets (byte-identical rows
+gave it away); `AssetDatabase.ImportAsset(..., ForceUpdate)` fixed it.
+Probed after reload (pv17 vs pv16-stale): Plane roll peak −2.05 →
+−2.19 rad/s, Space −1.22 → −1.13 (sportier roll, softer elevator —
+modest because wings and tails each feed both axes with damping
+fixed); Bomber Space −1.65 → −0.96 and roll −2.50 → −1.46 (×0.58,
+predicted ×0.63). Hands-off trim unchanged on both.
 
 ## Files
 
