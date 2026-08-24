@@ -274,9 +274,13 @@ namespace Robogame.Tools.Editor
                     // a -2.5° trim that cancels the belly thruster's nose-up
                     // moment at ~35-40 m/s. Probed: hands-off = gentle
                     // phugoid, Space ≈ 1.2 rad/s, A/D ≈ 2 rad/s.
-                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -1), upRight, wingDims)
+                    // Per-foil Control Throw showcase (session 169): main
+                    // wings 10° (agile ailerons), tails 6° (soft elevator),
+                    // canards left at the 8° default — open Tune mode on
+                    // the preset and the slider reads differently per foil.
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -1), upRight, wingDims, 0f, 10f)
                     .Place(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)
-                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, tailDims, TailTrimDeg));
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, tailDims, TailTrimDeg, 6f));
                 // Vertical fin: riser cube on top of (0,0,-2), then the
                 // fin top-mounted on the riser.
                 sb.Place(BlockIds.Cube,    new Vector3Int(0, 1, -2), upTop);
@@ -456,9 +460,12 @@ namespace Robogame.Tools.Editor
                     // a -2.5° trim that cancels the belly thruster's nose-up
                     // moment at ~35-40 m/s. Probed: hands-off = gentle
                     // phugoid, Space ≈ 1.2 rad/s, A/D ≈ 2 rad/s.
-                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -1), upRight, wingDims)
-                    .Place(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims)
-                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, tailDims, TailTrimDeg));
+                    // Bomber flies stately on purpose: 5° throw on every
+                    // horizontal foil (vs the Plane's 10°/8°/6° spread) —
+                    // the per-foil Control Throw contrast case, session 169.
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -1), upRight, wingDims, 0f, 5f)
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0,  1), upRight, stabDims, 0f, 5f)
+                    .Place(BlockIds.Aero, new Vector3Int(1, 0, -2), upRight, tailDims, TailTrimDeg, 5f));
                 // Vertical fin riser + fin.
                 sb.Place(BlockIds.Cube,    new Vector3Int(0, 1, -2), upTop);
                 sb.Place(BlockIds.AeroFin, new Vector3Int(0, 2, -2), upTop, finDims);

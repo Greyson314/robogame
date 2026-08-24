@@ -102,6 +102,23 @@ namespace Robogame.Tools.Editor
         /// (positive = "tilt tip toward sky" on every mount face). Throws
         /// if the rules engine rejects.
         /// </summary>
+        /// <summary>
+        /// Place with an explicit per-instance config scalar (rotor RPM,
+        /// foil control throw, module power — whatever the block id's
+        /// resolver reads from <c>Entry.BlockConfig</c>; 0 = authored
+        /// default). Seeds the session's per-id variant cache for THIS
+        /// call only and resets it after, so later placements of the same
+        /// id without a config revert to the default. The mirrored twin
+        /// inside a Mirror scope reads the same cache, so symmetric pairs
+        /// bake the same value. Session 169.
+        /// </summary>
+        public ScriptedChassisBuilder Place(string blockId, Vector3Int cell, Vector3Int up, Vector3 dims, float worldPitch, float config)
+        {
+            _session.SetVariantConfig(blockId, config);
+            try { return Place(blockId, cell, up, dims, worldPitch); }
+            finally { _session.SetVariantConfig(blockId, 0f); }
+        }
+
         public ScriptedChassisBuilder Place(string blockId, Vector3Int cell, Vector3Int up, Vector3 dims, float worldPitch)
         {
             BlockDefinition def = _library.Get(blockId);

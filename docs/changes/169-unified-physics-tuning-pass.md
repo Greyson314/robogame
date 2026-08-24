@@ -96,10 +96,35 @@ WheelBlock / HoverBladeBlock forces never participated in CSP replay
 (no `SetForceTarget`) — per-wheel thrust inherits that pre-existing
 netcode gap; recorded in README known-unknowns for the MP milestone.
 
+## Preset retune (same session, follow-up directive)
+
+User asked the default blueprints to demo the new mechanics. Shipped:
+`ScriptedChassisBuilder` gained a config-aware `Place` overload (seeds
+the per-id variant cache for one call, mirrored twin included, resets
+after), and the aircraft presets now bake differentiated per-foil
+Control Throw: **Plane** wings 10° / tails 6° / canards default 8° —
+open Tune mode on the preset and the slider reads differently per
+foil; **Bomber** 5° on every horizontal foil (the stately contrast
+case). Grappler + Prop Plane stay at the 8° reference. Tank (6 spread
+wheels, pv14-proven pirouette) and Hover Tank (4 corner pads) already
+demo per-part thrust loss; Helicopter/Prop already demo the intent
+verbs — no layout changes needed. Asset diff = exactly 10 foil
+entries gaining `BlockConfig` (4 Plane, 6 Bomber). The rebake ran in
+the test-rig batch Unity: the interactive editor wedged mid-compile
+(importer-worker crash earlier in the session; `isCompiling` stuck
+true 8+ min) — flagged to the user; a live feel probe of the retuned
+Plane/Bomber is owed once the editor recovers (throw scaling is
+linear per the `ControlThrow_ConfigScalesDeflectionAuthority` test,
+so expected deltas: Plane roll ×1.25, Bomber authority ×0.63).
+
 ## Files
 
 New: `Gameplay/BuildMoveMode.cs`,
 `docs/decisions/0010-unified-physics-and-tuning-surface.md`.
+Preset retune: `Tools/Editor/ScriptedChassisBuilder.cs` (config
+overload), `Tools/Editor/GameplayScaffolder.cs` (Plane/Bomber throws),
+`Blueprint_DefaultPlane.asset` + `Blueprint_DefaultBomber.asset`
+(rebaked).
 Edited: `BuildSession` (TryMove), `BlockEditor` (move flow, concoction
 propagation + eyedrop), `GarageController`, `PauseMenuHud` (ladder),
 `BuildEditMode` (exclusivity, hint slot), `GroundDriveSubsystem`,
