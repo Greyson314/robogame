@@ -181,6 +181,77 @@ namespace Robogame.Gameplay
         }
 
         // -----------------------------------------------------------------
+        // Explicit Apply — panel button pushes caches onto placed blocks.
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Push the variant caches for <paramref name="blockId"/> onto every
+        /// placed block of that id, then sync the blueprint. Returns how
+        /// many blocks were written. This is the panel's explicit Apply
+        /// button (LOG-172, pogo-power report) — deliberately NOT wired to
+        /// the cache-write events: implicit all-blocks propagation was
+        /// retired by the span-isolation session (one foil's span drag must
+        /// never silently rewrite every foil), and an explicit click is the
+        /// sanctioned exception. Callers seed the caches on selection
+        /// (<see cref="SeedVariantCachesFromPlacedBlock"/>) so what the
+        /// sliders show is what gets applied.
+        /// </summary>
+        public int ApplyVariantCachesToPlacedBlocks(string blockId)
+        {
+            if (Grid == null || string.IsNullOrEmpty(blockId)) return 0;
+            if (EditingInstance != null) return 0; // bound flow is live already
+            float worldPitch = GetVariantPitch(blockId);
+            float worldTeeter = GetVariantTeeter(blockId);
+            Vector3 dims = GetVariantDims(blockId);
+            float config = GetVariantConfig(blockId);
+            string concoction = GetVariantConcoctionId(blockId);
+            int count = 0;
+            foreach (KeyValuePair<Vector3Int, BlockBehaviour> kvp in Grid.Blocks)
+            {
+                BlockBehaviour b = kvp.Value;
+                if (b == null || b.Definition == null || b.Definition.Id != blockId) continue;
+                // Cache angles are world-intent; placed blocks store
+                // local-frame — same conversion the tune-mode bind flow does.
+                b.SetPitch(BlockOrientation.NormalizePitchForUp(b.Definition, worldPitch, b.Up));
+                b.SetTeeter(BlockOrientation.NormalizePitchForUp(b.Definition, worldTeeter, b.Up));
+                b.SetDims(dims);
+                b.ConfigValue = config;
+                b.ConcoctionId = concoction;
+                count++;
+            }
+            if (count > 0) SyncBlueprint();
+            return count;
+        }
+
+        /// <summary>
+        /// Seed the variant caches for <paramref name="blockId"/> from the
+        /// first placed block of that id, so the unbound panel's sliders
+        /// show the bot's CURRENT tune instead of session defaults — and so
+        /// Apply pushes what the player sees, not stale sentinels. Same
+        /// stored-local → world-intent conversion as <see cref="TryMove"/>'s
+        /// cache seed. No-op (returns false) when nothing of the id is
+        /// placed, which keeps the pure next-placement dial flow intact.
+        /// </summary>
+        public bool SeedVariantCachesFromPlacedBlock(string blockId)
+        {
+            if (Grid == null || string.IsNullOrEmpty(blockId)) return false;
+            foreach (KeyValuePair<Vector3Int, BlockBehaviour> kvp in Grid.Blocks)
+            {
+                BlockBehaviour b = kvp.Value;
+                if (b == null || b.Definition == null || b.Definition.Id != blockId) continue;
+                BlockDefinition def = b.Definition;
+                SetVariantDims(def.Id, b.Dims);
+                SetVariantPitch(def.Id, BlockOrientation.NormalizePitchForUp(def, b.PitchDeg, b.Up));
+                SetVariantTeeter(def.Id, BlockOrientation.NormalizePitchForUp(def, b.TeeterDeg, b.Up));
+                SetVariantConfig(def.Id, b.ConfigValue);
+                SetVariantConcoctionId(def.Id, b.ConcoctionId);
+                return true;
+            }
+            return false;
+        }
+
+
+        // -----------------------------------------------------------------
         // Mirror state
         // -----------------------------------------------------------------
 

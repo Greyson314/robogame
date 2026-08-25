@@ -55,6 +55,7 @@ namespace Robogame.Gameplay
         // ----- UGUI -----
         private GameObject _root;
         private Text _titleText;
+        private GameObject _applyButtonGo; // "Apply to bot" — unbound mode only (LOG-172)
 
         // ----- Schema-driven sections -----
         // TRACE[LOG-163]: one runtime section per TuneSchemaRegistry entry;
@@ -305,9 +306,12 @@ namespace Robogame.Gameplay
         /// necessarily changing the hotbar selection (re-picking the
         /// already-selected type fires no SelectedBlockChanged).
         /// </summary>
-        public void RefreshForBlock(string blockId) => HandleSelectedBlockChanged(blockId);
+        public void RefreshForBlock(string blockId) => HandleSelectedBlockChanged(blockId, seedFromPlaced: false);
 
         private void HandleSelectedBlockChanged(string blockId)
+            => HandleSelectedBlockChanged(blockId, seedFromPlaced: true);
+
+        private void HandleSelectedBlockChanged(string blockId, bool seedFromPlaced)
         {
             _activeBlockId = blockId;
             TuneSchemaRegistry.TryGet(blockId, out TuneSchema schema);
@@ -316,12 +320,23 @@ namespace Robogame.Gameplay
             SetVisible(any);
             if (!any) return;
 
+            // Unbound selection: seed the caches from a placed block of
+            // this id so the sliders show the bot's CURRENT tune (and so
+            // the Apply button pushes what the player sees, not sentinel
+            // defaults). Bound mode keeps its bind-time seed; the
+            // eyedropper path calls RefreshForBlock right after writing
+            // the PICKED block's values and must not be re-seeded from an
+            // arbitrary first block — hence the flag.
+            if (seedFromPlaced && _session != null && _session.EditingInstance == null)
+                _session.SeedVariantCachesFromPlacedBlock(blockId);
+
             if (_titleText != null)
             {
                 // "Tuning" prefix + danger colour when a placed instance is
                 // bound (Edit-mode click), so the player knows the sliders
                 // drive that one block, not the next-placement defaults.
                 bool editing = _session != null && _session.EditingInstance != null;
+                if (_applyButtonGo != null) _applyButtonGo.SetActive(!editing);
                 // Danger (vermilion) while instance-editing — white was
                 // unreadable on the cream panel, and the mode change should
                 // still read at a glance.
@@ -389,6 +404,19 @@ namespace Robogame.Gameplay
             }
             UpdateSchemaReadout(s);
             _suppressCallbacks = false;
+        }
+
+        // TRACE[LOG-172]: the explicit whole-bot apply verb. Implicit
+        // all-blocks propagation stays retired (span-isolation session);
+        // a deliberate click is the sanctioned exception.
+        private void OnApplyClicked()
+        {
+            string id = _activeBlockId;
+            if (_session == null || string.IsNullOrEmpty(id)) return;
+            int n = _session.ApplyVariantCachesToPlacedBlocks(id);
+            ShowTip(n > 0
+                ? $"Applied to {n} placed block{(n == 1 ? "" : "s")} and saved to the blueprint."
+                : "Nothing of this type is placed yet — these settings shape the next block you place.");
         }
 
         private void OnSchemaFieldChanged(FieldRow row, float v)
@@ -509,6 +537,38 @@ namespace Robogame.Gameplay
             _titleText = AddText(panel.transform, "Variant", new Vector2(12f, -36f), new Vector2(-12f, -12f),
                 anchorMin: new Vector2(0f, 1f), anchorMax: new Vector2(1f, 1f),
                 size: 18, style: FontStyle.Bold, anchor: TextAnchor.MiddleLeft, color: s_accent);
+
+            // Apply button — title band, top-right. Unbound slider edits
+            // only shape the NEXT placement; this button is the explicit
+            // verb that pushes the panel's values onto the already-placed
+            // blocks of the type (LOG-172). Hidden while a tune-mode
+            // instance is bound — that flow is live per-instance.
+            _applyButtonGo = NewChild("ApplyButton", panel.transform);
+            var abImg = _applyButtonGo.AddComponent<Image>();
+            abImg.color = s_btnIdle;
+            var abBtn = _applyButtonGo.AddComponent<Button>();
+            abBtn.targetGraphic = abImg;
+            ColorBlock abCols = abBtn.colors;
+            abCols.highlightedColor = s_btnHighlight;
+            abCols.pressedColor = s_btnPressed;
+            abBtn.colors = abCols;
+            abBtn.onClick.AddListener(OnApplyClicked);
+            var abRt = _applyButtonGo.GetComponent<RectTransform>();
+            abRt.anchorMin = new Vector2(1f, 1f);
+            abRt.anchorMax = new Vector2(1f, 1f);
+            abRt.pivot = new Vector2(1f, 1f);
+            abRt.sizeDelta = new Vector2(96f, 24f);
+            abRt.anchoredPosition = new Vector2(-12f, -12f);
+            AddText(_applyButtonGo.transform, "Apply to bot", Vector2.zero, Vector2.zero,
+                anchorMin: Vector2.zero, anchorMax: Vector2.one,
+                size: 12, style: FontStyle.Bold, anchor: TextAnchor.MiddleCenter, color: UguiPalette.Ink);
+            var abHover = _applyButtonGo.AddComponent<HoverTip>();
+            abHover.Tip = "Write these settings onto every placed block of this type " +
+                          "(and the blueprint). Sliders otherwise only affect the next block you place; " +
+                          "to retune one part alone, press T and click it.";
+            abHover.Show = ShowTip;
+            abHover.Hide = HideTip;
+            _applyButtonGo.SetActive(false);
 
             foreach (TuneSchema schema in TuneSchemaRegistry.All)
             {
