@@ -23,8 +23,9 @@ namespace Robogame.Combat
     ///   Ready
     ///     ──[FirePressed]──▶ Firing
     ///   Firing
-    ///     ──[hit enemy Robot]──▶ Latched
-    ///     ──[hit static / max range]──▶ Retracting
+    ///     ──[hit enemy Robot]──▶ Latched (enemy drag)
+    ///     ──[hit static collider]──▶ Latched (world swing)
+    ///     ──[hit own projectile / max range]──▶ Retracting
     ///   Latched
     ///     ──[FirePressed | target died]──▶ Retracting
     ///   Retracting
@@ -66,7 +67,7 @@ namespace Robogame.Combat
             Ready,
             /// <summary>Projectile flying outward. Hit checks each FixedUpdate.</summary>
             Firing,
-            /// <summary>Tethered to an enemy chassis. Player drags it.</summary>
+            /// <summary>Tethered to an enemy chassis (drag) or anchored to static geometry (swing).</summary>
             Latched,
             /// <summary>Reeling the projectile back to the muzzle.</summary>
             Retracting,
@@ -130,6 +131,17 @@ namespace Robogame.Combat
         [Tooltip("Falloff exponent for the pull field. 1 = linear, 2 = quadratic. Matches MagnetBlock's default.")]
         [SerializeField, Range(0f, 3f)] private float _pullFalloffExponent = 1.0f;
 
+        [Header("Static swing (Latched to world)")]
+        [Tooltip("Leash spring while anchored to static geometry (N/m). Stiffer than the enemy-drag leash — a pendulum's centripetal load needs a taut rope, not a drag cushion.")]
+        [SerializeField, Min(0f)] private float _swingLeashSpring = 14000f;
+        [SerializeField, Min(0f)] private float _swingLeashDamper = 350f;
+
+        [Tooltip("Shortest rope length the player can reel in to (m). Stops the chassis winching itself into the anchor point.")]
+        [SerializeField, Min(0.5f)] private float _swingMinLength = 3f;
+
+        [Tooltip("Reel speed (m/s) applied while the player holds vertical input during a static swing. Positive Vertical (jump/climb) reels in; negative (dive) lets rope back out up to the latch length.")]
+        [SerializeField, Min(0f)] private float _reelSpeed = 6f;
+
         [Header("Rope chain (Latched phase)")]
         [Tooltip("Number of Verlet particles used when the rope materialises after a successful latch. Higher = smoother drape, more solver cost. 12 reads as a real rope at 24 m total length.")]
         [SerializeField, Range(3, 32)] private int _ropeSegmentCount = 12;
@@ -171,6 +183,13 @@ namespace Robogame.Combat
         private ConfigurableJoint _chassisTipJoint;
         private SpringJoint _targetTether;
         private Rigidbody _tetherTarget;
+
+        // Static-swing state. When latched to static geometry there is no
+        // target tether; the tip stays kinematic at the anchor point and
+        // the chassis↔tip leash is the entire swing constraint.
+        private bool _isStaticSwing;
+        private float _swingLength;      // current reeled length (m)
+        private float _swingLenAtLatch;  // deployed length at latch = max reel-out (m)
 
         // Retract phase state.
         private Vector3 _retractFromWorld;
@@ -216,6 +235,8 @@ namespace Robogame.Combat
         public Transform Muzzle => _muzzle;
         public bool IsReady => _state == GrappleState.Ready;
         public bool IsLatched => _state == GrappleState.Latched;
+        /// <summary>Latched to static world geometry (tree/terrain/wall) rather than an enemy.</summary>
+        public bool IsSwinging => _state == GrappleState.Latched && _isStaticSwing;
 
         /// <summary>Set by RobotWeaponBinder — mirrors WeaponBlock.Bind.</summary>
         public void Bind(WeaponMount mount) { _mount = mount; }
@@ -371,6 +392,13 @@ namespace Robogame.Combat
                     BeginLatch(enemy.GetComponent<Rigidbody>(), hit.point);
                     return;
                 }
+                // TRACE[LOG-171]: static geometry (trees, terrain, walls —
+                // anything with no Rigidbody) is a swing anchor, not a miss.
+                if (hit.collider.attachedRigidbody == null)
+                {
+                    BeginSwingLatch();
+                    return;
+                }
                 BeginRetract();
                 return;
             }
@@ -418,8 +446,42 @@ namespace Robogame.Combat
             VfxSpawner.Spawn(VfxKind.FlipBurst, contactPointWorld, Quaternion.identity, 0.8f);
         }
 
+        /// <summary>
+        /// Latch onto static world geometry at the tip's current position
+        /// (TickFiring already snapped it to the hit point) and become a
+        /// swing anchor. Unlike <see cref="BeginLatch"/> the tip stays
+        /// KINEMATIC: a static anchor has nothing for PhysX to move, and a
+        /// kinematic body is a legal immovable joint anchor — the pinned
+        /// Verlet tip and the chassis↔tip leash both read its position
+        /// as-is. No target tether, no pull field.
+        /// </summary>
+        private void BeginSwingLatch()
+        {
+            if (_tipRb == null) { BeginRetract(); return; }
+
+            _isStaticSwing = true;
+            _swingLenAtLatch = Vector3.Distance(_muzzle.position, _tipRb.position);
+            _swingLength = _swingLenAtLatch;
+
+            BuildChassisLeash();
+            BuildVerletChain();
+            DestroyFlightVisual();
+
+            _state = GrappleState.Latched;
+            AudioRouter.PlayOneShot(AudioCue.TipImpact, _tipRb.position);
+            VfxSpawner.Spawn(VfxKind.FlipBurst, _tipRb.position, Quaternion.identity, 0.8f);
+        }
+
         private void TickLatched()
         {
+            if (_isStaticSwing)
+            {
+                // World anchor can't die and there is no tether or pull
+                // field — the only per-tick work is the reel.
+                TickSwingReel();
+                return;
+            }
+
             // Auto-release on target death — Unity nulls connectedBody.
             if (_targetTether == null
                 || _tetherTarget == null
@@ -440,6 +502,38 @@ namespace Robogame.Combat
             // target — strong enough to hold, weak enough to feel
             // like nothing when you try to drag.
             ApplyPullForces();
+        }
+
+        /// <summary>
+        /// Reel in/out during a static swing from <c>IInputSource.Vertical</c>
+        /// (contextual reuse — climb input shortens the rope, dive lets it
+        /// back out, capped at the length deployed at latch). Both the joint
+        /// limit and the Verlet segment length are only written on frames
+        /// with live input: <c>Joint.linearLimit</c> is a native-marshal
+        /// property and mutating it every tick while hanging idle is waste.
+        /// </summary>
+        private void TickSwingReel()
+        {
+            if (_input == null || _chassisTipJoint == null) return;
+            float reel = _input.Vertical;
+            if (Mathf.Abs(reel) < 0.01f) return;
+
+            float minLen = Mathf.Min(_swingMinLength, _swingLenAtLatch);
+            float next = Mathf.Clamp(
+                _swingLength - reel * _reelSpeed * Time.fixedDeltaTime,
+                minLen, _swingLenAtLatch);
+            if (Mathf.Approximately(next, _swingLength)) return;
+            _swingLength = next;
+
+            _chassisTipJoint.linearLimit = new SoftJointLimit
+            {
+                limit = Mathf.Max(0.5f, _swingLength),
+                contactDistance = 0f,
+            };
+            if (_chain != null)
+            {
+                _chain.SegmentLength = _swingLength / Mathf.Max(1, _chain.Count - 1);
+            }
         }
 
         private void ApplyPullForces()
@@ -503,14 +597,19 @@ namespace Robogame.Combat
         {
             DestroyTargetTether();
             DestroyChain();
+            _isStaticSwing = false;
 
             if (_tipRb != null)
             {
                 // Freeze tip motion + restore kinematic so the lerp is
-                // authoritative; PhysX won't fight it.
-                _tipRb.linearVelocity = Vector3.zero;
-                _tipRb.angularVelocity = Vector3.zero;
-                _tipRb.isKinematic = true;
+                // authoritative; PhysX won't fight it. Static-swing tips
+                // never left kinematic, so skip the velocity writes there.
+                if (!_tipRb.isKinematic)
+                {
+                    _tipRb.linearVelocity = Vector3.zero;
+                    _tipRb.angularVelocity = Vector3.zero;
+                    _tipRb.isKinematic = true;
+                }
                 _retractFromWorld = _tipRb.position;
             }
             else
@@ -547,6 +646,7 @@ namespace Robogame.Combat
             DestroyChain();
             DestroyFlightVisual();
             DestroyProjectile();
+            _isStaticSwing = false;
             _state = GrappleState.Ready;
         }
 
@@ -715,10 +815,13 @@ namespace Robogame.Combat
                 limit = Mathf.Max(0.5f, deployedLen),
                 contactDistance = 0f,
             };
+            // Swing latch runs a stiffer leash: a pendulum's centripetal
+            // load lives at the limit full-time, and the softer enemy-drag
+            // constants read as bungee, not rope.
             _chassisTipJoint.linearLimitSpring = new SoftJointLimitSpring
             {
-                spring = _leashSpring,
-                damper = _leashDamper,
+                spring = _isStaticSwing ? _swingLeashSpring : _leashSpring,
+                damper = _isStaticSwing ? _swingLeashDamper : _leashDamper,
             };
             _chassisTipJoint.enableCollision = false;
             _chassisTipJoint.enablePreprocessing = false;
