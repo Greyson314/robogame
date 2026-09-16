@@ -1,0 +1,15 @@
+# Robogame factory Discord intake — runs on the HIVE (the intake bot's token
+# lives there). Install after docs/loop/ is on main:
+#   cp .claude/scripts/factory/systemd/robogame-inbox-intake.* ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now robogame-inbox-intake.timer
+# The token is read by NAME from the botlet's .env (same bot, no copy of the
+# secret); channel ids are not secrets. A missing token is a silent no-op.
+[Unit]
+Description=Robogame factory Discord intake: #blue-mao-pow -> docs/loop/INBOX.md, commit, push (charter D12)
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/grey/dev/robogame
+Environment=PATH=/usr/bin:/bin
+TimeoutStartSec=3min
+ExecStart=/usr/bin/python3 /home/grey/dev/robogame/.claude/scripts/factory/discord_intake.py --repo /home/grey/dev/robogame --env-file /home/grey/bootleg_botlet/.env --verbose
