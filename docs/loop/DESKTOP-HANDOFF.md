@@ -31,8 +31,9 @@ you need context; do not read the whole charter for this.
    script (a syntax error: it has never run on Windows), fix the script, commit the fix
    on main with the message `factory: Start-Factory.ps1 first-run fix`, and push.
 8. **Prove the rig once, unattended:** in the factory clone, from Git Bash,
-   `.claude/scripts/run-tests.sh EditMode`. The first run creates the test-rig worktree
-   and warms its Library (~5 min). Report the pass/fail line.
+   `git worktree add .claude/worktrees/test-rig -b test-rig main` once (the rig refuses to
+   run without it), then `.claude/scripts/run-tests.sh EditMode`. The first run warms the
+   rig's Library (~5 min). Report the pass/fail line.
 9. **Report** (six lines max): what was pushed, PR merged or not, clone path, Python
    version, .env present or skipped, preflight result, EditMode result. Then tell Grey
    the first shift is one command in the factory clone:
