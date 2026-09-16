@@ -22,7 +22,7 @@ The board is NEEDS-GREY.md (D12). This section only carries a pointer and the co
 Lock: `.utmp/factory/shift.json` (written by Start-Factory.ps1: start time, mode, maxHours, model, effort; deleted by the end-of-shift routine).
 Tick: `.utmp/factory/loop-tick.txt` (one line per real wake: UTC, what this wake did).
 Session: name `robogame-factory`, host = Grey's desktop, terminal = the Windows Terminal tab the launcher opened (keep it open; detach nothing, close nothing).
-Model policy (D11): foreground opus @ high; fieldhands per .claude/agents/ (sonnet, effort set per agent); red team opus @ high; premium tier never. Overage: {{Grey's word — NEEDS-GREY D-001; "no overage" until then}}.
+Model policy (D11): foreground fable @ xhigh (Grey, 2026-09-16; launch with `-Model fable -Effort xhigh`); fieldhands per .claude/agents/ (sonnet, effort set per agent); red team opus @ high. Overage: {{Grey's word — NEEDS-GREY D-001; "no overage" until then}}.
 Shared account: the Cosmonaut (bootleg_botlet, on the hive) runs on the same Max plan; every cap is shared.
 Session-bound clocks: none. A nightly shift, when Grey wants one, is a Task Scheduler job that runs Start-Factory.ps1 (README).
 Hot-file size budget (D13): ~200 KB; at seed ≈ 56 KB (CHARTER 33 + LOOP-STATE 11 + NEEDS-GREY 2 + INBOX 1 + pillars 9). Start-Factory.ps1 measures it at preflight.

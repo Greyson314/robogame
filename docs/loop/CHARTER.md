@@ -322,8 +322,9 @@ sacred; INBOX items are not auto-prioritized.)
   planner sonnet/medium, design-pilot sonnet/high, test-drafter
   sonnet/medium, qa-verifier sonnet/medium, perf-checker sonnet/medium,
   sweeper sonnet/medium, red-team opus/high. MODEL POLICY is declared
-  in LOOP-STATE § SHIFT and obeyed: the foreground on opus at high
-  effort, never the premium tier; the plan's cap on a tier is a silent
+  in LOOP-STATE § SHIFT and obeyed: the foreground on fable at xhigh
+  effort (Grey's word, 2026-09-16, before the first shift); fieldhands
+  and the red team stay on the tiers above; the plan's cap on a tier is a silent
   stall in the session's terminal, not an error. The overage decision
   is Grey's, written there before the first shift. Two loops on one
   account share every cap: the Cosmonaut is the other. Respect the
@@ -540,6 +541,7 @@ cold files read on demand.
   (no % budget ladder); CLOSED.md and PLAYTEST-QUEUE.md folded into
   idea-backlog / LESSONS and NEEDS-GREY; the SWEEP tier and
   LAUNCH-READINESS added; D14's legal shift end.
+- v1.1 (2026-09-16, Grey) — D11: foreground model policy is fable @ xhigh, not opus @ high; LOOP-STATE § SHIFT updated to match.
 
 Signing: commits as "factory: <what>"; Discord pings prefixed
 [factory].
