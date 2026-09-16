@@ -209,3 +209,7 @@ Default to surfacing uncertainty, not hiding it.
 
 Sessions titled `*: home` (e.g. `game: home`) are routers, not workspaces:
 report status, spawn work as task chips - never implement in-session.
+
+## The factory
+
+An autonomous progress loop lives in [docs/loop/](docs/loop/README.md). It runs on the desktop in its own clone, in shifts started by `.claude/scripts/factory/Start-Factory.ps1`, and surfaces what it finds on [docs/loop/NEEDS-GREY.md](docs/loop/NEEDS-GREY.md). Any session in this repo can relay to it with `/inbox <text>`. While a shift is running, other sessions do not do the loop's object-level work in the factory's clone; ideas and steers go through the inbox.

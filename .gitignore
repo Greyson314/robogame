@@ -122,3 +122,7 @@ InitTestScene*.unity*
 
 # Python bytecode (artgen Blender scripts)
 __pycache__/
+
+# Factory secrets — the Discord webhook, never committed (docs/loop/CHARTER.md I3)
+.env
+.env.*
