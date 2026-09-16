@@ -35,7 +35,9 @@ From Claude Desktop instead (the scribe/runner format): run
 the lock and the tick and starts the Editor, then prints the prompt above
 instead of opening a tab. Open a Desktop session on the clone folder itself
 (never a worktree), pick model and effort in the UI, bypass permissions, and
-paste the prompt as the first message. The lock's pid stays null for a
+paste the prompt as the first message. Or, in that session, type
+`/robogame-factory` (`/robogame-factory noeditor` for batch-only): it runs the
+same preflight and arms /loop itself. The lock's pid stays null for a
 Desktop shift; the shift ends the same ways as below.
 
 By hand, the same thing is:
