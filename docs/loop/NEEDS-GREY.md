@@ -5,7 +5,7 @@ Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBAT
 
 ## APPROVE (0/4) — ASK-class specs awaiting check-off. One line each: id · title · pillar or readiness item · payoff · cost · evidence pointer.
 
-(empty)
+(empty — CHG-004, the bomb-bay door cue, is the first candidate; its spec is written next shift)
 
 ## PLAY (0/4) — one question per build, ≤ 5 minutes.
 
@@ -23,12 +23,16 @@ Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBAT
 
 ## DECIDE — decisions only Grey can make, each with the evidence and a default.
 
-- **D-001 — overage policy.** The plan's caps are shared with the Cosmonaut; when a tier's cap trips, the harness asks the session's terminal whether to continue on usage credits and nobody is there to answer (kernel RUNBOOK, "Usage limits"). Options: "no overage" (a cap is a stall until the window resets; the shift ends early) or "overage accepted, ceiling N a day". Default until answered: no overage. — STILL OPEN after Grey's 2026-09-16 line (§ ANSWERED): "overage should not be shared" rules out the factory spending a shared overage allowance, but does not say whether the factory may use overage at all, or at what daily ceiling. Narrowed question: may a factory shift continue on usage credits when a cap trips, and if so, what is its own daily ceiling in dollars? Default until then: no overage.
+- **D-001 — overage policy. URGENT: it ended shift 2.** Measured from inside the factory session on 2026-09-16 at 23:38Z: weekly all-models window **100 %** (resets 2026-09-18T05:00Z), weekly Fable 69 %, **extra usage enabled** on the account. So shift 2 ran on usage credits from its first token until the loop read the number and ended the shift (the exact spend is on the app's usage card; the loop does not write it here). Your 2026-09-16 line "overage should not be shared" rules out a shared allowance but not overage itself. Until answered the loop applies the default, **no overage**: a shift that starts, or wakes, with a weekly window at 100 % ends itself (LESSONS.md § METHOD 1; `/robogame-factory` step 1b refuses to arm). Answer form: `decide D-001: no overage` (shifts wait for the window; the next one can start after 2026-09-18T05:00Z) or `decide D-001: overage ok, ceiling $N a day` (the loop tracks it against the usage card each wake).
 - **D-002 — is the v1 launch singleplayer-only?** README says multiplayer is planned (Phase 2 Relay/Lobby and Phase 5 Steam not started). LAUNCH-READINESS.md is seeded with MP items marked "if v1 includes MP". Default until answered: singleplayer-only v1; MP items stay listed, not worked.
+- **D-003 — Discord channel.** `.env` is absent in the factory clone (README § Desktop setup, step 3), so `DISCORD_WEBHOOK_FACTORY` is unset and every ping dry-runs: shift 2's report was printed to the session and saved under `.utmp/factory/pings/`, where you never look (F-018). Options: (a) make a fresh webhook for #blue-mao-pow (channel → Integrations → Webhooks → New) and put the one line `DISCORD_WEBHOOK_FACTORY=<url>` in `<clone>/.env`, never in chat; or (b) `decide D-003: no Discord`, and the shift report lives as the last bullet of LOOP-STATE § SHIFT LOG plus this board. Default until answered: (b).
+- **D-004 — provenance of five imported packs (I6).** None has a license on disk or a row in art-direction.md § Imported Assets (F-001–F-005): Stylized Nature Pack (wired: ArenaProps.cs:57), Polytope Studio trees (ArenaProps.cs:276), Handpainted Grass and Ground Textures (FluffGround.cs:275), FattyPolyTurretFree + Part2Free (unused by any script; the Free pack's readme is the Part2 one), Le Tai's TrueShadow (unused, paid). For each: where it came from and under which license (the Asset Store EULA counts; name it), or `delete` for the two unused ones (deleting assets needs your nod, I1). The loop then writes the rows (AUTO). No default: the rows cannot be invented, and LAUNCH-READINESS L1 stays `grey` until then.
 
 ## FYI — AUTO-class landings since Grey last looked (cleared when acknowledged; each also in docs/changes).
 
-(empty)
+- FYI-1 2026-09-16 — the orphan `.vscode/settings.json` (the dotnet extension rewriting the solution name for the clone's folder) was reverted and marked `skip-worktree` in the clone; not work, no commit (LESSONS § METHOD 3).
+- FYI-2 2026-09-16 — `/robogame-factory` gained step 1b (plan-cap check, refuses to arm at 100 % under D-001's default) and step 1c (UnityMCP reconnect: the bridge was down for all of shift 2 because the preflight starts the Editor after the session has dialled it, F-017); `docs/loop/DESKTOP-HANDOFF.md` deleted, its setup done. Commit "factory: shift 2 …" on main; no docs/changes entry (factory tooling, no product code).
+- FYI-3 2026-09-16 — the rig is proven: `run-tests.sh All` 1m28s warm, EditMode 529/530 (1 inconclusive: a stale test path, F-016), PlayMode 152/153 (1 documented skip), 0 failures. Four sweeps ran (provenance, invariants, best-practices, doc-drift): 20 FINDINGS lines, three AUTO changes specced (CHG-001..003), nothing landed yet.
 
 ## ANSWERED (most recent first; verbatim)
 

@@ -16,7 +16,7 @@ Seeded 2026-09-16 from README.md, docs/changes/README.md's known unknowns, the p
 
 | # | Item | Status | Evidence / note | Owner |
 |---|---|---|---|---|
-| T1 | Suite green on main, 0 failures, every `[Ignore]` justified | unknown | last recorded: session 95; `MatchFlowTests.SpawnBot` ignored (BACKLOG 2) | factory |
+| T1 | Suite green on main, 0 failures, every `[Ignore]` justified | open | 2026-09-16 run on the test rig: EditMode 529/530 (1 inconclusive, F-016: `Blueprint_DefaultBuggy` absent), PlayMode 152/153 (1 skip, documented: `MatchFlowTests.SpawnBot`, BACKLOG 2), 0 failed, 1m28s warm | factory |
 | T2 | Zero console errors on load of every shipped scene | unknown | console sweep | factory |
 | T3 | Crash-free soak: N minutes of bot-vs-bot play, no exceptions, GC/frame 0 B | unknown | instrument first (BACKLOG 6) | factory |
 | T4 | Save / blueprint format versioned; an old save loads or fails loudly | unknown | atomic writes open (BACKLOG 4); tweakables JSON gotcha (BACKLOG 3) | factory |
@@ -53,8 +53,8 @@ Seeded 2026-09-16 from README.md, docs/changes/README.md's known unknowns, the p
 
 | # | Item | Status | Evidence / note | Owner |
 |---|---|---|---|---|
-| L1 | Every imported asset has a recorded license (art-direction.md § Imported Assets, PACKAGE_MODIFICATIONS.md, the soundfont, Universal Sound FX, Kenney packs) | unknown | provenance sweep | factory |
-| L2 | Every third-party package edit is documented and re-appliable | unknown | docs/PACKAGE_MODIFICATIONS.md | factory |
+| L1 | Every imported asset has a recorded license (art-direction.md § Imported Assets, PACKAGE_MODIFICATIONS.md, the soundfont, Universal Sound FX, Kenney packs) | grey | provenance sweep 2026-09-16: 10 of 15 locations pass; 5 packs have no license on disk or in docs (F-001–F-005) → NEEDS-GREY D-004; artgen→FBX manifest missing (F-006, CHG-001) | Grey / factory |
+| L2 | Every third-party package edit is documented and re-appliable | open | Fluff's two shader edits are documented; `com.coplaydev.unity-mcp` (editor-only) has no origin row (F-007, CHG-001) | factory |
 
 ## Steam
 
@@ -78,5 +78,5 @@ Seeded 2026-09-16 from README.md, docs/changes/README.md's known unknowns, the p
 
 | # | Item | Status | Evidence / note | Owner |
 |---|---|---|---|---|
-| D1 | README.md current (it still says "Last updated: April 29, 2026" and lists the Changelog as "Initial project setup") | open | doc-drift sweep; AUTO | factory |
-| D2 | docs/changes/architecture.md matches the code | unknown | doc-drift sweep | factory |
+| D1 | README.md current (it still says "Last updated: April 29, 2026" and lists the Changelog as "Initial project setup") | open | confirmed 2026-09-16: README.md:254-262, 276 (F-014, CHG-002) | factory |
+| D2 | docs/changes/architecture.md matches the code | open | 2026-09-16: matches except architecture.md:53 names `PlanetGravity`, which does not exist (`GravityField` does): F-013, CHG-002; done once landed | factory |
