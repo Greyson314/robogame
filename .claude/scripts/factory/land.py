@@ -228,7 +228,7 @@ def cmd_land(a: argparse.Namespace) -> int:
     n = next_change_number(repo)
     entry_rel = CHANGES_DIR / f"{n:03d}-{a.slug}.md"
     if (repo / entry_rel).exists():
-        raise Refuse(f"{entry_rel} already exists")
+        raise Refuse(f"{entry_rel.as_posix()} already exists")
     state_text = (repo / STATE).read_text(encoding="utf-8")
     if "## SHIFT LOG" not in state_text:
         raise Refuse("LOOP-STATE has no '## SHIFT LOG' section")
@@ -250,17 +250,17 @@ def cmd_land(a: argparse.Namespace) -> int:
     tick_line = f"{stamp} land {a.change}: {a.tick or a.title}"
 
     print(f"[1] tree clean (INBOX aside: {len(dirty) - len(stray)} line(s))")
-    print(f"[2] gate {gp.relative_to(repo)} PASS @ {head[:10]}")
+    print(f"[2] gate {gp.relative_to(repo).as_posix()} PASS @ {head[:10]}")
     print(f"[3] on {cur}; will land on main")
-    print(f"[4] record: {entry_rel} · bullet {len(bullet)} chars · " + ("PLAY entry" if a.play else "FYI line"))
+    print(f"[4] record: {entry_rel.as_posix()} · bullet {len(bullet)} chars · " + ("PLAY entry" if a.play else "FYI line"))
     if dry:
         print("DRY RUN — would run:")
         print(f"    git checkout main && git merge --no-ff --no-edit -m {merge_msg!r} {a.branch}")
-        print(f"    write {entry_rel}; append bullet to {STATE} § SHIFT LOG; append to {BOARD} § {'PLAY' if a.play else 'FYI'}")
-        print(f"    git add -- {entry_rel} {STATE} {BOARD} && git commit -m {record_msg!r}")
+        print(f"    write {entry_rel.as_posix()}; append bullet to {STATE.as_posix()} § SHIFT LOG; append to {BOARD.as_posix()} § {'PLAY' if a.play else 'FYI'}")
+        print(f"    git add -- {entry_rel.as_posix()} {STATE.as_posix()} {BOARD.as_posix()} && git commit -m {record_msg!r}")
         if a.ping:
             print(f"    ping.send(<{a.ping}>, lead='landed {a.change}')")
-        print(f"    append {tick_line!r} to {TICK}")
+        print(f"    append {tick_line!r} to {TICK.as_posix()}")
         print("    " + ("(no push)" if a.no_push else "git push origin HEAD:main"))
         return 0
 
