@@ -24,6 +24,8 @@
 .PARAMETER MaxHours   written into shift.json; the LOOP honors it (charter D13), the OS does not
 .PARAMETER NoEditor   do not start the factory's Editor when nothing serves 8080 (batch-only shift)
 .PARAMETER DryRun     run the preflight and print the launch; start nothing
+.PARAMETER Desktop    run the preflight, write the lock and the tick, start the Editor, but open no
+                      tab: Grey pastes the printed prompt into a Claude Desktop session on this clone
 
 .NOTES
   Written 2026-09-16 on the hive; first ran on Windows the same day (HANDOFF step 7).
@@ -38,7 +40,8 @@ param(
     [double]$MaxHours = 0,
     [switch]$NoEditor,
     [switch]$AllowMainCheckout,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [switch]$Desktop
 )
 $ErrorActionPreference = 'Stop'
 $GreyCheckout = 'C:\Users\Grey\Desktop\mutedtuple\robogame'
@@ -152,7 +155,7 @@ if (Test-Path $envFile) {
 # launch
 $started = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 $runner = Join-Path $Utmp 'run-shift.ps1'
-$lockObj = [ordered]@{ started = $started; pid = $null; mode = $mode; maxHours = $MaxHours; model = $Model; effort = $Effort; permissionMode = $PermissionMode; branch = $branch; root = $Root }
+$lockObj = [ordered]@{ started = $started; pid = $null; host = $(if ($Desktop) { 'desktop' } else { 'tab' }); mode = $mode; maxHours = $MaxHours; model = $Model; effort = $Effort; permissionMode = $PermissionMode; branch = $branch; root = $Root }
 $runnerText = @"
 `$ErrorActionPreference = 'Continue'
 Set-Location '$Root'
@@ -170,7 +173,15 @@ if ($DryRun) {
     Write-Host $runnerText
     exit 0
 }
-($lockObj | ConvertTo-Json) | Set-Content -Path $Lock -Encoding UTF8   # pid null until the tab claims it
+($lockObj | ConvertTo-Json) | Set-Content -Path $Lock -Encoding UTF8   # pid null until the tab claims it (stays null for a Desktop shift)
+if ($Desktop) {
+    Add-Content -Path (Join-Path $Utmp 'loop-tick.txt') -Value "$started launcher: desktop shift started (mode $mode, model/effort set in the Desktop UI, maxHours $MaxHours)"
+    Write-Host "`nPreflight done, lock written (mode $mode). Now, in Claude Desktop: open a session on this folder (not a worktree)," -ForegroundColor Green
+    Write-Host "pick the model and effort in the UI, bypass permissions, and paste this as the first message:`n" -ForegroundColor Green
+    Write-Host $Prompt
+    Write-Host "`nEnd the shift with Stop-Factory.ps1 or '/inbox STOP' from the scribe." -ForegroundColor Green
+    exit 0
+}
 Set-Content -Path $runner -Value $runnerText -Encoding UTF8
 Add-Content -Path (Join-Path $Utmp 'loop-tick.txt') -Value "$started launcher: shift started (mode $mode, $Model/$Effort, maxHours $MaxHours)"
 $wt = Get-Command wt.exe -ErrorAction SilentlyContinue

@@ -21,7 +21,7 @@ The board is NEEDS-GREY.md (D12). This section only carries a pointer and the co
 
 Lock: `.utmp/factory/shift.json` (written by Start-Factory.ps1: start time, mode, maxHours, model, effort; deleted by the end-of-shift routine).
 Tick: `.utmp/factory/loop-tick.txt` (one line per real wake: UTC, what this wake did).
-Session: name `robogame-factory`, host = Grey's desktop, terminal = the Windows Terminal tab the launcher opened (keep it open; detach nothing, close nothing).
+Session: name `robogame-factory`, host = Grey's desktop, terminal = the Windows Terminal tab the launcher opened, or a Claude Desktop session on the clone when launched with `-Desktop` (keep it open; detach nothing, close nothing).
 Model policy (D11): foreground fable @ xhigh (Grey, 2026-09-16; launch with `-Model fable -Effort xhigh`); fieldhands per .claude/agents/ (sonnet, effort set per agent); red team opus @ high. Overage: {{Grey's word — NEEDS-GREY D-001; "no overage" until then}}.
 Shared account: the Cosmonaut (bootleg_botlet, on the hive) runs on the same Max plan; every cap is shared.
 Session-bound clocks: none. A nightly shift, when Grey wants one, is a Task Scheduler job that runs Start-Factory.ps1 (README).
@@ -95,7 +95,7 @@ Purchases: none. Grey's measured usage goes beside every estimate here.
 
 ## SHIFT LOG (this shift's ≤ 600-char bullets; `land.py` appends here; archive to docs/loop/shift-log-archive.md when past ~20 KB)
 
-- 2026-09-16T20:48Z–20:5xZ — shift 1 opened (fable/xhigh, maxHours 0) and ended on a STOP from Grey before any object-level work. Read CHARTER + LOOP-STATE + NEEDS-GREY + INBOX + pillars; no sweep, no spike, no landing, no gate. Grey's `decide D-001` line recorded verbatim in NEEDS-GREY § ANSWERED; D-001 stays open because the answer does not pick between its two options. No Discord shift report: Grey issued the STOP at the terminal, so the report's audience was present (D12 "nothing repeated that day"). HANDOFF is untouched — the next shift starts at (1).
+- 2026-09-16T20:48Z–21:45Z — shift 1 opened (fable/xhigh, maxHours 0) and ended on a STOP from Grey before any object-level work. Read CHARTER + LOOP-STATE + NEEDS-GREY + INBOX + pillars; no sweep, no spike, no landing, no gate. Grey's `decide D-001` line recorded verbatim in NEEDS-GREY § ANSWERED; D-001 stays open because the answer does not pick between its two options. No Discord shift report: Grey issued the STOP at the terminal, so the report's audience was present (D12 "nothing repeated that day"). HANDOFF is untouched — the next shift starts at (1).
 
 ## NEXT ITEM
 
