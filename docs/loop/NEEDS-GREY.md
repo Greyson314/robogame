@@ -23,7 +23,7 @@ Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBAT
 
 ## DECIDE — decisions only Grey can make, each with the evidence and a default.
 
-- **D-001 — overage policy.** The plan's caps are shared with the Cosmonaut; when a tier's cap trips, the harness asks the session's terminal whether to continue on usage credits and nobody is there to answer (kernel RUNBOOK, "Usage limits"). Options: "no overage" (a cap is a stall until the window resets; the shift ends early) or "overage accepted, ceiling N a day". Default until answered: no overage.
+- **D-001 — overage policy.** The plan's caps are shared with the Cosmonaut; when a tier's cap trips, the harness asks the session's terminal whether to continue on usage credits and nobody is there to answer (kernel RUNBOOK, "Usage limits"). Options: "no overage" (a cap is a stall until the window resets; the shift ends early) or "overage accepted, ceiling N a day". Default until answered: no overage. — STILL OPEN after Grey's 2026-09-16 line (§ ANSWERED): "overage should not be shared" rules out the factory spending a shared overage allowance, but does not say whether the factory may use overage at all, or at what daily ceiling. Narrowed question: may a factory shift continue on usage credits when a cap trips, and if so, what is its own daily ceiling in dollars? Default until then: no overage.
 - **D-002 — is the v1 launch singleplayer-only?** README says multiplayer is planned (Phase 2 Relay/Lobby and Phase 5 Steam not started). LAUNCH-READINESS.md is seeded with MP items marked "if v1 includes MP". Default until answered: singleplayer-only v1; MP items stay listed, not worked.
 
 ## FYI — AUTO-class landings since Grey last looked (cleared when acknowledged; each also in docs/changes).
@@ -32,4 +32,4 @@ Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBAT
 
 ## ANSWERED (most recent first; verbatim)
 
-(empty)
+- **D-001**, 2026-09-16T20:48:15Z via /inbox: "decide D-001: overage should not be shared." (Loop's reading, not Grey's words: the factory does not draw on an overage allowance shared with the Cosmonaut. It does not settle the factory's own overage policy, so D-001 stays open with the narrowed question above and the default stands.)

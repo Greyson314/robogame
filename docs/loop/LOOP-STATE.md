@@ -95,8 +95,8 @@ Purchases: none. Grey's measured usage goes beside every estimate here.
 
 ## SHIFT LOG (this shift's ≤ 600-char bullets; `land.py` appends here; archive to docs/loop/shift-log-archive.md when past ~20 KB)
 
-(empty)
+- 2026-09-16T20:48Z–20:5xZ — shift 1 opened (fable/xhigh, maxHours 0) and ended on a STOP from Grey before any object-level work. Read CHARTER + LOOP-STATE + NEEDS-GREY + INBOX + pillars; no sweep, no spike, no landing, no gate. Grey's `decide D-001` line recorded verbatim in NEEDS-GREY § ANSWERED; D-001 stays open because the answer does not pick between its two options. No Discord shift report: Grey issued the STOP at the terminal, so the report's audience was present (D12 "nothing repeated that day"). HANDOFF is untouched — the next shift starts at (1).
 
 ## NEXT ITEM
 
-HANDOFF (1).
+HANDOFF (1) — unchanged; nothing in the handoff was consumed.

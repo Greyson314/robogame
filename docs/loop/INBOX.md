@@ -11,5 +11,5 @@ Discord lines land as `- [discord #blue-mao-pow <UTC>] <user>: <text>`. `/inbox`
 
 (empty)
 - [2026-09-16T20:48:15Z via /inbox] decide D-001: overage should not be shared.
-  (scribe: relayed by hand from the desktop-handoff session, where /inbox was not loaded.)
+  (scribe: relayed by hand from the desktop-handoff session, where /inbox was not loaded.) → recorded verbatim in NEEDS-GREY § ANSWERED; D-001 kept open with a narrowed question (the line rules out a shared allowance, not overage itself).
 - [2026-09-16T21:44:14Z via Stop-Factory] STOP: Grey, from the loop session
