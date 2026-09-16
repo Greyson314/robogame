@@ -10,3 +10,5 @@ Line forms (any prose works; these are the shorthands the loop recognizes):
 Discord lines land as `- [discord #blue-mao-pow <UTC>] <user>: <text>`. `/inbox` lines land as `- [<UTC> via /inbox] <text>`.
 
 (empty)
+- [2026-09-16T20:48:15Z via /inbox] decide D-001: overage should not be shared.
+  (scribe: relayed by hand from the desktop-handoff session, where /inbox was not loaded.)
