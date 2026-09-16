@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   End a Robogame Factory shift: append a STOP line to docs/loop/INBOX.md, commit, push.
   The loop reads INBOX at every checkpoint (charter D12) and runs its end-of-shift routine (D13).

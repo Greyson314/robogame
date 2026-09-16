@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Start a Robogame Factory shift (docs/loop/CHARTER.md D13): preflight, then a
   Windows Terminal tab running `claude` with the /loop prompt.
@@ -26,7 +26,9 @@
 .PARAMETER DryRun     run the preflight and print the launch; start nothing
 
 .NOTES
-  Written 2026-09-16 on the hive; not executed on Windows yet. First run: HANDOFF (1).
+  Written 2026-09-16 on the hive; first ran on Windows the same day (HANDOFF step 7).
+  Saved as UTF-8 WITH BOM on purpose: Windows PowerShell 5.1 reads a BOM-less file as
+  cp1252, and the em-dashes' 0x94 byte becomes a closing curly quote that breaks parsing.
 #>
 [CmdletBinding()]
 param(
