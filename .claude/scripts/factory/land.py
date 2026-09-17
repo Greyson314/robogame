@@ -26,6 +26,10 @@ the rest as the commands it would run, writing nothing):
   6. the record written: the docs/changes entry (the charter's evidence
      block prepended to --entry), the bullet under LOOP-STATE § SHIFT LOG,
      the NEEDS-GREY line/entry;
+  6b. docs/changes/README.md's "## Sessions (newest first)" table gains
+      `| NNN | [<title>](NNN-<slug>.md) |` as its first row, right under
+      the header separator (refuses -- before the merge -- if the table
+      is missing: the index is never silently left behind);
   7. `git add` of the NAMED paths only, each checked against
      `git check-ignore`; the commit "factory: record CHG-007";
   8. the ping through ping.send (six-bullet cap, repetition guard) when
@@ -53,6 +57,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 BULLET_MAX = 600
 PLAY_CAP = 4
 CHANGES_DIR = Path("docs/changes")
+CHANGES_README = CHANGES_DIR / "README.md"
+SESSIONS_HEADING = "## Sessions (newest first)"
 STATE = Path("docs/loop/LOOP-STATE.md")
 BOARD = Path("docs/loop/NEEDS-GREY.md")
 INBOX = Path("docs/loop/INBOX.md")
@@ -60,6 +66,7 @@ GATE_DIR = Path(".utmp/factory/gate")
 TICK = Path(".utmp/factory/loop-tick.txt")
 CHG_RE = re.compile(r"^CHG-\d{3,}$")
 NUM_RE = re.compile(r"^(\d+)-.*\.md$")
+SEP_RE = re.compile(r"^\|[\s:-]+\|[\s:-]+\|\s*$")
 
 
 class Refuse(SystemExit):
@@ -176,6 +183,30 @@ def append_to_section(text: str, heading_prefix: str, addition: str) -> str:
     return "".join(lines[:start + 1]) + "".join(new_body) + "".join(lines[end:])
 
 
+def insert_session_row(text: str, row: str) -> str:
+    """Insert `row` as the new first data row of the "## Sessions (newest first)" table
+    (directly under the '|---|---|' header separator). Refuses if the table is absent."""
+    lines = text.splitlines(keepends=True)
+    start = None
+    for i, l in enumerate(lines):
+        if l.startswith(SESSIONS_HEADING):
+            start = i
+            break
+    if start is None:
+        raise Refuse(f"{CHANGES_README.as_posix()} has no {SESSIONS_HEADING!r} table; the index cannot be updated")
+    sep = None
+    for j in range(start + 1, len(lines)):
+        if lines[j].startswith("## "):
+            break
+        if SEP_RE.match(lines[j].strip()):
+            sep = j
+            break
+    if sep is None:
+        raise Refuse(f"{CHANGES_README.as_posix()}'s {SESSIONS_HEADING!r} section has no header separator row")
+    add = row.rstrip("\n") + "\n"
+    return "".join(lines[:sep + 1]) + add + "".join(lines[sep + 1:])
+
+
 def cmd_land(a: argparse.Namespace) -> int:
     repo = repo_root(a.repo)
     dry = a.dry_run
@@ -235,6 +266,12 @@ def cmd_land(a: argparse.Namespace) -> int:
     board_text = (repo / BOARD).read_text(encoding="utf-8")
     if a.play and open_play_count(board_text) >= PLAY_CAP:
         raise Refuse(f"NEEDS-GREY § PLAY already holds {PLAY_CAP} open questions (D12 backpressure); land as FYI-less and queue the question later, or wait for a verdict")
+    readme_path = repo / CHANGES_README
+    if not readme_path.exists():
+        raise Refuse(f"{CHANGES_README.as_posix()} not found")
+    readme_text = readme_path.read_text(encoding="utf-8")
+    session_row = f"| {n:03d} | [{a.title.replace('|', '/')}]({entry_rel.name}) |"
+    readme_new = insert_session_row(readme_text, session_row)   # refuses here, before the merge, if the table is missing
     stamp = now()
     evidence = (
         f"# {n:03d} — {a.title} (LOG-{n:03d})\n\n"
@@ -252,12 +289,13 @@ def cmd_land(a: argparse.Namespace) -> int:
     print(f"[1] tree clean (INBOX aside: {len(dirty) - len(stray)} line(s))")
     print(f"[2] gate {gp.relative_to(repo).as_posix()} PASS @ {head[:10]}")
     print(f"[3] on {cur}; will land on main")
-    print(f"[4] record: {entry_rel.as_posix()} · bullet {len(bullet)} chars · " + ("PLAY entry" if a.play else "FYI line"))
+    print(f"[4] record: {entry_rel.as_posix()} · bullet {len(bullet)} chars · " + ("PLAY entry" if a.play else "FYI line") + f" · README row {session_row}")
     if dry:
         print("DRY RUN — would run:")
         print(f"    git checkout main && git merge --no-ff --no-edit -m {merge_msg!r} {a.branch}")
         print(f"    write {entry_rel.as_posix()}; append bullet to {STATE.as_posix()} § SHIFT LOG; append to {BOARD.as_posix()} § {'PLAY' if a.play else 'FYI'}")
-        print(f"    git add -- {entry_rel.as_posix()} {STATE.as_posix()} {BOARD.as_posix()} && git commit -m {record_msg!r}")
+        print(f"    insert into {CHANGES_README.as_posix()}: {session_row}")
+        print(f"    git add -- {entry_rel.as_posix()} {STATE.as_posix()} {BOARD.as_posix()} {CHANGES_README.as_posix()} && git commit -m {record_msg!r}")
         if a.ping:
             print(f"    ping.send(<{a.ping}>, lead='landed {a.change}')")
         print(f"    append {tick_line!r} to {TICK.as_posix()}")
@@ -278,8 +316,12 @@ def cmd_land(a: argparse.Namespace) -> int:
     (repo / BOARD).write_text(board_new, encoding="utf-8")
     print("[6] record written")
 
+    # 6b. the changes index keeps up with the ledger
+    readme_path.write_text(readme_new, encoding="utf-8")
+    print(f"[6b] {CHANGES_README.as_posix()} row inserted: {session_row}")
+
     # 7. add named paths, refuse ignored
-    named = [str(entry_rel.as_posix()), str(STATE.as_posix()), str(BOARD.as_posix())]
+    named = [str(entry_rel.as_posix()), str(STATE.as_posix()), str(BOARD.as_posix()), str(CHANGES_README.as_posix())]
     for p in named:
         if subprocess.run(["git", "-C", str(repo), "check-ignore", "-q", p]).returncode == 0:
             raise Refuse(f"{p} is git-ignored; the chain never commits ignored paths")

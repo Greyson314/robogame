@@ -6,6 +6,7 @@ LAND = HERE / "land.py"
 STATE = "# LOOP-STATE\n\n## THE BUILD\n\nmain @ x.\n\n## SHIFT LOG (bullets)\n\n(empty)\n\n## NEXT ITEM\n\nHANDOFF (1).\n"
 BOARD = ("# NEEDS-GREY\n\n## APPROVE (0/4)\n\n(empty)\n\n## PLAY (0/4) — one question per build.\n\n    ### PT-NNN — format\n    Build: ...\n\n(empty)\n\n"
          "## BUY (0)\n\n(empty)\n\n## DECIDE\n\n- D-001 x\n\n## FYI — AUTO landings.\n\n(empty)\n\n## ANSWERED\n\n(empty)\n")
+CHANGES_README = "# changes index\n\n## Sessions (newest first)\n\n| # | Title |\n|---|---|\n| 001 | [First](001-first.md) |\n"
 
 
 def sh(repo, *args, check=True):
@@ -22,7 +23,7 @@ class Chain(unittest.TestCase):
         sh(self.repo, "init", "-q", "-b", "main")
         sh(self.repo, "config", "user.email", "t@t"); sh(self.repo, "config", "user.name", "t")
         (self.repo / "docs/changes").mkdir(parents=True); (self.repo / "docs/loop").mkdir()
-        (self.repo / "docs/changes/001-first.md").write_text("# 001\n", encoding="utf-8"); (self.repo / "docs/changes/README.md").write_text("index\n", encoding="utf-8")
+        (self.repo / "docs/changes/001-first.md").write_text("# 001\n", encoding="utf-8"); (self.repo / "docs/changes/README.md").write_text(CHANGES_README, encoding="utf-8")
         (self.repo / "docs/loop/LOOP-STATE.md").write_text(STATE, encoding="utf-8"); (self.repo / "docs/loop/NEEDS-GREY.md").write_text(BOARD, encoding="utf-8")
         (self.repo / "docs/loop/INBOX.md").write_text("# INBOX\n", encoding="utf-8"); (self.repo / ".gitignore").write_text(".utmp/\n", encoding="utf-8")
         sh(self.repo, "add", "-A"); sh(self.repo, "commit", "-q", "-m", "seed")
@@ -94,6 +95,24 @@ class Chain(unittest.TestCase):
         self.gate(); sh(self.repo, "checkout", "-q", "chg/007-pogo")
         r = land(self.repo, *self.land_args("--fyi", "x")); self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertEqual(sh(self.repo, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip(), "main")
+
+    def test_land_inserts_session_row_at_top_of_sessions_table(self):
+        self.gate()
+        r = land(self.repo, *self.land_args("--fyi", "x")); self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        readme = (self.repo / "docs/changes/README.md").read_text(encoding="utf-8").splitlines()
+        sep = readme.index("|---|---|")
+        self.assertEqual(readme[sep + 1], "| 002 | [Pogo tune](002-pogo-tune.md) |")
+        self.assertEqual(readme[sep + 2], "| 001 | [First](001-first.md) |")
+
+    def test_land_refuses_without_sessions_table_before_merging(self):
+        self.gate()
+        (self.repo / "docs/changes/README.md").write_text("# changes index\n\nno table here.\n", encoding="utf-8")
+        sh(self.repo, "commit", "-q", "-am", "strip the sessions table")
+        before = sh(self.repo, "rev-parse", "HEAD").stdout
+        r = land(self.repo, *self.land_args("--fyi", "x"))
+        self.assertEqual(r.returncode, 2); self.assertIn("REFUSED", r.stdout); self.assertIn("Sessions (newest first)", r.stdout)
+        self.assertEqual(before, sh(self.repo, "rev-parse", "HEAD").stdout)   # no merge happened
+        self.assertFalse((self.repo / "docs/changes/002-pogo-tune.md").exists())
 
 
 if __name__ == "__main__":
