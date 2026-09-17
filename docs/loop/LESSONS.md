@@ -17,6 +17,8 @@
 
 10. **Build a branch with git plumbing when the working tree is shared.** The clone has one checkout and the test rig syncs it, so a fieldhand's branch, a red team's suite run and the foreground's state edits all fight for the same tree. Shift 5 built CHG-014 (two files) and CHG-012 (four files plus rows) with `read-tree` / `hash-object --path` / `update-index --cacheinfo` / `commit-tree` / `update-ref` from a temporary index, never touching the checkout: the rig kept running another gate meanwhile, and a direct rig run (`reset --hard <sha>` on the worktree, LESSONS 8) measured the branch before anyone checked it out. The checkout happens once, for the red team's `run-tests.sh`, and only then. Paid for 2026-09-17 (the alternative was a serialized afternoon).
 
+11. **Write the shift report as dash bullets, never as prose paragraphs.** `ping.py` keeps a `- ` line whole but splits a prose line into sentences before counting against the six-bullet cap, so a five-paragraph report was refused as nine bullets; and its stdout must be UTF-8 on Windows (F-043, fixed). The shift-5 report went out on the third attempt. The form is: five `- ` lines, ≤ 1,900 characters, the build's headline first, the board's open entries, the landings, the tokens. Paid for 2026-09-17.
+
 ## PREDICTIONS TO SETTLE (from the template; mark paid-for or delete)
 
 - Human bandwidth is the binding constraint and the board's caps will bind within a week.
