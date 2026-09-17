@@ -48,12 +48,12 @@ MOLT: when the hot set passes 200 KB or the context shows rot (D11), write state
 
 ## HEALTH (D16c; shift 2, 2026-09-16)
 
-Changes landed/week with evidence: 1 (CHG-003, 2026-09-17). Board entries answered/week: 0 (D-001 partially, 2026-09-16). Bugs closed with tests: 1 (F-016, CHG-003). Readiness items moved: 4 (T1 unknown→open, L1 unknown→grey, L2 unknown→open, D2 unknown→open).
+Changes landed/week with evidence: 2 (CHG-003, CHG-002; 2026-09-17). Board entries answered/week: 0 (D-001 partially, 2026-09-16). Bugs closed with tests: 1 (F-016, CHG-003). Readiness items moved: 4 (T1 unknown→open, L1 unknown→grey, L2 unknown→open, D2 unknown→open).
 Main: green (0 failures). Suite: 683 cases, 1m28s warm. Perf vs budget: last rows 2026-08-17, Arena idle avg 5.13 ms of 16.6 ms; band unmeasured. Board: 4 DECIDE open, oldest D-001 (2026-09-16). Findings surfaced 20 / acted on 1 (F-017, the command fix) / specced 8 (into CHG-001..003). Pipeline occupancy: 0 lanes. Delegation mix: 4 × sweeper sonnet/medium (~349k tokens measured: 71k + 74k + 100k + 104k); foreground fable/xhigh (context 164k at 23:38Z). Harness stubs: 0 seen. Tokens this shift: ~349k fieldhand + the foreground, against the 4M ceiling; all on usage credits (D-001).
 
 ## LANES IN FLIGHT (D4 CHANGE tier — each change's stage: SPEC / APPROVE-WAIT / TESTS / BUILD / GATE / LANDED; the named dependency if serialized)
 
-- CHG-003 — LANDED 2026-09-17T02:10Z (docs/changes/174; red team PASS with notes → F-021, F-022 → CHG-008). CHG-002 — BUILD next (branch `chg/002-doc-drift-sweep`). CHG-001 — SPEC (AUTO, S; grew by three D-004 rows). CHG-005 — SPEC (ASK with the D-004 nod). Serialized on the single working tree: the test rig syncs the clone's checkout, so one branch is checked out per gate.
+- CHG-003 — LANDED 2026-09-17T02:10Z (docs/changes/174). CHG-002 — LANDED 2026-09-17 (docs/changes/175-doc-drift-sweep.md; red team KILL → fixes → PASS). CHG-005 — BUILD next (delete the two packs, nod on the spec); then CHG-001 (test first). CHG-001 — SPEC (AUTO, S; grew by three D-004 rows). CHG-005 — SPEC (ASK with the D-004 nod). Serialized on the single working tree: the test rig syncs the clone's checkout, so one branch is checked out per gate.
 
 ## BACKLOG (with priors; triage on merit; AUTO items → CHANGE-QUEUE, ASK items → NEEDS-GREY, unknowns → SPIKES)
 
@@ -74,6 +74,7 @@ Main: green (0 failures). Suite: 683 cases, 1m28s warm. Perf vs budget: last row
 15. Console sweep + visual sweep — never run (bridge). First thing after the bridge is proven.
 16. Rig: the factory Editor hangs at startup (D-005 on the board; see RIG). Instrument once it opens: the launcher tails Editor.log for 'Crash!!!' or a stall and says so in the preflight.
 18. CHG-008 (F-022): Grappler + HoverTank preset coverage, one list — AUTO, S. Then SPIKES L3 (F-021) before T1 can close.
+19. docs/TRACES.md is stale in 17 sites (F-023): Robogame → Traces → Rebuild Index once the Editor opens (D-005); add TRACES.md to the doc-drift sweep. AUTO, S.
 17. Instrument: `/inbox` commits to main with plumbing (`git commit-tree` + `update-ref refs/heads/main`, then push) instead of committing on the checked-out branch (LESSONS § METHOD 5). AUTO (tooling), S.
 
 ## INSTRUMENTS (built, reusable)

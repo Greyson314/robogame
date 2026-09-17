@@ -78,5 +78,5 @@ Seeded 2026-09-16 from README.md, docs/changes/README.md's known unknowns, the p
 
 | # | Item | Status | Evidence / note | Owner |
 |---|---|---|---|---|
-| D1 | README.md current (it still says "Last updated: April 29, 2026" and lists the Changelog as "Initial project setup") | open | confirmed 2026-09-16: README.md:254-262, 276 (F-014, CHG-002) | factory |
-| D2 | docs/changes/architecture.md matches the code | open | 2026-09-16: matches except architecture.md:53 names `PlanetGravity`, which does not exist (`GravityField` does): F-013, CHG-002; done once landed | factory |
+| D1 | README.md current | done | CHG-002, 2026-09-17 (docs/changes/175-doc-drift-sweep.md): date current, Changelog points at docs/changes/README.md; the doc-drift sweep re-checks weekly | factory |
+| D2 | docs/changes/architecture.md matches the code | done | CHG-002, 2026-09-17 (docs/changes/175-doc-drift-sweep.md): `PlanetGravity` → `GravityField`; the 2026-09-16 sweep found no other contradiction; re-checked weekly | factory |

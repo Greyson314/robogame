@@ -32,7 +32,7 @@
 |---|---|---|---|---|---|---|---|
 | 1 | CHG-003 | PresetBlueprintTests: drop the stale DefaultBuggy path | AUTO | T1 | test (zero Inconclusive) | S | LANDED 2026-09-17 (docs/changes/174) |
 | 5 | CHG-008 | preset test coverage: Grappler + HoverTank, one list | AUTO | T1 | test (14 cases pass; slot-coverage guard) | S | SPEC |
-| 2 | CHG-002 | doc drift from the 2026-09-16 sweep (six edits) | AUTO | D1, D2 | sweep re-run + Traces Validate | S | SPEC |
+| 2 | CHG-002 | doc drift from the 2026-09-16 sweep (six edits) | AUTO | D1, D2 | sweep re-run + Traces Validate | S | LANDED 2026-09-17 (docs/changes/175-doc-drift-sweep.md; red team KILL then PASS) |
 | 3 | CHG-001 | provenance records: artgen manifest + unity-mcp package row + three Asset Store rows (D-004) | AUTO | L1, L2 | test (manifest covers every FBX) + provenance re-sweep | S | SPEC |
 | 4 | CHG-005 | delete the two unused packs (FattyPolyTurretFree + Part2Free, Le Tai's TrueShadow) | ASK, nod given (D-004) | L1 | grep of their GUIDs in Assets/_Project = 0 + suite green | S | SPEC |
 
@@ -48,7 +48,7 @@ Must not break: the presets already listed stay covered (the remaining twelve pa
 Revert: `git revert` of the landing commit; leaves T1 as it is today.
 Feel change? no
 
-### CHG-002 doc drift from the 2026-09-16 sweep (six edits) — status: SPEC
+### CHG-002 doc drift from the 2026-09-16 sweep (six edits) — status: LANDED (docs/changes/175-doc-drift-sweep.md, 2026-09-17; red team round 1 KILL: tip-blocks.md:140 still said 250; fixed, round 2 PASS)
 Class: AUTO (I1: doc drift against code, tier-2 docs, dangling TRACEs)
 Pillar or readiness item: LAUNCH-READINESS D1 (README current) and D2 (architecture.md matches the code); best-practices § 12.5 currency.
 Source: F-009, F-010, F-011, F-013, F-014, F-015.
@@ -91,4 +91,4 @@ Feel change? no
 ## BUILT THIS SHIFT (moved to docs/changes on landing; tally for HEALTH)
 
 - shift 2, 2026-09-16: nothing built; the shift ended on the plan cap before rung 1.
-- shift 3, 2026-09-17: CHG-003 landed (docs/changes/174).
+- shift 3, 2026-09-17: CHG-003 landed (docs/changes/174); CHG-002 landed (docs/changes/175-doc-drift-sweep.md).
