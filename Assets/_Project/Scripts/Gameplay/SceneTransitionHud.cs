@@ -108,7 +108,7 @@ namespace Robogame.Gameplay
 
         private static void EnsureEventSystem()
         {
-            EventSystem es = Object.FindFirstObjectByType<EventSystem>();
+            EventSystem es = Object.FindAnyObjectByType<EventSystem>();
             if (es == null)
             {
                 var go = new GameObject("EventSystem");

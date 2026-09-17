@@ -74,7 +74,7 @@ namespace Robogame.Tests.PlayMode.Perf
             yield return new WaitForSecondsRealtime(2f);
 
             // --- gather chassis block renderers + their world bounds ---
-            Renderer[] all = Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            Renderer[] all = Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude);
             var blockRenderers = new System.Collections.Generic.List<Renderer>();
             bool hasBounds = false;
             Bounds b = default;
@@ -97,7 +97,7 @@ namespace Robogame.Tests.PlayMode.Perf
                       $"bounds center={b.center} size={b.size}");
 
             // --- dedicated measurement camera (no follow script to fight) ---
-            Camera[] cams = Object.FindObjectsByType<Camera>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            Camera[] cams = Object.FindObjectsByType<Camera>(FindObjectsInactive.Exclude);
             for (int i = 0; i < cams.Length; i++) if (cams[i] != null) cams[i].enabled = false;
             var camGo = new GameObject("PerfProbeCam");
             var cam = camGo.AddComponent<Camera>();
@@ -109,7 +109,7 @@ namespace Robogame.Tests.PlayMode.Perf
             Quaternion awayRot = Quaternion.LookRotation(Vector3.up);
 
             Light sun = null;
-            Light[] lights = Object.FindObjectsByType<Light>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            Light[] lights = Object.FindObjectsByType<Light>(FindObjectsInactive.Exclude);
             for (int i = 0; i < lights.Length; i++)
                 if (lights[i] != null && lights[i].type == LightType.Directional) { sun = lights[i]; break; }
 

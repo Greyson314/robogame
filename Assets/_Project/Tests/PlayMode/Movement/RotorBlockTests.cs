@@ -372,7 +372,7 @@ namespace Robogame.Tests.PlayMode.Movement
         {
             // Arrange.
             int rbCountBefore = Object.FindObjectsByType<Rigidbody>(
-                FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+                FindObjectsInactive.Include).Length;
 
             BlockDefinition rotorDef = MakeDef("block.rotor.test");
             BlockBehaviour rotorBb = _grid.PlaceBlock(rotorDef, new Vector3Int(0, 1, 0));
@@ -391,7 +391,7 @@ namespace Robogame.Tests.PlayMode.Movement
 
             // Assert.
             int rbCountAfter = Object.FindObjectsByType<Rigidbody>(
-                FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+                FindObjectsInactive.Include).Length;
 
             int delta = rbCountAfter - rbCountBefore;
             Assert.AreEqual(0, delta,

@@ -91,7 +91,7 @@ namespace Robogame.Core
         private static void EnsureBootstrap()
         {
             if (s_instance != null) return;
-            s_instance = FindFirstObjectByType<MusicConductor>();
+            s_instance = FindAnyObjectByType<MusicConductor>();
             if (s_instance != null) return;
             var root = new GameObject("[MusicConductor]");
             DontDestroyOnLoad(root);

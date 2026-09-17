@@ -121,7 +121,7 @@ namespace Robogame.Gameplay
             // additive bubble reads as a solid glowing ball over black. Use
             // FindObjectsByType (not Camera.allCameras, which is empty this
             // early in Start before any camera has rendered a frame).
-            foreach (Camera cam in Object.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            foreach (Camera cam in Object.FindObjectsByType<Camera>(FindObjectsInactive.Include))
                 if (cam != null) cam.clearFlags = CameraClearFlags.Skybox;
         }
 

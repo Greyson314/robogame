@@ -125,7 +125,7 @@ namespace Robogame.Gameplay
             {
                 _nextMatchScanAt = Time.unscaledTime + 1f;
 #if UNITY_2023_1_OR_NEWER
-                ArenaController arena = Object.FindFirstObjectByType<ArenaController>();
+                ArenaController arena = Object.FindAnyObjectByType<ArenaController>();
 #else
                 ArenaController arena = Object.FindObjectOfType<ArenaController>();
 #endif

@@ -213,9 +213,9 @@ namespace Robogame.UI
             // second so the 1–10 ms cost amortises into noise. Doing this
             // every frame would be its own perf bug.
 #if UNITY_2023_1_OR_NEWER
-            Rigidbody[] rbs = Object.FindObjectsByType<Rigidbody>(FindObjectsSortMode.None);
-            Joint[] joints = Object.FindObjectsByType<Joint>(FindObjectsSortMode.None);
-            Robot[] robots = Object.FindObjectsByType<Robot>(FindObjectsSortMode.None);
+            Rigidbody[] rbs = Object.FindObjectsByType<Rigidbody>();
+            Joint[] joints = Object.FindObjectsByType<Joint>();
+            Robot[] robots = Object.FindObjectsByType<Robot>();
 #else
             Rigidbody[] rbs = Object.FindObjectsOfType<Rigidbody>();
             Joint[] joints = Object.FindObjectsOfType<Joint>();

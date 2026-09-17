@@ -84,7 +84,7 @@ namespace Robogame.Gameplay
         {
             _robots.Clear();
             _names.Clear();
-            Robot[] all = Object.FindObjectsByType<Robot>(FindObjectsSortMode.None);
+            Robot[] all = Object.FindObjectsByType<Robot>();
             for (int i = 0; i < all.Length; i++)
             {
                 Robot r = all[i];
