@@ -1104,15 +1104,10 @@ namespace Robogame.Gameplay
             if (state.Library == null) return;
             if (_stressTowerGo != null) return; // already spawned
 
-            // Reuse the dummy name path — GameObject.Find picks up the
-            // first match, but we keep our own ref in _stressTowerGo so
-            // Find isn't on the despawn hot path.
-            GameObject existing = GameObject.Find(_stressTowerName);
-            if (existing != null) Destroy(existing);
-
-            _stressTowerGo = new GameObject(_stressTowerName);
-            _stressTowerGo.transform.position = _stressTowerPosition;
-            Robogame.Robots.Robot tower = ChassisFactory.BuildTarget(_stressTowerGo, _stressTowerBlueprint, state.Library);
+            _stressTowerGo = SpawnDevDummy<Component>(
+                _stressTowerName, _stressTowerPosition, _stressTowerBlueprint, state.Library,
+                configureAi: null, out _, asTarget: true);
+            Robogame.Robots.Robot tower = _stressTowerGo.GetComponent<Robogame.Robots.Robot>();
             int blockCount = tower != null ? tower.BlockCount : 0;
             Debug.Log($"[Robogame] Stress rotor tower spawned at {_stressTowerPosition} with {blockCount} blocks. " +
                       "Drag Stress.TowerRpm in settings to spin it up.", _stressTowerGo);
@@ -1135,6 +1130,53 @@ namespace Robogame.Gameplay
         }
 
         // -----------------------------------------------------------------
+        // Dev-dummy spawn/despawn shared shape. ChassisAssembler.Assemble
+        // deactivates the root internally for the whole build regardless
+        // of caller state and restores it after (see its "OnEnable
+        // timing" remarks), so toggling active here just brackets AI
+        // attachment ahead of that build — safe for both the Build (bot)
+        // and BuildTarget (passive target, no AI) paths.
+        // -----------------------------------------------------------------
+
+        private GameObject SpawnDevDummy<TAi>(
+            string name,
+            Vector3 spawnPosition,
+            ChassisBlueprint blueprint,
+            BlockDefinitionLibrary library,
+            System.Action<TAi> configureAi,
+            out TAi ai,
+            bool asTarget = false)
+            where TAi : Component
+        {
+            GameObject existing = GameObject.Find(name);
+            if (existing != null) Destroy(existing);
+
+            GameObject go = new GameObject(name);
+            go.transform.SetPositionAndRotation(spawnPosition, Quaternion.identity);
+            go.SetActive(false);
+            ai = configureAi != null ? go.AddComponent<TAi>() : null;
+            configureAi?.Invoke(ai);
+            if (asTarget)
+                ChassisFactory.BuildTarget(go, blueprint, library);
+            else
+                ChassisFactory.Build(
+                    go, blueprint, library,
+                    inputActions: null, addPlayerInputs: false);
+            go.SetActive(true);
+            return go;
+        }
+
+        private void DespawnDevDummy<TAi>(ref GameObject go, ref TAi ai) where TAi : Component
+        {
+            if (go != null)
+            {
+                Destroy(go);
+                go = null;
+                ai = null;
+            }
+        }
+
+        // -----------------------------------------------------------------
         // Tank dummy bot (optional patrolling target)
         // -----------------------------------------------------------------
 
@@ -1145,15 +1187,7 @@ namespace Robogame.Gameplay
             else         DespawnTankDummy();
         }
 
-        public void DespawnTankDummy()
-        {
-            if (_tankDummyGo != null)
-            {
-                Destroy(_tankDummyGo);
-                _tankDummyGo = null;
-                _tankDummyAi = null;
-            }
-        }
+        public void DespawnTankDummy() => DespawnDevDummy(ref _tankDummyGo, ref _tankDummyAi);
 
         private void SpawnTankDummy(GameStateController state)
         {
@@ -1171,24 +1205,19 @@ namespace Robogame.Gameplay
                 return;
             }
 
-            GameObject existing = GameObject.Find(_tankDummyName);
-            if (existing != null) Destroy(existing);
-
             // Build via the player path (with addPlayerInputs=false) so the
             // bot gets full GroundDriveSubsystem + WeaponMount + binders.
-            // We attach the AI input source manually before activation so
+            // The AI input source is attached before activation so
             // PlayerController.Awake's GetComponent<IInputSource> resolves
             // to it.
-            _tankDummyGo = new GameObject(_tankDummyName);
-            _tankDummyGo.transform.SetPositionAndRotation(_tankDummySpawn, Quaternion.identity);
-            _tankDummyGo.SetActive(false);
-            _tankDummyAi = _tankDummyGo.AddComponent<GroundBotInputSource>();
-            _tankDummyAi.CircleCentre = _tankDummyPatrolCentre;
-            _tankDummyAi.CircleRadius = _tankDummyPatrolRadius;
-            ChassisFactory.Build(
-                _tankDummyGo, bp, state.Library,
-                inputActions: null, addPlayerInputs: false);
-            _tankDummyGo.SetActive(true);
+            _tankDummyGo = SpawnDevDummy<GroundBotInputSource>(
+                _tankDummyName, _tankDummySpawn, bp, state.Library,
+                dummyAi =>
+                {
+                    dummyAi.CircleCentre = _tankDummyPatrolCentre;
+                    dummyAi.CircleRadius = _tankDummyPatrolRadius;
+                },
+                out _tankDummyAi);
 
             ApplyTankDummyFire();
             // Register the dev-spawned tank dummy with the match too, so
@@ -1308,15 +1337,7 @@ namespace Robogame.Gameplay
             else         DespawnAirDummy();
         }
 
-        public void DespawnAirDummy()
-        {
-            if (_airDummyGo != null)
-            {
-                Destroy(_airDummyGo);
-                _airDummyGo = null;
-                _airDummyAi = null;
-            }
-        }
+        public void DespawnAirDummy() => DespawnDevDummy(ref _airDummyGo, ref _airDummyAi);
 
         private void SpawnAirDummy(GameStateController state)
         {
@@ -1334,20 +1355,15 @@ namespace Robogame.Gameplay
                 return;
             }
 
-            GameObject existing = GameObject.Find(_airDummyName);
-            if (existing != null) Destroy(existing);
-
-            _airDummyGo = new GameObject(_airDummyName);
-            _airDummyGo.transform.SetPositionAndRotation(_airDummySpawn, Quaternion.identity);
-            _airDummyGo.SetActive(false);
-            _airDummyAi = _airDummyGo.AddComponent<AirBotInputSource>();
-            _airDummyAi.CircleCentre = _airDummyCruiseCentre;
-            _airDummyAi.CircleRadius = _airDummyCruiseRadius;
-            _airDummyAi.TargetAltitude = _airDummyCruiseAltitude;
-            ChassisFactory.Build(
-                _airDummyGo, bp, state.Library,
-                inputActions: null, addPlayerInputs: false);
-            _airDummyGo.SetActive(true);
+            _airDummyGo = SpawnDevDummy<AirBotInputSource>(
+                _airDummyName, _airDummySpawn, bp, state.Library,
+                dummyAi =>
+                {
+                    dummyAi.CircleCentre = _airDummyCruiseCentre;
+                    dummyAi.CircleRadius = _airDummyCruiseRadius;
+                    dummyAi.TargetAltitude = _airDummyCruiseAltitude;
+                },
+                out _airDummyAi);
 
             ApplyAirDummyFire();
             RegisterChassis(_airDummyGo, MatchSide.Enemy, "DUMMY AIR");
