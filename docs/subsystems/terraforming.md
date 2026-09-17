@@ -608,7 +608,7 @@ Operationally split in practice into three sub-phases — see `docs/changes/64-t
 
 - 1a: `SurfaceNetsMesherTests` (12 tests) pass.
 - 1b: PlayMode test scaffolds the scene, instantiates a half-space-initialised `DigZone`, applies a centred `SphereSubtract`, asserts the chunk's SDF was mutated where the brush hit (cells inside the brush radius now have `sdf >= 0`), the `MeshFilter` swapped to a non-null mesh, and the post-brush vertex count differs from the pre-brush count.
-- 1c: PlayMode benchmark test asserts median remesh time `< 1 ms` over 50 iterations at `dim=33`, and `GC.GetAllocatedBytesForCurrentThread()` delta between iterations is zero.
+- 1c: PlayMode benchmark test asserts the best of three 50-iteration medians of remesh time `< 1 ms` at `dim=34` (32 cells + 2 apron) after 10 untimed warm-up calls, logs a `[SURFACENETS-BENCH]` row to docs/perf-captures/harness-log.txt on every run, and asserts the `GC.GetAllocatedBytesForCurrentThread()` delta across 50 iterations is zero (docs/loop/FINDINGS.md F-021; SPIKES L3/L3b).
 
 **Visual playtest (1b):** open `DigZone_Test.unity`, click `Robogame > Dig Zone > Test Sphere Subtract`. A smooth dimple appears in the chunk where the brush hit; surrounding mesh stays watertight. Repeat clicks accumulate.
 

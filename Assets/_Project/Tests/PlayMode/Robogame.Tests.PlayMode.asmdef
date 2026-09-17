@@ -12,6 +12,7 @@
         "Robogame.Gameplay",
         "Robogame.Voxel",
         "Robogame.Network",
+        "Unity.Burst",
         "Unity.Collections",
         "Unity.Mathematics",
         "UnityEngine.TestRunner",

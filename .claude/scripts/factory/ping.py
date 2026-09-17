@@ -35,6 +35,13 @@ import json
 import os
 import re
 import sys
+
+# A cp1252 console cannot print the report's own characters (an "≈" killed the shift-5
+# report before it was posted, 2026-09-17): print UTF-8 wherever stdout allows it.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except (AttributeError, ValueError):
+    pass
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone

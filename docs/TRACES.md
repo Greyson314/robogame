@@ -5,18 +5,18 @@
 > Syntax: `// TRACE[id]: note` — see `ContinualTraces.cs` / `CLAUDE.md`.
 
 ## ADR-0002
-- `Assets/_Project/Scripts/Network/Robot/NetworkRobotMovement.cs:280` — forces go to the prediction mirror via the subsystem redirect
+- `Assets/_Project/Scripts/Network/Robot/NetworkRobotMovement.cs:282` — forces go to the prediction mirror via the subsystem redirect
 
 ## ADR-0003
 - `Assets/_Project/Scripts/Combat/BombBayBlock.cs:62` — shared cooldown + ammo + dry-click gate (phase D)
 - `Assets/_Project/Scripts/Combat/CannonBlock.cs:89` — shared cooldown + ammo + dry-click gate (phase D)
 - `Assets/_Project/Scripts/Combat/CannonBlock.cs:153` — shared yaw/pitch/muzzle track (phase C); yaw
-- `Assets/_Project/Scripts/Combat/GrappleMagnetBlock.cs:266` — shared yaw/pitch/muzzle track (phase C); yaw
+- `Assets/_Project/Scripts/Combat/GrappleMagnetBlock.cs:305` — shared yaw/pitch/muzzle track (phase C); yaw
 - `Assets/_Project/Scripts/Combat/MortarBlock.cs:111` — shared cooldown + ammo + dry-click gate (phase D)
 - `Assets/_Project/Scripts/Combat/MortarBlock.cs:192` — shared yaw (phase C); the mortar drives its own
 - `Assets/_Project/Scripts/Combat/ProjectileGun.cs:67` — shared cooldown + ammo + dry-click gate (phase D)
-- `Assets/_Project/Scripts/Combat/WeaponAmmoState.cs:274` — ammo-weapon registry = "definition carries IWeaponStats" (phase B), replaces the hand-synced id list
-- `Assets/_Project/Scripts/Combat/WeaponAmmoState.cs:396` — single IWeaponStats cast (phase B), was a four-way try-cast
+- `Assets/_Project/Scripts/Combat/WeaponAmmoState.cs:300` — ammo-weapon registry = "definition carries IWeaponStats" (phase B), replaces the hand-synced id list
+- `Assets/_Project/Scripts/Combat/WeaponAmmoState.cs:426` — single IWeaponStats cast (phase B), was a four-way try-cast
 - `Assets/_Project/Scripts/Combat/WeaponBlock.cs:90` — shared yaw/pitch/muzzle track (phase C); yaw
 - `Assets/_Project/Scripts/Network/Robot/NetworkRobotCombat.cs:145` — marker-interface silence walk (phase B) — replaces the hand-synced list
 
@@ -30,8 +30,26 @@
 - `Assets/_Project/Scripts/Core/MusicConductor.cs:420` — FMOD bypasses the Music AudioMixer bus, so the
 - `Assets/_Project/Scripts/Tools/Editor/MusicScaffolder.cs:52` — intensity-layer stems for the FMOD backend,
 
+## ADR-0008
+- `Assets/_Project/Scripts/Gameplay/BlockGhostFactory.cs:51` — per-block rig recipes — the ghost analogue of
+- `Assets/_Project/Scripts/Gameplay/ChassisAssembler.cs:219` — subsystem needs ride the
+- `Assets/_Project/Scripts/Gameplay/TuneSchemaRegistry.cs:25` — ghost-recipe-pattern registry — one entry per block
+
+## ADR-0009
+- `Assets/_Project/Scripts/Block/ControlScheme.cs:13` — the scheme is the ONLY place keys are interpreted —
+- `Assets/_Project/Scripts/Gameplay/ChassisAssembler.cs:273` — no chassis-level plane controller any
+- `Assets/_Project/Scripts/Gameplay/TuneSchemaRegistry.cs:138` — per-foil control authority knob. 0 in
+- `Assets/_Project/Scripts/Movement/AeroControl.cs:32` — authority from geometry, not from a chassis torque.
+- `Assets/_Project/Scripts/Movement/AeroSurfaceBlock.cs:132` — authority from geometry — includes the force point.
+- `Assets/_Project/Scripts/Movement/AeroSurfaceBlock.cs:139` — control-surface path. A free (non-rotor) foil reads
+- `Assets/_Project/Scripts/Movement/DriveIntent.cs:23` — intent layer — keys are interpreted exactly once, here.
+- `Assets/_Project/Scripts/Movement/PogoBlock.cs:80` — pogo tilt reads the raw Move axes carried on
+- `Assets/_Project/Scripts/Movement/RobotDrive.cs:64` — the control scheme is resolved ONCE per chassis
+- `Assets/_Project/Scripts/Movement/RotorBlock.cs:91` — throttle consumes the intent layer when the
+- `Assets/_Project/Scripts/Movement/RotorBlock.cs:925` — verbs come from the intent layer, so
+
 ## AUDIT-1
-- `Assets/_Project/Scripts/Network/Robot/NetworkRobotMovement.cs:279` — re-step only the owner chassis in isolation — never global Physics.Simulate
+- `Assets/_Project/Scripts/Network/Robot/NetworkRobotMovement.cs:281` — re-step only the owner chassis in isolation — never global Physics.Simulate
 
 ## AUDIT-15
 - `Assets/_Project/Scripts/Combat/CannonBlock.cs:228` — world gravity at the muzzle (was chassis-relative -parent.up)
@@ -46,15 +64,13 @@
 ## DOC:CLAUDE.md§Known failure modes
 - `Assets/_Project/Scripts/Combat/DamageAttribution.cs:48` — statics survive domain
 - `Assets/_Project/Scripts/Combat/MusicalHits.cs:39` — statics survive domain
+- `Assets/_Project/Scripts/Core/HudPointerGuard.cs:32` — statics survive domain reload; reset on subsystem registration.
 
 ## DOC:art-direction§Palette
 - `Assets/_Project/Scripts/Gameplay/GarageDecor.cs:23` — every decor color below is a
 
 ## DOC:audio.md
 - `Assets/_Project/Scripts/Core/MusicalSfx.cs:76` — statics survive domain reload — reset below.
-
-## DOC:best-practices§statics
-- `Assets/_Project/Scripts/Core/HudPointerGuard.cs:32` — statics survive domain reload.
 
 ## DOC:hud-layout
 - `Assets/_Project/Scripts/Network/Bootstrap/NetDevHud.cs:27` — placement follows the HUD layout doc.
@@ -64,20 +80,43 @@
 - `Assets/_Project/Scripts/Core/HudStyles.cs:96` — one UI face for
 - `Assets/_Project/Scripts/Core/InkKit.cs:27` — shape language + token values.
 - `Assets/_Project/Scripts/Core/UguiPalette.cs:36` — inventor + painter tokens.
-- `Assets/_Project/Scripts/Gameplay/MainMenuController.cs:35` — unified-menu layout + treatments.
 - `Assets/_Project/Scripts/Gameplay/SettingsHud.cs:160` — Display face for UI text,
-- `Assets/_Project/Scripts/Gameplay/SettingsHud.cs:769` — "quantities live inside
-- `Assets/_Project/Scripts/Gameplay/SettingsHud.cs:845` — toggle rail spec.
+- `Assets/_Project/Scripts/Gameplay/SettingsHud.cs:777` — "quantities live inside
+- `Assets/_Project/Scripts/Gameplay/SettingsHud.cs:853` — toggle rail spec.
 
 ## DOC:research/ui-design-handoff-laboratory
 - `Assets/_Project/Scripts/Core/LabKit.cs:26` — colours, shapes, elevation.
 - `Assets/_Project/Scripts/Gameplay/LabController.cs:37` — layout + interaction language.
 
+## DOC:research/ui-design-handoff-motion
+- `Assets/_Project/Scripts/Core/InkButton.cs:28` — press/hover/cue contract.
+- `Assets/_Project/Scripts/Core/InkKit.cs:129` — ink-wipe transition.
+- `Assets/_Project/Scripts/Core/PageWipe.cs:29` — Page verb / ink wipe.
+- `Assets/_Project/Scripts/Core/SheetTitleBlock.cs:13` — sheet-number convention.
+- `Assets/_Project/Scripts/Core/Tweakables.cs:161` — reduced-motion rule.
+- `Assets/_Project/Scripts/Core/UiCues.cs:18` — D-minor cue palette.
+- `Assets/_Project/Scripts/Core/UiMotion.cs:28` — token values verbatim.
+- `Assets/_Project/Scripts/Core/UiTween.cs:47` — retargetable tween driver.
+- `Assets/_Project/Scripts/Gameplay/BotInkDiagram.cs:33` — home diagram, player bot.
+- `Assets/_Project/Scripts/Gameplay/MainMenuController.cs:28` — sheet 01 layout + entrance choreography.
+- `Assets/_Project/Scripts/Gameplay/MainMenuController.cs:429` — sheet numbering — 02 is the garage.
+- `Assets/_Project/Scripts/Gameplay/PauseMenuHud.cs:252` — every scene
+
 ## INV-1
+- `Assets/_Project/Scripts/Core/Tweakables.cs:254` — no Tweakable may affect gameplay outcomes for
+- `Assets/_Project/Scripts/Gameplay/SettingsHud.cs:300` — dev action buttons + perf-bisect toggles are dev
+- `Assets/_Project/Scripts/Gameplay/SettingsHud.cs:530` — dev-surface groups (Water / Rope / Stress)
 - `Assets/_Project/Scripts/Movement/ThrusterBlock.cs:125` — dev-only global multiplier; compile-stripped to 1.0 in
+- `Assets/_Project/Scripts/UI/DevHud.cs:48` — the dev HUD is a dev surface. In shipping
+
+## INV-11
+- `Assets/_Project/Scripts/Movement/AeroControl.cs:33` — size + position of parts must matter; this is where
+- `Assets/_Project/Scripts/Movement/GroundDriveSubsystem.cs:261` — drive force is split across the WHEEL SET
+- `Assets/_Project/Scripts/Movement/HoverDriveSubsystem.cs:289` — thrust splits across the PAD SET and acts
 
 ## INV-3
 - `Assets/_Project/Scripts/Combat/WeaponVisualKick.cs:15` — fire origin (ShootPoint) stays fixed under recoil.
+- `Assets/_Project/Scripts/Gameplay/ChassisAssembler.cs:134` — budget enforcement lives at THE assembly
 
 ## INV-4
 - `Assets/_Project/Scripts/Network/Prediction/PredictionScene.cs:80` — the prediction mirror is the one sanctioned 2nd Rigidbody for a chassis
@@ -86,13 +125,13 @@
 - `Assets/_Project/Scripts/Network/Bootstrap/NetDevHud.cs:74`
 
 ## LOG-115
-- `Assets/_Project/Scripts/Combat/ProjectileWorld.cs:471` — friendly-fire spares damage but NOT knockback (bomb-jump)
+- `Assets/_Project/Scripts/Combat/ProjectileWorld.cs:523` — friendly-fire spares damage but NOT knockback (bomb-jump)
 
 ## LOG-127
 - `Assets/_Project/Scripts/Tools/Editor/BlockDefinitionWizard.cs:32` — cannon buff 60 -> 110 (survey-driven). The
 
 ## LOG-128
-- `Assets/_Project/Scripts/Gameplay/PauseMenuHud.cs:35` — owns the Escape ladder (settings → menu → resume).
+- `Assets/_Project/Scripts/Gameplay/PauseMenuHud.cs:37` — owns the Escape ladder (settings → menu → resume).
 - `Assets/_Project/Scripts/Gameplay/SceneTransitionHud.cs:454`
 - `Assets/_Project/Scripts/Gameplay/SettingsHud.cs:32` — Escape handling moved to PauseMenuHud (the ladder owner).
 - `Assets/_Project/Scripts/Network/Bootstrap/NetDevHud.cs:26` — docked layout — the old panel buried garage UGUI buttons.
@@ -102,19 +141,18 @@
 
 ## LOG-132
 - `Assets/_Project/Scripts/Block/BlockBehaviour.cs:194` — generic authored-model path — ends the "red host
-- `Assets/_Project/Scripts/Block/BlockDefinition.cs:97` — inventor-aesthetic model wiring — authored FBX
+- `Assets/_Project/Scripts/Block/BlockDefinition.cs:120` — inventor-aesthetic model wiring — authored FBX
 - `Assets/_Project/Scripts/Combat/BombBayBlock.cs:108` — activation-order tolerant input re-resolve
 - `Assets/_Project/Scripts/Combat/CannonBlock.cs:167` — activation-order tolerant input re-resolve
 - `Assets/_Project/Scripts/Combat/MortarBlock.cs:261` — activation-order tolerant — a bind-once Awake
-- `Assets/_Project/Scripts/Gameplay/ChassisAssembler.cs:199` — weapon detection by definition
-- `Assets/_Project/Scripts/Gameplay/ChassisAssembler.cs:307` — fail loud — a rejected placement used
+- `Assets/_Project/Scripts/Gameplay/ChassisAssembler.cs:349` — fail loud — a rejected placement used
 - `Assets/_Project/Scripts/Movement/WheelBlock.cs:325` — authored wheel model (inventor cartwheel)
 - `Assets/_Project/Scripts/Tools/Editor/BlockMaterials.cs:64` — inventor oak-plank albedo overrides the slate
 - `Assets/_Project/Scripts/Tools/Editor/InventorModelWiring.cs:14` — inventor model wiring — weapons via the
 - `Assets/_Project/Scripts/Tools/Editor/InventorPlankTexture.cs:15` — structure-cube direction — continuous oak planks.
 
 ## LOG-133
-- `Assets/_Project/Scripts/Movement/AeroSurfaceBlock.cs:439` — authored foil model rides the Wing transform's
+- `Assets/_Project/Scripts/Movement/AeroSurfaceBlock.cs:495` — authored foil model rides the Wing transform's
 
 ## LOG-147
 - `Assets/_Project/Scripts/Core/MusicMidi.cs:45` — the SMG is a hybrid voice — chip-damage notes
@@ -122,13 +160,34 @@
 ## LOG-148
 - `Assets/_Project/Scripts/Core/GarageMusic.cs:209` — MPTK's own prefab carries the AudioSource +
 - `Assets/_Project/Scripts/Core/MusicMidi.cs:164` — instantiate MPTK's own prefab rather than
-- `Assets/_Project/Scripts/Gameplay/GarageController.cs:132` — garage theme — public-domain MIDI through the
+- `Assets/_Project/Scripts/Gameplay/GarageController.cs:140` — garage theme — public-domain MIDI through the
 
 ## LOG-149
 - `Assets/_Project/Scripts/Core/GarageMusic.cs:34` — original foggy-Victorian waltz composed for the
 
 ## LOG-155
-- `Assets/_Project/Scripts/Block/BlockGrid.cs:360` — Fuse = splash-chain breaker. It absorbs its
+- `Assets/_Project/Scripts/Block/BlockGrid.cs:389` — Fuse = splash-chain breaker. It absorbs its
+
+## LOG-163
+- `Assets/_Project/Scripts/Gameplay/VariantConfigPanel.cs:61` — one runtime section per TuneSchemaRegistry entry;
+
+## LOG-164
+- `Assets/_Project/Scripts/Core/MusicSoundFont.cs:69` — root fix, preferred over LogAssert.Expect.
+
+## LOG-166
+- `Assets/_Project/Scripts/Gameplay/BlockEditor.cs:444` — the garage can respawn the chassis under a
+- `Assets/_Project/Scripts/Gameplay/GameStateController.cs:319` — deliberately NOT PresetChanged. The blueprint
+- `Assets/_Project/Scripts/Gameplay/GarageController.cs:111` — build → hangar is the natural commit point.
+- `Assets/_Project/Scripts/Movement/RotorBlock.cs:912` — test the axis in CHASSIS space, not rotor
+
+## LOG-170
+- `Assets/_Project/Scripts/Gameplay/ChassisAssembler.cs:286` — the hasWeapon gate meant the FIRST
+
+## LOG-171
+- `Assets/_Project/Scripts/Combat/GrappleMagnetBlock.cs:395` — static geometry (trees, terrain, walls —
+
+## LOG-172
+- `Assets/_Project/Scripts/Gameplay/VariantConfigPanel.cs:409` — the explicit whole-bot apply verb. Implicit
 
 ---
-_70 traces across 48 files; 28 anchors, 0 dangling._
+_111 traces across 71 files; 37 anchors, 0 dangling._
