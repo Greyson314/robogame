@@ -68,6 +68,40 @@ namespace Robogame.Tests.EditMode.Blueprints
                 "PresetPaths lists assets that do not exist. Either the scaffolder stopped producing them (remove the entry) or the asset was never committed (scaffold it via Robogame → Build Everything and commit it):\n  " + string.Join("\n  ", missing));
         }
 
+        /// <summary>
+        /// The other direction of the CHG-003 guard: every player-facing preset the
+        /// scaffolder wires into GameStateController._presetBlueprints must be in
+        /// <see cref="PresetPaths"/>, or it ships validated by nothing. The ten slot
+        /// paths are hard-coded here because GameplayScaffolder's constants live in the
+        /// Editor assembly; keep them in step with GameplayScaffolder.cs (the
+        /// `presets.arraySize = 10` block, sessions 61/99/104 added Grappler, HoverTank,
+        /// SpringBot). Red team, CHG-003 (F-022): Grappler and HoverTank were in neither
+        /// test list.
+        /// </summary>
+        [Test]
+        public void PresetPaths_CoverEveryScaffolderSlot()
+        {
+            string[] scaffolderSlots =
+            {
+                BlueprintFolder + "/Blueprint_DefaultGround.asset",      // slot 0
+                BlueprintFolder + "/Blueprint_DefaultPlane.asset",       // slot 1
+                BlueprintFolder + "/Blueprint_DefaultGrappler.asset",    // slot 2 (replaced Buggy, session 61)
+                BlueprintFolder + "/Blueprint_DefaultBoat.asset",        // slot 3
+                BlueprintFolder + "/Blueprint_DefaultBomber.asset",      // slot 4
+                BlueprintFolder + "/Blueprint_DefaultPropPlane.asset",   // slot 5
+                BlueprintFolder + "/Blueprint_DefaultHelicopter.asset",  // slot 6
+                BlueprintFolder + "/Blueprint_DefaultDrillBot.asset",    // slot 7
+                BlueprintFolder + "/Blueprint_DefaultHoverTank.asset",   // slot 8 (session 99)
+                BlueprintFolder + "/Blueprint_DefaultSpringBot.asset",   // slot 9 (session 104)
+            };
+            var listed = new System.Collections.Generic.HashSet<string>(PresetPaths);
+            var missing = new System.Collections.Generic.List<string>();
+            foreach (string slot in scaffolderSlots)
+                if (!listed.Contains(slot)) missing.Add(slot);
+            Assert.That(missing, Is.Empty,
+                "Scaffolder presets that no test validates (add them to PresetPaths):\n  " + string.Join("\n  ", missing));
+        }
+
         [TestCaseSource(nameof(PresetPaths))]
         public void Preset_PassesValidation(string assetPath)
         {
