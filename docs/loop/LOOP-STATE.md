@@ -36,6 +36,7 @@ MCP: `.mcp.json` → `http://127.0.0.1:8080/mcp`, served by whichever Editor aut
 Blender: `.mcp.json`'s blender server; connected on 2026-09-16 (31 tools) but unused.
 Discord: `.env` absent → `ping.py` dry-runs (D-003).
 Must NOT be open while a batch run executes: nothing (the test-rig worktree has its own Library); the test-rig worktree itself is never opened in an Editor.
+Editor faults on this clone: shift 1's Editor crashed in InitializeAssetDatabaseV2 with 'Assertion failed: mv_size == sizeof(T)' and 'dataValue.mv_size >= sizeof(ArtifactMetaInfo)' (Editor-prev.log 2026-09-16T20:48Z; crash report %LOCALAPPDATA%/Temp/Unity/Editor/Crashes/Crash_2026-09-16_204843616), i.e. a corrupt Library/ArtifactDB or SourceAssetDB; shift 2's Editor hung after 'Input System module state changed: Initialized' with no window for 2 h and was killed 2026-09-17T01:53Z. Fix applied 2026-09-17: Library/ArtifactDB, Library/SourceAssetDB and Library/Artifacts deleted (derived caches; a full reimport runs on the next launch, so the bridge comes up late in shift 3). If the next launch crashes or hangs: delete the whole Library/ (BACKLOG 16); if that fails, ask Grey to look at the desktop screen.
 
 ## FACTORY FLOOR (D16e — v1, published 2026-09-16; iterate)
 
@@ -71,6 +72,7 @@ Main: green (0 failures). Suite: 683 cases, 1m28s warm. Perf vs budget: last row
 13. F-008 bomb-bay door cue → CHG-004 spec for APPROVE (ASK). S.
 14. F-012 spherical-arenas.md → SPIKES L2 (rung 7). L.
 15. Console sweep + visual sweep — never run (bridge). First thing after the bridge is proven.
+16. Rig: if the factory Editor fails again after the ArtifactDB/SourceAssetDB wipe (see RIG), delete the whole Library/ and reimport; record the crash line each time. Instrument: the launcher tails Editor.log for 'Crash!!!' or a stall and says so in the preflight.
 
 ## INSTRUMENTS (built, reusable)
 
