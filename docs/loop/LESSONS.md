@@ -19,6 +19,8 @@
 
 11. **Write the shift report as dash bullets, never as prose paragraphs.** `ping.py` keeps a `- ` line whole but splits a prose line into sentences before counting against the six-bullet cap, so a five-paragraph report was refused as nine bullets; and its stdout must be UTF-8 on Windows (F-043, fixed). The shift-5 report went out on the third attempt. The form is: `- ` lines, ≤ 1,900 characters, one per landing or change to main with its docs/changes number, nothing else (Grey, 2026-09-17: Discord is purely a "what changed" list at the end of every shift; CHARTER D12 v1.4). Paid for 2026-09-17.
 
+12. **A builder brief defines "a batch run is in progress" by the command line, not by counting Unity.exe.** The live Editor spawns AssetImportWorker helpers that are also Unity.exe, so "a second Unity.exe means a batch run, wait" cost the CHG-019 builder about twenty minutes before it read the command lines itself. The rule for briefs: a batch run is a `Unity.exe` whose command line contains `-batchmode` (PowerShell `Get-CimInstance Win32_Process`); `-projectPath <clone>` without `-batchmode` is the live Editor and its workers. Paid for 2026-09-17.
+
 ## PREDICTIONS TO SETTLE (from the template; mark paid-for or delete)
 
 - Human bandwidth is the binding constraint and the board's caps will bind within a week.
