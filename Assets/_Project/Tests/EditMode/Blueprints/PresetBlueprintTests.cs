@@ -159,6 +159,61 @@ namespace Robogame.Tests.EditMode.Blueprints
         }
 
         /// <summary>
+        /// Self-test for the <see cref="KnownInvalid"/> quarantine's matching
+        /// logic (CHG-016 / F-034 / CHANGE-QUEUE row 11). The table went
+        /// empty after CHG-013 fixed the Hover Tank's only quarantined
+        /// preset, so nothing has exercised
+        /// <c>r.ToString().Contains(expected)</c> since — a wrong expected
+        /// substring in a future entry would silently pass nothing, because
+        /// an empty table can't fail either way. This builds a synthetic
+        /// blueprint with the same kind of host-face rejection the Hover
+        /// Tank had (a block hosted on a leaf block) without touching any
+        /// shipped preset, then runs the exact assertion
+        /// <see cref="Preset_PassesValidation"/> runs for a KnownInvalid
+        /// entry, once with the right expected text (must pass) and once
+        /// with a wrong one (must fail).
+        /// </summary>
+        [Test]
+        public void KnownInvalidQuarantineCheck_MatchesRightTextRejectsWrongText()
+        {
+            // CPU -> HoverBlade (top-mounted: legal, CPU isn't a leaf) ->
+            // Cube stacked on the HoverBlade (illegal: HoverBlade is
+            // authored _isLeafBlock=1 with no companion or rope exception,
+            // so BlockConnectivity.IsConnectiveFace rejects every face —
+            // the cheapest host-face rejection to construct synthetically).
+            var entries = new[]
+            {
+                new ChassisBlueprint.Entry(BlockIds.Cpu, new Vector3Int(0, 0, 0)),
+                new ChassisBlueprint.Entry(BlockIds.HoverBlade, new Vector3Int(0, 1, 0)),
+                new ChassisBlueprint.Entry(BlockIds.Cube, new Vector3Int(0, 2, 0)),
+            };
+            BlueprintPlan plan = new BlueprintPlan("Quarantine self-test", ChassisKind.Ground, entries, rotorsGenerateLift: false);
+
+            // Library-aware validation — rule 4 (host-face-is-connective)
+            // only runs when a library is supplied, same as the call
+            // Preset_PassesValidation makes for every KnownInvalid entry.
+            BlockDefinitionLibrary lib = AssetDatabase.LoadAssetAtPath<BlockDefinitionLibrary>(LibraryAssetPath);
+            BlueprintValidationResult r = BlueprintValidator.Validate(plan, lib);
+            Assert.IsFalse(r.IsValid, $"Synthetic Cube-on-HoverBlade blueprint unexpectedly passed validation:\n{r}");
+
+            const string rightText = "which doesn't accept a mount on that face";
+            const string wrongText = "this substring never appears in a validation error";
+
+            // Positive half: the quarantine's Contains() assertion, run
+            // with the actual expected text, must not throw.
+            Assert.IsTrue(r.ToString().Contains(rightText),
+                $"Synthetic blueprint fails validation, but not for the known reason: expected the error text to contain \"{rightText}\". Actual:\n{r}");
+
+            // Negative half: the SAME assertion, run with a wrong expected
+            // text, must fail — this is what proves the quarantine's match
+            // actually discriminates instead of the table being vacuously
+            // green.
+            Assert.Throws<AssertionException>(() =>
+                Assert.IsTrue(r.ToString().Contains(wrongText),
+                    $"Synthetic blueprint fails validation, but not for the known reason: expected the error text to contain \"{wrongText}\". Actual:\n{r}"));
+        }
+
+        /// <summary>
         /// Generates a markdown snapshot of every preset's ASCII layout
         /// to <c>docs/blueprint-snapshots/presets.md</c>. Re-runs every
         /// time the test runs; check the diff into git after iteration
