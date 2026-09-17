@@ -20,7 +20,7 @@ Last commit known to this instance: shift 2 started at fd9be978 (main = origin/m
 ## THE BUILD (D2 — main's current evidence; "unknown" is a legal, honest state until measured)
 
 main @ fd9be978 (2026-09-16) = origin/main at shift start; no product code changed this shift.
-Suite (2026-09-16, `run-tests.sh All` on the test rig, warm): **EditMode 529/530** (1 inconclusive: `PresetBlueprintTests.Preset_PassesValidation(Blueprint_DefaultBuggy)`, a stale path, F-016 → CHG-003), **PlayMode 152/153** (1 skip: `MatchFlowTests.SpawnBot_ResultingGameObject_HasResolvedIInputSource`, documented, BACKLOG 2), **0 failures**. Wall time 1m28s (EditMode test time 0.8 s, PlayMode 44.6 s, the rest is two Unity batch startups). Results: `.claude/worktrees/test-rig/TestResults-{EditMode,PlayMode}.xml`.
+Suite (2026-09-17 after CHG-003, `run-tests.sh All` on the test rig, warm): **EditMode 530/530** (0 inconclusive), **PlayMode 152/153** (1 skip: `MatchFlowTests.SpawnBot_ResultingGameObject_HasResolvedIInputSource`, documented, BACKLOG 2), **0 failures** — but `SurfaceNetsBenchmarkTests` Dim33 failed once at 1.005 ms against a hard < 1.0 ms gate during the red team's reruns (F-021, SPIKES L3): the suite is green with a coin in it. Wall time 1m28s (EditMode test time 0.8 s, PlayMode 44.6 s, the rest is two Unity batch startups). Results: `.claude/worktrees/test-rig/TestResults-{EditMode,PlayMode}.xml`.
 Perf (docs/perf-captures/harness-log.txt, newest rows 2026-08-17, live Editor): Arena idle avg 5.13 ms, p99 6.12 ms, p99.9 8.50 ms, GC 0 B/frame; Garage idle avg 1.88 ms, p99 2.56 ms; render probe 592 blocks: chassis-in-view 2.19 ms. Budget: 16.6 ms target / 33 ms cliff (best-practices § 16). Run-to-run band: unknown until measured 5× (BACKLOG 11).
 Soak: none exists. Last playtest: session 172's two user reports (grapple on trees; pogo tune), both closed in 172.
 Console on scene load: unknown (bridge down all shift, F-017). Invariants: INV-1/2/3/4/9 hold by code evidence, INV-5/6 spot-checked, INV-7/10 not evaluated (F-020).
@@ -48,12 +48,12 @@ MOLT: when the hot set passes 200 KB or the context shows rot (D11), write state
 
 ## HEALTH (D16c; shift 2, 2026-09-16)
 
-Changes landed/week with evidence: 0. Board entries answered/week: 0 (D-001 partially, 2026-09-16). Bugs closed with tests: 0. Readiness items moved: 4 (T1 unknown→open, L1 unknown→grey, L2 unknown→open, D2 unknown→open).
+Changes landed/week with evidence: 1 (CHG-003, 2026-09-17). Board entries answered/week: 0 (D-001 partially, 2026-09-16). Bugs closed with tests: 1 (F-016, CHG-003). Readiness items moved: 4 (T1 unknown→open, L1 unknown→grey, L2 unknown→open, D2 unknown→open).
 Main: green (0 failures). Suite: 683 cases, 1m28s warm. Perf vs budget: last rows 2026-08-17, Arena idle avg 5.13 ms of 16.6 ms; band unmeasured. Board: 4 DECIDE open, oldest D-001 (2026-09-16). Findings surfaced 20 / acted on 1 (F-017, the command fix) / specced 8 (into CHG-001..003). Pipeline occupancy: 0 lanes. Delegation mix: 4 × sweeper sonnet/medium (~349k tokens measured: 71k + 74k + 100k + 104k); foreground fable/xhigh (context 164k at 23:38Z). Harness stubs: 0 seen. Tokens this shift: ~349k fieldhand + the foreground, against the 4M ceiling; all on usage credits (D-001).
 
 ## LANES IN FLIGHT (D4 CHANGE tier — each change's stage: SPEC / APPROVE-WAIT / TESTS / BUILD / GATE / LANDED; the named dependency if serialized)
 
-- CHG-003 — GATE: branch `chg/003-preset-buggy-path` @ 9929740e; guard test failed first (EditMode 529/531 at 01:50Z), then suite green after the fix (EditMode 530/530, PlayMode 152/153 at 01:52Z); red team pending. CHG-002 — SPEC (AUTO, S), next. CHG-001 — SPEC (AUTO, S; grew by three D-004 rows). CHG-005 — SPEC (ASK with the D-004 nod). Serialized on the single working tree: the test rig syncs the clone's checkout, so one branch is checked out per gate.
+- CHG-003 — LANDED 2026-09-17T02:10Z (docs/changes/174; red team PASS with notes → F-021, F-022 → CHG-008). CHG-002 — BUILD next (branch `chg/002-doc-drift-sweep`). CHG-001 — SPEC (AUTO, S; grew by three D-004 rows). CHG-005 — SPEC (ASK with the D-004 nod). Serialized on the single working tree: the test rig syncs the clone's checkout, so one branch is checked out per gate.
 
 ## BACKLOG (with priors; triage on merit; AUTO items → CHANGE-QUEUE, ASK items → NEEDS-GREY, unknowns → SPIKES)
 
@@ -73,6 +73,7 @@ Main: green (0 failures). Suite: 683 cases, 1m28s warm. Perf vs budget: last row
 14. F-012 spherical-arenas.md → SPIKES L2 (rung 7). L.
 15. Console sweep + visual sweep — never run (bridge). First thing after the bridge is proven.
 16. Rig: the factory Editor hangs at startup (D-005 on the board; see RIG). Instrument once it opens: the launcher tails Editor.log for 'Crash!!!' or a stall and says so in the preflight.
+18. CHG-008 (F-022): Grappler + HoverTank preset coverage, one list — AUTO, S. Then SPIKES L3 (F-021) before T1 can close.
 17. Instrument: `/inbox` commits to main with plumbing (`git commit-tree` + `update-ref refs/heads/main`, then push) instead of committing on the checked-out branch (LESSONS § METHOD 5). AUTO (tooling), S.
 
 ## INSTRUMENTS (built, reusable)

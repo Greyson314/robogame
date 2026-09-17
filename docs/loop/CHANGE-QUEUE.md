@@ -30,20 +30,21 @@
 
 | rank | id | title | class | pillar / readiness | acceptance kind | est. cost | status |
 |---|---|---|---|---|---|---|---|
-| 1 | CHG-003 | PresetBlueprintTests: drop the stale DefaultBuggy path | AUTO | T1 | test (zero Inconclusive) | S | GATE (branch chg/003-preset-buggy-path @ 9929740e; suite green 2026-09-17T01:52Z; red team pending) |
+| 1 | CHG-003 | PresetBlueprintTests: drop the stale DefaultBuggy path | AUTO | T1 | test (zero Inconclusive) | S | LANDED 2026-09-17 (docs/changes/174) |
+| 5 | CHG-008 | preset test coverage: Grappler + HoverTank, one list | AUTO | T1 | test (14 cases pass; slot-coverage guard) | S | SPEC |
 | 2 | CHG-002 | doc drift from the 2026-09-16 sweep (six edits) | AUTO | D1, D2 | sweep re-run + Traces Validate | S | SPEC |
 | 3 | CHG-001 | provenance records: artgen manifest + unity-mcp package row + three Asset Store rows (D-004) | AUTO | L1, L2 | test (manifest covers every FBX) + provenance re-sweep | S | SPEC |
 | 4 | CHG-005 | delete the two unused packs (FattyPolyTurretFree + Part2Free, Le Tai's TrueShadow) | ASK, nod given (D-004) | L1 | grep of their GUIDs in Assets/_Project = 0 + suite green | S | SPEC |
 
 Specs pending (not yet written): CHG-004 bomb-bay door cue (F-008, ASK: audible + visible; needs a read of the AudioCue / VfxKind enums first) · CHG-006 atomic blueprint and concoction writes (BACKLOG 4; UserBlueprintLibrary.cs:147, ConcoctionLibrary.cs:122, Tweakables.cs:512 write with File.WriteAllText) · CHG-007 enable MatchFlowTests.SpawnBot via a MinimalArena test scene (BACKLOG 2).
 
-### CHG-003 PresetBlueprintTests: drop the stale DefaultBuggy path — status: GATE
+### CHG-003 PresetBlueprintTests: drop the stale DefaultBuggy path — status: LANDED (docs/changes/174, 2026-09-17; red team PASS with notes → F-021, F-022)
 Class: AUTO (I1: a failing or flaky test fixed; the case is Inconclusive on every run)
 Pillar or readiness item: LAUNCH-READINESS T1 (every inconclusive justified) — removes the one unjustified inconclusive from the suite.
 Source: F-016; ASSUMPTIONS #10 (falsified).
 Change: remove `BlueprintFolder + "/Blueprint_DefaultBuggy.asset"` from `PresetPaths` in Assets/_Project/Tests/EditMode/Blueprints/PresetBlueprintTests.cs:37. GameplayScaffolder.cs:38-39 records that session 61 retired the Buggy preset and none is in the repo, so the entry tests nothing; Assets/_Project/Tests/EditMode/Blueprints/ScriptedChassisBuilderTests.cs:177 names the same path and gets the same treatment. If a Buggy preset is meant to exist, that is a visible content addition and an ASK, not this change.
 Acceptance: `PresetBlueprintTests.Preset_PassesValidation` reports 0 Inconclusive on the test rig (EditMode total drops by one; passed = total). Written first: a guard test `PresetPaths_AllExistOnDisk` that fails on main today because the Buggy path is absent, and passes after the edit.
-Must not break: every preset the scaffolder produces stays covered (the remaining ten paths all exist on disk, 2026-09-16). No runtime code touched; no invariant.
+Must not break: the presets already listed stay covered (the remaining twelve paths all exist on disk, 2026-09-17). Red team note: two scaffolder presets were never in the list (F-022 → CHG-008); this change neither adds nor removes coverage for them. No runtime code touched; no invariant.
 Revert: `git revert` of the landing commit; leaves T1 as it is today.
 Feel change? no
 
@@ -77,6 +78,17 @@ Must not break: any scene, prefab or material that referenced a pack asset by GU
 Revert: `git revert` of the merge restores both packs byte-for-byte.
 Feel change? no (nothing in a shipped scene references them, per the pre-check)
 
+### CHG-008 preset test coverage: Grappler + HoverTank, one list — status: SPEC
+Class: AUTO (I1: new test coverage)
+Pillar or readiness item: LAUNCH-READINESS T1 — every shipped preset validated by the suite.
+Source: F-022 (red team on CHG-003, 2026-09-17).
+Change: add `Blueprint_DefaultGrappler.asset` (scaffolder slot 2, the preset that replaced Buggy) and `Blueprint_DefaultHoverTank.asset` (slot 8) to `PresetBlueprintTests.PresetPaths`; make `ScriptedChassisBuilderTests.EveryShippedPreset_PassesLibraryAwareValidation` iterate the same list (an `internal static` on PresetBlueprintTests, same asmdef) so the two lists cannot diverge; reword the CHG-003 guard's docstring to "list → disk" only.
+Acceptance: `Preset_PassesValidation` runs 14 cases, all Passed; a new test `PresetPaths_CoverEveryScaffolderSlot` compares `PresetPaths` against the ten slot paths of GameplayScaffolder.cs:975-982 (hard-coded in the test with a comment naming that line, since the scaffolder's constants live in an Editor asmdef) — written first, fails on main today (Grappler, HoverTank missing).
+Must not break: nothing at runtime; the guard from CHG-003 keeps passing.
+Revert: `git revert`; back to twelve validated presets.
+Feel change? no
+
 ## BUILT THIS SHIFT (moved to docs/changes on landing; tally for HEALTH)
 
-(shift 2, 2026-09-16: nothing built; the shift ended on the plan cap before rung 1)
+- shift 2, 2026-09-16: nothing built; the shift ended on the plan cap before rung 1.
+- shift 3, 2026-09-17: CHG-003 landed (docs/changes/174).

@@ -95,8 +95,6 @@ Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=W
 
 Validation: OK
 
-## (missing: Assets/_Project/ScriptableObjects/Blueprints/Blueprint_DefaultBuggy.asset)
-
 ## Boat
 
 ```
