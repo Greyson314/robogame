@@ -4,7 +4,8 @@ Doctrine and state live in [docs/loop/](../../../docs/loop/README.md). These are
 
 | script | runs on | what |
 |---|---|---|
-| `Start-Factory.ps1` | desktop | preflight (charter D13) + a Windows Terminal tab running `claude` with the /loop prompt. `-DryRun` prints the launch. |
+| `Start-Factory.ps1` | desktop | preflight (charter D13), the rig SERVER-FIRST (CHG-020: start MCP for Unity's server by hand when 8080 is silent, wait for it, open and foreground the factory Editor, wait for it to register; `-NoEditor` skips it), then a Windows Terminal tab running `claude` with the /loop prompt, or with `-Desktop` the prompt to paste into a Claude Desktop session. `-DryRun` prints the rig steps and the launch. |
+| `mcp_http.py` | desktop | MCP for Unity over plain HTTP (stdlib only): `ping`, `instances`, `tools`, `resource <uri>`, `call <tool> '<json>'`, `code '<C#>'`, `wait-instance <name> [s]`. A session's UnityMCP connector dials once at start and cannot be re-dialled; this script does not care. Exit 0 ok, 1 tool error, 2 no server. |
 | `Stop-Factory.ps1` | anywhere | appends `STOP` to `docs/loop/INBOX.md`, commits, pushes; the loop ends the shift at its next checkpoint. |
 | `ping.py` | desktop (or anywhere with the webhook) | the one road a ping takes to Discord: dash-bullets, the six-bullet cap, the same-day repetition guard, parts ≤ 1,900 chars. `DISCORD_WEBHOOK_FACTORY` from the environment or `.env`; without it, prints and exits 0. |
 | `land.py` | desktop | `gate` records suite / perf / red-team verdicts against the branch's frozen sha; `land` merges, writes the docs/changes entry, the LOOP-STATE bullet and the NEEDS-GREY line, pings, ticks, pushes — one command, `--dry-run`. |

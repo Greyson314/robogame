@@ -11,8 +11,14 @@
        work (the loop's first wake absorbs it; charter D13); refuse a merge/rebase in progress
     4. tools: git, claude, python (warn only), the Unity exe run-tests.sh expects (warn only)
     5. the hot-file size budget (~200 KB) — warn when over
-    6. the rig: is something serving MCP on 127.0.0.1:8080? If not and -NoEditor was not
-       given, start this clone's own Unity Editor (it auto-starts the MCP server)
+    6. the rig, SERVER FIRST (CHG-020): a Claude session dials 127.0.0.1:8080 once at its
+       start and never again, so 8080 must listen BEFORE the session is opened. When nothing
+       serves 8080 the launcher starts MCP for Unity's server itself, by hand (no pidfile, no
+       handshake, so no Editor's quit cleanup can kill it: LESSONS 9), waits for it to listen,
+       then starts this clone's Editor if none is open, brings it to the foreground once (the
+       package's auto-start only fires in a focused Editor: ASSUMPTIONS #12), and waits for
+       the Editor to register on the server. Only then is the shift prompt printed.
+       -NoEditor skips all of it (batch-only shift).
     7. .env: DISCORD_WEBHOOK_FACTORY present by name (never printed)
   Then: write the lock, stamp the tick, write .utmp\factory\run-shift.ps1 with the exact
   claude invocation, and open it in a new Windows Terminal tab (falls back to a plain
@@ -22,13 +28,14 @@
 .PARAMETER Effort     claude --effort (default high)
 .PARAMETER PermissionMode  claude --permission-mode (default bypassPermissions: nobody is at the keyboard)
 .PARAMETER MaxHours   written into shift.json; the LOOP honors it (charter D13), the OS does not
-.PARAMETER NoEditor   do not start the factory's Editor when nothing serves 8080 (batch-only shift)
+.PARAMETER NoEditor   do not start the server or the Editor when nothing serves 8080 (batch-only shift)
 .PARAMETER DryRun     run the preflight and print the launch; start nothing
-.PARAMETER Desktop    run the preflight, write the lock and the tick, start the Editor, but open no
+.PARAMETER Desktop    run the preflight, write the lock and the tick, bring the rig up, but open no
                       tab: Grey pastes the printed prompt into a Claude Desktop session on this clone
 
 .NOTES
   Written 2026-09-16 on the hive; first ran on Windows the same day (HANDOFF step 7).
+  Server-first rig sequencing added 2026-09-17 (CHG-020, BACKLOG 12).
   Saved as UTF-8 WITH BOM on purpose: Windows PowerShell 5.1 reads a BOM-less file as
   cp1252, and the em-dashes' 0x94 byte becomes a closing curly quote that breaks parsing.
 #>
@@ -46,6 +53,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $GreyCheckout = 'C:\Users\Grey\Desktop\mutedtuple\robogame'
 $Prompt = '/loop You are the Robogame Factory. docs/loop/CHARTER.md is your constitution — read it, then the state files it names, then act under it. The context window is scratch; the state files are your only memory, so write state before you stop and schedule your own next wakeup, and end the shift the way the charter says.'
+$McpUrl = 'http://127.0.0.1:8080'
 
 function Fail([string]$m) { Write-Host "PREFLIGHT FAIL: $m" -ForegroundColor Red; exit 2 }
 function Warn([string]$m) { Write-Host "preflight warn: $m" -ForegroundColor Yellow }
@@ -82,7 +90,8 @@ if ((Test-Path (Join-Path $gitDir 'MERGE_HEAD')) -or (Test-Path (Join-Path $gitD
     Fail "a merge or rebase is in progress in this clone; finish or abort it first"
 }
 $behind = 0
-$upstream = (& git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>$null)
+$upstream = $null
+try { $upstream = (& git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>$null) } catch { $upstream = $null }   # a branch with no upstream (a builder's) is not an error
 if ($upstream) {
     $behind = [int](& git rev-list --count "HEAD..$upstream")
     if ($behind -gt 0) {
@@ -105,10 +114,10 @@ foreach ($t in 'git', 'claude') {
     if (-not (Get-Command $t -ErrorAction SilentlyContinue)) { Fail "'$t' is not on PATH" }
 }
 $py = Get-Command python -ErrorAction SilentlyContinue
-if (-not $py) { Warn "python not on PATH: ping.py / land.py / usage_tally.py will not run (README § Desktop setup, step 2)" }
+if (-not $py) { Warn "python not on PATH: ping.py / land.py / mcp_http.py will not run (README § Desktop setup, step 2)" }
 else {
     $pyv = (& python --version 2>&1)
-    if ("$pyv" -notmatch '^Python 3') { Warn "python on PATH is not Python 3 ($pyv) — the App Execution Alias shim?" } else { Ok "$pyv" }
+    if ("$pyv" -notmatch '^Python 3') { Warn "python on PATH is not Python 3 ($pyv) — the App Execution Alias shim?"; $py = $null } else { Ok "$pyv" }
 }
 $unity = 'C:\Program Files\Unity\Hub\Editor\6000.4.4f1\Editor\Unity.exe'
 $rt = Join-Path $Root '.claude\scripts\run-tests.sh'
@@ -125,24 +134,116 @@ foreach ($h in $hot) { $p = Join-Path $Root $h; if (Test-Path $p) { $bytes += (G
 $kb = [math]::Round($bytes / 1024)
 if ($bytes -gt 200KB) { Warn "hot set is $kb KB, over the ~200 KB budget (charter D13): split something before the shift" } else { Ok "hot set $kb KB" }
 
-# 6. rig
-$serving = $null
-try { $serving = Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction Stop | Select-Object -First 1 } catch { $serving = $null }
-$mode = 'batch'
-if ($serving) {
-    $mode = 'editor'
-    Ok "something is serving 127.0.0.1:8080 (MCP for Unity) — an Editor is up; the loop targets THIS clone's instance with set_active_instance"
-} elseif ($NoEditor) {
-    Warn "no MCP server on 8080 and -NoEditor given: batch-only shift (run-tests.sh only; no console, screenshots or profiler)"
-} elseif (Test-Path $unity) {
-    $mode = 'editor-starting'
-    if ($DryRun) { Warn "would start the factory's Editor: $unity -projectPath $Root" }
-    else {
-        Start-Process -FilePath $unity -ArgumentList @('-projectPath', "`"$Root`"") | Out-Null
-        Ok "started the factory's Editor on this clone (MCP comes up when it finishes loading; the loop verifies)"
+# 6. rig — server first (CHG-020). Order: server listens -> Editor open -> Editor focused -> Editor registered.
+function Test-McpPort {
+    try { return [bool](Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction Stop | Select-Object -First 1) } catch { return $false }
+}
+function Wait-McpPort([int]$seconds) {
+    $until = (Get-Date).AddSeconds($seconds)
+    while ((Get-Date) -lt $until) { if (Test-McpPort) { return $true }; Start-Sleep -Seconds 2 }
+    return (Test-McpPort)
+}
+function Get-McpServerVersion {
+    # the package pins the server it launches to its own version (ServerCommandBuilder); mirror that
+    $pkg = Get-ChildItem -Path (Join-Path $Root 'Library\PackageCache') -Filter 'com.coplaydev.unity-mcp@*' -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($pkg) {
+        $j = Get-Content (Join-Path $pkg.FullName 'package.json') -Raw -ErrorAction SilentlyContinue
+        if ($j -and ($j -match '"version"\s*:\s*"([^"]+)"')) { return $Matches[1] }
     }
+    return $null
+}
+function Get-FactoryEditor {
+    # the Unity.exe whose -projectPath is THIS clone (either slash style), never Grey's checkout
+    $needle = $Root.TrimEnd('\').ToLowerInvariant()
+    Get-CimInstance Win32_Process -Filter "name='Unity.exe'" -ErrorAction SilentlyContinue | Where-Object {
+        $cl = "$($_.CommandLine)".ToLowerInvariant().Replace('/', '\')
+        $cl -match '-projectpath' -and $cl.Contains($needle) -and $cl -notmatch '-batchmode'
+    } | Select-Object -First 1
+}
+function Show-EditorOnce([int]$editorPid, [int]$seconds) {
+    # the package's HTTP auto-start handler runs from EditorApplication.delayCall, which a fresh
+    # unfocused Editor has been observed not to tick (ASSUMPTIONS #12, three observations 2026-09-17)
+    Add-Type -Namespace Factory -Name Win -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int n);' -ErrorAction SilentlyContinue
+    $until = (Get-Date).AddSeconds($seconds)
+    while ((Get-Date) -lt $until) {
+        $p = Get-Process -Id $editorPid -ErrorAction SilentlyContinue
+        if (-not $p) { return $false }
+        if ($p.MainWindowHandle -ne 0 -and $p.MainWindowTitle -match 'Unity') {
+            [Factory.Win]::ShowWindow($p.MainWindowHandle, 9) | Out-Null
+            [Factory.Win]::SetForegroundWindow($p.MainWindowHandle) | Out-Null
+            try { (New-Object -ComObject WScript.Shell).AppActivate($editorPid) | Out-Null } catch {}
+            return $true
+        }
+        Start-Sleep -Seconds 3
+    }
+    return $false
+}
+
+$mcpHttp = Join-Path $Root '.claude\scripts\factory\mcp_http.py'
+$projectName = Split-Path $Root -Leaf
+$mode = 'batch'
+$rigSteps = @()
+if ($NoEditor) {
+    Warn "-NoEditor given: batch-only shift (run-tests.sh only; no console, screenshots or profiler); the server and the Editor are left as they are"
+    if (Test-McpPort) { $mode = 'editor'; Ok "something already serves $McpUrl; the loop may use it" }
 } else {
-    Warn "no Editor and no Unity exe: batch-only shift"
+    # 6a. server
+    if (Test-McpPort) {
+        Ok "MCP server already listening on $McpUrl"
+    } else {
+        $ver = Get-McpServerVersion
+        $uvx = Get-Command uvx -ErrorAction SilentlyContinue
+        if (-not $ver) { Warn "MCP for Unity package not found under Library\PackageCache (has the Editor ever imported this clone?): cannot pin the server version" }
+        if (-not $uvx) { Warn "uvx not on PATH: cannot start the MCP server by hand" }
+        if ($ver -and $uvx) {
+            $serverArgs = @('--offline', '--from', "mcpforunityserver==$ver", 'mcp-for-unity', '--transport', 'http', '--http-url', $McpUrl, '--project-scoped-tools')
+            $rigSteps += "start server: uvx $($serverArgs -join ' ')  (no --pidfile, no token: never an Editor's to kill; log .utmp\factory\mcp-server-manual.log)"
+            if (-not $DryRun) {
+                Start-Process -FilePath $uvx.Source -ArgumentList $serverArgs -WindowStyle Hidden -RedirectStandardOutput (Join-Path $Utmp 'mcp-server-manual.log') -RedirectStandardError (Join-Path $Utmp 'mcp-server-manual.err.log') | Out-Null
+                if (Wait-McpPort 60) { Ok "MCP server started by hand (mcpforunityserver==$ver) and listening on $McpUrl" }
+                else { Warn "the hand-started server did not listen within 60 s (see .utmp\factory\mcp-server-manual.err.log); falling back to the Editor's own auto-start" }
+            }
+        }
+    }
+    # 6b. Editor
+    $editor = Get-FactoryEditor
+    if ($editor) {
+        Ok "the factory's Editor is already open on this clone (pid $($editor.ProcessId))"
+    } elseif (Test-Path $unity) {
+        $rigSteps += "start Editor: $unity -projectPath $Root"
+        if (-not $DryRun) {
+            $proc = Start-Process -FilePath $unity -ArgumentList @('-projectPath', "`"$Root`"") -PassThru
+            Ok "started the factory's Editor on this clone (pid $($proc.Id))"
+            $editor = [pscustomobject]@{ ProcessId = $proc.Id }
+        }
+    } else {
+        Warn "no Editor and no Unity exe: batch-only shift"
+    }
+    # 6c. focus it once, so the package's auto-start fires and it connects to the server
+    if ($editor) {
+        $rigSteps += "foreground the Editor once (pid $($editor.ProcessId)); wait up to 10 min for its window"
+        if (-not $DryRun) {
+            if (Show-EditorOnce $editor.ProcessId 600) { Ok "Editor window shown once (auto-start needs a focused Editor, ASSUMPTIONS #12)" }
+            else { Warn "the Editor never showed a window within 10 min: a startup hang (LOOP-STATE § RIG, D-005 history)?" }
+        }
+    }
+    # 6d. wait for the Editor to register on the server
+    if ($editor -and $py -and (Test-Path $mcpHttp)) {
+        $rigSteps += "wait up to 5 min for '$projectName' to register: python mcp_http.py wait-instance $projectName 300"
+        if (-not $DryRun) {
+            if (-not (Wait-McpPort 120)) { Warn "nothing listens on $McpUrl after the Editor's auto-start window; the shift starts batch-only" }
+            else {
+                $env:PYTHONIOENCODING = 'utf-8'
+                $reg = & python $mcpHttp wait-instance $projectName 300 2>&1
+                if ($LASTEXITCODE -eq 0) { $mode = 'editor'; Ok "bridge live: $reg" }
+                else { $mode = 'editor-starting'; Warn "the Editor has not registered on the server yet ($reg); the loop verifies at its first wake" }
+            }
+        } else { $mode = 'editor' }
+    } elseif ($editor) {
+        if (Test-McpPort) { $mode = 'editor' } else { $mode = 'editor-starting' }
+        Warn "cannot confirm the Editor registered (python or mcp_http.py missing); port check only: mode $mode"
+    }
+    if ($DryRun -and $rigSteps.Count -gt 0) { Write-Host "preflight rig (dry run, in this order):" -ForegroundColor Cyan; $rigSteps | ForEach-Object { Write-Host "    $_" } }
 }
 
 # 7. .env
@@ -176,7 +277,11 @@ if ($DryRun) {
 ($lockObj | ConvertTo-Json) | Set-Content -Path $Lock -Encoding UTF8   # pid null until the tab claims it (stays null for a Desktop shift)
 if ($Desktop) {
     Add-Content -Path (Join-Path $Utmp 'loop-tick.txt') -Value "$started launcher: desktop shift started (mode $mode, model/effort set in the Desktop UI, maxHours $MaxHours)"
-    Write-Host "`nPreflight done, lock written (mode $mode). Now, in Claude Desktop: open a session on this folder (not a worktree)," -ForegroundColor Green
+    if ($mode -eq 'editor') {
+        Write-Host "`nPreflight done, lock written, the bridge is live (mode $mode). NOW open a session on this folder in Claude Desktop (not a worktree)," -ForegroundColor Green
+    } else {
+        Write-Host "`nPreflight done, lock written (mode ${mode}: the bridge is NOT confirmed; the session will dial 8080 once at start). Open a session on this folder in Claude Desktop (not a worktree)," -ForegroundColor Yellow
+    }
     Write-Host "pick the model and effort in the UI, bypass permissions, and paste this as the first message:`n" -ForegroundColor Green
     Write-Host $Prompt
     Write-Host "`nEnd the shift with Stop-Factory.ps1 or '/inbox STOP' from the scribe." -ForegroundColor Green
