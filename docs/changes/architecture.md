@@ -3,7 +3,7 @@
 ## Modules
 
 ```
-Robogame.Core         — Tweakables, IDamageable, INetworkContext + NetworkContext
+Robogame.Core         — Tweakables, GravityField, IDamageable, INetworkContext + NetworkContext
                          (offline-default; the only network-aware type gameplay
                          may import — session 86), GameBootstrap, PerfMarkers,
                          RuntimePalette, VfxKind, VfxSpawner,
@@ -50,7 +50,7 @@ Robogame.Gameplay     — GameStateController,
                          BlockGhostFactory, BlockGhostRenderer, PlacementFeedbackHud,
                          VariantConfigPanel,
                          BuoyancyController, WaterMeshAnimator, WaterSurface, WaterVolume,
-                         PlanetBody, PlanetGravity, PlanetGravityBody,
+                         PlanetBody, PlanetGravityBody (gravity math: `GravityField` in Robogame.Core),
                          MatchController, MatchConfig + types,
                          GroundBotInputSource, AirBotInputSource,
                          ObjectiveHud, MatchEndOverlay, StartMatchHud, KillAnnouncer
