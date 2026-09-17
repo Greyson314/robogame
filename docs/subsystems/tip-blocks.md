@@ -13,7 +13,7 @@ chassis        rope (Verlet)              tip body     target
   │RB│════════════════════════════════│hostRb│ ⤙ │  RB  │
   └──┘ ◄────── ConfigurableJoint ───────►└────────┘    └──────┘
             (limit = totalRopeLength,             ▲
-             spring 8000 N, damper 0)           │
+             spring 8000 N, damper 0)             │
             "the leash"                           │  SpringJoint
                                                   │  (rest = 0,
                                                   │   spring 300 N,
@@ -137,7 +137,7 @@ mostly be a guide field.
   tether stays attached.
 - **We don't soften the chassis↔tip leash during attach.** The
   bounded spring forces of the SpringJoint don't resonate with the
-  leash, so the 8000 N / 250 damper default is fine throughout.
+  leash, so the 8000 N spring / zero damper default is fine throughout.
 - **We don't fatten the tip mass during attach.** Same reason — no
   catapult impulse to absorb.
 - **We don't apply outbound KE damage from the magnet on contact.**

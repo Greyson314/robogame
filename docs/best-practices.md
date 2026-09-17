@@ -570,8 +570,9 @@ These rules cost ~nothing today and save weeks later.
    `Random.value`.
 5. **No `GameObject.Find` in `Update`.** Cache on `Awake` or use
    `FindFirstObjectByType` once at scene-load. (Unity 6 obsoletes
-   `FindObjectOfType` ; the last straggler in DevHud.cs was migrated before
-   session 173, and `ObjectiveHud.cs` keeps only an `#if`-gated fallback.)
+   `FindObjectOfType`; the last straggler in DevHud.cs was migrated before
+   session 173; `ObjectiveHud.cs`, `FpsCounter.cs` and `PerformanceHud.cs` keep
+   only `#if`-gated fallbacks, off every compiled path.)
 6. **Authoritative ID strings, not object references, across system
    boundaries.** `BlockIds.Cpu`, weapon-id strings, etc. The same
    thing that makes saves portable makes them netcode-portable.

@@ -29,7 +29,7 @@ namespace Robogame.Core
         // HashSet: N is tiny and List add/remove doesn't allocate.
         private static readonly List<object> s_modalOwners = new List<object>(4);
 
-        // Statics survive domain reload (CLAUDE.md § Known failure modes); reset on subsystem registration.
+        // TRACE[DOC:CLAUDE.md§Known failure modes]: statics survive domain reload; reset on subsystem registration.
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
         {

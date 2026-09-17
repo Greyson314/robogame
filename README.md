@@ -253,8 +253,6 @@ This is a solo project, but notes for future collaboration (or future me):
 
 ## Changelog
 
-All notable changes are documented here.
-
 The session-by-session log lives in [docs/changes/README.md](docs/changes/README.md)
 (173 sessions through 2026-09-16); the Robogame Factory's landings continue it from
 174 (see [docs/loop/README.md](docs/loop/README.md)). This file no longer carries a changelog.
