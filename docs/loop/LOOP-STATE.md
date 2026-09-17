@@ -4,14 +4,14 @@ Directive version: v1.1. Last touched: 2026-09-16 (end of shift 2, on the deskto
 
 ## NEEDS GREY
 
-The board is NEEDS-GREY.md (D12). This section only carries a pointer and the count: 0 APPROVE / 0 PLAY / 0 BUY / 4 DECIDE (D-001 urgent) / 3 FYI as of 2026-09-16 shift 2 end.
+The board is NEEDS-GREY.md (D12). This section only carries a pointer and the count: 0 APPROVE / 0 PLAY / 0 BUY / 3 DECIDE / 3 FYI as of 2026-09-17 (D-001 answered and closed).
 
 ## SHIFT (D13; replaces the kernel's LIVENESS block while the factory runs in shifts)
 
 Lock: `.utmp/factory/shift.json` (written by Start-Factory.ps1: start time, mode, maxHours, model, effort; the end-of-shift routine copies it to `shift-last.json` with `ended` and deletes it).
 Tick: `.utmp/factory/loop-tick.txt` (one line per real wake: UTC, what this wake did).
 Session: a Claude Desktop session titled "Robogame factory" on the clone (launched via `/robogame-factory`, which runs `Start-Factory.ps1 -Desktop` then arms `/loop`), or the Windows Terminal tab the launcher opens (untested route, ASSUMPTIONS #6). Keep it open; detach nothing, close nothing.
-Model policy (D11): foreground fable @ xhigh (Grey, 2026-09-16; confirmed by the session's own metadata on 2026-09-16); fieldhands per .claude/agents/ (sonnet, effort set per agent); red team opus @ high. Overage: D-001 OPEN → **no overage**: the wake routine reads the plan's usage (`get_usage`) and a weekly window at 100 % ends the shift (LESSONS § METHOD 1).
+Model policy (D11): foreground fable @ xhigh (Grey, 2026-09-16; confirmed by the session's own metadata on 2026-09-16); fieldhands per .claude/agents/ (sonnet, effort set per agent); red team opus @ high. Overage: D-001 ANSWERED 2026-09-17 ("it can" use usage credits): the wake routine still reads the plan's usage (`get_usage`) and records the windows in the tick and the ledger; no daily dollar ceiling was stated, so the D16d ceiling (4M tokens a shift) is the bound (LESSONS § METHOD 1).
 Shared account: the Cosmonaut (bootleg_botlet, on the hive) runs on the same Max plan; every cap is shared. On 2026-09-16 the weekly all-models window was already at 100 % when shift 2 began.
 Session-bound clocks: none. A nightly shift, when Grey wants one, is a Task Scheduler job that runs Start-Factory.ps1 (README).
 Hot-file size budget (D13): ~200 KB; 2026-09-16 preflight measured 56 KB. Start-Factory.ps1 measures it at preflight.
@@ -39,7 +39,7 @@ Must NOT be open while a batch run executes: nothing (the test-rig worktree has 
 
 ## FACTORY FLOOR (D16e — v1, published 2026-09-16; iterate)
 
-WAKE ROUTINE (every wake, in order, cheap): (1) `git fetch` + INBOX log between HEAD and origin; (2) plan usage (`get_usage`): a weekly window at 100 % under D-001's default ends the shift; (3) bridge check (`session_connectors_status`; reconnect if `failed` and 8080 listens); (4) the suite in the background if the tree changed since the last green; (5) stamp the tick.
+WAKE ROUTINE (every wake, in order, cheap): (1) `git fetch` + INBOX log between HEAD and origin; (2) plan usage (`get_usage`): record the windows in the tick; usage credits are allowed (D-001, 2026-09-17) and the D16d per-shift ceiling binds; (3) bridge check (`session_connectors_status`; reconnect if `failed` and 8080 listens); (4) the suite in the background if the tree changed since the last green; (5) stamp the tick.
 STANDING SWEEPS (D4; `sweeper` on sonnet/medium, one sweep per call, ≤ 5 sweeps a shift per LESSONS § METHOD 4): console + suite-and-perf every shift (console needs the bridge); doc-drift, best-practices, invariants weekly (run 2026-09-16; next due 2026-09-23); visual on every visible landing and weekly (bridge); provenance on every import and monthly (run 2026-09-16); readiness weekly; /ideate through design-pilot when APPROVE has < 2 open and the queue's feature lane is empty.
 FIELDHANDS: per D11 tiers. A landing costs qa-verifier + perf-checker (when hot) + red-team; budget the D16d ceiling as ≤ 5 sweeps + ≤ 3 gates a shift, or fewer sweeps when the queue is deep.
 SHIFT SHAPE: wake routine → rung 0 (suite) → ladder (D14) with the queue built through the landing chain (`land.py gate` / `land.py land`) → END-OF-SHIFT ROUTINE: LOOP-STATE (§ SHIFT LOG bullet ≤ 600 chars, § NEXT ITEM), FINDINGS/SPIKES/CHANGE-QUEUE/LAUNCH-READINESS/ASSUMPTIONS/LESSONS current, NEEDS-GREY counts, the report through `ping.py` (dry until D-003), the tick, the lock → `shift-last.json` + delete, commit "factory: shift N end …", push, a one-line push notification, the loop stopped.
@@ -102,6 +102,8 @@ Purchases: none. Grey's measured usage goes beside every estimate here.
 - 2026-09-16T20:48Z–21:45Z — shift 1 opened (fable/xhigh, maxHours 0) and ended on a STOP from Grey before any object-level work. Read CHARTER + LOOP-STATE + NEEDS-GREY + INBOX + pillars; no sweep, no spike, no landing, no gate. Grey's `decide D-001` line recorded verbatim in NEEDS-GREY § ANSWERED; D-001 stays open because the answer does not pick between its two options. No Discord shift report: Grey issued the STOP at the terminal, so the report's audience was present (D12 "nothing repeated that day"). HANDOFF is untouched — the next shift starts at (1).
 - 2026-09-16T23:34Z–23:55Z — shift 2 (fable/xhigh, Desktop). Rig proven: suite 1m28s warm, EditMode 529/530 (1 inconclusive, F-016), PlayMode 152/153 (1 documented skip), 0 failed. Four file-level sweeps → F-001–F-020; CHG-001..003 specced (AUTO); D-003, D-004 raised; /robogame-factory gained cap + bridge steps. Bridge down all shift (F-017). Plan cap: weekly all-models 100 % with extra usage on → shift ended under D-001's default; nothing dispatched after the read, the four running sweeps let finish. No landing, no gate. Report dry-run (no .env).
 
+- 2026-09-17T01:50Z — light wake ([INBOX poke] from the scribe): Grey's D-001 line recorded verbatim, D-001 closed (usage credits allowed; no ceiling named, D16d binds). The "end on a 100 % window" rule withdrawn from § SHIFT, the wake routine, LESSONS § METHOD 1 and /robogame-factory step 1b. Shift 3 re-armed from this session via /robogame-factory (its preflight and tick line say whether the Editor was reused or the shift is batch-only).
+
 ## NEXT ITEM
 
-Wake routine first (usage: if D-001 is still unanswered and a weekly window is at 100 %, end the shift again; the window resets 2026-09-18T05:00Z). Then: rung 0, the suite in the background; rung 1, build CHG-003 (test first), then CHG-002, then CHG-001, each through `land.py gate` → `land.py land` with qa-verifier + red-team (perf N/A: nothing hot); BACKLOG 11 (perf band 5×, MCP proof) and BACKLOG 15 (console + visual sweeps) once the bridge is up; spec CHG-004 for the board.
+Wake routine first (D-001 answered 2026-09-17: usage credits allowed; record the windows, do not end on them). Then: rung 0, the suite in the background; rung 1, build CHG-003 (test first), then CHG-002, then CHG-001, each through `land.py gate` → `land.py land` with qa-verifier + red-team (perf N/A: nothing hot); BACKLOG 11 (perf band 5×, MCP proof) and BACKLOG 15 (console + visual sweeps) once the bridge is up; spec CHG-004 for the board.
