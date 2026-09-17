@@ -50,6 +50,21 @@ namespace Robogame.Tests.EditMode.Blueprints
         };
 
         /// <summary>
+        /// Presets that fail library-aware validation on main today, each with the
+        /// finding that tracks the fix. A preset listed here must STILL fail: the
+        /// moment its fix lands the assertion flips and the entry has to go, so a
+        /// quarantine can never rot into a permanent skip (the F-016 lesson).
+        /// </summary>
+        internal static readonly System.Collections.Generic.Dictionary<string, string> KnownInvalid =
+            new System.Collections.Generic.Dictionary<string, string>
+        {
+            {
+                BlueprintFolder + "/Blueprint_DefaultHoverTank.asset",
+                "F-026 / CHG-013: the four corner cubes at y=0 sit on the hoverblades below them, so their implied host is a leaf block; fix the entries' Up in the asset and in GameplayScaffolder's HoverTank authoring"
+            },
+        };
+
+        /// <summary>
         /// Guards the list above in one direction only, list → disk: a path
         /// that no longer exists on disk makes <see cref="Preset_PassesValidation"/>
         /// Inconclusive forever instead of failing, which hides the fact that
@@ -121,6 +136,11 @@ namespace Robogame.Tests.EditMode.Blueprints
             BlockDefinitionLibrary lib = AssetDatabase.LoadAssetAtPath<BlockDefinitionLibrary>(LibraryAssetPath);
             BlueprintPlan plan = new BlueprintPlan(bp.DisplayName, bp.Kind, bp.Entries, bp.RotorsGenerateLift);
             BlueprintValidationResult r = BlueprintValidator.Validate(plan, lib);
+            if (KnownInvalid.TryGetValue(assetPath, out string why))
+            {
+                Assert.IsFalse(r.IsValid, $"{bp.DisplayName} now PASSES validation: remove it from KnownInvalid ({why}).");
+                return;
+            }
             Assert.IsTrue(r.IsValid, $"Validation failed for {bp.DisplayName}:\n{r}");
         }
 

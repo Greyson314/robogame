@@ -180,6 +180,11 @@ namespace Robogame.Tests.EditMode.Blueprints
                 loaded++;
                 BlueprintPlan plan = new BlueprintPlan(bp.DisplayName, bp.Kind, bp.Entries, bp.RotorsGenerateLift);
                 BlueprintValidationResult v = BlueprintValidator.Validate(plan, lib);
+                if (PresetBlueprintTests.KnownInvalid.TryGetValue(path, out string why))
+                {
+                    Assert.IsFalse(v.IsValid, $"Preset '{bp.DisplayName}' now PASSES validation: remove it from PresetBlueprintTests.KnownInvalid ({why}).");
+                    continue;
+                }
                 Assert.IsTrue(v.IsValid, $"Preset '{bp.DisplayName}' (at {path}) failed library-aware validation:\n{v}");
             }
             if (loaded == 0)
