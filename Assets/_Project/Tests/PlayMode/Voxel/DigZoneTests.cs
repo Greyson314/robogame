@@ -72,7 +72,7 @@ namespace Robogame.Tests.PlayMode.Voxel
             // glide tests then "dig" toward the camera and fail. No test
             // here renders anything, so disable every stray camera up front.
             Camera[] strayCams = Object.FindObjectsByType<Camera>(
-                FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+                FindObjectsInactive.Exclude);
             for (int i = 0; i < strayCams.Length; i++)
                 if (strayCams[i] != null) strayCams[i].enabled = false;
         }

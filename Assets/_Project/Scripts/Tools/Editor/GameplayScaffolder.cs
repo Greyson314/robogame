@@ -375,7 +375,7 @@ namespace Robogame.Tools.Editor
             // rudder below stern, bow gun up front. Buoyancy math sits at
             // ~94% submerged with default water tweakables (density=4,
             // displacement=0.30) → 39 kg vs 412 N at full submersion.
-            const int xMin = -2, xMax = 2;
+            const int xMax = 2;
             const int zMin = -3, zMax = 3;
             Vector3Int rightStep = new Vector3Int(1, 0, 0);
             Vector3Int forwardStep = new Vector3Int(0, 0, 1);

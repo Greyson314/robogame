@@ -140,7 +140,7 @@ namespace Robogame.Network.Bootstrap
         /// cheap when nothing's been destroyed yet.</summary>
         private static void ReplayDestructionLogTo(ulong clientId)
         {
-            NetworkBlockGrid[] grids = FindObjectsByType<NetworkBlockGrid>(FindObjectsSortMode.None);
+            NetworkBlockGrid[] grids = FindObjectsByType<NetworkBlockGrid>();
             for (int i = 0; i < grids.Length; i++) grids[i].ServerSendDestructionLogTo(clientId);
         }
 

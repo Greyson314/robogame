@@ -90,7 +90,7 @@ namespace Robogame.Gameplay
         {
             _robotCache.Clear();
 #if UNITY_2023_1_OR_NEWER
-            Robot[] found = Object.FindObjectsByType<Robot>(FindObjectsSortMode.None);
+            Robot[] found = Object.FindObjectsByType<Robot>();
 #else
             Robot[] found = Object.FindObjectsOfType<Robot>();
 #endif

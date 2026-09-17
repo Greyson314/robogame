@@ -83,7 +83,7 @@ namespace Robogame.Core
 
             _hiddenBots.Clear();
             MonoBehaviour[] all = FindObjectsByType<MonoBehaviour>(
-                FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+                FindObjectsInactive.Exclude);
             for (int i = 0; i < all.Length; i++)
             {
                 MonoBehaviour mb = all[i];
@@ -117,7 +117,7 @@ namespace Robogame.Core
 
             _hiddenGrass.Clear();
             Renderer[] rs = FindObjectsByType<Renderer>(
-                FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+                FindObjectsInactive.Exclude);
             for (int i = 0; i < rs.Length; i++)
             {
                 Renderer r = rs[i];
@@ -156,7 +156,7 @@ namespace Robogame.Core
 
             _hiddenDig.Clear();
             Renderer[] rs = FindObjectsByType<Renderer>(
-                FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+                FindObjectsInactive.Exclude);
             for (int i = 0; i < rs.Length; i++)
             {
                 Renderer r = rs[i];

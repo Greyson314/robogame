@@ -100,7 +100,7 @@ namespace Robogame.Gameplay
             // 1-bot + 1-player Phase 5 demo this is sufficient; a real
             // AI service would let the bot's target be authored or
             // assigned by a director.
-            Robot[] robots = FindObjectsByType<Robot>(FindObjectsSortMode.None);
+            Robot[] robots = FindObjectsByType<Robot>();
             for (int i = 0; i < robots.Length; i++)
             {
                 if (robots[i] == null) continue;

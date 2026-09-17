@@ -121,7 +121,7 @@ namespace Robogame.Core
             // A mid-play domain reload resets these statics while the
             // previous [AudioRouter] GameObject survives — adopt it
             // rather than stacking one clone per recompile.
-            s_instance = FindFirstObjectByType<AudioRouter>();
+            s_instance = FindAnyObjectByType<AudioRouter>();
             if (s_instance != null)
             {
                 s_root = s_instance.gameObject;

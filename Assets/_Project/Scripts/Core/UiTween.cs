@@ -86,7 +86,7 @@ namespace Robogame.Core
         private static void EnsureBootstrap()
         {
             if (s_instance != null) return;
-            s_instance = FindFirstObjectByType<UiTween>();
+            s_instance = FindAnyObjectByType<UiTween>();
             if (s_instance != null)
             {
                 s_root = s_instance.gameObject;
