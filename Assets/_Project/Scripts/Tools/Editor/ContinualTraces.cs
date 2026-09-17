@@ -41,6 +41,26 @@ namespace Robogame.Tools.Editor
             @"//\s*TRACE\[\s*(?<id>[^\]]+?)\s*\]\s*:?\s*(?<note>.*)$",
             RegexOptions.Compiled);
 
+        /// <summary>
+        /// Does <paramref name="line"/> carry a Continual Traces marker? Thin
+        /// wrapper around <see cref="s_marker"/> that also applies the scan
+        /// loop's existing line filters, so it is testable without the file
+        /// system. F-041: currently misses a marker that sits mid-comment or
+        /// on a `///` doc line — see ContinualTracesTests.
+        /// </summary>
+        public static bool TryParseMarker(string line, out string id, out string note)
+        {
+            id = null;
+            note = null;
+            string trimmed = line.TrimStart();
+            if (trimmed.StartsWith("///") || trimmed.StartsWith("*")) return false;
+            Match m = s_marker.Match(line);
+            if (!m.Success) return false;
+            id = m.Groups["id"].Value;
+            note = m.Groups["note"].Value;
+            return true;
+        }
+
         private const string IndexPath = "docs/TRACES.md";
 
         private readonly struct Trace
