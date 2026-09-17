@@ -125,12 +125,20 @@ namespace Robogame.Tests.PlayMode.Perf
             yield return MeasureWindow(); baseMs = _lastMs;
 
             // chassis shadow casters off
+            // Block renderers captured above can be destroyed by the time the
+            // two measurement windows have run (the chassis' instanced
+            // renderer consolidates them; CHG-023, F-048): skip the dead ones
+            // here exactly as the restore loop below already does.
             var prevModes = new ShadowCastingMode[blockRenderers.Count];
+            int liveCasters = 0;
             for (int i = 0; i < blockRenderers.Count; i++)
             {
+                if (blockRenderers[i] == null) continue;
                 prevModes[i] = blockRenderers[i].shadowCastingMode;
                 blockRenderers[i].shadowCastingMode = ShadowCastingMode.Off;
+                liveCasters++;
             }
+            Debug.Log($"[RENDER-PROBE] shadow casters toggled: {liveCasters} of {blockRenderers.Count} captured renderers still alive");
             yield return Settle();
             yield return MeasureWindow(); noCast = _lastMs;
             for (int i = 0; i < blockRenderers.Count; i++)
