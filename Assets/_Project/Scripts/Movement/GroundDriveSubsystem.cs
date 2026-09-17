@@ -23,13 +23,10 @@ namespace Robogame.Movement
         [Tooltip("Optional tuning profile. If assigned, OVERRIDES the inline values below.")]
         [SerializeField] private GroundDriveTuning _tuning;
 
-        [Header("Tuning — Drive")]
-        [SerializeField, Min(0f)] private float _acceleration = 26.25f;
-        [SerializeField, Min(0f)] private float _maxSpeed = 13.5f;
-
-        [Tooltip("Yaw acceleration (rad/s^2) per unit of turn input.")]
-        [SerializeField, Min(0f)] private float _turnRate = 7.5f;
-
+        // Drive (acceleration, max speed, turn rate) is NOT tuned here: it is
+        // blueprint-authoritative and resolved into _cfg in OnEnable (see
+        // below). The inline fields that used to sit here were never read
+        // (F-037, CS0414) and were deleted in CHG-021.
         [Header("Tuning — Jump")]
         // Baseline wheel "hop" on the jump input. Kept deliberately below a
         // spring block's launch so springs read as a real boost ON TOP of
