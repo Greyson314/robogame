@@ -86,6 +86,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 189 | [First-party obsolete-API and unused-symbol warnings: 23 sites fixed as the compiler asks](189-obsolete-api.md) |
 | 188 | [The KnownInvalid quarantine is proven both ways by a synthetic bad plan](188-quarantine-self-test.md) |
 | 187 | [GroundDriveSubsystem: delete the three dead inline drive fields](187-dead-drive-fields.md) |
 | 186 | [Server-first bridge: the launcher serves 8080 before any session dials it; mcp_http.py uses the bridge with a dead connector](186-server-first-bridge.md) |

@@ -58,6 +58,7 @@ Time: ≤ 5 min. Answer: `play PT-001: <a|b|c>, <what you saw>`; (b) lands CHG-0
 - 2026-09-17 CHG-020 Server-first bridge: the launcher serves 8080 before any session dials it; mcp_http.py uses the bridge with a dead connector — docs/changes/186-server-first-bridge.md — FYI-16 2026-09-17 — CHG-020 landed: the factory launcher now brings the Unity bridge up before any Claude session dials it (server first, then the Editor, then the prompt), and a session whose connector missed it can still use the bridge over HTTP; docs/changes/186. D-007 on the board asks about a login-time task for the same server.
 - 2026-09-17 CHG-021 GroundDriveSubsystem: delete the three dead inline drive fields — docs/changes/187-dead-drive-fields.md — GroundDriveSubsystem lost three tuning knobs that did nothing (never read; drive comes from the blueprint). Nothing a player meets changes.
 - 2026-09-17 CHG-016 The KnownInvalid quarantine is proven both ways by a synthetic bad plan — docs/changes/188-quarantine-self-test.md — The preset quarantine's matching logic now has its own test, so a future quarantined preset cannot pass for the wrong reason. Test-only.
+- 2026-09-17 CHG-009 First-party obsolete-API and unused-symbol warnings: 23 sites fixed as the compiler asks — docs/changes/189-obsolete-api.md — Forty-odd compiler warnings on every rebuild are gone; three remain on purpose and are named. No player-facing change.
 
 ## ANSWERED (most recent first; verbatim)
 
