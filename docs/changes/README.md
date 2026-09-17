@@ -86,6 +86,8 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 185 | [The changes index keeps up with the ledger: land.py writes the Sessions row; rows 132-183 backfilled](185-changes-index.md) |
+| 184 | [ContinualTraces scans traces anywhere in a comment; the doc-drift sweep's index step has rules](184-traces-scan.md) |
 | 183 | [Hover Tank preset: the deck's corner cubes hosted on cubes, not on hoverblades](183-hovertank-preset.md) |
 | 182 | [docs/TRACES.md rebuilt from the Editor; the doc-drift sweep checks it](182-traces-index.md) |
 | 181 | [SurfaceNets benchmark: warm the Burst job synchronously, gate on the best of three medians, log a harness row](181-surfacenets-gate.md) |
