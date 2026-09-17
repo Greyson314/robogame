@@ -48,12 +48,12 @@ MOLT: when the hot set passes 200 KB or the context shows rot (D11), write state
 
 ## HEALTH (D16c; shift 2, 2026-09-16)
 
-Changes landed/week with evidence: 3 (CHG-003, CHG-002, CHG-005; 2026-09-17). Board entries answered/week: 0 (D-001 partially, 2026-09-16). Bugs closed with tests: 1 (F-016, CHG-003). Readiness items moved: 4 (T1 unknown→open, L1 unknown→grey, L2 unknown→open, D2 unknown→open).
+Changes landed/week with evidence: 4 (CHG-003, CHG-002, CHG-005, CHG-001; 2026-09-17). Board entries answered/week: 0 (D-001 partially, 2026-09-16). Bugs closed with tests: 1 (F-016, CHG-003). Readiness items moved: 7 (S1 done via D-002; T1 unknown→open; L1 unknown→done; L2 unknown→done; D1 open→done; D2 unknown→done; M1–M4 n/a for v1).
 Main: green (0 failures). Suite: 683 cases, 1m28s warm. Perf vs budget: last rows 2026-08-17, Arena idle avg 5.13 ms of 16.6 ms; band unmeasured. Board: 4 DECIDE open, oldest D-001 (2026-09-16). Findings surfaced 20 / acted on 1 (F-017, the command fix) / specced 8 (into CHG-001..003). Pipeline occupancy: 0 lanes. Delegation mix: 4 × sweeper sonnet/medium (~349k tokens measured: 71k + 74k + 100k + 104k); foreground fable/xhigh (context 164k at 23:38Z). Harness stubs: 0 seen. Tokens this shift: ~349k fieldhand + the foreground, against the 4M ceiling; all on usage credits (D-001).
 
 ## LANES IN FLIGHT (D4 CHANGE tier — each change's stage: SPEC / APPROVE-WAIT / TESTS / BUILD / GATE / LANDED; the named dependency if serialized)
 
-- CHG-003 — LANDED 2026-09-17T02:10Z (docs/changes/174). CHG-002 — LANDED 2026-09-17 (docs/changes/175-doc-drift-sweep.md; red team KILL → fixes → PASS). CHG-005 — LANDED 2026-09-17 (docs/changes/176-delete-unused-packs.md). CHG-001 — BUILD next (test first). CHG-001 — SPEC (AUTO, S; grew by three D-004 rows). CHG-005 — SPEC (ASK with the D-004 nod). Serialized on the single working tree: the test rig syncs the clone's checkout, so one branch is checked out per gate.
+- CHG-003 — LANDED 2026-09-17T02:10Z (docs/changes/174). CHG-002 — LANDED 2026-09-17 (docs/changes/175-doc-drift-sweep.md; red team KILL → fixes → PASS). CHG-005 — LANDED 2026-09-17 (docs/changes/176-delete-unused-packs.md). CHG-001 — LANDED 2026-09-17 (docs/changes/177-provenance-records.md). Next: SPIKES L3 (the SurfaceNets gate's spread, rig only), CHG-008 (preset coverage), CHG-010 (dead defines). CHG-001 — SPEC (AUTO, S; grew by three D-004 rows). CHG-005 — SPEC (ASK with the D-004 nod). Serialized on the single working tree: the test rig syncs the clone's checkout, so one branch is checked out per gate.
 
 ## BACKLOG (with priors; triage on merit; AUTO items → CHANGE-QUEUE, ASK items → NEEDS-GREY, unknowns → SPIKES)
 

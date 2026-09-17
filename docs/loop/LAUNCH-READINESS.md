@@ -53,8 +53,8 @@ Seeded 2026-09-16 from README.md, docs/changes/README.md's known unknowns, the p
 
 | # | Item | Status | Evidence / note | Owner |
 |---|---|---|---|---|
-| L1 | Every imported asset has a recorded license (art-direction.md § Imported Assets, PACKAGE_MODIFICATIONS.md, the soundfont, Universal Sound FX, Kenney packs) | in progress | provenance sweep 2026-09-16: 10 of 15 locations pass; the two unused unlicensed packs are gone (CHG-005, docs/changes/176-delete-unused-packs.md); the three wired Asset Store packs' rows + the artgen manifest + the unity-mcp row land with CHG-001 | factory |
-| L2 | Every third-party package edit is documented and re-appliable | open | Fluff's two shader edits are documented; `com.coplaydev.unity-mcp` (editor-only) has no origin row (F-007, CHG-001) | factory |
+| L1 | Every imported asset has a recorded license (art-direction.md § Imported Assets, PACKAGE_MODIFICATIONS.md, the soundfont, Universal Sound FX, Kenney packs) | done | 2026-09-17: the provenance sweep's 15 locations all carry a license or origin record: 10 passed on 2026-09-16, three Asset Store packs got rows (CHG-001, docs/changes/177-provenance-records.md, per Grey's D-004), two unlicensed packs were deleted (CHG-005), the 33 generated FBX have a machine-checked manifest (artgen/README.md + ArtgenManifestTests), the editor-only MCP package has an origin row. Re-checked by the provenance sweep on every import | factory |
+| L2 | Every third-party package edit is documented and re-appliable | done | Fluff's two shader edits documented (PACKAGE_MODIFICATIONS.md); the only other non-registry package, `com.coplaydev.unity-mcp`, has an origin row (MIT) there since CHG-001 (docs/changes/177-provenance-records.md) and carries no edits | factory |
 
 ## Steam
 
