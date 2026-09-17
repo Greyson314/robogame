@@ -95,6 +95,58 @@ Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=W
 
 Validation: OK
 
+## Grappler
+
+```
+Blueprint 'Grappler' (Plane, 18 cells)
+RotorsGenerateLift: False
+Bounds: x[-1..1] y[-1..2] z[-3..3]
+
+Layer y=2:
+      -1  0  1
+  3   .  .  . 
+  2   .  .  . 
+  1   .  .  . 
+  0   .  .  . 
+ -1   .  .  . 
+ -2   .  F  . 
+ -3   .  .  . 
+
+Layer y=1:
+      -1  0  1
+  3   .  .  . 
+  2   .  .  . 
+  1   .  .  . 
+  0   .  .  . 
+ -1   .  .  . 
+ -2   .  #  . 
+ -3   .  .  . 
+
+Layer y=0:
+      -1  0  1
+  3   .  #  . 
+  2   .  #  . 
+  1   A  #  A 
+  0   .  C  . 
+ -1   A  #  A 
+ -2   A  #  A 
+ -3   .  #  . 
+
+Layer y=-1:
+      -1  0  1
+  3   .  .  . 
+  2   .  .  . 
+  1   .  .  . 
+  0   .  .  . 
+ -1   .  T  . 
+ -2   .  X  . 
+ -3   .  T  . 
+
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+```
+
+Validation: OK
+
 ## Boat
 
 ```
@@ -361,6 +413,42 @@ Layer y=0:
   1   S  #  #  #  S 
   0   .  #  C  #  . 
  -1   W  #  #  #  W 
+
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+```
+
+Validation: OK
+
+## Hover Tank
+
+```
+Blueprint 'Hover Tank' (Ground, 30 cells)
+RotorsGenerateLift: False
+Bounds: x[-2..2] y[-1..1] z[-2..2]
+
+Layer y=1:
+      -2 -1  0  1  2
+  2   .  .  .  .  . 
+  1   .  .  .  .  . 
+  0   .  .  G  .  . 
+ -1   .  .  .  .  . 
+ -2   .  .  .  .  . 
+
+Layer y=0:
+      -2 -1  0  1  2
+  2   #  #  #  #  # 
+  1   #  #  #  #  # 
+  0   #  #  C  #  # 
+ -1   #  #  #  #  # 
+ -2   #  #  #  #  # 
+
+Layer y=-1:
+      -2 -1  0  1  2
+  2   .  .  .  .  . 
+  1   ?  .  .  ?  . 
+  0   .  .  .  .  . 
+ -1   .  .  .  .  . 
+ -2   ?  .  .  ?  . 
 
 Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
 ```

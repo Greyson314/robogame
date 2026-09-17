@@ -28,8 +28,11 @@ namespace Robogame.Tests.EditMode.Blueprints
         private static string SnapshotPath
             => Path.Combine(Path.GetDirectoryName(Application.dataPath) ?? "", "docs", "blueprint-snapshots", "presets.md");
 
-        // Every preset asset path the scaffolder produces. Add new entries
-        // here when GameplayScaffolder ships a new blueprint preset. Shared with
+        // Every player-facing preset asset path: the ones GameplayScaffolder
+        // authors via CreateOrUpdateBlueprint, plus HoverTank, which it only
+        // loads for wiring (GameplayScaffolder.cs:951) — hand-authored in the
+        // asset, never written by the scaffolder (CHG-013 / F-026 note 2). Add
+        // new entries here when a new blueprint preset ships. Shared with
         // ScriptedChassisBuilderTests so the two suites cannot drift apart (CHG-008).
         internal static string[] PresetPaths => new[]
         {
@@ -89,7 +92,7 @@ namespace Robogame.Tests.EditMode.Blueprints
                     missing.Add(path);
             }
             Assert.That(missing, Is.Empty,
-                "PresetPaths lists assets that do not exist. Either the scaffolder stopped producing them (remove the entry) or the asset was never committed (scaffold it via Robogame → Build Everything and commit it):\n  " + string.Join("\n  ", missing));
+                "PresetPaths lists assets that do not exist. Either the preset stopped shipping (remove the entry) or the asset was never committed (scaffold it via Robogame → Build Everything, or for a hand-authored preset like HoverTank, commit the asset directly):\n  " + string.Join("\n  ", missing));
         }
 
         /// <summary>
@@ -168,6 +171,12 @@ namespace Robogame.Tests.EditMode.Blueprints
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
 
+            // Library-aware, same as Preset_PassesValidation: the positions-only
+            // overload can't see host-face errors, so a quarantined preset would
+            // print "Validation: OK" here and contradict KnownInvalid (CHG-008
+            // red team note 3).
+            BlockDefinitionLibrary lib = AssetDatabase.LoadAssetAtPath<BlockDefinitionLibrary>(LibraryAssetPath);
+
             using (StreamWriter w = new StreamWriter(SnapshotPath, false))
             {
                 w.WriteLine("# Blueprint snapshots");
@@ -187,7 +196,7 @@ namespace Robogame.Tests.EditMode.Blueprints
                     }
                     loaded++;
                     BlueprintPlan plan = new BlueprintPlan(bp.DisplayName, bp.Kind, bp.Entries, bp.RotorsGenerateLift);
-                    BlueprintValidationResult r = BlueprintValidator.Validate(plan);
+                    BlueprintValidationResult r = BlueprintValidator.Validate(plan, lib);
                     w.WriteLine("## " + bp.DisplayName);
                     w.WriteLine();
                     w.WriteLine("```");
