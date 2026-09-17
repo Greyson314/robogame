@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """land.py -- THE LANDING CHAIN AS ONE COMMAND (charter D4 (4)-(5), D13).
 
-    python land.py gate --change CHG-007 --branch chg/007-slug --suite PASS --perf N/A --red-team PASS [--notes "..."]
+    python land.py gate --change CHG-007 --branch chg/007-slug --suite PASS --perf N/A --red-team PASS|N/A [--notes "..."]
     python land.py land --change CHG-007 --branch chg/007-slug --title "Pogo tune reaches the game" \\
         --slug pogo-tune --entry entry.md --bullet "short state bullet" \\
         [--fyi "one line for NEEDS-GREY § FYI" | --play play.md] [--ping ping.txt] [--tick "..."] \\
@@ -9,7 +9,10 @@
 
 `gate` records the three gate verdicts against the branch's FROZEN sha in
 .utmp/factory/gate/<CHG>.json. `land` refuses to merge without that file,
-without PASS on suite and red team (perf may be N/A when nothing hot was
+without PASS on the suite, PASS or N/A on the red team (N/A only with a
+reason in --notes: charter D16b, narrowed 2026-09-17, runs the red team only
+for shipped runtime code, NOD-list actions or invariants), and PASS or N/A on
+perf (N/A when nothing hot was
 touched), or when the branch has moved since the gate ran.
 
 `land`, in order (every step printed; --dry-run computes 1-4 and prints
@@ -98,9 +101,12 @@ def cmd_gate(a: argparse.Namespace) -> int:
     repo = repo_root(a.repo)
     if not CHG_RE.match(a.change):
         raise Refuse(f"change id must look like CHG-007, got {a.change!r}")
-    for name, val in (("suite", a.suite), ("red-team", a.red_team)):
-        if val != "PASS":
-            raise Refuse(f"{name} verdict is {val!r}; only PASS may be recorded (a FAIL is not a gate record, it is work)")
+    if a.suite != "PASS":
+        raise Refuse(f"suite verdict is {a.suite!r}; only PASS may be recorded (a FAIL is not a gate record, it is work)")
+    if a.red_team not in ("PASS", "N/A"):
+        raise Refuse(f"red-team verdict is {a.red_team!r}; only PASS or N/A may be recorded (a KILL is not a gate record, it is work)")
+    if a.red_team == "N/A" and not (a.notes or "").strip():
+        raise Refuse("red-team N/A needs its reason in --notes (charter D16b: tests, fixtures, dev-facing content, docs, generated files, tooling, instruments or coverage)")
     if a.perf not in ("PASS", "N/A"):
         raise Refuse(f"perf verdict must be PASS or N/A, got {a.perf!r}")
     sha = sha_of(repo, a.branch)
@@ -207,7 +213,7 @@ def cmd_land(a: argparse.Namespace) -> int:
     gate = json.loads(gp.read_text(encoding="utf-8"))
     if gate.get("branch") != a.branch:
         raise Refuse(f"gate record is for branch {gate.get('branch')!r}, not {a.branch!r}")
-    if gate.get("suite") != "PASS" or gate.get("red_team") != "PASS" or gate.get("perf") not in ("PASS", "N/A"):
+    if gate.get("suite") != "PASS" or gate.get("red_team") not in ("PASS", "N/A") or gate.get("perf") not in ("PASS", "N/A"):
         raise Refuse(f"gate verdicts not passing: {gate}")
     head = sha_of(repo, a.branch)
     if gate.get("sha") != head:

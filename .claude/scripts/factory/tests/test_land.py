@@ -48,6 +48,15 @@ class Chain(unittest.TestCase):
         r = self.gate(); self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertTrue((self.repo / ".utmp/factory/gate/CHG-007.json").exists())
 
+    def test_gate_red_team_na_needs_a_reason_then_lands(self):
+        # charter D16b (narrowed 2026-09-17): the red team runs only for shipped runtime code, NOD-list
+        # actions or invariants; elsewhere the gate records N/A with the reason in the notes.
+        r = self.gate(**{"--red-team": "KILL"}); self.assertEqual(r.returncode, 2); self.assertIn("only PASS or N/A", r.stdout)
+        r = self.gate(**{"--red-team": "N/A"}); self.assertEqual(r.returncode, 2); self.assertIn("needs its reason", r.stdout)
+        r = self.gate(**{"--red-team": "N/A", "--notes": "tooling only: charter D16b"}); self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        r = land(self.repo, *self.land_args()); self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        entry = (self.repo / "docs/changes/002-pogo-tune.md").read_text(encoding="utf-8"); self.assertIn("red team N/A", entry)
+
     def test_land_refuses_without_gate(self):
         r = land(self.repo, *self.land_args()); self.assertEqual(r.returncode, 2); self.assertIn("no gate record", r.stdout)
 
