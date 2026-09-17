@@ -255,9 +255,9 @@ This is a solo project, but notes for future collaboration (or future me):
 
 All notable changes are documented here.
 
-### [Unreleased]
-- Initial project setup
-- README and documentation scaffold
+The session-by-session log lives in [docs/changes/README.md](docs/changes/README.md)
+(173 sessions through 2026-09-16); the Robogame Factory's landings continue it from
+174 (see [docs/loop/README.md](docs/loop/README.md)). This file no longer carries a changelog.
 
 ---
 
@@ -273,4 +273,4 @@ Docs are organised into three tiers — see [CLAUDE.md](CLAUDE.md) for the full 
 
 ---
 
-*Last updated: April 29, 2026*
+*Last updated: September 17, 2026 (factory CHG-002: changelog pointer and date).*

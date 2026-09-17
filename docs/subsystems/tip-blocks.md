@@ -13,7 +13,7 @@ chassis        rope (Verlet)              tip body     target
   │RB│════════════════════════════════│hostRb│ ⤙ │  RB  │
   └──┘ ◄────── ConfigurableJoint ───────►└────────┘    └──────┘
             (limit = totalRopeLength,             ▲
-             spring 8000 N, damper 250)           │
+             spring 8000 N, damper 0)           │
             "the leash"                           │  SpringJoint
                                                   │  (rest = 0,
                                                   │   spring 300 N,
@@ -28,7 +28,7 @@ overlapped.
 | Constraint | Owner | Job |
 |---|---|---|
 | Verlet chain (`VerletRopeChain`) | `RopeBlock` | Position-only. Maintains chain length between chassis anchor and tip body. Doesn't transmit *force* — particles are pure position state. |
-| Chassis↔tip leash (`ConfigurableJoint`) | `RopeBlock` | The **force coupling**. Linear-limited at total rope length with a soft spring (8000 N, 250 damper). Stops the chassis flying off forever once the rope is taut. Always-on. |
+| Chassis↔tip leash (`ConfigurableJoint`) | `RopeBlock` | The **force coupling**. Linear-limited at total rope length with a soft spring (8000 N, damper 0 by design: a damper made PhysX engage the limit during free flight; `RopeBlock.cs` ~L597-624). Stops the chassis flying off forever once the rope is taut. Always-on. |
 | Tip↔target bite (`SpringJoint`) | `HookBlock` / `MagnetBlock` | The **latch**. Rest distance 0; pulls target toward the tip with `F = spring × distance`. No `breakForce` — bounded force envelope by construction. |
 
 ## Why the old design broke

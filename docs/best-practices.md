@@ -570,8 +570,8 @@ These rules cost ~nothing today and save weeks later.
    `Random.value`.
 5. **No `GameObject.Find` in `Update`.** Cache on `Awake` or use
    `FindFirstObjectByType` once at scene-load. (Unity 6 obsoletes
-   `FindObjectOfType` — see the lingering call in [DevHud.cs](Assets/_Project/Scripts/UI/DevHud.cs)
-   that should be migrated 🔬.)
+   `FindObjectOfType` ; the last straggler in DevHud.cs was migrated before
+   session 173, and `ObjectiveHud.cs` keeps only an `#if`-gated fallback.)
 6. **Authoritative ID strings, not object references, across system
    boundaries.** `BlockIds.Cpu`, weapon-id strings, etc. The same
    thing that makes saves portable makes them netcode-portable.
@@ -775,9 +775,6 @@ Captured here so they don't get lost:
   pattern when the user blueprint count justifies it.
 - **Editor test asmdef** (§ 14.3): `Robogame.Block.Tests` covering
   the serializer + (eventually) connectivity flood-fill.
-- **`FindObjectOfType` migration** (§ 12.5): one straggler in
-  [DevHud.cs](Assets/_Project/Scripts/UI/DevHud.cs#L125) →
-  `FindFirstObjectByType<Robot>()`.
 - **Chunk meshing decision** (§ 3.2): defer until SRP-Batcher
   becomes draw-call-bound; revisit at the 16-robot arena milestone.
 - **Awaitable migration** for coroutines (Unity 6 native) — slow

@@ -10,8 +10,12 @@
 > commits to the design decisions, names the work that's left, and
 > flags the invariants that constrain the implementation.
 >
-> **Status.** Plan. No code in this branch yet. Implementation should
-> follow the planner-first workflow from `CLAUDE.md`.
+> **Status.** Phase 1 (per-instance occupancy footprints, `BlockOccupancy`,
+> session 38) and Phase 1.5 (lift scaling for `AeroSurfaceBlock` / `RopeBlock`,
+> session 39) shipped; session 45's structural refactor stopped short of
+> schema-driven dispatch (docs/changes/README.md § Known unknowns). Phase 2+
+> (the second scalable shape, the cost model) is pending. Status line updated
+> 2026-09-17 by the factory (CHG-002, F-011); the plan below is otherwise as written.
 
 ---
 
