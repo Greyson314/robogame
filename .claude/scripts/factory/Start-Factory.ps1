@@ -138,6 +138,7 @@ if ($serving) {
     $mode = 'editor-starting'
     if ($DryRun) { Warn "would start the factory's Editor: $unity -projectPath $Root" }
     else {
+        $env:ROBOGAME_RIG_MUTE = '1'   # the factory's Editor is a rig: RigAudioMute.cs mutes its audio (Grey, 2026-09-17)
         Start-Process -FilePath $unity -ArgumentList @('-projectPath', "`"$Root`"") | Out-Null
         Ok "started the factory's Editor on this clone (MCP comes up when it finishes loading; the loop verifies)"
     }
