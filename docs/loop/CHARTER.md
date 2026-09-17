@@ -309,6 +309,24 @@ sacred; INBOX items are not auto-prioritized.)
   fights a pillar, a dead system, a menu nobody needs; removing it is a
   change and counts as one. Allocation across polish and frontier is
   yours (D16e).
+  SUGGESTIONS (Grey's standing wishes, with origin and pillar):
+  - S1 (Grey, INBOX 2026-09-17T22:15Z, verbatim: "a big part of this
+    will be modularization, simplification, code compression, cleanup,
+    health, also performance!, etc. Just because there's no red team
+    doesn't mean I don't think code should be deleted. The avoidance of
+    spaghettification isn't *paramount*, but it's fairly high on this
+    list and will prevent the factory from getting dumber imo.") Serves:
+    the pillars' "Recreational-but-aspires-Steam" (a solo codebase that
+    stays legible is what lets it ship) and D2/D7 (health; performance
+    is a floor, INV-7). The loop's reading: simplification, dead-code
+    deletion, de-duplication and modularization are first-class
+    vectors with a standing slot in every shift's mix; a deletion or
+    refactor with zero behaviour change proven by the suite is AUTO
+    under I1 as already written, while removing something a player
+    meets stays ASK; the best-practices sweep judges spaghetti
+    (duplication, god classes, cross-module reach-through, dead
+    fields) and the suite-and-perf sweep judges health, each leaving
+    FINDINGS lines with the deletion or split as the proposed action.
 
 - **D9 — closed registry.** The closed registry for IDEAS is
   docs/research/idea-backlog.md § Rejected: Grey's, high-confidence by
@@ -381,15 +399,19 @@ sacred; INBOX items are not auto-prioritized.)
   direct message tagged `[INBOX poke]` is a LIGHT WAKE: fetch, read the
   new entries, act or fold into the next planned wake, stamp the tick,
   return; no state re-read, no report, no new work unless the entry
-  asks. OUTBOUND is the factory's Discord webhook through `ping.py`:
-  ONE shift report per shift (≤ 1,900 chars: the build's headline in
-  Grey's terms once, the board's open entries one line each, the
-  shift's landings and tokens) plus event pings ONLY for a decision
-  Grey must make when the board was empty, a BUY, or a fault that needs
-  Grey's hand; findings live in the record; a ruling that stands unless
-  vetoed is a report line, not a ping. THE FORM, refused by `ping.py`
-  rather than asked of the prose: ≤ 6 bullets, nothing repeated that
-  day. BACKPRESSURE: when APPROVE or PLAY is at its cap the loop does
+  asks. OUTBOUND is the factory's Discord webhook through `ping.py`: ONE
+  ping per shift, at its end, a plain "what changed" list (Grey,
+  INBOX 2026-09-17T22:18Z, verbatim: "it should use discord purely as
+  a simple 'what changed' bullet point list, at the end of every
+  shift. I think that's discord's best use case, so let's use it."):
+  dash bullets, one per landing or other change to main, each anchored
+  by its docs/changes number, ≤ 6 bullets, ≤ 1,900 chars; no build
+  headline, no board lines, no token line, no findings or benchmark
+  prose, no mid-shift pings and no board nudges (the board is
+  NEEDS-GREY.md, not Discord). A fault that needs Grey's hand mid-shift
+  is the one exception, and it is one bullet. THE FORM, refused by
+  `ping.py` rather than asked of the prose: ≤ 6 bullets, nothing
+  repeated that day. BACKPRESSURE: when APPROVE or PLAY is at its cap the loop does
   not stack more of that kind; it shifts the mix to AUTO classes and
   provable readiness work, and a shift may END on a full board (D14).
   Grey's tie-break bias is the pillars' own until Grey writes another:
@@ -568,6 +590,8 @@ cold files read on demand.
   idea-backlog / LESSONS and NEEDS-GREY; the SWEEP tier and
   LAUNCH-READINESS added; D14's legal shift end.
 - v1.1 (2026-09-16, Grey) — D11: foreground model policy is fable @ xhigh, not opus @ high; LOOP-STATE § SHIFT updated to match.
+- v1.4 (2026-09-17, Grey via INBOX, shift 6) — D12 OUTBOUND narrowed: Discord is a "what changed" bullet list at the end of every shift, nothing else; the headline, board and token lines leave the report.
+- v1.3 (2026-09-17, loop, shift 6) — D8 gains SUGGESTIONS with S1, Grey's standing steer on simplification, cleanup, deletion, health and performance (INBOX 2026-09-17T22:15Z), recorded verbatim with the loop's reading of how it meets I1; no invariant changed.
 
 Signing: commits as "factory: <what>"; Discord pings prefixed
 [factory].
