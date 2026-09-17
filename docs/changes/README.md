@@ -86,6 +86,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 186 | [Server-first bridge: the launcher serves 8080 before any session dials it; mcp_http.py uses the bridge with a dead connector](186-server-first-bridge.md) |
 | 185 | [The changes index keeps up with the ledger: land.py writes the Sessions row; rows 132-183 backfilled](185-changes-index.md) |
 | 184 | [ContinualTraces scans traces anywhere in a comment; the doc-drift sweep's index step has rules](184-traces-scan.md) |
 | 183 | [Hover Tank preset: the deck's corner cubes hosted on cubes, not on hoverblades](183-hovertank-preset.md) |
