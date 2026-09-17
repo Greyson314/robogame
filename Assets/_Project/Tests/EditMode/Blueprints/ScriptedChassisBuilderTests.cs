@@ -180,9 +180,14 @@ namespace Robogame.Tests.EditMode.Blueprints
                 loaded++;
                 BlueprintPlan plan = new BlueprintPlan(bp.DisplayName, bp.Kind, bp.Entries, bp.RotorsGenerateLift);
                 BlueprintValidationResult v = BlueprintValidator.Validate(plan, lib);
-                if (PresetBlueprintTests.KnownInvalid.TryGetValue(path, out string why))
+                if (PresetBlueprintTests.KnownInvalid.TryGetValue(path, out var known))
                 {
-                    Assert.IsFalse(v.IsValid, $"Preset '{bp.DisplayName}' now PASSES validation: remove it from PresetBlueprintTests.KnownInvalid ({why}).");
+                    Assert.IsFalse(v.IsValid, $"Preset '{bp.DisplayName}' now PASSES validation: remove it from PresetBlueprintTests.KnownInvalid ({known.Hint}).");
+                    foreach (string expected in known.ExpectedErrors)
+                    {
+                        Assert.IsTrue(v.ToString().Contains(expected),
+                            $"Preset '{bp.DisplayName}' fails validation, but not for the known reason: expected the error text to contain \"{expected}\" ({known.Hint}). Actual:\n{v}");
+                    }
                     continue;
                 }
                 Assert.IsTrue(v.IsValid, $"Preset '{bp.DisplayName}' (at {path}) failed library-aware validation:\n{v}");
