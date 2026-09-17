@@ -31,6 +31,7 @@ Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBAT
 - FYI-1 2026-09-16 — the orphan `.vscode/settings.json` (the dotnet extension rewriting the solution name for the clone's folder) was reverted and marked `skip-worktree` in the clone; not work, no commit (LESSONS § METHOD 3).
 - FYI-2 2026-09-16 — `/robogame-factory` gained step 1b (plan-cap check, recorded in the tick; it refused to arm at 100 % until D-001 was answered on 2026-09-17) and step 1c (UnityMCP reconnect: the bridge was down for all of shift 2 because the preflight starts the Editor after the session has dialled it, F-017); `docs/loop/DESKTOP-HANDOFF.md` deleted, its setup done. Commit "factory: shift 2 …" on main; no docs/changes entry (factory tooling, no product code).
 - FYI-3 2026-09-16 — the rig is proven: `run-tests.sh All` 1m28s warm, EditMode 529/530 (1 inconclusive: a stale test path, F-016), PlayMode 152/153 (1 documented skip), 0 failures. Four sweeps ran (provenance, invariants, best-practices, doc-drift): 20 FINDINGS lines, three AUTO changes specced (CHG-001..003), nothing landed yet.
+- 2026-09-17 CHG-003 PresetBlueprintTests: guard the preset list, drop the retired Buggy path — docs/changes/174-preset-list-guard.md — FYI-4 2026-09-17 — CHG-003 landed: the suite's only unjustified Inconclusive (a retired Buggy preset path) is gone, with a guard test that fails loudly on the next stale path; EditMode 530/530. docs/changes/174.
 
 ## ANSWERED (most recent first; verbatim)
 
