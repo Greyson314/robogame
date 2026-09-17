@@ -16,8 +16,8 @@ Discord lines land as `- [discord #blue-mao-pow <UTC>] <user>: <text>`. `/inbox`
 - [2026-09-17T01:42:22Z via /inbox] decide D-001: it's caught on thinking it can't use usage credits. it can.
   (scribe: Grey's words on seeing the runner stall on overage. No daily ceiling was stated; the ceiling half of the narrowed D-001 question is still unanswered.) → recorded verbatim in NEEDS-GREY § ANSWERED; D-001 closed (usage credits allowed; no ceiling named, the D16d per-shift ceiling binds); the "end on a 100 % window" rule withdrawn from LOOP-STATE, LESSONS and /robogame-factory 1b; shift 3 re-armed.
 - [2026-09-17T01:52:02Z via /inbox] decide D-002: Singleplayer-only v1
-  (scribe: chosen by Grey from options the scribe offered in the Desktop UI, built from the D-002 entry.)
+  (scribe: chosen by Grey from options the scribe offered in the Desktop UI, built from the D-002 entry.) → recorded verbatim in NEEDS-GREY § ANSWERED; D-002 closed; LAUNCH-READINESS S1 done, M1–M4 n/a for v1.
 - [2026-09-17T01:52:02Z via /inbox] decide D-003: yes
-  (scribe: Grey supplied the webhook URL to the scribe; written by the scribe to <clone>/.env as DISCORD_WEBHOOK_FACTORY (gitignored; URL redacted here). Chosen from options built from the D-003 entry.)
+  (scribe: Grey supplied the webhook URL to the scribe; written by the scribe to <clone>/.env as DISCORD_WEBHOOK_FACTORY (gitignored; URL redacted here). Chosen from options built from the D-003 entry.) → recorded verbatim; .env verified by name and length; D-003 closed; pings live from shift 3's report.
 - [2026-09-17T01:52:02Z via /inbox] decide D-004: Stylized Nature Pack, Polytope Studio trees, Handpainted Grass and Ground Textures: Unity Asset Store (EULA). FattyPolyTurretFree + Part2Free and Le Tai's TrueShadow: Delete both.
-  (scribe: chosen by Grey from options built from the D-004 entry; "Delete both" is Grey's nod under I1 for the two unused packs.)
+  (scribe: chosen by Grey from options built from the D-004 entry; "Delete both" is Grey's nod under I1 for the two unused packs.) → recorded verbatim; D-004 closed; rows → CHG-001, deletions → CHG-005 (nod recorded on the spec).

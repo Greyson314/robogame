@@ -30,13 +30,14 @@
 
 | rank | id | title | class | pillar / readiness | acceptance kind | est. cost | status |
 |---|---|---|---|---|---|---|---|
-| 1 | CHG-003 | PresetBlueprintTests: drop the stale DefaultBuggy path | AUTO | T1 | test (zero Inconclusive) | S | SPEC |
+| 1 | CHG-003 | PresetBlueprintTests: drop the stale DefaultBuggy path | AUTO | T1 | test (zero Inconclusive) | S | GATE (branch chg/003-preset-buggy-path @ 9929740e; suite green 2026-09-17T01:52Z; red team pending) |
 | 2 | CHG-002 | doc drift from the 2026-09-16 sweep (six edits) | AUTO | D1, D2 | sweep re-run + Traces Validate | S | SPEC |
-| 3 | CHG-001 | provenance records: artgen manifest + unity-mcp package row | AUTO | L1, L2 | test (manifest covers every FBX) | S | SPEC |
+| 3 | CHG-001 | provenance records: artgen manifest + unity-mcp package row + three Asset Store rows (D-004) | AUTO | L1, L2 | test (manifest covers every FBX) + provenance re-sweep | S | SPEC |
+| 4 | CHG-005 | delete the two unused packs (FattyPolyTurretFree + Part2Free, Le Tai's TrueShadow) | ASK, nod given (D-004) | L1 | grep of their GUIDs in Assets/_Project = 0 + suite green | S | SPEC |
 
-Specs pending (not yet written): CHG-004 bomb-bay door cue (F-008, ASK: audible + visible; needs a read of the AudioCue / VfxKind enums first) · CHG-005 atomic blueprint and concoction writes (BACKLOG 4; UserBlueprintLibrary.cs:147, ConcoctionLibrary.cs:122, Tweakables.cs:512 write with File.WriteAllText) · CHG-006 enable MatchFlowTests.SpawnBot via a MinimalArena test scene (BACKLOG 2).
+Specs pending (not yet written): CHG-004 bomb-bay door cue (F-008, ASK: audible + visible; needs a read of the AudioCue / VfxKind enums first) · CHG-006 atomic blueprint and concoction writes (BACKLOG 4; UserBlueprintLibrary.cs:147, ConcoctionLibrary.cs:122, Tweakables.cs:512 write with File.WriteAllText) · CHG-007 enable MatchFlowTests.SpawnBot via a MinimalArena test scene (BACKLOG 2).
 
-### CHG-003 PresetBlueprintTests: drop the stale DefaultBuggy path — status: SPEC
+### CHG-003 PresetBlueprintTests: drop the stale DefaultBuggy path — status: GATE
 Class: AUTO (I1: a failing or flaky test fixed; the case is Inconclusive on every run)
 Pillar or readiness item: LAUNCH-READINESS T1 (every inconclusive justified) — removes the one unjustified inconclusive from the suite.
 Source: F-016; ASSUMPTIONS #10 (falsified).
@@ -60,11 +61,21 @@ Feel change? no
 Class: AUTO (I1: provenance records, I6)
 Pillar or readiness item: LAUNCH-READINESS L1 (generated assets record their generator) and L2 (third-party package rows).
 Source: F-006, F-007.
-Change: add `artgen/README.md` with a table mapping every FBX under Assets/_Project/Art/Models/** to its generator script in artgen/ (source of truth per docs/changes/130; FBX is a build artifact) plus the Blender version used; add a row to docs/PACKAGE_MODIFICATIONS.md for `com.coplaydev.unity-mcp` (origin: the GitHub pin in Packages/manifest.json:3; editor-only, non-shipping; its license as the package's own file states it).
-Acceptance: an EditMode test `ArtgenManifestTests.EveryGeneratedFbxHasAManifestRow` that parses artgen/README.md's table and asserts every .fbx under Assets/_Project/Art/Models has a row and every row's script exists on disk. Written first; fails on main today (no manifest).
+Change: add `artgen/README.md` with a table mapping every FBX under Assets/_Project/Art/Models/** to its generator script in artgen/ (source of truth per docs/changes/130; FBX is a build artifact) plus the Blender version used; add a row to docs/PACKAGE_MODIFICATIONS.md for `com.coplaydev.unity-mcp` (origin: the GitHub pin in Packages/manifest.json:3; editor-only, non-shipping; its license as the package's own file states it); add three rows to docs/subsystems/art-direction.md § Imported Assets for Stylized Nature Pack (ArenaProps.cs:57), Polytope Studio trees (ArenaProps.cs:276) and Handpainted Grass and Ground Textures (FluffGround.cs:275): source Unity Asset Store, license the Unity Asset Store EULA, per Grey's D-004 line of 2026-09-17 quoted in NEEDS-GREY § ANSWERED.
+Acceptance: an EditMode test `ArtgenManifestTests.EveryGeneratedFbxHasAManifestRow` that parses artgen/README.md's table and asserts every .fbx under Assets/_Project/Art/Models has a row and every row's script exists on disk (written first; fails on main today: no manifest); and a provenance re-sweep that reports none of F-001, F-002, F-003, F-006, F-007.
 Must not break: nothing at runtime; no scene, asset or import setting touched. INV-8 n/a.
 Revert: `git revert`; leaves L1/L2 as they are today.
 Feel change? no
+
+### CHG-005 delete the two unused imported packs — status: SPEC
+Class: ASK (I1: deleting assets needs Grey's nod). NOD RECORDED: Grey, 2026-09-17T01:52:02Z via /inbox, "FattyPolyTurretFree + Part2Free and Le Tai's TrueShadow: Delete both." (NEEDS-GREY § ANSWERED D-004).
+Pillar or readiness item: LAUNCH-READINESS L1 (I6: a product that ships with an unlicensed asset is unshippable; these two have no license on disk and no use).
+Source: F-004, F-005; D-004.
+Change: `git rm -r` Assets/FattyPolyTurretFree, Assets/FattyPolyTurretPart2Free and "Assets/Le Tai's Asset/TrueShadow" (and their .meta files; if "Le Tai's Asset" then holds nothing else, the folder too). Nothing under Assets/_Project references them by script (provenance sweep 2026-09-16).
+Acceptance: (1) before deleting, collect every GUID from the packs' .meta files and grep Assets/_Project (scenes, prefabs, materials, assets) for them: 0 hits, recorded in the docs/changes entry; (2) the suite stays green (EditMode 530/530, PlayMode 152/153); (3) the packs are gone from the tree.
+Must not break: any scene, prefab or material that referenced a pack asset by GUID (the pre-check above is the guard; a hit turns this into a DROP or an ASK). No invariant touched; no runtime code.
+Revert: `git revert` of the merge restores both packs byte-for-byte.
+Feel change? no (nothing in a shipped scene references them, per the pre-check)
 
 ## BUILT THIS SHIFT (moved to docs/changes on landing; tally for HEALTH)
 

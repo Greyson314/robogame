@@ -4,7 +4,7 @@ Directive version: v1.1. Last touched: 2026-09-16 (end of shift 2, on the deskto
 
 ## NEEDS GREY
 
-The board is NEEDS-GREY.md (D12). This section only carries a pointer and the count: 0 APPROVE / 0 PLAY / 0 BUY / 3 DECIDE / 3 FYI as of 2026-09-17 (D-001 answered and closed).
+The board is NEEDS-GREY.md (D12). This section only carries a pointer and the count: 0 APPROVE / 0 PLAY / 0 BUY / 1 DECIDE (D-005, the Editor) / 3 FYI as of 2026-09-17T02:00Z (D-001..D-004 answered and closed).
 
 ## SHIFT (D13; replaces the kernel's LIVENESS block while the factory runs in shifts)
 
@@ -32,11 +32,11 @@ Machine: Grey's Windows desktop (Tailscale `desktop-p2msnrt`). Unity 6000.4.4f1 
 Checkout: the factory's own clone, `C:\Users\Grey\Desktop\mutedtuple\robogame-factory`. Grey's checkout at `C:\Users\Grey\Desktop\mutedtuple\robogame` is never edited by the factory. Clone-local rig config: `.vscode/settings.json` is `skip-worktree` (LESSONS § METHOD 3).
 Suite: `.claude/scripts/run-tests.sh [EditMode|PlayMode|All]` from the clone root (Git Bash); syncs the clone's working tree into `.claude/worktrees/test-rig` (exists, Library warm) and runs Unity batch `-nographics`. Measured 2026-09-16: All = 1m28s warm. Ran concurrently with the factory's Editor importing the clone, without incident (one data point).
 Perf harness: PlayMode tests `[Category("Perf")]` in Assets/_Project/Tests/PlayMode/Perf/ (`PerfBaselineHarness.Arena_Idle_Baseline`, `Garage_Idle_Baseline`; `PerfRenderProbe.Arena_ChassisRenderCost_Attribution`); rows append to docs/perf-captures/harness-log.txt. In `-nographics` the render probe is meaningless; CPU/physics/GC rows stand. Graphics numbers need the live Editor.
-MCP: `.mcp.json` → `http://127.0.0.1:8080/mcp`, served by whichever Editor auto-started MCP for Unity's server. The factory's Editor: `Unity.exe -projectPath <clone>` (Start-Factory.ps1 launches it; 2.1 GB RSS while importing). **The Desktop session dials the server once at session start** (ASSUMPTIONS #8): if the Editor was not serving 8080 by then, the bridge stays down until `reconnect_session_connector("UnityMCP")` runs at a turn end (`/robogame-factory` step 1c; repeat it on the first wake if 8080 was not up). When Grey's Editor is also up, target this clone's instance with `set_active_instance`, never Grey's.
+MCP: `.mcp.json` → `http://127.0.0.1:8080/mcp`, served by whichever Editor auto-started MCP for Unity's server. The factory's Editor: `Unity.exe -projectPath <clone>` (Start-Factory.ps1 launches it; 2.1 GB RSS while importing). **The Desktop session dials the server once at session start** (ASSUMPTIONS #8): if the Editor was not serving 8080 by then, the bridge stays down for that session's whole life: `reconnect_session_connector` refuses project servers (2026-09-17) and `/mcp` is not available in a Desktop session. Sequencing is the only fix (BACKLOG 12). When Grey's Editor is also up, target this clone's instance with `set_active_instance`, never Grey's.
 Blender: `.mcp.json`'s blender server; connected on 2026-09-16 (31 tools) but unused.
-Discord: `.env` absent → `ping.py` dry-runs (D-003).
+Discord: `.env` present since 2026-09-17 (D-003 "yes"; DISCORD_WEBHOOK_FACTORY verified by name and length, never by value) → `ping.py` posts for real.
 Must NOT be open while a batch run executes: nothing (the test-rig worktree has its own Library); the test-rig worktree itself is never opened in an Editor.
-Editor faults on this clone: shift 1's Editor crashed in InitializeAssetDatabaseV2 with 'Assertion failed: mv_size == sizeof(T)' and 'dataValue.mv_size >= sizeof(ArtifactMetaInfo)' (Editor-prev.log 2026-09-16T20:48Z; crash report %LOCALAPPDATA%/Temp/Unity/Editor/Crashes/Crash_2026-09-16_204843616), i.e. a corrupt Library/ArtifactDB or SourceAssetDB; shift 2's Editor hung after 'Input System module state changed: Initialized' with no window for 2 h and was killed 2026-09-17T01:53Z. Fix applied 2026-09-17: Library/ArtifactDB, Library/SourceAssetDB and Library/Artifacts deleted (derived caches; a full reimport runs on the next launch, so the bridge comes up late in shift 3). If the next launch crashes or hangs: delete the whole Library/ (BACKLOG 16); if that fails, ask Grey to look at the desktop screen.
+Editor faults on this clone: shift 1's Editor crashed in InitializeAssetDatabaseV2 with 'Assertion failed: mv_size == sizeof(T)' and 'dataValue.mv_size >= sizeof(ArtifactMetaInfo)' (Editor-prev.log 2026-09-16T20:48Z; crash report %LOCALAPPDATA%/Temp/Unity/Editor/Crashes/Crash_2026-09-16_204843616), i.e. a corrupt Library/ArtifactDB or SourceAssetDB; shift 2's Editor hung after 'Input System module state changed: Initialized' with no window for 2 h and was killed 2026-09-17T01:53Z. Fix applied 2026-09-17: Library/ArtifactDB, Library/SourceAssetDB and Library/Artifacts deleted (derived caches; a full reimport runs on the next launch, so the bridge comes up late in shift 3). The launch after the wipe (2026-09-17T01:47Z, pid 29144) hung the same way: log frozen after licensing, no UPM server started (upm.log shows only the batch run's), no window, killed at 01:53Z. So the Library was not the hang's cause. Leading guess: a modal dialog at startup that a GUI launch shows and a batch launch does not. NEEDS-GREY D-005 asks Grey to look at the screen once; until then every shift is batch-only.
 
 ## FACTORY FLOOR (D16e — v1, published 2026-09-16; iterate)
 
@@ -53,7 +53,7 @@ Main: green (0 failures). Suite: 683 cases, 1m28s warm. Perf vs budget: last row
 
 ## LANES IN FLIGHT (D4 CHANGE tier — each change's stage: SPEC / APPROVE-WAIT / TESTS / BUILD / GATE / LANDED; the named dependency if serialized)
 
-- CHG-003 — SPEC (AUTO, S). CHG-002 — SPEC (AUTO, S). CHG-001 — SPEC (AUTO, S). None started: the shift ended on the plan cap before rung 1.
+- CHG-003 — GATE: branch `chg/003-preset-buggy-path` @ 9929740e; guard test failed first (EditMode 529/531 at 01:50Z), then suite green after the fix (EditMode 530/530, PlayMode 152/153 at 01:52Z); red team pending. CHG-002 — SPEC (AUTO, S), next. CHG-001 — SPEC (AUTO, S; grew by three D-004 rows). CHG-005 — SPEC (ASK with the D-004 nod). Serialized on the single working tree: the test rig syncs the clone's checkout, so one branch is checked out per gate.
 
 ## BACKLOG (with priors; triage on merit; AUTO items → CHANGE-QUEUE, ASK items → NEEDS-GREY, unknowns → SPIKES)
 
@@ -68,11 +68,12 @@ Main: green (0 failures). Suite: 683 cases, 1m28s warm. Perf vs budget: last row
 9. idea-backlog § Approved: Rider Effects; Concoction Identity — ASK (feature) once specced; both queued behind the core Lab per the backlog. Prior: Grey approved them 2026-06-04.
 10. Launch-readiness sweep — partly done 2026-09-16 (T1, L1, L2, D1, D2); the rest of the `unknown` rows need the bridge (T2, C1, C2) or a build (B1–B5).
 11. HANDOFF remainder: the perf harness Arena idle baseline 5× for the run-to-run band (§ RIG); prove `read_console` + `run_tests` against this clone's Editor instance once the bridge is up; record the instance id.
-12. Instrument: `Start-Factory.ps1 -Desktop` waits for 8080 to listen (bounded) before printing the prompt, so the session dials a live server (F-017, LESSONS § METHOD 2). AUTO (tooling), S.
+12. Instrument: `Start-Factory.ps1 -Desktop` waits for 8080 to listen (bounded) before printing the prompt, and `/robogame-factory` accepts a lock the launcher wrote minutes earlier as its own instead of refusing it, so the Desktop session is opened AFTER the Editor serves MCP (F-017, LESSONS § METHOD 2, ASSUMPTIONS #8). Blocked on D-005 (the Editor must open at all). AUTO (tooling), S.
 13. F-008 bomb-bay door cue → CHG-004 spec for APPROVE (ASK). S.
 14. F-012 spherical-arenas.md → SPIKES L2 (rung 7). L.
 15. Console sweep + visual sweep — never run (bridge). First thing after the bridge is proven.
-16. Rig: if the factory Editor fails again after the ArtifactDB/SourceAssetDB wipe (see RIG), delete the whole Library/ and reimport; record the crash line each time. Instrument: the launcher tails Editor.log for 'Crash!!!' or a stall and says so in the preflight.
+16. Rig: the factory Editor hangs at startup (D-005 on the board; see RIG). Instrument once it opens: the launcher tails Editor.log for 'Crash!!!' or a stall and says so in the preflight.
+17. Instrument: `/inbox` commits to main with plumbing (`git commit-tree` + `update-ref refs/heads/main`, then push) instead of committing on the checked-out branch (LESSONS § METHOD 5). AUTO (tooling), S.
 
 ## INSTRUMENTS (built, reusable)
 

@@ -8,7 +8,7 @@ Seeded 2026-09-16 from README.md, docs/changes/README.md's known unknowns, the p
 
 | # | Item | Status | Evidence / note | Owner |
 |---|---|---|---|---|
-| S1 | v1 scope decided: singleplayer-only or with multiplayer | grey | NEEDS-GREY D-002 | Grey |
+| S1 | v1 scope decided: singleplayer-only or with multiplayer | done | D-002, Grey 2026-09-17: "Singleplayer-only v1" (NEEDS-GREY § ANSWERED) | Grey |
 | S2 | Theme decided (pillars open question) or explicitly deferred past v1 | grey | pillars § Open questions | Grey |
 | S3 | Win conditions for the shipped modes decided | grey | pillars § Open questions | Grey |
 
@@ -53,7 +53,7 @@ Seeded 2026-09-16 from README.md, docs/changes/README.md's known unknowns, the p
 
 | # | Item | Status | Evidence / note | Owner |
 |---|---|---|---|---|
-| L1 | Every imported asset has a recorded license (art-direction.md § Imported Assets, PACKAGE_MODIFICATIONS.md, the soundfont, Universal Sound FX, Kenney packs) | grey | provenance sweep 2026-09-16: 10 of 15 locations pass; 5 packs have no license on disk or in docs (F-001–F-005) → NEEDS-GREY D-004; artgen→FBX manifest missing (F-006, CHG-001) | Grey / factory |
+| L1 | Every imported asset has a recorded license (art-direction.md § Imported Assets, PACKAGE_MODIFICATIONS.md, the soundfont, Universal Sound FX, Kenney packs) | in progress | provenance sweep 2026-09-16: 10 of 15 locations pass; D-004 (2026-09-17) named the three wired packs as Unity Asset Store / EULA → rows in CHG-001, and gave the nod to delete the two unused packs → CHG-005; artgen→FBX manifest → CHG-001 | factory |
 | L2 | Every third-party package edit is documented and re-appliable | open | Fluff's two shader edits are documented; `com.coplaydev.unity-mcp` (editor-only) has no origin row (F-007, CHG-001) | factory |
 
 ## Steam
@@ -65,14 +65,14 @@ Seeded 2026-09-16 from README.md, docs/changes/README.md's known unknowns, the p
 | ST3 | Store assets (capsule art, screenshots, trailer) | grey | Grey's kept domain (art) | Grey |
 | ST4 | Steam overlay and quit-to-desktop behave in a build | unknown | after ST1 | factory |
 
-## Multiplayer — if v1 includes MP (D-002)
+## Multiplayer — not in v1 (D-002, 2026-09-17: singleplayer-only); rows kept for a later version
 
 | # | Item | Status | Evidence / note | Owner |
 |---|---|---|---|---|
-| M1 | Phase 2 Relay + Lobby | open | README roadmap: planned | factory |
-| M2 | Phase 5 Steam lobby + transport | grey | needs ST1/ST2 | Grey / factory |
-| M3 | Phase 6 dedicated-server deployment decision | grey | Multiplay / Hathora is Grey's billing decision | Grey |
-| M4 | 16-player bandwidth and tickrate budgets (§ 16) measured under the latency matrix | unknown | | factory |
+| M1 | Phase 2 Relay + Lobby | n/a | v1 is singleplayer (D-002); README roadmap: planned for later | factory |
+| M2 | Phase 5 Steam lobby + transport | n/a | v1 is singleplayer (D-002); needs ST1/ST2 later | Grey / factory |
+| M3 | Phase 6 dedicated-server deployment decision | n/a | v1 is singleplayer (D-002); Multiplay / Hathora is Grey's billing decision later | Grey |
+| M4 | 16-player bandwidth and tickrate budgets (§ 16) measured under the latency matrix | n/a | v1 is singleplayer (D-002) | factory |
 
 ## Docs
 

@@ -5,7 +5,7 @@ Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBAT
 
 ## APPROVE (0/4) — ASK-class specs awaiting check-off. One line each: id · title · pillar or readiness item · payoff · cost · evidence pointer.
 
-(empty — CHG-004, the bomb-bay door cue, is the first candidate; its spec is written next shift)
+(empty — CHG-005, deleting the two unused packs, carries Grey's D-004 nod and needs no APPROVE entry; CHG-004, the bomb-bay door cue, is the first APPROVE candidate once specced)
 
 ## PLAY (0/4) — one question per build, ≤ 5 minutes.
 
@@ -23,9 +23,8 @@ Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBAT
 
 ## DECIDE — decisions only Grey can make, each with the evidence and a default.
 
-- **D-002 — is the v1 launch singleplayer-only?** README says multiplayer is planned (Phase 2 Relay/Lobby and Phase 5 Steam not started). LAUNCH-READINESS.md is seeded with MP items marked "if v1 includes MP". Default until answered: singleplayer-only v1; MP items stay listed, not worked.
-- **D-003 — Discord channel.** `.env` is absent in the factory clone (README § Desktop setup, step 3), so `DISCORD_WEBHOOK_FACTORY` is unset and every ping dry-runs: shift 2's report was printed to the session and saved under `.utmp/factory/pings/`, where you never look (F-018). Options: (a) make a fresh webhook for #blue-mao-pow (channel → Integrations → Webhooks → New) and put the one line `DISCORD_WEBHOOK_FACTORY=<url>` in `<clone>/.env`, never in chat; or (b) `decide D-003: no Discord`, and the shift report lives as the last bullet of LOOP-STATE § SHIFT LOG plus this board. Default until answered: (b).
-- **D-004 — provenance of five imported packs (I6).** None has a license on disk or a row in art-direction.md § Imported Assets (F-001–F-005): Stylized Nature Pack (wired: ArenaProps.cs:57), Polytope Studio trees (ArenaProps.cs:276), Handpainted Grass and Ground Textures (FluffGround.cs:275), FattyPolyTurretFree + Part2Free (unused by any script; the Free pack's readme is the Part2 one), Le Tai's TrueShadow (unused, paid). For each: where it came from and under which license (the Asset Store EULA counts; name it), or `delete` for the two unused ones (deleting assets needs your nod, I1). The loop then writes the rows (AUTO). No default: the rows cannot be invented, and LAUNCH-READINESS L1 stays `grey` until then.
+
+- **D-005 — the factory's Editor will not open the clone; please look at the desktop screen once.** Three GUI launches of `Unity.exe -projectPath <clone>` on 2026-09-16/17: one crashed initializing the asset database (a corrupt Library/ArtifactDB, since wiped), two hung right after licensing with no window and a frozen log, before and after the wipe; the batch Editor opens the test-rig worktree fine and the suite is green. A startup dialog nobody can see is the leading guess (the loop has no screen access). Ask: next time you are at the desktop, run `powershell -File .claude\scripts\factory\Start-Factory.ps1 -Desktop -DryRun`, then start the Editor on the factory clone by hand (Unity Hub → Open → the clone folder) and tell the loop what it shows (`/inbox decide D-005: <what you saw>`). Until then every shift is batch-only: tests and doc/test/tooling changes land; console, visual and perf-in-Editor sweeps do not run. Default: batch-only.
 
 ## FYI — AUTO-class landings since Grey last looked (cleared when acknowledged; each also in docs/changes).
 
@@ -35,5 +34,8 @@ Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBAT
 
 ## ANSWERED (most recent first; verbatim)
 
+- **D-004**, 2026-09-17T01:52:02Z via /inbox: "decide D-004: Stylized Nature Pack, Polytope Studio trees, Handpainted Grass and Ground Textures: Unity Asset Store (EULA). FattyPolyTurretFree + Part2Free and Le Tai's TrueShadow: Delete both." (scribe: chosen by Grey from options built from the D-004 entry; "Delete both" is Grey's nod under I1 for the two unused packs.) Loop's reading: the three rows are written under CHG-001 (source Unity Asset Store, license the Asset Store EULA); the two deletions are CHG-005 with this line as the I1 nod. D-004 closed.
+- **D-003**, 2026-09-17T01:52:02Z via /inbox: "decide D-003: yes" (scribe: Grey supplied the webhook URL to the scribe; written by the scribe to <clone>/.env as DISCORD_WEBHOOK_FACTORY (gitignored; URL redacted here). Chosen from options built from the D-003 entry.) Loop's reading: `.env` verified by name and length (DISCORD_WEBHOOK_FACTORY, 146 bytes); pings are live from shift 3's report on. D-003 closed.
+- **D-002**, 2026-09-17T01:52:02Z via /inbox: "decide D-002: Singleplayer-only v1" (scribe: chosen by Grey from options the scribe offered in the Desktop UI, built from the D-002 entry.) Loop's reading: LAUNCH-READINESS S1 done; the multiplayer rows M1–M4 are n/a for v1 and stay listed for a later version. D-002 closed.
 - **D-001**, 2026-09-17T01:42:22Z via /inbox: "decide D-001: it's caught on thinking it can't use usage credits. it can." (Loop's reading, not Grey's words: the factory may run on usage credits; the "no overage" default is withdrawn; the plan-usage check stays as a report line in the tick and the ledger; no daily dollar ceiling was stated, so the D16d per-shift ceiling of 4M tokens is the only bound until Grey names a figure. D-001 closed.)
 - **D-001**, 2026-09-16T20:48:15Z via /inbox: "decide D-001: overage should not be shared." (Loop's reading, not Grey's words: the factory does not draw on an overage allowance shared with the Cosmonaut. It does not settle the factory's own overage policy, so D-001 stays open with the narrowed question above and the default stands.)
