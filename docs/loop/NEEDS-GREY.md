@@ -61,6 +61,7 @@ Time: ≤ 5 min. Answer: `play PT-001: <a|b|c>, <what you saw>`; (b) lands CHG-0
 - 2026-09-17 CHG-009 First-party obsolete-API and unused-symbol warnings: 23 sites fixed as the compiler asks — docs/changes/189-obsolete-api.md — Forty-odd compiler warnings on every rebuild are gone; three remain on purpose and are named. No player-facing change.
 - 2026-09-17 CHG-023 PerfRenderProbe skips renderers destroyed mid-probe (a flaky test fixed) — docs/changes/190-renderprobe-null-guard.md — A perf probe test that could fail on timing no longer can; it also logs how many chassis renderers it actually toggled.
 - 2026-09-17 CHG-022 ArenaController: one dev-dummy spawn/despawn helper replaces three copies — docs/changes/191-dev-dummy-helper.md — The three dev-dummy spawners in the Arena controller are now one helper. Dev-only content; nothing a player meets changes.
+- 2026-09-17 CHG-018 Three materials re-serialized by the Editor, committed once; F-040's trigger found — docs/changes/192-material-serialization.md — Three materials the Editor kept rewriting by a rounding hair are committed as it writes them; the rewrite happens on in-Editor test runs, not on scene load.
 
 ## ANSWERED (most recent first; verbatim)
 
