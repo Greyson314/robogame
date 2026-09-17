@@ -29,16 +29,19 @@ namespace Robogame.Tests.EditMode.Blueprints
             => Path.Combine(Path.GetDirectoryName(Application.dataPath) ?? "", "docs", "blueprint-snapshots", "presets.md");
 
         // Every preset asset path the scaffolder produces. Add new entries
-        // here when GameplayScaffolder ships a new blueprint preset.
-        private static string[] PresetPaths => new[]
+        // here when GameplayScaffolder ships a new blueprint preset. Shared with
+        // ScriptedChassisBuilderTests so the two suites cannot drift apart (CHG-008).
+        internal static string[] PresetPaths => new[]
         {
             BlueprintFolder + "/Blueprint_DefaultGround.asset",
             BlueprintFolder + "/Blueprint_DefaultPlane.asset",
+            BlueprintFolder + "/Blueprint_DefaultGrappler.asset",
             BlueprintFolder + "/Blueprint_DefaultBoat.asset",
             BlueprintFolder + "/Blueprint_DefaultBomber.asset",
             BlueprintFolder + "/Blueprint_DefaultPropPlane.asset",
             BlueprintFolder + "/Blueprint_DefaultHelicopter.asset",
             BlueprintFolder + "/Blueprint_DefaultDrillBot.asset",
+            BlueprintFolder + "/Blueprint_DefaultHoverTank.asset",
             BlueprintFolder + "/Blueprint_DefaultSpringBot.asset",
             BlueprintFolder + "/Blueprint_CombatDummy.asset",
             BlueprintFolder + "/Blueprint_StressRotorTower.asset",
@@ -47,7 +50,7 @@ namespace Robogame.Tests.EditMode.Blueprints
         };
 
         /// <summary>
-        /// Guards the list above against drift from the scaffolder. A path
+        /// Guards the list above in one direction only, list → disk: a path
         /// that no longer exists on disk makes <see cref="Preset_PassesValidation"/>
         /// Inconclusive forever instead of failing, which hides the fact that
         /// a preset is no longer validated at all (session 61 retired the
