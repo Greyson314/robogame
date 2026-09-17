@@ -34,6 +34,7 @@ Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBAT
 - 2026-09-17 CHG-003 PresetBlueprintTests: guard the preset list, drop the retired Buggy path — docs/changes/174-preset-list-guard.md — FYI-4 2026-09-17 — CHG-003 landed: the suite's only unjustified Inconclusive (a retired Buggy preset path) is gone, with a guard test that fails loudly on the next stale path; EditMode 530/530. docs/changes/174.
 - 2026-09-17 CHG-002 Doc drift from the 2026-09-16 sweep: six docs say what the code does — docs/changes/175-doc-drift-sweep.md — FYI-5 2026-09-17 — CHG-002 landed: six docs now say what the code does (tip-blocks damper, scalable-parts status, architecture GravityField, README changelog, best-practices § 12.5, one trace); docs/changes/175. Readiness D1 and D2 done.
 - 2026-09-17 CHG-005 Delete the two unused, unlicensed packs (FattyPolyTurret, TrueShadow) on Grey's nod — docs/changes/176-delete-unused-packs.md — FYI-6 2026-09-17 — CHG-005 landed: the two unused packs you said to delete are gone (458 files; nothing referenced them, verified twice); docs/changes/176.
+- 2026-09-17 CHG-001 Provenance records: artgen manifest with guards, MCP package origin, three Asset Store rows — docs/changes/177-provenance-records.md — FYI-7 2026-09-17 — CHG-001 landed: every generated model now has a machine-checked provenance row, the MCP package its origin, the three Asset Store packs the rows you named; docs/changes/177. Readiness L1 and L2 done.
 
 ## ANSWERED (most recent first; verbatim)
 
