@@ -51,17 +51,23 @@ namespace Robogame.Tests.EditMode.Blueprints
 
         /// <summary>
         /// Presets that fail library-aware validation on main today, each with the
-        /// finding that tracks the fix. A preset listed here must STILL fail: the
-        /// moment its fix lands the assertion flips and the entry has to go, so a
-        /// quarantine can never rot into a permanent skip (the F-016 lesson).
+        /// finding that tracks the fix, and the exact error text the validator emits
+        /// for that failure. A preset listed here must STILL fail, and for the SAME
+        /// reason: the moment its fix lands the IsValid assertion flips and the entry
+        /// has to go, so a quarantine can never rot into a permanent skip (the F-016
+        /// lesson), and while it's quarantined a second, unrelated defect in the same
+        /// asset can't hide behind the first one's IsValid == false (red team CHG-008,
+        /// note 1: asserting only IsValid == false doesn't pin WHY it fails).
         /// </summary>
-        internal static readonly System.Collections.Generic.Dictionary<string, string> KnownInvalid =
-            new System.Collections.Generic.Dictionary<string, string>
+        internal static readonly System.Collections.Generic.Dictionary<string, (string Hint, string[] ExpectedErrors)> KnownInvalid =
+            new System.Collections.Generic.Dictionary<string, (string, string[])>
         {
-            {
-                BlueprintFolder + "/Blueprint_DefaultHoverTank.asset",
-                "F-026 / CHG-013: the four corner cubes at y=0 sit on the hoverblades below them, so their implied host is a leaf block; fix the entries' Up in the asset and in GameplayScaffolder's HoverTank authoring"
-            },
+            // Empty after CHG-013 (HoverTank's four corner cubes now host on
+            // neighbouring cubes instead of the hoverblades beneath them).
+            // Add future quarantined presets here as
+            // { path, ("F-NNN / CHG-NNN: why", new[] { "substring the validator's
+            // ToString() must contain" }) } so the assertion pins the known
+            // failure, not just IsValid == false.
         };
 
         /// <summary>
@@ -136,9 +142,14 @@ namespace Robogame.Tests.EditMode.Blueprints
             BlockDefinitionLibrary lib = AssetDatabase.LoadAssetAtPath<BlockDefinitionLibrary>(LibraryAssetPath);
             BlueprintPlan plan = new BlueprintPlan(bp.DisplayName, bp.Kind, bp.Entries, bp.RotorsGenerateLift);
             BlueprintValidationResult r = BlueprintValidator.Validate(plan, lib);
-            if (KnownInvalid.TryGetValue(assetPath, out string why))
+            if (KnownInvalid.TryGetValue(assetPath, out var known))
             {
-                Assert.IsFalse(r.IsValid, $"{bp.DisplayName} now PASSES validation: remove it from KnownInvalid ({why}).");
+                Assert.IsFalse(r.IsValid, $"{bp.DisplayName} now PASSES validation: remove it from KnownInvalid ({known.Hint}).");
+                foreach (string expected in known.ExpectedErrors)
+                {
+                    Assert.IsTrue(r.ToString().Contains(expected),
+                        $"{bp.DisplayName} fails validation, but not for the known reason: expected the error text to contain \"{expected}\" ({known.Hint}). Actual:\n{r}");
+                }
                 return;
             }
             Assert.IsTrue(r.IsValid, $"Validation failed for {bp.DisplayName}:\n{r}");
