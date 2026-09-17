@@ -16,7 +16,7 @@ Seeded 2026-09-16 from README.md, docs/changes/README.md's known unknowns, the p
 
 | # | Item | Status | Evidence / note | Owner |
 |---|---|---|---|---|
-| T1 | Suite green on main, 0 failures, every `[Ignore]` justified | open | after CHG-003 (2026-09-17): EditMode 530/530, 0 inconclusive; PlayMode 152/153 (1 skip, documented: `MatchFlowTests.SpawnBot`, BACKLOG 2); 0 failed. Still open: F-021, a Burst benchmark with a hard 1.0 ms gate that failed once at 1.005 ms (flaky = red); F-022, two shipped presets validated by no test (CHG-008) | factory |
+| T1 | Suite green on main, 0 failures, every `[Ignore]` justified | open | after CHG-008 (2026-09-17, docs/changes/178-preset-coverage.md): 14 presets validated, both lists one source; EditMode green, PlayMode 152/153 (1 documented skip). Still open: F-021, the Burst benchmark gate (SPIKES L3: 0.49–0.61 ms isolated, 1.005 ms once under full-suite load) → CHG-012 | factory |
 | T2 | Zero console errors on load of every shipped scene | unknown | console sweep | factory |
 | T3 | Crash-free soak: N minutes of bot-vs-bot play, no exceptions, GC/frame 0 B | unknown | instrument first (BACKLOG 6) | factory |
 | T4 | Save / blueprint format versioned; an old save loads or fails loudly | unknown | atomic writes open (BACKLOG 4); tweakables JSON gotcha (BACKLOG 3) | factory |

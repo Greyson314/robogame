@@ -31,7 +31,9 @@
 | rank | id | title | class | pillar / readiness | acceptance kind | est. cost | status |
 |---|---|---|---|---|---|---|---|
 | 1 | CHG-003 | PresetBlueprintTests: drop the stale DefaultBuggy path | AUTO | T1 | test (zero Inconclusive) | S | LANDED 2026-09-17 (docs/changes/174) |
-| 5 | CHG-008 | preset test coverage: Grappler + HoverTank, one list | AUTO | T1 | test (14 cases pass; slot-coverage guard) | S | SPEC |
+| 5 | CHG-008 | preset test coverage: Grappler + HoverTank, one list | AUTO | T1 | test (14 cases pass; slot-coverage guard) | S | LANDED 2026-09-17 (docs/changes/178-preset-coverage.md) |
+| 7 | CHG-010 | strip the dead scripting defines (LETAI_TRUESHADOW, GRASSFLOW_SRP) | AUTO | L1 (F-025) | test (every Standalone define has a consumer) | S | BUILD |
+| 8 | CHG-013 | HoverTank preset: corner cubes hosted on cubes (F-026) | AUTO | T1 | test (quarantine empties, 14/14 pass) | S | SPEC |
 | 6 | CHG-011 | rig audio mute (Grey's steer 2026-09-17) | AUTO | rig (D7) | test (batch session is muted) | S | PARK on PT-001 (branch chg/011-rig-audio-mute @ abf6de35; the test could not fail first: a batch Editor already reports the mute on) |
 | 2 | CHG-002 | doc drift from the 2026-09-16 sweep (six edits) | AUTO | D1, D2 | sweep re-run + Traces Validate | S | LANDED 2026-09-17 (docs/changes/175-doc-drift-sweep.md; red team KILL then PASS) |
 | 3 | CHG-001 | provenance records: artgen manifest + unity-mcp package row + three Asset Store rows (D-004) | AUTO | L1, L2 | test (manifest covers every FBX) + provenance re-sweep | S | LANDED 2026-09-17 (docs/changes/177-provenance-records.md) |
@@ -79,7 +81,7 @@ Must not break: any scene, prefab or material that referenced a pack asset by GU
 Revert: `git revert` of the merge restores both packs byte-for-byte.
 Feel change? no (nothing in a shipped scene references them, per the pre-check)
 
-### CHG-008 preset test coverage: Grappler + HoverTank, one list — status: SPEC
+### CHG-008 preset test coverage: Grappler + HoverTank, one list — status: LANDED (docs/changes/178-preset-coverage.md, 2026-09-17)
 Class: AUTO (I1: new test coverage)
 Pillar or readiness item: LAUNCH-READINESS T1 — every shipped preset validated by the suite.
 Source: F-022 (red team on CHG-003, 2026-09-17).
@@ -99,7 +101,28 @@ Must not break: nothing at runtime (editor-only assembly, Robogame.Tools.Editor)
 Revert: `git revert`; the music comes back.
 Feel change? no (rig only)
 
+### CHG-010 strip the dead scripting defines — status: BUILD
+Class: AUTO (I1: provenance litter / doc drift against code; the symbols have no consumer, so nothing compiles differently)
+Pillar or readiness item: LAUNCH-READINESS L1 (F-025: a define left behind by a deleted pack misleads the provenance reader).
+Source: F-025 (red team on CHG-005).
+Change: remove `LETAI_TRUESHADOW` and `GRASSFLOW_SRP` from every platform's scripting-define line in ProjectSettings/ProjectSettings.asset (Standalone carries both; Android and Switch carry GRASSFLOW_SRP). `UNITY_POST_PROCESSING_STACK_V2` stays (the installed package's asmdef declares it).
+Acceptance: `ScriptingDefinesTests.StandaloneDefines_AllHaveAConsumer` (EditMode): every Standalone define is named by a source file under Assets/, Packages/ or Library/PackageCache. Written first; fails on main today (two dead symbols).
+Must not break: the suite compiles and passes with the symbols gone (nothing under Assets/ or Packages/ references them, grep 2026-09-17).
+Revert: `git revert`.
+Feel change? no
+
+### CHG-013 HoverTank preset: host the corner cubes on cubes, not on hoverblades — status: SPEC
+Class: AUTO (I1: a failing test fixed; a cube's Up is invisible and the chassis geometry does not change). The red team decides whether a player could notice; if yes, ASK.
+Pillar or readiness item: LAUNCH-READINESS T1 (the quarantine in PresetBlueprintTests.KnownInvalid must be emptied) and the presets' "equivalent to player saves" property (docs/changes/README.md § Known unknowns; pillars: pickup-and-play presets a pilot can trust).
+Source: F-026 (found by CHG-008's coverage).
+Change: in Blueprint_DefaultHoverTank.asset set the Up of the four corner cubes at y=0 so each is hosted by an adjacent cube instead of the hoverblade beneath it (Up=-X for the x=-2 corners hosts them on x=-1; Up=+X for the x=1 corners hosts them on x=0; verify those cells hold cubes); %s; remove the KnownInvalid entry and fix its hint text (it wrongly names scaffolder authoring); pin the quarantine pattern for any future entry by asserting the known error text, not just IsValid == false (red team note 1); pass the library into `DumpAllPresets_WritesAsciiSnapshot` so the snapshot cannot print "Validation: OK" for a preset the suite quarantines, and land the regenerated docs/blueprint-snapshots/presets.md (88 lines behind: no Grappler or Hover Tank section); fix the two stale strings (the comment "every preset asset path the scaffolder produces" and the guard's "scaffold via Build Everything" message), since HoverTank is not scaffolded (red team notes 3-4).
+Acceptance: `Preset_PassesValidation(Blueprint_DefaultHoverTank)` Passed and `ScriptedChassisBuilderTests.EveryShippedPreset_PassesLibraryAwareValidation` Passed with KnownInvalid empty (the quarantine's own assertion flips first: written before the fix, it fails once the preset passes). Suite green.
+Must not break: INV-2 (the blueprint's entries stay the same cells and block ids; only orientation metadata changes); the hoverblades' own Up and the connectivity result (rule 3) unchanged; the ASCII snapshot (docs/blueprint-snapshots/presets.md) identical for HoverTank apart from nothing (cubes have no orientation glyph) — confirm by diff.
+Revert: `git revert`; the quarantine comes back with the failing preset.
+Feel change? no (orientation of symmetric cubes)
+
 ## BUILT THIS SHIFT (moved to docs/changes on landing; tally for HEALTH)
 
 - shift 2, 2026-09-16: nothing built; the shift ended on the plan cap before rung 1.
 - shift 3, 2026-09-17: CHG-003 landed (docs/changes/174); CHG-002 landed (docs/changes/175-doc-drift-sweep.md); CHG-005 landed (docs/changes/176-delete-unused-packs.md); CHG-001 landed (docs/changes/177-provenance-records.md).
+- shift 4, 2026-09-17: CHG-008 landed (docs/changes/178-preset-coverage.md).
