@@ -53,7 +53,7 @@ Seeded 2026-09-16 from README.md, docs/changes/README.md's known unknowns, the p
 
 | # | Item | Status | Evidence / note | Owner |
 |---|---|---|---|---|
-| L1 | Every imported asset has a recorded license (art-direction.md § Imported Assets, PACKAGE_MODIFICATIONS.md, the soundfont, Universal Sound FX, Kenney packs) | in progress | provenance sweep 2026-09-16: 10 of 15 locations pass; D-004 (2026-09-17) named the three wired packs as Unity Asset Store / EULA → rows in CHG-001, and gave the nod to delete the two unused packs → CHG-005; artgen→FBX manifest → CHG-001 | factory |
+| L1 | Every imported asset has a recorded license (art-direction.md § Imported Assets, PACKAGE_MODIFICATIONS.md, the soundfont, Universal Sound FX, Kenney packs) | in progress | provenance sweep 2026-09-16: 10 of 15 locations pass; the two unused unlicensed packs are gone (CHG-005, docs/changes/176-delete-unused-packs.md); the three wired Asset Store packs' rows + the artgen manifest + the unity-mcp row land with CHG-001 | factory |
 | L2 | Every third-party package edit is documented and re-appliable | open | Fluff's two shader edits are documented; `com.coplaydev.unity-mcp` (editor-only) has no origin row (F-007, CHG-001) | factory |
 
 ## Steam

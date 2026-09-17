@@ -34,7 +34,7 @@
 | 5 | CHG-008 | preset test coverage: Grappler + HoverTank, one list | AUTO | T1 | test (14 cases pass; slot-coverage guard) | S | SPEC |
 | 2 | CHG-002 | doc drift from the 2026-09-16 sweep (six edits) | AUTO | D1, D2 | sweep re-run + Traces Validate | S | LANDED 2026-09-17 (docs/changes/175-doc-drift-sweep.md; red team KILL then PASS) |
 | 3 | CHG-001 | provenance records: artgen manifest + unity-mcp package row + three Asset Store rows (D-004) | AUTO | L1, L2 | test (manifest covers every FBX) + provenance re-sweep | S | SPEC |
-| 4 | CHG-005 | delete the two unused packs (FattyPolyTurretFree + Part2Free, Le Tai's TrueShadow) | ASK, nod given (D-004) | L1 | grep of their GUIDs in Assets/_Project = 0 + suite green | S | SPEC |
+| 4 | CHG-005 | delete the two unused packs (FattyPolyTurretFree + Part2Free, Le Tai's TrueShadow) | ASK, nod given (D-004) | L1 | grep of their GUIDs in Assets/_Project = 0 + suite green | S | LANDED 2026-09-17 (docs/changes/176-delete-unused-packs.md) |
 
 Specs pending (not yet written): CHG-004 bomb-bay door cue (F-008, ASK: audible + visible; needs a read of the AudioCue / VfxKind enums first) · CHG-006 atomic blueprint and concoction writes (BACKLOG 4; UserBlueprintLibrary.cs:147, ConcoctionLibrary.cs:122, Tweakables.cs:512 write with File.WriteAllText) · CHG-007 enable MatchFlowTests.SpawnBot via a MinimalArena test scene (BACKLOG 2).
 
@@ -68,7 +68,7 @@ Must not break: nothing at runtime; no scene, asset or import setting touched. I
 Revert: `git revert`; leaves L1/L2 as they are today.
 Feel change? no
 
-### CHG-005 delete the two unused imported packs — status: SPEC
+### CHG-005 delete the two unused imported packs — status: LANDED (docs/changes/176-delete-unused-packs.md, 2026-09-17)
 Class: ASK (I1: deleting assets needs Grey's nod). NOD RECORDED: Grey, 2026-09-17T01:52:02Z via /inbox, "FattyPolyTurretFree + Part2Free and Le Tai's TrueShadow: Delete both." (NEEDS-GREY § ANSWERED D-004).
 Pillar or readiness item: LAUNCH-READINESS L1 (I6: a product that ships with an unlicensed asset is unshippable; these two have no license on disk and no use).
 Source: F-004, F-005; D-004.
@@ -91,4 +91,4 @@ Feel change? no
 ## BUILT THIS SHIFT (moved to docs/changes on landing; tally for HEALTH)
 
 - shift 2, 2026-09-16: nothing built; the shift ended on the plan cap before rung 1.
-- shift 3, 2026-09-17: CHG-003 landed (docs/changes/174); CHG-002 landed (docs/changes/175-doc-drift-sweep.md).
+- shift 3, 2026-09-17: CHG-003 landed (docs/changes/174); CHG-002 landed (docs/changes/175-doc-drift-sweep.md); CHG-005 landed (docs/changes/176-delete-unused-packs.md).
