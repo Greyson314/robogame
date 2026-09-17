@@ -34,7 +34,6 @@ namespace Robogame.Tests.EditMode.Blueprints
         {
             BlueprintFolder + "/Blueprint_DefaultGround.asset",
             BlueprintFolder + "/Blueprint_DefaultPlane.asset",
-            BlueprintFolder + "/Blueprint_DefaultBuggy.asset",
             BlueprintFolder + "/Blueprint_DefaultBoat.asset",
             BlueprintFolder + "/Blueprint_DefaultBomber.asset",
             BlueprintFolder + "/Blueprint_DefaultPropPlane.asset",
@@ -46,6 +45,28 @@ namespace Robogame.Tests.EditMode.Blueprints
             BlueprintFolder + "/Blueprint_StressRopeTower.asset",
             BlueprintFolder + "/Blueprint_ArchDummy.asset",
         };
+
+        /// <summary>
+        /// Guards the list above against drift from the scaffolder. A path
+        /// that no longer exists on disk makes <see cref="Preset_PassesValidation"/>
+        /// Inconclusive forever instead of failing, which hides the fact that
+        /// a preset is no longer validated at all (session 61 retired the
+        /// Buggy preset; the stale entry sat here as a permanent Inconclusive
+        /// until the factory's 2026-09-16 suite run, F-016). A missing asset
+        /// is a defect in this list or in the scaffolder, never noise.
+        /// </summary>
+        [Test]
+        public void PresetPaths_AllExistOnDisk()
+        {
+            var missing = new System.Collections.Generic.List<string>();
+            foreach (string path in PresetPaths)
+            {
+                if (AssetDatabase.LoadMainAssetAtPath(path) == null)
+                    missing.Add(path);
+            }
+            Assert.That(missing, Is.Empty,
+                "PresetPaths lists assets that do not exist. Either the scaffolder stopped producing them (remove the entry) or the asset was never committed (scaffold it via Robogame → Build Everything and commit it):\n  " + string.Join("\n  ", missing));
+        }
 
         [TestCaseSource(nameof(PresetPaths))]
         public void Preset_PassesValidation(string assetPath)

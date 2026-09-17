@@ -174,7 +174,6 @@ namespace Robogame.Tests.EditMode.Blueprints
             {
                 "Assets/_Project/ScriptableObjects/Blueprints/Blueprint_DefaultGround.asset",
                 "Assets/_Project/ScriptableObjects/Blueprints/Blueprint_DefaultPlane.asset",
-                "Assets/_Project/ScriptableObjects/Blueprints/Blueprint_DefaultBuggy.asset",
                 "Assets/_Project/ScriptableObjects/Blueprints/Blueprint_DefaultBoat.asset",
                 "Assets/_Project/ScriptableObjects/Blueprints/Blueprint_DefaultBomber.asset",
                 "Assets/_Project/ScriptableObjects/Blueprints/Blueprint_DefaultPropPlane.asset",
