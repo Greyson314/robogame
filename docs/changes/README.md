@@ -86,6 +86,58 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 183 | [Hover Tank preset: the deck's corner cubes hosted on cubes, not on hoverblades](183-hovertank-preset.md) |
+| 182 | [docs/TRACES.md rebuilt from the Editor; the doc-drift sweep checks it](182-traces-index.md) |
+| 181 | [SurfaceNets benchmark: warm the Burst job synchronously, gate on the best of three medians, log a harness row](181-surfacenets-gate.md) |
+| 180 | [The test rig must not kill the factory's MCP server: run-tests.sh strips the package from the rig](180-rig-strips-mcp.md) |
+| 179 | [Strip the dead scripting defines left by deleted packs, with a guard](179-dead-defines.md) |
+| 178 | [Preset test coverage: every scaffolder slot validated, one list, HoverTank quarantined loudly](178-preset-coverage.md) |
+| 177 | [Provenance records: artgen manifest with guards, MCP package origin, three Asset Store rows](177-provenance-records.md) |
+| 176 | [Delete the two unused, unlicensed packs (FattyPolyTurret, TrueShadow) on Grey's nod](176-delete-unused-packs.md) |
+| 175 | [Doc drift from the 2026-09-16 sweep: six docs say what the code does](175-doc-drift-sweep.md) |
+| 174 | [PresetBlueprintTests: guard the preset list, drop the retired Buggy path](174-preset-list-guard.md) |
+| 173 | [The Robogame Factory: an autonomous progress loop, instantiated](173-factory-loop.md) |
+| 172 | [Tune panel "Apply to bot" button](172-tune-apply-button.md) |
+| 171 | [Tree-swing grapple: static geometry is a swing anchor](171-tree-swing-grapple.md) |
+| 170 | [Red-cube fix: binders are unconditional](170-binder-retrofit-red-cube.md) |
+| 169 | [Unified physics & tuning pass (ADR-0010)](169-unified-physics-tuning-pass.md) |
+| 168 | [Lift acts at the foil's geometric centre](168-lift-at-geometric-center.md) |
+| 167 | [Foil control surfaces: intent layer, ADR-0009, PlaneControlSubsystem retired](167-foil-control-surfaces.md) |
+| 166 | [Aircraft pitch diagnosis, pogo-tune/save bugs, autosave, prop throttle axis](166-aircraft-pitch-pogo-save-pass.md) |
+| 165 | [MPTK batch-mode gate (Garage_Idle_Baseline unbroken)](165-mptk-batch-gate.md) |
+| 164 | [Home screen redesign: Ink & Motion Kit (proposal + prototype + implementation)](164-home-screen-ink-motion-kit.md) |
+| 163 | [VariantConfigPanel declarative tune schema](163-variant-panel-tune-schema.md) |
+| 162 | [Wave-1 FX/audio pass](162-wave1-fx-audio-pass.md) |
+| 161 | [Deferred follow-ups from the spring-cleaning arc](161-deferred-followups.md) |
+| 160 | [Spring-cleaning main-report findings (15 items closed)](160-spring-cleaning-main-findings.md) |
+| 159 | [Data-driven block classification (ADR-0008)](159-data-driven-block-classification.md) |
+| 158 | [Perf / INV-6 pass (spring-cleaning review batch)](158-perf-inv6-pass.md) |
+| 157 | [Second-tier bug fixes (spring-cleaning review batch)](157-second-tier-bug-fixes.md) |
+| 156 | [Dead-code purge + shared-helper consolidation](156-dead-code-and-shared-helpers.md) |
+| 155 | [Wave-1 prototype suite (EA triage)](155-wave1-prototype-suite.md) |
+| 154 | [Hill-capable wheels, fleshed-out default bots, per-concoction FX](154-hills-bots-concoction-fx.md) |
+| 153 | [Orchestral kill hit + combat music re-keyed to the garage's D minor](153-kill-hit-minor-key.md) |
+| 152 | [Blast retimbre: tuba + timpani instead of distortion guitar](152-tuba-timpani-blast.md) |
+| 151 | [Backbeat swap + Audio moved to the top of Settings](151-backbeat-swap-and-audio-first-settings.md) |
+| 150 | [Gaslamp Waltz: blown-speaker glitch pass](150-gaslamp-glitch-pass.md) |
+| 149 | [Gaslamp Waltz: an original Victorian garage theme](149-gaslamp-waltz-garage-theme.md) |
+| 148 | [GM soundfont live-loading + Bach garage theme](148-soundfont-and-garage-theme.md) |
+| 147 | [Taiko percussion: kuchi shōga stems, shimmer removed](147-taiko-percussion.md) |
+| 146 | [Tasteful music layers: six-stem stack, authored fade windows](146-tasteful-music-layers.md) |
+| 145 | [Adaptive music stack: FMOD Core track + two-clocks re-anchor](145-adaptive-music-stack.md) |
+| 144 | [Musical damage feedback v1 (ADR-0006 implemented)](144-musical-damage-feedback-v1.md) |
+| 143 | [Musical damage feedback: research + design (no code)](143-musical-damage-feedback-design.md) |
+| 142 | [Laboratory "night workshop" reskin](142-laboratory-night-workshop.md) |
+| 141 | [Concoction full pass: colour chemistry, Laboratory bench, ammo-weapon scope](141-concoction-full-pass.md) |
+| 140 | [Wing block: bat-wing graduates from study to placeable part](140-wing-component.md) |
+| 139 | [Bat-wing aerofoil "swimming" animation study (Blender)](139-bat-wing-swim-animation.md) |
+| 138 | [Build-mode UX: Tune mode, hangar reframe, rotor pick fix](138-build-ux-tune-mode-hangar.md) |
+| 137 | [Projectile render interpolation + build-HUD readability pass](137-projectile-interp-hud-polish.md) |
+| 136 | [Variant sliders no longer rewrite every placed block of a type](136-variant-span-isolation.md) |
+| 135 | [DigZone glide failures: camera-leak cascade, not a drill regression](135-digzone-camera-leak-fix.md) |
+| 134 | [Inventor UI, pass 1 (tokens + menu + settings)](134-inventor-ui-pass-1.md) |
+| 133 | [Capybara command block: study → in-game CPU visual](133-capybara-command-block.md) |
+| 132 | [Inventor-aesthetic block studies + musical-SFX bones](132-inventor-block-studies.md) |
 | 131 | [Paper-punk weapon family: first bespoke weapon models via the Blender pipeline. Vibe pivot mid-session (origami → paper-punk: machines fabricated from paper — card faces, kraft cut edges, laminated layers, brass brad fasteners, rolled-card tubes). Shared `artgen/paperlib.py` + SMG (asymmetry pass: side mag, ejection port, stepped deck) / mortar (fireworks tube + shell rack) / cannon (telescoped barrel + recuperator) → three FBX following the WeaponModelRig Turret/ShootPoint convention. Unity import + definition-asset wiring pending an editor session.](131-paperpunk-smg.md) |
 | 130 | [Blender art pipeline: first loop closed. Style exploration mode banner in art-direction.md (palette lock suspended). blender-mcp wired (`.mcp.json` → `uvx blender-mcp`, addon on :9876, direct-TCP fallback proven). New repo-root `artgen/` for generation scripts (source of truth; FBX is a build artifact). First asset: `rock_01.py` → `Rock_01.fbx` (76 faces). Unity import unverified — editor wasn't running.](130-blender-art-pipeline.md) |
 | 129 | [MCP bridge migration: official Unity bridge → CoplayDev MCP for Unity @ v9.7.3. Root-caused the recurring "Connection revoked": seat-entitlement caps evict live MCP transports on every entitlement refresh (free tier = 0 connections; Unity Issue Tracker confirms, "fixed" 2.7.0-pre.3 but still broken through 2.12.0-pre.2), compounded by claude.exe identity churn (unsigned → identity = version-stamped exe path → re-approval every Claude Code update). Package added to manifest, uv installed, qa-verifier/perf-checker retooled to `mcp__UnityMCP__*` (read_console / manage_editor / manage_scene / manage_profiler / manage_camera), stop-hook + permissions updated. Validation pending one editor session — checklist in the log entry.](129-mcp-bridge-migration.md) |
