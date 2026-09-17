@@ -170,19 +170,8 @@ namespace Robogame.Tests.EditMode.Blueprints
         public void EveryShippedPreset_PassesLibraryAwareValidation()
         {
             BlockDefinitionLibrary lib = LoadLibrary();
-            string[] paths =
-            {
-                "Assets/_Project/ScriptableObjects/Blueprints/Blueprint_DefaultGround.asset",
-                "Assets/_Project/ScriptableObjects/Blueprints/Blueprint_DefaultPlane.asset",
-                "Assets/_Project/ScriptableObjects/Blueprints/Blueprint_DefaultBoat.asset",
-                "Assets/_Project/ScriptableObjects/Blueprints/Blueprint_DefaultBomber.asset",
-                "Assets/_Project/ScriptableObjects/Blueprints/Blueprint_DefaultPropPlane.asset",
-                "Assets/_Project/ScriptableObjects/Blueprints/Blueprint_DefaultHelicopter.asset",
-                "Assets/_Project/ScriptableObjects/Blueprints/Blueprint_CombatDummy.asset",
-                "Assets/_Project/ScriptableObjects/Blueprints/Blueprint_StressRotorTower.asset",
-                "Assets/_Project/ScriptableObjects/Blueprints/Blueprint_StressRopeTower.asset",
-                "Assets/_Project/ScriptableObjects/Blueprints/Blueprint_ArchDummy.asset",
-            };
+            // One list for both suites (CHG-008): PresetBlueprintTests owns it.
+            string[] paths = PresetBlueprintTests.PresetPaths;
             int loaded = 0;
             foreach (string path in paths)
             {
@@ -191,6 +180,11 @@ namespace Robogame.Tests.EditMode.Blueprints
                 loaded++;
                 BlueprintPlan plan = new BlueprintPlan(bp.DisplayName, bp.Kind, bp.Entries, bp.RotorsGenerateLift);
                 BlueprintValidationResult v = BlueprintValidator.Validate(plan, lib);
+                if (PresetBlueprintTests.KnownInvalid.TryGetValue(path, out string why))
+                {
+                    Assert.IsFalse(v.IsValid, $"Preset '{bp.DisplayName}' now PASSES validation: remove it from PresetBlueprintTests.KnownInvalid ({why}).");
+                    continue;
+                }
                 Assert.IsTrue(v.IsValid, $"Preset '{bp.DisplayName}' (at {path}) failed library-aware validation:\n{v}");
             }
             if (loaded == 0)

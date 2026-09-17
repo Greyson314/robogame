@@ -29,16 +29,19 @@ namespace Robogame.Tests.EditMode.Blueprints
             => Path.Combine(Path.GetDirectoryName(Application.dataPath) ?? "", "docs", "blueprint-snapshots", "presets.md");
 
         // Every preset asset path the scaffolder produces. Add new entries
-        // here when GameplayScaffolder ships a new blueprint preset.
-        private static string[] PresetPaths => new[]
+        // here when GameplayScaffolder ships a new blueprint preset. Shared with
+        // ScriptedChassisBuilderTests so the two suites cannot drift apart (CHG-008).
+        internal static string[] PresetPaths => new[]
         {
             BlueprintFolder + "/Blueprint_DefaultGround.asset",
             BlueprintFolder + "/Blueprint_DefaultPlane.asset",
+            BlueprintFolder + "/Blueprint_DefaultGrappler.asset",
             BlueprintFolder + "/Blueprint_DefaultBoat.asset",
             BlueprintFolder + "/Blueprint_DefaultBomber.asset",
             BlueprintFolder + "/Blueprint_DefaultPropPlane.asset",
             BlueprintFolder + "/Blueprint_DefaultHelicopter.asset",
             BlueprintFolder + "/Blueprint_DefaultDrillBot.asset",
+            BlueprintFolder + "/Blueprint_DefaultHoverTank.asset",
             BlueprintFolder + "/Blueprint_DefaultSpringBot.asset",
             BlueprintFolder + "/Blueprint_CombatDummy.asset",
             BlueprintFolder + "/Blueprint_StressRotorTower.asset",
@@ -47,7 +50,22 @@ namespace Robogame.Tests.EditMode.Blueprints
         };
 
         /// <summary>
-        /// Guards the list above against drift from the scaffolder. A path
+        /// Presets that fail library-aware validation on main today, each with the
+        /// finding that tracks the fix. A preset listed here must STILL fail: the
+        /// moment its fix lands the assertion flips and the entry has to go, so a
+        /// quarantine can never rot into a permanent skip (the F-016 lesson).
+        /// </summary>
+        internal static readonly System.Collections.Generic.Dictionary<string, string> KnownInvalid =
+            new System.Collections.Generic.Dictionary<string, string>
+        {
+            {
+                BlueprintFolder + "/Blueprint_DefaultHoverTank.asset",
+                "F-026 / CHG-013: the four corner cubes at y=0 sit on the hoverblades below them, so their implied host is a leaf block; fix the entries' Up in the asset and in GameplayScaffolder's HoverTank authoring"
+            },
+        };
+
+        /// <summary>
+        /// Guards the list above in one direction only, list → disk: a path
         /// that no longer exists on disk makes <see cref="Preset_PassesValidation"/>
         /// Inconclusive forever instead of failing, which hides the fact that
         /// a preset is no longer validated at all (session 61 retired the
@@ -68,6 +86,40 @@ namespace Robogame.Tests.EditMode.Blueprints
                 "PresetPaths lists assets that do not exist. Either the scaffolder stopped producing them (remove the entry) or the asset was never committed (scaffold it via Robogame → Build Everything and commit it):\n  " + string.Join("\n  ", missing));
         }
 
+        /// <summary>
+        /// The other direction of the CHG-003 guard: every player-facing preset the
+        /// scaffolder wires into GameStateController._presetBlueprints must be in
+        /// <see cref="PresetPaths"/>, or it ships validated by nothing. The ten slot
+        /// paths are hard-coded here because GameplayScaffolder's constants live in the
+        /// Editor assembly; keep them in step with GameplayScaffolder.cs (the
+        /// `presets.arraySize = 10` block, sessions 61/99/104 added Grappler, HoverTank,
+        /// SpringBot). Red team, CHG-003 (F-022): Grappler and HoverTank were in neither
+        /// test list.
+        /// </summary>
+        [Test]
+        public void PresetPaths_CoverEveryScaffolderSlot()
+        {
+            string[] scaffolderSlots =
+            {
+                BlueprintFolder + "/Blueprint_DefaultGround.asset",      // slot 0
+                BlueprintFolder + "/Blueprint_DefaultPlane.asset",       // slot 1
+                BlueprintFolder + "/Blueprint_DefaultGrappler.asset",    // slot 2 (replaced Buggy, session 61)
+                BlueprintFolder + "/Blueprint_DefaultBoat.asset",        // slot 3
+                BlueprintFolder + "/Blueprint_DefaultBomber.asset",      // slot 4
+                BlueprintFolder + "/Blueprint_DefaultPropPlane.asset",   // slot 5
+                BlueprintFolder + "/Blueprint_DefaultHelicopter.asset",  // slot 6
+                BlueprintFolder + "/Blueprint_DefaultDrillBot.asset",    // slot 7
+                BlueprintFolder + "/Blueprint_DefaultHoverTank.asset",   // slot 8 (session 99)
+                BlueprintFolder + "/Blueprint_DefaultSpringBot.asset",   // slot 9 (session 104)
+            };
+            var listed = new System.Collections.Generic.HashSet<string>(PresetPaths);
+            var missing = new System.Collections.Generic.List<string>();
+            foreach (string slot in scaffolderSlots)
+                if (!listed.Contains(slot)) missing.Add(slot);
+            Assert.That(missing, Is.Empty,
+                "Scaffolder presets that no test validates (add them to PresetPaths):\n  " + string.Join("\n  ", missing));
+        }
+
         [TestCaseSource(nameof(PresetPaths))]
         public void Preset_PassesValidation(string assetPath)
         {
@@ -84,6 +136,11 @@ namespace Robogame.Tests.EditMode.Blueprints
             BlockDefinitionLibrary lib = AssetDatabase.LoadAssetAtPath<BlockDefinitionLibrary>(LibraryAssetPath);
             BlueprintPlan plan = new BlueprintPlan(bp.DisplayName, bp.Kind, bp.Entries, bp.RotorsGenerateLift);
             BlueprintValidationResult r = BlueprintValidator.Validate(plan, lib);
+            if (KnownInvalid.TryGetValue(assetPath, out string why))
+            {
+                Assert.IsFalse(r.IsValid, $"{bp.DisplayName} now PASSES validation: remove it from KnownInvalid ({why}).");
+                return;
+            }
             Assert.IsTrue(r.IsValid, $"Validation failed for {bp.DisplayName}:\n{r}");
         }
 
