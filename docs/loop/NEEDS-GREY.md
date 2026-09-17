@@ -7,7 +7,7 @@ Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBAT
 
 (empty — CHG-005, deleting the two unused packs, carries Grey's D-004 nod and needs no APPROVE entry; CHG-004, the bomb-bay door cue, is the first APPROVE candidate once specced)
 
-## PLAY (0/4) — one question per build, ≤ 5 minutes.
+## PLAY (1/4) — one question per build, ≤ 5 minutes.
 
     ### PT-NNN — CHG-NNN title — queued DATE
     Build: commit / branch / exactly how to launch
@@ -15,7 +15,11 @@ Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBAT
     Look for: what would make it a yes or a no
     Time: ≤ 5 min
 
-(empty)
+### PT-001 — CHG-011 rig audio mute — which Unity instance is playing the music? — queued 2026-09-17
+Build: nothing to install. The parked branch `chg/011-rig-audio-mute` (abf6de35) mutes a batch or factory Editor, but the loop could not show that the batch runs are the source: a batch Editor already reports its master mute as on, and FMOD's bus mirrors it at init (RuntimeManager.cs:532, :1513).
+Question: next time you hear the game's music with no game running, which Unity is open? (a) your own Editor on `robogame` (garage scene idles with music), (b) nothing but the factory's rig runs, or (c) the factory's Editor window. If (b), note the UTC minute: `.utmp/factory/loop-tick.txt` and the rig logs carry every run's time.
+Look for: the Windows volume mixer names the process; the factory's rig process is `Unity.exe` with `-projectPath ...\robogame-factory\.claude\worktrees\test-rig`.
+Time: ≤ 5 min. Answer: `play PT-001: <a|b|c>, <what you saw>`; (b) lands CHG-011 with an FMOD-level mute added, (a)/(c) drops it.
 
 ## BUY (0) — purchase proposals (I2 format: exact item priced · what it unlocks · pillar or readiness item · proxy already measured · kill date).
 

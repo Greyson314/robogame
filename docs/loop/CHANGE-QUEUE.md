@@ -32,12 +32,12 @@
 |---|---|---|---|---|---|---|---|
 | 1 | CHG-003 | PresetBlueprintTests: drop the stale DefaultBuggy path | AUTO | T1 | test (zero Inconclusive) | S | LANDED 2026-09-17 (docs/changes/174) |
 | 5 | CHG-008 | preset test coverage: Grappler + HoverTank, one list | AUTO | T1 | test (14 cases pass; slot-coverage guard) | S | SPEC |
-| 6 | CHG-011 | rig audio mute (Grey's steer 2026-09-17) | AUTO | rig (D7) | test (batch session is muted) | S | BUILD |
+| 6 | CHG-011 | rig audio mute (Grey's steer 2026-09-17) | AUTO | rig (D7) | test (batch session is muted) | S | PARK on PT-001 (branch chg/011-rig-audio-mute @ abf6de35; the test could not fail first: a batch Editor already reports the mute on) |
 | 2 | CHG-002 | doc drift from the 2026-09-16 sweep (six edits) | AUTO | D1, D2 | sweep re-run + Traces Validate | S | LANDED 2026-09-17 (docs/changes/175-doc-drift-sweep.md; red team KILL then PASS) |
 | 3 | CHG-001 | provenance records: artgen manifest + unity-mcp package row + three Asset Store rows (D-004) | AUTO | L1, L2 | test (manifest covers every FBX) + provenance re-sweep | S | LANDED 2026-09-17 (docs/changes/177-provenance-records.md) |
 | 4 | CHG-005 | delete the two unused packs (FattyPolyTurretFree + Part2Free, Le Tai's TrueShadow) | ASK, nod given (D-004) | L1 | grep of their GUIDs in Assets/_Project = 0 + suite green | S | LANDED 2026-09-17 (docs/changes/176-delete-unused-packs.md) |
 
-Specs pending (not yet written): CHG-004 bomb-bay door cue (F-008, ASK: audible + visible; needs a read of the AudioCue / VfxKind enums first) · CHG-006 atomic blueprint and concoction writes (BACKLOG 4; UserBlueprintLibrary.cs:147, ConcoctionLibrary.cs:122, Tweakables.cs:512 write with File.WriteAllText) · CHG-007 enable MatchFlowTests.SpawnBot via a MinimalArena test scene (BACKLOG 2).
+Specs pending (not yet written): CHG-012 SurfaceNets gate with a band (SPIKES L3: isolated n=6 min=0.487 median=0.570 max=0.609 ms (mean 0.565); the 1.005 ms failure was under full-suite load; keep Grey's 1 ms target, assert target + measured band, log a harness row) · CHG-004 bomb-bay door cue (F-008, ASK: audible + visible; needs a read of the AudioCue / VfxKind enums first) · CHG-006 atomic blueprint and concoction writes (BACKLOG 4; UserBlueprintLibrary.cs:147, ConcoctionLibrary.cs:122, Tweakables.cs:512 write with File.WriteAllText) · CHG-007 enable MatchFlowTests.SpawnBot via a MinimalArena test scene (BACKLOG 2).
 
 ### CHG-003 PresetBlueprintTests: drop the stale DefaultBuggy path — status: LANDED (docs/changes/174, 2026-09-17; red team PASS with notes → F-021, F-022)
 Class: AUTO (I1: a failing or flaky test fixed; the case is Inconclusive on every run)
@@ -89,7 +89,7 @@ Must not break: nothing at runtime; the guard from CHG-003 keeps passing.
 Revert: `git revert`; back to twelve validated presets.
 Feel change? no
 
-### CHG-011 rig audio mute: no game audio from batch or factory Editors — status: SPEC
+### CHG-011 rig audio mute: no game audio from batch or factory Editors — status: PARK (PT-001; SPIKES L4: the acceptance test passes on main, so it proves nothing; the music's source is unmeasured)
 Class: AUTO (I1: tooling, harnesses and instruments; not visible to a player, never runs in a build)
 Pillar or readiness item: the rig (D7): Grey's tolerance of the factory is the binding constraint; the batch PlayMode runs played the garage music through the desktop speakers every two minutes (Grey, 2026-09-17T02:33Z, INBOX).
 Source: INBOX 2026-09-17T02:33:13Z (Grey's steer).
