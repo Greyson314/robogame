@@ -60,6 +60,7 @@ Time: ≤ 5 min. Answer: `play PT-001: <a|b|c>, <what you saw>`; (b) lands CHG-0
 - 2026-09-17 CHG-016 The KnownInvalid quarantine is proven both ways by a synthetic bad plan — docs/changes/188-quarantine-self-test.md — The preset quarantine's matching logic now has its own test, so a future quarantined preset cannot pass for the wrong reason. Test-only.
 - 2026-09-17 CHG-009 First-party obsolete-API and unused-symbol warnings: 23 sites fixed as the compiler asks — docs/changes/189-obsolete-api.md — Forty-odd compiler warnings on every rebuild are gone; three remain on purpose and are named. No player-facing change.
 - 2026-09-17 CHG-023 PerfRenderProbe skips renderers destroyed mid-probe (a flaky test fixed) — docs/changes/190-renderprobe-null-guard.md — A perf probe test that could fail on timing no longer can; it also logs how many chassis renderers it actually toggled.
+- 2026-09-17 CHG-022 ArenaController: one dev-dummy spawn/despawn helper replaces three copies — docs/changes/191-dev-dummy-helper.md — The three dev-dummy spawners in the Arena controller are now one helper. Dev-only content; nothing a player meets changes.
 
 ## ANSWERED (most recent first; verbatim)
 
