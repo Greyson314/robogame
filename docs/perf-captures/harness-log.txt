@@ -27,3 +27,4 @@
 2026-09-17 17:49:40  [PERF-BASELINE] scene=Arena state=idle frames=600 avg=2.100ms median=2.033ms min=1.782ms p99=3.283ms p99.9=3.568ms fps=476.1 gcTotal=0B gcPerFrame=0.0B
 2026-09-17 17:50:00  [PERF-BASELINE] scene=Arena state=idle frames=600 avg=2.091ms median=2.034ms min=1.775ms p99=2.993ms p99.9=7.011ms fps=478.3 gcTotal=0B gcPerFrame=0.0B
 2026-09-17 17:50:13  [PERF-BASELINE] scene=Arena state=idle frames=600 avg=2.051ms median=2.011ms min=1.729ms p99=3.062ms p99.9=4.368ms fps=487.5 gcTotal=0B gcPerFrame=0.0B
+2026-09-17 18:15:33  [PERF-BASELINE] scene=Arena state=idle frames=600 avg=2.672ms median=2.489ms min=1.952ms p99=5.363ms p99.9=13.742ms fps=374.2 gcTotal=0B gcPerFrame=0.0B
