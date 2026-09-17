@@ -14,6 +14,16 @@
 
 ---
 
+## Package origins with no source edits (provenance only, charter I6)
+
+| Package | Version / pin | Origin | License | Ships? |
+|---|---|---|---|---|
+| `com.coplaydev.unity-mcp` | `https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#v9.7.3` (Packages/manifest.json) | CoplayDev, GitHub | MIT: the repository LICENSE, 'Copyright (c) 2025 CoplayDev', read at `main` on 2026-09-17 (package.json `licensesUrl` points there; no LICENSE file ships in the package) | No: editor-only tooling, the MCP bridge the factory and Claude Code drive the Editor through; nothing of it enters a player build |
+
+Rows here record where a package came from when its license is not on disk in the project; they are not modifications. Added 2026-09-17 (factory CHG-001, FINDINGS F-007).
+
+---
+
 ## com.occasoftware.fluff (v2.1.0) — Top-down dig-mask grass clip
 
 ### What
