@@ -205,7 +205,7 @@ namespace Robogame.Tests.PlayMode.Perf
                 "Open the Memory profiler allocation calltree at the idle row.");
         }
 
-        private static void AppendToLog(string line)
+        internal static void AppendToLog(string line)
         {
             try
             {
