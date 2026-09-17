@@ -4,13 +4,15 @@ The scripts in this folder are the source of truth for every FBX under
 `Assets/_Project/Art/Models/`; the FBX is a build artifact (docs/changes/130).
 They are procedural Blender scripts written in-repo, not AI-generated meshes: the
 "prompt" charter I6 asks for is the script itself, and its history is `git log`.
-Run inside Blender (5.1.2 at the time of the last export; see docs/changes/130-131)
+Run inside Blender (the FBX headers read `Blender (stable FBX IO) - 5.1.2`; the latest
+export is Wing_Inv, 2026-07-11; the pipeline's own log is docs/changes/130-131)
 through the blender-mcp bridge or Blender's script editor. `paperlib.export_tree`
 does the Unity frame conversion (Y-up, identity node rotations on root/Turret) for
 everything; `inventorlib.py` holds the inventor-study primitives.
 
 The table is machine-checked: `ArtgenManifestTests` (EditMode) fails when an FBX
-under Art/Models has no row here or a row names a script that no longer exists.
+under Art/Models has no row here, when a row names a script that no longer exists,
+or when a row's FBX is gone.
 Add a row in the same commit as a new FBX. Paths are relative to `Assets/_Project/Art/Models/`.
 
 | FBX | Generator script (study) | Notes |
@@ -38,10 +40,10 @@ Add a row in the same commit as a new FBX. Paths are relative to `Assets/_Projec
 | `Blocks/Inv/TipHook_Inv.fbx` | `inv_export.py` (study: `inv_tips.py`) | STATICS table, `build_hook` |
 | `Blocks/Inv/TipMace_Inv.fbx` | `inv_export.py` (study: `inv_tips.py`) | STATICS table, `build_mace` |
 | `Blocks/Inv/TipMagnet_Inv.fbx` | `inv_export.py` (study: `inv_tips.py`) | STATICS table, `build_magnet` |
-| `Blocks/Inv/Wheel_Inv.fbx` | `inv_export.py` (study: `inv_wheel.py`) | `export_wheel`; 1 m outer diameter, runtime scales by wheel radius |
+| `Blocks/Inv/Wheel_Inv.fbx` | `inv_export.py` (study: `inv_wheel.py`) | `export_wheel`; 1 m outer diameter, WheelBlock scales the model by 2 × wheel radius (WheelBlock.cs:344) |
 | `Blocks/Inv/Wing_Inv.fbx` | `inv_export.py` (study: `inv_wing.py`, `inv_wing_anim.py`) | `export_wing_anim`; rigged + baked flap action |
 | `Props/Rock_01.fbx` | `rock_01.py` | first asset through the pipeline (docs/changes/130); 76 faces |
-| `Weapons/BombBay_Inv.fbx` | `inv_export.py` (study: `inv_bombbay.py`) | `export_bombbay`; doors authored open/closed, no bomb |
+| `Weapons/BombBay_Inv.fbx` | `inv_export.py` (study: `inv_bombbay.py`) | `export_bombbay`; doors authored nearly closed, no bomb |
 | `Weapons/Cannon_Inv.fbx` | `inv_export.py` (study: `inv_cannon.py`) | `export_cannon`; yaw gear normalized to a 1 m ring, yoke rake zeroed |
 | `Weapons/Cannon_Paper.fbx` | `cannon_paperpunk.py` (lib: `paperlib.py`) | paper-punk family (docs/changes/131) |
 | `Weapons/Mortar_Inv.fbx` | `inv_export.py` (study: `inv_mortar.py`) | `export_mortar`; tub tilt baked into meshes under an identity yoke |

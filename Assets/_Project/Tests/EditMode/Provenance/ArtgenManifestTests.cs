@@ -67,7 +67,10 @@ namespace Robogame.Tests.EditMode.Provenance
             {
                 // A cell may name more than one script ("inv_export.py (study: inv_cube.py)"):
                 // every *.py token must exist under artgen/.
-                foreach (string token in kv.Value.Split(' ', '(', ')', ',', ';'))
+                // Backticks are delimiters too: a cell reads `inv_export.py` (study: `inv_cube.py`),
+                // and a token that keeps its backtick never ends in ".py" (red team, CHG-001 round 1:
+                // 32 of 33 rows were silently unchecked).
+                foreach (string token in kv.Value.Split(' ', '(', ')', ',', ';', '`'))
                 {
                     if (!token.EndsWith(".py")) continue;
                     if (!File.Exists(Path.Combine(ProjectRoot, "artgen", token)))
@@ -75,6 +78,20 @@ namespace Robogame.Tests.EditMode.Provenance
                 }
             }
             Assert.That(broken, Is.Empty, "Manifest rows whose generator script no longer exists under artgen/:\n  " + string.Join("\n  ", broken));
+        }
+
+        [Test]
+        public void EveryManifestRowNamesAnExistingFbx()
+        {
+            Dictionary<string, string> rows = ReadManifest();
+            Assert.That(rows, Is.Not.Empty, "artgen/README.md has no FBX rows to check.");
+            string modelsAbs = Path.Combine(ProjectRoot, ModelsFolder);
+            var orphans = new List<string>();
+            foreach (string rel in rows.Keys)
+            {
+                if (!File.Exists(Path.Combine(modelsAbs, rel))) orphans.Add(rel);
+            }
+            Assert.That(orphans, Is.Empty, "Manifest rows whose FBX no longer exists under " + ModelsFolder + " (delete the row with the asset, or restore the asset):\n  " + string.Join("\n  ", orphans));
         }
     }
 }
