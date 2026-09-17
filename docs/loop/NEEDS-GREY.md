@@ -40,6 +40,7 @@ Time: ≤ 5 min. Answer: `play PT-001: <a|b|c>, <what you saw>`; (b) lands CHG-0
 - 2026-09-17 CHG-005 Delete the two unused, unlicensed packs (FattyPolyTurret, TrueShadow) on Grey's nod — docs/changes/176-delete-unused-packs.md — FYI-6 2026-09-17 — CHG-005 landed: the two unused packs you said to delete are gone (458 files; nothing referenced them, verified twice); docs/changes/176.
 - 2026-09-17 CHG-001 Provenance records: artgen manifest with guards, MCP package origin, three Asset Store rows — docs/changes/177-provenance-records.md — FYI-7 2026-09-17 — CHG-001 landed: every generated model now has a machine-checked provenance row, the MCP package its origin, the three Asset Store packs the rows you named; docs/changes/177. Readiness L1 and L2 done.
 - 2026-09-17 CHG-008 Preset test coverage: every scaffolder slot validated, one list, HoverTank quarantined loudly — docs/changes/178-preset-coverage.md — FYI-8 2026-09-17 — CHG-008 landed: the two presets no test validated are covered now, and the coverage found that the Hover Tank preset is not player-buildable-shaped (it drives fine); fix queued as CHG-013; docs/changes/178.
+- 2026-09-17 CHG-010 Strip the dead scripting defines left by deleted packs, with a guard — docs/changes/179-dead-defines.md — FYI-9 2026-09-17 — CHG-010 landed: two dead scripting defines left behind by deleted packs are gone, with a guard that flags the next one; docs/changes/179.
 
 ## ANSWERED (most recent first; verbatim)
 
