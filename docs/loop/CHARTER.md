@@ -82,13 +82,27 @@ revertible and a release is not.
   TRACEs, the changes index, this directory's own state); provenance
   records (I6); new test coverage; tooling, harnesses and instruments;
   a perf fix with a measured delta outside its band and no feel change;
-  a refactor with zero behavior change proven by the suite.
+  a refactor with zero behavior change proven by the suite; and
+  DEV-FACING CONTENT — preset blueprints, test fixtures, sample and
+  debug scenes, scaffolded stand-ins, generated snapshots — even when
+  it is visible, because it exists so there is something to drive and
+  is not what a player meets (Grey, 2026-09-17, approving CHG-013:
+  "the hover tank preset just exists so i'll have something to play
+  around and test it with, that is far below my approval level").
   ASK, a NEEDS-GREY entry, and nothing lands until Grey checks it off:
-  anything visible (art, UI, VFX, copy); anything a player would feel
-  (tuning, physics, controls, weapons, damage); any new feature; any
-  removal; any package, engine or dependency upgrade; anything touching
+  anything a PLAYER meets in a shipped build (art, UI, VFX, copy on the
+  player's path); anything a player would feel (tuning, physics,
+  controls, weapons, damage); any new feature; any removal; any
+  package, engine or dependency upgrade; anything touching
   docs/invariants.md, a pillar's open question or a kept domain; any
   purchase (I2); and any change of L cost even when it is provable.
+  CALIBRATION (Grey, 2026-09-17): this is a casual solo game, and the
+  loop inherited its validation culture from a trading system where one
+  bar of drift cost real money. Here the cost of a wrong landing is a
+  revert and a replay. So the tie goes to LANDING, not to asking: when
+  a change sits on the AUTO/ASK line and is not in the NOD list, land
+  it and put it under FYI. A board entry Grey has to read is itself a
+  cost, and the board is for what he would actually want a say in.
   NOD REQUIRED regardless of class: releasing or publishing a build;
   deleting assets, scenes, levels or content; breaking a save or
   blueprint format; force pushes or history rewrites. Grey can widen or
@@ -215,10 +229,11 @@ sacred; INBOX items are not auto-prioritized.)
   (`.claude/scripts/run-tests.sh All`); the perf harness inside budget
   where the change touches anything hot (profile before claiming any
   perf characteristic, INV-7); the soak clean once one exists; and an
-  independent RED TEAM pass (the `red-team` agent: fresh context, kill
-  mandate, reads the spec and the diff, runs the tests, tries to break
-  it, checks every invariant it touches and whether it serves the
-  pillar it claims). The three verdicts are recorded with
+  independent RED TEAM pass WHERE D16b REQUIRES ONE (the `red-team`
+  agent: fresh context, kill mandate, reads the spec and the diff, runs
+  the tests, tries to break it, checks every invariant it touches and
+  whether it serves the pillar it claims; `N/A` with a reason where it
+  does not). The three verdicts are recorded with
   `land.py gate` against the branch's frozen sha; `land.py land`
   refuses without them. (5) LAND on main through `land.py land`: the
   merge, the docs/changes entry carrying the evidence, the LOOP-STATE
@@ -321,7 +336,8 @@ sacred; INBOX items are not auto-prioritized.)
   because a fieldhand inherits the foreground's effort otherwise):
   planner sonnet/medium, design-pilot sonnet/high, test-drafter
   sonnet/medium, qa-verifier sonnet/medium, perf-checker sonnet/medium,
-  sweeper sonnet/medium, red-team opus/high. MODEL POLICY is declared
+  sweeper sonnet/medium, red-team sonnet/medium (opus/high only for an
+  invariant-touching change, D16b). MODEL POLICY is declared
   in LOOP-STATE § SHIFT and obeyed: the foreground on fable at xhigh
   effort (Grey's word, 2026-09-16, before the first shift); fieldhands
   and the red team stay on the tiers above; the plan's cap on a tier is a silent
@@ -463,14 +479,24 @@ sacred; INBOX items are not auto-prioritized.)
   hooks (exact rerun command + artifact paths); briefs point at files
   and ask for a verdict and a pointer, never a shape; summaries stay
   terse.
-  (b) RED TEAM AT THE GATE: every candidate landing gets an independent
-  adversarial pass by the `red-team` agent, a fresh context with a
-  kill mandate reading the spec, the diff and the test output. The
-  foreground arbitrates in writing. The red team IS the gate's
-  independent pass: ONE session reading the frozen diff once, not a
-  pair doing the same work twice. Spikes, specs, findings and reverts
-  are NOT red-teamed: the red team guards what enters main, not what
-  leaves the floor.
+  (b) RED TEAM AT THE GATE, WHERE IT EARNS ITS COST: an independent
+  adversarial pass by the `red-team` agent, a fresh context with a kill
+  mandate reading the spec, the diff and the test output. The
+  foreground arbitrates in writing. NARROWED 2026-09-17 on Grey's word
+  ("take a lot of the bite out of the red team in order to lessen its
+  token intensity"): a red team is REQUIRED only for a change that
+  touches shipped runtime code a player runs, anything in I1's NOD
+  list, or anything that touches an invariant. It is NOT run for
+  tests, fixtures, dev-facing content, docs, generated files, tooling,
+  instruments or coverage — there the green suite IS the gate, and
+  `land.py gate --red-team N/A` records why in its notes. Spikes,
+  specs, findings and reverts are still never red-teamed. When one does
+  run it reads the frozen diff ONCE at sonnet/medium and answers three
+  questions: does the change do what the spec claims, can I break it,
+  does it violate an invariant it touches. Re-deriving generated output
+  line by line is out of scope unless the change IS the generator.
+  opus/high is reserved for a change touching an invariant, and the
+  foreground says in the gate notes why it spent the tier.
   (c) HEALTH, NOT QUOTAS, once a shift in LOOP-STATE: main status,
   suite size and duration, perf vs budget, the board's depth and the
   age of its oldest open entry, findings surfaced vs acted on, pipeline
