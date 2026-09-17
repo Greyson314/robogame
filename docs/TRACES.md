@@ -37,6 +37,7 @@
 
 ## ADR-0009
 - `Assets/_Project/Scripts/Block/ControlScheme.cs:13` — the scheme is the ONLY place keys are interpreted —
+- `Assets/_Project/Scripts/Block/FoilDefaults.cs:56` — per-instance authority knob —
 - `Assets/_Project/Scripts/Gameplay/ChassisAssembler.cs:273` — no chassis-level plane controller any
 - `Assets/_Project/Scripts/Gameplay/TuneSchemaRegistry.cs:138` — per-foil control authority knob. 0 in
 - `Assets/_Project/Scripts/Movement/AeroControl.cs:32` — authority from geometry, not from a chassis torque.
@@ -80,6 +81,7 @@
 - `Assets/_Project/Scripts/Core/HudStyles.cs:96` — one UI face for
 - `Assets/_Project/Scripts/Core/InkKit.cs:27` — shape language + token values.
 - `Assets/_Project/Scripts/Core/UguiPalette.cs:36` — inventor + painter tokens.
+- `Assets/_Project/Scripts/Gameplay/MainMenuController.cs:204`
 - `Assets/_Project/Scripts/Gameplay/SettingsHud.cs:160` — Display face for UI text,
 - `Assets/_Project/Scripts/Gameplay/SettingsHud.cs:777` — "quantities live inside
 - `Assets/_Project/Scripts/Gameplay/SettingsHud.cs:853` — toggle rail spec.
@@ -114,8 +116,12 @@
 - `Assets/_Project/Scripts/Movement/GroundDriveSubsystem.cs:261` — drive force is split across the WHEEL SET
 - `Assets/_Project/Scripts/Movement/HoverDriveSubsystem.cs:289` — thrust splits across the PAD SET and acts
 
+## INV-2
+- `Assets/_Project/Scripts/Gameplay/BuildModeController.cs:92` — building
+
 ## INV-3
 - `Assets/_Project/Scripts/Combat/WeaponVisualKick.cs:15` — fire origin (ShootPoint) stays fixed under recoil.
+- `Assets/_Project/Scripts/Gameplay/ArenaController.cs:370` — there.
 - `Assets/_Project/Scripts/Gameplay/ChassisAssembler.cs:134` — budget enforcement lives at THE assembly
 
 ## INV-4
@@ -131,10 +137,15 @@
 - `Assets/_Project/Scripts/Tools/Editor/BlockDefinitionWizard.cs:32` — cannon buff 60 -> 110 (survey-driven). The
 
 ## LOG-128
+- `Assets/_Project/Scripts/Gameplay/MatchEndOverlay.cs:91`
 - `Assets/_Project/Scripts/Gameplay/PauseMenuHud.cs:37` — owns the Escape ladder (settings → menu → resume).
 - `Assets/_Project/Scripts/Gameplay/SceneTransitionHud.cs:454`
 - `Assets/_Project/Scripts/Gameplay/SettingsHud.cs:32` — Escape handling moved to PauseMenuHud (the ladder owner).
+- `Assets/_Project/Scripts/Input/PlayerInputHandler.cs:64`
 - `Assets/_Project/Scripts/Network/Bootstrap/NetDevHud.cs:26` — docked layout — the old panel buried garage UGUI buttons.
+- `Assets/_Project/Scripts/Player/BuildFreeCam.cs:151`
+- `Assets/_Project/Scripts/Player/FollowCamera.cs:303`
+- `Assets/_Project/Scripts/Player/FollowCamera.cs:429`
 
 ## LOG-131
 - `Assets/_Project/Scripts/Combat/TurretYoke.cs:72` — turrets ride the chassis — yaw about the block's
@@ -145,6 +156,7 @@
 - `Assets/_Project/Scripts/Combat/BombBayBlock.cs:108` — activation-order tolerant input re-resolve
 - `Assets/_Project/Scripts/Combat/CannonBlock.cs:167` — activation-order tolerant input re-resolve
 - `Assets/_Project/Scripts/Combat/MortarBlock.cs:261` — activation-order tolerant — a bind-once Awake
+- `Assets/_Project/Scripts/Gameplay/ChassisAssembler.cs:222` — 's mortar
 - `Assets/_Project/Scripts/Gameplay/ChassisAssembler.cs:349` — fail loud — a rejected placement used
 - `Assets/_Project/Scripts/Movement/WheelBlock.cs:325` — authored wheel model (inventor cartwheel)
 - `Assets/_Project/Scripts/Tools/Editor/BlockMaterials.cs:64` — inventor oak-plank albedo overrides the slate
@@ -175,12 +187,16 @@
 - `Assets/_Project/Scripts/Core/MusicSoundFont.cs:69` — root fix, preferred over LogAssert.Expect.
 
 ## LOG-166
+- `Assets/_Project/Scripts/Block/ChassisBlueprint.cs:319` — .
 - `Assets/_Project/Scripts/Gameplay/BlockEditor.cs:444` — the garage can respawn the chassis under a
 - `Assets/_Project/Scripts/Gameplay/GameStateController.cs:319` — deliberately NOT PresetChanged. The blueprint
+- `Assets/_Project/Scripts/Gameplay/GameStateController.cs:334` — .
 - `Assets/_Project/Scripts/Gameplay/GarageController.cs:111` — build → hangar is the natural commit point.
 - `Assets/_Project/Scripts/Movement/RotorBlock.cs:912` — test the axis in CHASSIS space, not rotor
 
 ## LOG-170
+- `Assets/_Project/Scripts/Combat/RobotWeaponBinder.cs:33`
+- `Assets/_Project/Scripts/Gameplay/ChassisAssembler.cs:239` — a gated
 - `Assets/_Project/Scripts/Gameplay/ChassisAssembler.cs:286` — the hasWeapon gate meant the FIRST
 
 ## LOG-171
@@ -190,4 +206,4 @@
 - `Assets/_Project/Scripts/Gameplay/VariantConfigPanel.cs:409` — the explicit whole-bot apply verb. Implicit
 
 ---
-_111 traces across 71 files; 37 anchors, 0 dangling._
+_125 traces across 80 files; 38 anchors, 0 dangling._

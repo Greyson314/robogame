@@ -36,24 +36,27 @@ namespace Robogame.Tools.Editor
     /// </remarks>
     public static class ContinualTraces
     {
-        // // TRACE[ <id> ] : <note>   — id is non-greedy up to the first ']'.
+        // // TRACE[ <id> ] : <note>   — the marker may appear anywhere after a
+        // comment start (`//` or `///`, leading or mid-line); id is
+        // non-greedy up to the first ']'. F-041: widened from requiring
+        // `TRACE[` immediately after `//` so a marker following prose on the
+        // same comment, or sitting on a `///` doc line, still scans.
         private static readonly Regex s_marker = new Regex(
-            @"//\s*TRACE\[\s*(?<id>[^\]]+?)\s*\]\s*:?\s*(?<note>.*)$",
+            @"//.*?TRACE\[\s*(?<id>[^\]]+?)\s*\]\s*:?\s*(?<note>.*)$",
             RegexOptions.Compiled);
 
         /// <summary>
         /// Does <paramref name="line"/> carry a Continual Traces marker? Thin
-        /// wrapper around <see cref="s_marker"/> that also applies the scan
-        /// loop's existing line filters, so it is testable without the file
-        /// system. F-041: currently misses a marker that sits mid-comment or
-        /// on a `///` doc line — see ContinualTracesTests.
+        /// wrapper around <see cref="s_marker"/> that also skips block-comment
+        /// continuation lines (`*`), so it is testable without the file
+        /// system.
         /// </summary>
         public static bool TryParseMarker(string line, out string id, out string note)
         {
             id = null;
             note = null;
             string trimmed = line.TrimStart();
-            if (trimmed.StartsWith("///") || trimmed.StartsWith("*")) return false;
+            if (trimmed.StartsWith("*")) return false;
             Match m = s_marker.Match(line);
             if (!m.Success) return false;
             id = m.Groups["id"].Value;
@@ -154,22 +157,20 @@ namespace Robogame.Tools.Editor
             string assets = Application.dataPath; // <root>/Assets
             foreach (string path in Directory.EnumerateFiles(assets, "*.cs", SearchOption.AllDirectories))
             {
-                // Self-exclusion: this file's inline `//` syntax examples
-                // (`TRACE[<id>]`, the index header literal) match the marker
-                // regex and reported as 2 permanently-dangling traces.
-                if (Path.GetFileName(path) == "ContinualTraces.cs") continue;
+                // Self-exclusion: these files' inline `//` syntax examples and
+                // fixture strings (`TRACE[<id>]`, the index header literal,
+                // ContinualTracesTests' marker cases) match the marker regex
+                // — a naive per-line text scan, so it cannot tell a fixture
+                // string from a real comment — and would otherwise self-report
+                // as dangling or phantom traces.
+                string fileName = Path.GetFileName(path);
+                if (fileName == "ContinualTraces.cs" || fileName == "ContinualTracesTests.cs") continue;
                 string[] lines = File.ReadAllLines(path);
                 string rel = path.Substring(root.Length).TrimStart('/', '\\').Replace('\\', '/');
                 for (int i = 0; i < lines.Length; i++)
                 {
-                    // Traces are inline `//` comments. Skip `///` XML-doc lines
-                    // and `*` block-comment bodies so this file's own syntax
-                    // examples (and other doc prose) aren't picked up as traces.
-                    string trimmed = lines[i].TrimStart();
-                    if (trimmed.StartsWith("///") || trimmed.StartsWith("*")) continue;
-                    Match m = s_marker.Match(lines[i]);
-                    if (!m.Success) continue;
-                    traces.Add(new Trace(m.Groups["id"].Value, m.Groups["note"].Value, rel, i + 1));
+                    if (!TryParseMarker(lines[i], out string id, out string note)) continue;
+                    traces.Add(new Trace(id, note, rel, i + 1));
                 }
             }
             return traces;
