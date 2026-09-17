@@ -85,6 +85,42 @@ if [ "$UNTRACKED_COUNT" -gt 0 ]; then
 fi
 
 # -----------------------------------------------------------------------------
+# Step 1b — strip the MCP for Unity package from the RIG (FINDINGS F-031)
+# -----------------------------------------------------------------------------
+# The package keeps its "server I launched" handshake in EditorPrefs, which are
+# per user, not per project, so the rig's batch Editor, on quit, terminates the
+# factory Editor's MCP server on 8080 and takes the bridge down for the rest of
+# the session. No test references the package (grep 2026-09-17), and the sync
+# above clobbers this edit on every run, so it never reaches the clone or main.
+strip_mcp_package() {
+    local manifest="$WORKTREE_PATH/Packages/manifest.json"
+    local lock="$WORKTREE_PATH/Packages/packages-lock.json"
+    if python - "$manifest" "$lock" <<'PY'
+import json, sys
+for path in sys.argv[1:]:
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        continue
+    if data.get("dependencies", {}).pop("com.coplaydev.unity-mcp", None) is None:
+        continue
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+    print("       stripped com.coplaydev.unity-mcp from " + path)
+PY
+    then
+        return 0
+    fi
+    # Fallback without python: drop the manifest line (it is not the last entry,
+    # so no trailing-comma repair is needed); UPM rewrites the lock itself.
+    echo "       python unavailable; stripping the manifest line with sed"
+    sed -i '/"com.coplaydev.unity-mcp"/d' "$manifest"
+}
+strip_mcp_package
+
+# -----------------------------------------------------------------------------
 # Step 2 — run Unity in batch mode
 # -----------------------------------------------------------------------------
 run_platform() {
