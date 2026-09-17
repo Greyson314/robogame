@@ -33,6 +33,7 @@ Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBAT
 - FYI-3 2026-09-16 — the rig is proven: `run-tests.sh All` 1m28s warm, EditMode 529/530 (1 inconclusive: a stale test path, F-016), PlayMode 152/153 (1 documented skip), 0 failures. Four sweeps ran (provenance, invariants, best-practices, doc-drift): 20 FINDINGS lines, three AUTO changes specced (CHG-001..003), nothing landed yet.
 - 2026-09-17 CHG-003 PresetBlueprintTests: guard the preset list, drop the retired Buggy path — docs/changes/174-preset-list-guard.md — FYI-4 2026-09-17 — CHG-003 landed: the suite's only unjustified Inconclusive (a retired Buggy preset path) is gone, with a guard test that fails loudly on the next stale path; EditMode 530/530. docs/changes/174.
 - 2026-09-17 CHG-002 Doc drift from the 2026-09-16 sweep: six docs say what the code does — docs/changes/175-doc-drift-sweep.md — FYI-5 2026-09-17 — CHG-002 landed: six docs now say what the code does (tip-blocks damper, scalable-parts status, architecture GravityField, README changelog, best-practices § 12.5, one trace); docs/changes/175. Readiness D1 and D2 done.
+- 2026-09-17 CHG-005 Delete the two unused, unlicensed packs (FattyPolyTurret, TrueShadow) on Grey's nod — docs/changes/176-delete-unused-packs.md — FYI-6 2026-09-17 — CHG-005 landed: the two unused packs you said to delete are gone (458 files; nothing referenced them, verified twice); docs/changes/176.
 
 ## ANSWERED (most recent first; verbatim)
 
