@@ -332,6 +332,16 @@ Must not break: build mode targeting and placement (untouched state), INV-6 (no 
 Revert: `git revert`.
 Feel change? no
 
+### CHG-033 KeybindsSectionBuilder: the static keybinds reference table leaves SettingsHud — status: BUILD (2026-09-18, shift 9)
+Class: AUTO (I1: a refactor with zero behaviour change proven by the suite; D8 S1). Red team REQUIRED (D16b: shipped runtime code; the settings panel is on the player's path), sonnet/medium.
+Pillar or readiness item: "Recreational-but-aspires-Steam" via S1; SettingsHud.cs is ~1,170 lines.
+Source: F-052 (pointer only).
+Change: move BuildKeybindsSection + AddKeybindRow (and only what they alone use) into a small helper in the same folder and assembly; SettingsHud calls it with the content parent and the group-header helpers it needs. Every string, order, colour, size, layout value and the search/foldout behaviour of the rows carry over unchanged. No ScriptableObject, no data-table redesign (F-052's second option is out of scope).
+Acceptance: TEST FIRST: a PlayMode (or EditMode if the panel builds outside play) test that builds the panel and pins the keybinds section: row count, each row's label and key text in order, their parent group, and that a search for one key label still filters them; pinned against today's behaviour and green before and after; suite green at the branch sha via `run-tests.sh --at`; a UGUI hierarchy dump of the section before and after is identical (the builder takes both through the rig test, not the live Editor).
+Must not break: the Tweakable rows and search/foldout pipeline (INV-1 untouched: no Tweakable gains a gameplay effect); CHG-027's BuildRowShell.
+Revert: `git revert`.
+Feel change? no
+
 ## BUILT THIS SHIFT (moved to docs/changes on landing; tally for HEALTH)
 
 - shift 2, 2026-09-16: nothing built; the shift ended on the plan cap before rung 1.
