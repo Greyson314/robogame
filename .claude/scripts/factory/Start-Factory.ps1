@@ -143,6 +143,19 @@ function Wait-McpPort([int]$seconds) {
     while ((Get-Date) -lt $until) { if (Test-McpPort) { return $true }; Start-Sleep -Seconds 2 }
     return (Test-McpPort)
 }
+function Wait-McpEditorReattach([int]$seconds) {
+    # after a swap, confirm the FACTORY editor's bridge came back up on the new server (LESSONS 9's
+    # path), not just that something listens on the port. Best-effort: without python/mcp_http.py this
+    # can only confirm the port, which the caller already knows, so treat that combination as "unknown"
+    # (warn, don't claim success).
+    $mcpHttpLocal = Join-Path $Root '.claude\scripts\factory\mcp_http.py'
+    $pyLocal = Get-Command python -ErrorAction SilentlyContinue
+    if (-not $pyLocal -or -not (Test-Path $mcpHttpLocal)) { return $false }
+    $projectNameLocal = Split-Path $Root -Leaf
+    $env:PYTHONIOENCODING = 'utf-8'
+    & python $mcpHttpLocal wait-instance $projectNameLocal $seconds *> $null
+    return ($LASTEXITCODE -eq 0)
+}
 function Get-McpServerVersion {
     # the package pins the server it launches to its own version (ServerCommandBuilder); mirror that
     $pkg = Get-ChildItem -Path (Join-Path $Root 'Library\PackageCache') -Filter 'com.coplaydev.unity-mcp@*' -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -159,6 +172,21 @@ function Get-FactoryEditor {
         $cl = "$($_.CommandLine)".ToLowerInvariant().Replace('/', '\')
         $cl -match '-projectpath' -and $cl.Contains($needle) -and $cl -notmatch '-batchmode'
     } | Select-Object -First 1
+}
+function Get-HandshakeTrackedServer {
+    # CHG-028b: the durable, file-based tell for "the FACTORY EDITOR launched this server itself"
+    # (as opposed to a hand-started one, LESSONS 9). MCP for Unity's PidFileManager
+    # (Editor\Services\Server\PidFileManager.cs) writes Library\MCPForUnity\RunState\mcp_http_<port>.pid
+    # ONLY on the Editor-managed launch path (ServerManagementService.cs passes --pidfile there); a
+    # server started by hand (this launcher's own uvx invocation, no --pidfile) never creates one. A
+    # server carrying this file is the case LESSONS 9 covers (a batch quit can kill it and take the
+    # Editor's bridge down); one without it is already the hand-started, un-killable kind (nothing to swap).
+    $pidFile = Join-Path $Root 'Library\MCPForUnity\RunState\mcp_http_8080.pid'
+    if (-not (Test-Path $pidFile)) { return [pscustomobject]@{ Tracked = $false } }
+    $raw = (Get-Content $pidFile -Raw -ErrorAction SilentlyContinue)
+    $serverPid = 0
+    if ($raw) { [void][int]::TryParse($raw.Trim(), [ref]$serverPid) }
+    return [pscustomobject]@{ Tracked = $true; PidFile = $pidFile; Pid = $serverPid }
 }
 function Show-EditorOnce([int]$editorPid, [int]$seconds) {
     # the package's HTTP auto-start handler runs from EditorApplication.delayCall, which a fresh
@@ -189,7 +217,48 @@ if ($NoEditor) {
 } else {
     # 6a. server
     if (Test-McpPort) {
-        Ok "MCP server already listening on $McpUrl"
+        $tracked = Get-HandshakeTrackedServer
+        if ($tracked.Tracked) {
+            # CHG-028b: a batch quit run through run-tests.sh --at <sha> (or any batch Editor sharing
+            # this Windows user's EditorPrefs) will read this handshake and kill the server on quit
+            # (F-031/F-057). Swap it for a hand-started one (no --pidfile, nothing to find) BEFORE the
+            # shift starts, so no batch run can ever take the bridge down again. Guarded: only acts when
+            # the tell is present, only reports (never retries) when the swap or the re-attach fails, so a
+            # failed swap never repeats blindly on the next launch — it leaves the tracked server running
+            # and the shift proceeds on it, same as before CHG-028b.
+            $rigSteps += "swap handshake-tracked server (pid $($tracked.Pid), $($tracked.PidFile)) for a hand-started one, then wait up to 2 min for the Editor to re-attach"
+            if ($DryRun) {
+                Ok "MCP server already listening on $McpUrl (handshake-tracked — DryRun: would swap for a hand-started server)"
+            } else {
+                $ver = Get-McpServerVersion
+                $uvx = Get-Command uvx -ErrorAction SilentlyContinue
+                if (-not $ver -or -not $uvx -or -not $tracked.Pid) {
+                    Warn "handshake-tracked server detected but cannot swap it (missing package version, uvx, or pid); leaving it running"
+                } else {
+                    $stopped = $false
+                    try {
+                        Stop-Process -Id $tracked.Pid -ErrorAction Stop
+                        $stopped = $true
+                        Ok "stopped the handshake-tracked server (pid $($tracked.Pid))"
+                    } catch {
+                        Warn "could not stop the handshake-tracked server (pid $($tracked.Pid)): $_; leaving it running"
+                    }
+                    if ($stopped) {
+                        $serverArgs = @('--offline', '--from', "mcpforunityserver==$ver", 'mcp-for-unity', '--transport', 'http', '--http-url', $McpUrl, '--project-scoped-tools')
+                        Start-Process -FilePath $uvx.Source -ArgumentList $serverArgs -WindowStyle Hidden -RedirectStandardOutput (Join-Path $Utmp 'mcp-server-manual.log') -RedirectStandardError (Join-Path $Utmp 'mcp-server-manual.err.log') | Out-Null
+                        if (Wait-McpPort 60) {
+                            Ok "hand-started replacement listening on $McpUrl"
+                            if (Wait-McpEditorReattach 120) { Ok "the Editor re-attached to the replacement server (LESSONS 9's reconnect path)" }
+                            else { Warn "the Editor did not re-attach within 2 min; its bridge may be down until the next domain reload (LESSONS 15) — the swap already happened, so re-run the launcher only to retry the wait, not the swap" }
+                        } else {
+                            Warn "the hand-started replacement did not listen within 60 s (see .utmp\factory\mcp-server-manual.err.log); nothing is serving $McpUrl now — start one by hand"
+                        }
+                    }
+                }
+            }
+        } else {
+            Ok "MCP server already listening on $McpUrl (no handshake tell: already hand-started, nothing to swap)"
+        }
     } else {
         $ver = Get-McpServerVersion
         $uvx = Get-Command uvx -ErrorAction SilentlyContinue
