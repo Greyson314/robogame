@@ -86,6 +86,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 193 | [perf_band.py under .claude/scripts/factory and a focus= field in the perf harness row](193-perf-band-focus.md) |
 | 192 | [Three materials re-serialized by the Editor, committed once; F-040's trigger found](192-material-serialization.md) |
 | 191 | [ArenaController: one dev-dummy spawn/despawn helper replaces three copies](191-dev-dummy-helper.md) |
 | 190 | [PerfRenderProbe skips renderers destroyed mid-probe (a flaky test fixed)](190-renderprobe-null-guard.md) |

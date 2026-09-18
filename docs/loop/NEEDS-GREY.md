@@ -64,6 +64,7 @@ Time: ≤ 5 min. Answer: `play PT-001: <a|b|c>, <what you saw>`; (b) lands CHG-0
 - 2026-09-17 CHG-023 PerfRenderProbe skips renderers destroyed mid-probe (a flaky test fixed) — docs/changes/190-renderprobe-null-guard.md — A perf probe test that could fail on timing no longer can; it also logs how many chassis renderers it actually toggled.
 - 2026-09-17 CHG-022 ArenaController: one dev-dummy spawn/despawn helper replaces three copies — docs/changes/191-dev-dummy-helper.md — The three dev-dummy spawners in the Arena controller are now one helper. Dev-only content; nothing a player meets changes.
 - 2026-09-17 CHG-018 Three materials re-serialized by the Editor, committed once; F-040's trigger found — docs/changes/192-material-serialization.md — Three materials the Editor kept rewriting by a rounding hair are committed as it writes them; the rewrite happens on in-Editor test runs, not on scene load.
+- 2026-09-18 CHG-026 perf_band.py under .claude/scripts/factory and a focus= field in the perf harness row — docs/changes/193-perf-band-focus.md — CHG-026 landed: the perf-band script is a factory instrument now (it waits for a free rig and records the Editor's focus) and every idle-frame row says whether the Editor was focused, because the numbers move with it; the Garage settled band is on file in LOOP-STATE § THE BUILD.
 
 ## ANSWERED (most recent first; verbatim)
 
