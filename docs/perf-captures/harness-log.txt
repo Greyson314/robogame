@@ -35,3 +35,5 @@
 2026-09-18 00:00:16  [PERF-BASELINE] scene=Garage state=idle frames=600 avg=2.086ms median=1.974ms min=1.440ms p99=3.792ms p99.9=4.413ms fps=479.4 gcTotal=0B gcPerFrame=0.0B
 2026-09-18 00:00:51  [PERF-BASELINE] scene=Garage state=idle frames=600 avg=2.140ms median=2.029ms min=1.537ms p99=3.502ms p99.9=4.784ms fps=467.3 gcTotal=0B gcPerFrame=0.0B
 2026-09-18 00:01:17  [PERF-BASELINE] scene=Garage state=idle frames=600 avg=2.350ms median=2.186ms min=1.540ms p99=4.564ms p99.9=6.529ms fps=425.5 gcTotal=0B gcPerFrame=0.0B
+2026-09-18 01:41:32  [PLAYER-BUILD] result=Failed totalSize=0 totalTime=42.3 errors=197 warnings=77 scenes=6
+2026-09-18 01:42:13  [PLAYER-BUILD] result=Failed totalSize=0 totalTime=3.4 errors=197 warnings=0 scenes=6
