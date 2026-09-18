@@ -3697,6 +3697,7 @@ GameObject:
   - component: {fileID: 528013672}
   - component: {fileID: 528013671}
   - component: {fileID: 528013670}
+  - component: {fileID: 528013673}
   m_Layer: 0
   m_Name: ArenaController
   m_TagString: Untagged
@@ -3741,29 +3742,15 @@ MonoBehaviour:
   _dummyBlueprint: {fileID: 11400000, guid: 4c5240fabf7c08d40b42e3a02756f964, type: 2}
   _dummyPosition: {x: 0, y: 0.5, z: 18}
   _dummyName: CombatDummy
-  _stressTowerBlueprint: {fileID: 11400000, guid: 45a8582379d5bfb41a77567294417bca, type: 2}
-  _stressTowerPosition: {x: 40, y: 0.5, z: 18}
-  _stressTowerName: StressRotorTower
   _archBlueprint: {fileID: 11400000, guid: 04fbf9aec8636584d9d954a528a35ce5, type: 2}
   _archPosition: {x: -25, y: 0.5, z: 18}
   _archName: BarbellDummy
-  _tankDummyBlueprint: {fileID: 0}
-  _tankDummySpawn: {x: 28, y: 2, z: 0}
-  _tankDummyName: TankDummy
-  _tankDummyPatrolCentre: {x: 0, y: 0, z: 0}
-  _tankDummyPatrolRadius: 30
   _spawnFriendlyTank: 1
   _friendlyTankBlueprint: {fileID: 0}
   _friendlyTankSpawn: {x: -12, y: 2, z: 4}
   _friendlyTankPatrolCentre: {x: -12, y: 0, z: 12}
   _friendlyTankPatrolRadius: 18
   _friendlyTankName: FriendlyTank
-  _airDummyBlueprint: {fileID: 0}
-  _airDummySpawn: {x: 0, y: 50, z: 60}
-  _airDummyName: AirDummy
-  _airDummyCruiseCentre: {x: 0, y: 0, z: 0}
-  _airDummyCruiseRadius: 80
-  _airDummyCruiseAltitude: 40
   _spawnRepairPad: 1
   _repairPadPosition: {x: 40, y: 0.1, z: -25}
   _spawnScrapDepots: 1
@@ -3801,6 +3788,32 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &528013673
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 528013669}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 167224873110f6c4aaddf7f2b7ffe3e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Robogame.Gameplay::Robogame.Gameplay.ArenaDevDummies
+  _stressTowerBlueprint: {fileID: 11400000, guid: 45a8582379d5bfb41a77567294417bca, type: 2}
+  _stressTowerPosition: {x: 40, y: 0.5, z: 18}
+  _stressTowerName: StressRotorTower
+  _tankDummyBlueprint: {fileID: 0}
+  _tankDummySpawn: {x: 28, y: 2, z: 0}
+  _tankDummyName: TankDummy
+  _tankDummyPatrolCentre: {x: 0, y: 0, z: 0}
+  _tankDummyPatrolRadius: 30
+  _airDummyBlueprint: {fileID: 0}
+  _airDummySpawn: {x: 0, y: 50, z: 60}
+  _airDummyName: AirDummy
+  _airDummyCruiseCentre: {x: 0, y: 0, z: 0}
+  _airDummyCruiseRadius: 80
+  _airDummyCruiseAltitude: 40
 --- !u!1 &528457455
 GameObject:
   m_ObjectHideFlags: 0

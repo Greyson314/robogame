@@ -265,23 +265,23 @@ namespace Robogame.UI
 
         private static void SpawnStressTower()
         {
-            var arena = Object.FindAnyObjectByType<Robogame.Gameplay.ArenaController>();
-            if (arena == null)
+            var dummies = Object.FindAnyObjectByType<Robogame.Gameplay.ArenaDevDummies>();
+            if (dummies == null)
             {
-                Debug.LogWarning("[DevHud] No ArenaController in this scene — stress tower lives in the Arena.");
+                Debug.LogWarning("[DevHud] No ArenaDevDummies in this scene — stress tower lives in the Arena.");
                 return;
             }
-            arena.RespawnStressTower();
+            dummies.RespawnStressTower();
         }
 
         private static void DespawnStressTower()
         {
-            var arena = Object.FindAnyObjectByType<Robogame.Gameplay.ArenaController>();
-            if (arena == null) return;
-            // Flip the tweakable off so the ArenaController's Changed-driven
+            var dummies = Object.FindAnyObjectByType<Robogame.Gameplay.ArenaDevDummies>();
+            if (dummies == null) return;
+            // Flip the tweakable off so ArenaDevDummies' Changed-driven
             // sync doesn't re-spawn it next frame.
             Tweakables.SetBool(Tweakables.StressRotorTower, false);
-            arena.DespawnStressTower();
+            dummies.DespawnStressTower();
         }
 
         // -----------------------------------------------------------------
