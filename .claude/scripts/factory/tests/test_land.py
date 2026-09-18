@@ -113,6 +113,19 @@ class Chain(unittest.TestCase):
         self.assertEqual(readme[sep + 1], "| 002 | [Pogo tune](002-pogo-tune.md) |")
         self.assertEqual(readme[sep + 2], "| 001 | [First](001-first.md) |")
 
+    def test_land_keeps_the_branchs_own_edits_to_the_shared_files(self):
+        # F-061: the chain read README / LOOP-STATE / NEEDS-GREY before the merge and wrote those texts
+        # back after it, silently dropping what the branch changed there (CHG-025 lost 19 index rows).
+        sh(self.repo, "checkout", "-q", "chg/007-pogo")
+        rp = self.repo / "docs/changes/README.md"
+        rp.write_text(rp.read_text(encoding="utf-8").rstrip("\n") + "\n| 000 | [Backfilled by the branch](000-old.md) |\n", encoding="utf-8")
+        sh(self.repo, "commit", "-q", "-am", "branch backfills an index row"); sh(self.repo, "checkout", "-q", "main")
+        self.gate()
+        r = land(self.repo, *self.land_args("--fyi", "x")); self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        readme = rp.read_text(encoding="utf-8")
+        self.assertIn("| 000 | [Backfilled by the branch](000-old.md) |", readme)
+        self.assertIn("| 002 | [Pogo tune](002-pogo-tune.md) |", readme)
+
     def test_land_refuses_without_sessions_table_before_merging(self):
         self.gate()
         (self.repo / "docs/changes/README.md").write_text("# changes index\n\nno table here.\n", encoding="utf-8")

@@ -118,7 +118,10 @@ def build_rows(changes_dir: Path, table_max: int, skip: set[int], all_gaps: bool
     rows = []
     for n in sorted(found, reverse=True):
         f = found[n]
-        first_line = f.read_text(encoding="utf-8").splitlines()[0] if f.stat().st_size else ""
+        # F-056: an entry may open with an HTML comment or blank lines; the
+        # title is its first `#` heading, else its first line.
+        lines = f.read_text(encoding="utf-8").splitlines()
+        first_line = next((ln for ln in lines if ln.lstrip().startswith("#")), lines[0] if lines else "")
         title = title_from_heading(first_line, n)
         rows.append((n, f"| {n:03d} | [{title}]({f.name}) |"))
     return rows

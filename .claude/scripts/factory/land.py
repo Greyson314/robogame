@@ -315,7 +315,13 @@ def cmd_land(a: argparse.Namespace) -> int:
         raise Refuse(f"merge of {a.branch} into main failed and was aborted: {r.stderr.strip()[:300]}")
     print(f"[5] merged {a.branch} into main")
 
-    # 6. write the record
+    # 6. write the record. F-061: re-read the three shared files AFTER the
+    # merge; the pre-merge texts above are for the refusals only, and writing
+    # them back would drop whatever the branch itself changed in these files
+    # (CHG-025's 19 index rows were lost this way).
+    state_text = (repo / STATE).read_text(encoding="utf-8")
+    board_text = (repo / BOARD).read_text(encoding="utf-8")
+    readme_new = insert_session_row(readme_path.read_text(encoding="utf-8"), session_row)
     (repo / entry_rel).write_text(entry_text, encoding="utf-8")
     (repo / STATE).write_text(append_to_section(state_text, "## SHIFT LOG", bullet), encoding="utf-8")
     board_new = append_to_section(board_text, "## PLAY" if a.play else "## FYI", play_text.rstrip("\n") if a.play else fyi_line)
