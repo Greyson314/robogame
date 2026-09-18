@@ -184,12 +184,21 @@ namespace Robogame.Tests.PlayMode.Perf
             float fps = avg > 0f ? 1000f / avg : 0f;
             double gcPerFrame = (double)gcDelta / SampleFrames;
 
+            // focus= is appended LAST so every existing row parser still matches.
+            // The shift-5 and shift-7 bands moved with the Editor's focus
+            // (LOOP-STATE § THE BUILD); a band without it cannot be compared.
+            // TRACE[DOC:loop/CHANGE-QUEUE.md§CHG-026]: focus column for the settled band
+#if UNITY_EDITOR
+            string focus = UnityEditorInternal.InternalEditorUtility.isApplicationActive ? "True" : "False";
+#else
+            string focus = "n/a";
+#endif
             string line = string.Format(CultureInfo.InvariantCulture,
                 "[PERF-BASELINE] scene={0} state=idle frames={1} " +
                 "avg={2:F3}ms median={3:F3}ms min={4:F3}ms p99={5:F3}ms p99.9={6:F3}ms " +
-                "fps={7:F1} gcTotal={8}B gcPerFrame={9:F1}B",
+                "fps={7:F1} gcTotal={8}B gcPerFrame={9:F1}B focus={10}",
                 sceneName, SampleFrames, avg, median, min, p99, p999, fps,
-                gcDelta, gcPerFrame);
+                gcDelta, gcPerFrame, focus);
 
             Debug.Log(line);
             AppendToLog(line);
