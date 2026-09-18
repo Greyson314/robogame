@@ -86,6 +86,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 200 | [One road onto the test rig: run-tests.sh --at <sha>, the rig wait built in; the launcher swaps an Editor-launched MCP server for a hand-started one](200-rig-road.md) |
 | 199 | [A PlayMode test proves the build-mode highlight shell drops its Collider](199-highlight-collider-test.md) |
 | 198 | [The PlayMode test assembly stays out of the player: UNITY_INCLUDE_TESTS on its asmdef, and the first successful Windows build](198-tests-out-of-player.md) |
 | 197 | [The first Windows player build from the CLI: PlayerBuild.cs + build-player.sh, and what it measured](197-player-build.md) |
