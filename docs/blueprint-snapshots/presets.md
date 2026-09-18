@@ -16,8 +16,8 @@ Layer y=1:
   2   .  #  .  #  . 
   1   .  #  .  #  . 
   0   .  #  .  #  . 
- -1   .  .  ?  .  . 
- -2   .  .  ?  .  . 
+ -1   .  .  c  .  . 
+ -2   .  .  E  .  . 
 
 Layer y=0:
       -2 -1  0  1  2
@@ -28,7 +28,7 @@ Layer y=0:
  -1   .  #  #  #  . 
  -2   W  #  #  #  W 
 
-Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Weapon  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace  n=Magnet  X=GrappleMagnet  H=HoverBlade  c=Cannon  M=Mortar  D=Drill  s=Spring  E=ModuleEmp  ?=unmapped
 ```
 
 Validation: OK
@@ -52,7 +52,7 @@ Layer y=2:
 
 Layer y=1:
       -1  0  1
-  3   .  ?  . 
+  3   .  c  . 
   2   .  .  . 
   1   .  .  . 
   0   .  .  . 
@@ -90,7 +90,7 @@ Layer y=-2:
  -2   .  h  . 
  -3   .  .  . 
 
-Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Weapon  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace  n=Magnet  X=GrappleMagnet  H=HoverBlade  c=Cannon  M=Mortar  D=Drill  s=Spring  E=ModuleEmp  ?=unmapped
 ```
 
 Validation: OK
@@ -142,7 +142,7 @@ Layer y=-1:
  -2   .  X  . 
  -3   .  T  . 
 
-Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Weapon  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace  n=Magnet  X=GrappleMagnet  H=HoverBlade  c=Cannon  M=Mortar  D=Drill  s=Spring  E=ModuleEmp  ?=unmapped
 ```
 
 Validation: OK
@@ -156,11 +156,11 @@ Bounds: x[-2..2] y[-1..1] z[-3..3]
 
 Layer y=1:
       -2 -1  0  1  2
-  3   .  .  ?  .  . 
+  3   .  .  c  .  . 
   2   .  .  .  .  . 
   1   .  .  .  .  . 
   0   .  .  .  .  . 
- -1   .  .  ?  .  . 
+ -1   .  .  M  .  . 
  -2   .  .  .  .  . 
  -3   .  .  T  .  . 
 
@@ -184,7 +184,7 @@ Layer y=-1:
  -2   .  .  .  .  . 
  -3   .  .  R  .  . 
 
-Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Weapon  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace  n=Magnet  X=GrappleMagnet  H=HoverBlade  c=Cannon  M=Mortar  D=Drill  s=Spring  E=ModuleEmp  ?=unmapped
 ```
 
 Validation: OK
@@ -236,7 +236,7 @@ Layer y=-1:
  -2   .  .  . 
  -3   .  T  . 
 
-Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Weapon  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace  n=Magnet  X=GrappleMagnet  H=HoverBlade  c=Cannon  M=Mortar  D=Drill  s=Spring  E=ModuleEmp  ?=unmapped
 ```
 
 Validation: OK
@@ -292,7 +292,7 @@ Layer y=-1:
  -1   .  .  . 
  -2   .  .  . 
 
-Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Weapon  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace  n=Magnet  X=GrappleMagnet  H=HoverBlade  c=Cannon  M=Mortar  D=Drill  s=Spring  E=ModuleEmp  ?=unmapped
 ```
 
 Validation: OK
@@ -388,7 +388,7 @@ Layer y=-3:
  -4   .  .  .  .  . 
  -5   .  .  .  .  . 
 
-Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Weapon  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace  n=Magnet  X=GrappleMagnet  H=HoverBlade  c=Cannon  M=Mortar  D=Drill  s=Spring  E=ModuleEmp  ?=unmapped
 ```
 
 Validation: OK
@@ -409,12 +409,12 @@ Layer y=1:
 
 Layer y=0:
       -2 -1  0  1  2
-  2   .  .  ?  .  . 
+  2   .  .  D  .  . 
   1   S  #  #  #  S 
   0   .  #  C  #  . 
  -1   W  #  #  #  W 
 
-Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Weapon  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace  n=Magnet  X=GrappleMagnet  H=HoverBlade  c=Cannon  M=Mortar  D=Drill  s=Spring  E=ModuleEmp  ?=unmapped
 ```
 
 Validation: OK
@@ -445,12 +445,12 @@ Layer y=0:
 Layer y=-1:
       -2 -1  0  1  2
   2   .  .  .  .  . 
-  1   ?  .  .  ?  . 
+  1   H  .  .  H  . 
   0   .  .  .  .  . 
  -1   .  .  .  .  . 
- -2   ?  .  .  ?  . 
+ -2   H  .  .  H  . 
 
-Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Weapon  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace  n=Magnet  X=GrappleMagnet  H=HoverBlade  c=Cannon  M=Mortar  D=Drill  s=Spring  E=ModuleEmp  ?=unmapped
 ```
 
 Validation: OK
@@ -472,13 +472,13 @@ Layer y=1:
 
 Layer y=0:
       -2 -1  0  1  2
-  2   .  .  ?  .  . 
+  2   .  .  s  .  . 
   1   S  #  #  #  S 
   0   .  #  #  #  . 
  -1   W  #  #  #  W 
- -2   .  .  ?  .  . 
+ -2   .  .  s  .  . 
 
-Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Weapon  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace  n=Magnet  X=GrappleMagnet  H=HoverBlade  c=Cannon  M=Mortar  D=Drill  s=Spring  E=ModuleEmp  ?=unmapped
 ```
 
 Validation: OK
@@ -546,7 +546,7 @@ Layer y=0:
  -1   #  #  #  #  # 
  -2   #  #  #  #  # 
 
-Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Weapon  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace  n=Magnet  X=GrappleMagnet  H=HoverBlade  c=Cannon  M=Mortar  D=Drill  s=Spring  E=ModuleEmp  ?=unmapped
 ```
 
 Validation: OK
@@ -602,7 +602,7 @@ Layer y=0:
        0
   0   C 
 
-Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Weapon  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace  n=Magnet  X=GrappleMagnet  H=HoverBlade  c=Cannon  M=Mortar  D=Drill  s=Spring  E=ModuleEmp  ?=unmapped
 ```
 
 Validation: OK
@@ -680,7 +680,7 @@ Layer y=0:
   0   .  C  . 
  -1   .  .  . 
 
-Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Weapon  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace  n=Magnet  X=GrappleMagnet  H=HoverBlade  c=Cannon  M=Mortar  D=Drill  s=Spring  E=ModuleEmp  ?=unmapped
 ```
 
 Validation: OK
@@ -724,7 +724,7 @@ Layer y=0:
       -2 -1  0  1  2
   0   #  .  .  .  # 
 
-Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Gun  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace
+Legend: C=Cpu  #=Cube  W=Wheel  S=WheelSteer  T=Thruster  A=Aero  F=AeroFin  w=Wing  R=Rudder  G=Weapon  B=BombBay  |=Rope  O=Rotor  h=Hook  m=Mace  n=Magnet  X=GrappleMagnet  H=HoverBlade  c=Cannon  M=Mortar  D=Drill  s=Spring  E=ModuleEmp  ?=unmapped
 ```
 
 Validation: OK
