@@ -292,7 +292,7 @@ Must not break: nothing at runtime; EditorBuildSettings untouched; the rig's Lib
 Revert: `git revert`; `Builds/` is untracked.
 Feel change? no. RIG NOTE: a player build holds the rig for minutes; run it when no gate is queued (end of shift), never alongside a `-runTests` run.
 
-### CHG-028 `run-tests.sh --at <sha>`: one road onto the rig, strip included; the launcher swaps a handshake-tracked server for a hand-started one — status: SPEC (2026-09-18, shift 8)
+### CHG-028 `run-tests.sh --at <sha>`: one road onto the rig, strip included; the launcher swaps a handshake-tracked server for a hand-started one — status: LANDED 2026-09-18 (docs/changes/200; live server swap unproven)
 Class: AUTO (I1: tooling, harnesses and instruments). Red team N/A (D16b).
 Pillar or readiness item: the rig (D7): the bridge is the console, screenshot and profiler instrument; F-057 lost it for most of shift 8.
 Source: F-057 (a direct rig run without the strip killed the server); LESSONS 10 (plumbing-built branches need a direct rig run at a sha) and 15 (a killed handshake-tracked server ends the Editor's bridge for the shift); the scratch `.utmp/factory/rig_run.sh` that carried CHG-026's gate.
@@ -312,7 +312,7 @@ Must not break: the PlayMode suite (the define is present in the Editor); the ba
 Revert: `git revert`; the player build breaks again.
 Feel change? no
 
-### CHG-031 a PlayMode test proves MakeHighlightShell drops the primitive's Collider — status: TESTS (2026-09-18, shift 9)
+### CHG-031 a PlayMode test proves MakeHighlightShell drops the primitive's Collider — status: LANDED 2026-09-18 (docs/changes/199)
 Class: AUTO (I1: new test coverage). Red team N/A (D16b: a test).
 Pillar or readiness item: LAUNCH-READINESS T1 (the suite guards what landed); closes the assertion CHG-027 owed (docs/changes/195; BACKLOG 27).
 Source: docs/changes/195 § owed; MakeHighlightShellTests § SCOPE NOTE.
@@ -322,7 +322,7 @@ Must not break: nothing at runtime (test assembly only, UNITY_INCLUDE_TESTS).
 Revert: `git revert`.
 Feel change? no
 
-### CHG-032 BlockEditHighlights: the instance-edit and tune-hover highlight subsystem leaves BlockEditor — status: BUILD (2026-09-18, shift 9)
+### CHG-032 BlockEditHighlights: the instance-edit and tune-hover highlight subsystem leaves BlockEditor — status: LANDED 2026-09-18 (docs/changes/201)
 Class: AUTO (I1: a refactor with zero behaviour change proven by the suite; D8 S1 modularization). Red team REQUIRED (D16b: shipped runtime code), sonnet/medium.
 Pillar or readiness item: "Recreational-but-aspires-Steam" via S1 (a legible solo codebase); BlockEditor.cs is 1,252 lines.
 Source: F-049 (pointer only).
@@ -332,7 +332,7 @@ Must not break: build mode targeting and placement (untouched state), INV-6 (no 
 Revert: `git revert`.
 Feel change? no
 
-### CHG-033 KeybindsSectionBuilder: the static keybinds reference table leaves SettingsHud — status: BUILD (2026-09-18, shift 9)
+### CHG-033 KeybindsSectionBuilder: the static keybinds reference table leaves SettingsHud — status: LANDED 2026-09-18 (docs/changes/202)
 Class: AUTO (I1: a refactor with zero behaviour change proven by the suite; D8 S1). Red team REQUIRED (D16b: shipped runtime code; the settings panel is on the player's path), sonnet/medium.
 Pillar or readiness item: "Recreational-but-aspires-Steam" via S1; SettingsHud.cs is ~1,170 lines.
 Source: F-052 (pointer only).
@@ -352,3 +352,4 @@ Feel change? no
 - shift 6, 2026-09-17: CHG-019 landed (docs/changes/184-traces-scan.md); CHG-017 landed (docs/changes/185-changes-index.md); CHG-020 landed (docs/changes/186-server-first-bridge.md, built by the peer session); land.py learned the red-team N/A record (f03913c9).
 - shift 7, 2026-09-17: CHG-021 (187), CHG-016 (188), CHG-009 (189), CHG-023 (190), CHG-022 (191), CHG-018 (192) landed.
 - shift 8, 2026-09-18: CHG-026 landed (docs/changes/193-perf-band-focus.md); CHG-025 landed (194-red-team-drift.md); CHG-027 landed (195-construction-dedupe.md); CHG-024 landed (196-arena-dev-dummies.md); CHG-029 landed (197-player-build.md); CHG-030 landed (198-tests-out-of-player.md); CHG-004 on the board (APPROVE); CHG-028 specced.
+- shift 9, 2026-09-18: CHG-031 landed (docs/changes/199-highlight-collider-test.md); CHG-028 landed (200-rig-road.md); CHG-032 landed (201-block-edit-highlights.md); CHG-033 landed (202-keybinds-section.md).
