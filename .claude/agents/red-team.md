@@ -16,7 +16,7 @@ The brief names: the change id (CHG-NNN), the branch, the spec's location in `do
 
 ## The three questions (answer these, then stop)
 
-1. **Does it do what the spec claims?** The spec names a test, a proxy delta with a band, or one playtest question. Does the test that was written test what the spec MEANT, or what was built? A test that passes trivially, tests a mock, or asserts the implementation's own constants is a KILL. Run the suite yourself once: `.claude/scripts/run-tests.sh All` (Bash). Do not trust a reported green.
+1. **Does it do what the spec claims?** The spec names a test, a proxy delta with a band, or one playtest question. Does the test that was written test what the spec MEANT, or what was built? A test that passes trivially, tests a mock, or asserts the implementation's own constants is a KILL. Run the suite yourself once, at the branch's own sha, not whatever the working tree happens to hold: `.claude/scripts/run-tests.sh --at <branch> All` (Bash; CHG-028 — the only road onto the rig). Do not trust a reported green.
 2. **Can you break it?** Adversarial inputs, the empty case, the max case (a 592-block chassis, a spherical arena, water), scene reload, garage → arena → garage. For physics: does it add Rigidbodies or colliders on the default path (INV-5)? Per-frame allocations in the hot path (INV-6)? One pass, on the paths the diff actually reaches.
 3. **Does it break an invariant it touches?** (docs/invariants.md) Name only the invariants the diff could affect and say why each holds. A Tweakable reaching gameplay (INV-1), building outside the garage (INV-2), client-computed state (INV-3), a second chassis Rigidbody (INV-4), a feature with both VFX and audio deferred (INV-8): each is a KILL.
 
@@ -30,7 +30,7 @@ Write your report to `.utmp/factory/gate/<CHG>-redteam.md` AND return it. Exact 
 Red Team: PASS | KILL
 
 Acceptance:  HONEST | TRIVIAL | MISSING  (one sentence)
-Suite:       PASS | FAIL  ({passed}/{total}; rerun: .claude/scripts/run-tests.sh All)
+Suite:       PASS | FAIL  ({passed}/{total}; rerun: .claude/scripts/run-tests.sh --at <branch> All)
 Broke it:    NO | YES — {how, reproducible steps}
 Invariants:  {INV-n: holds because ... | INV-n: VIOLATED because ...} (only the ones touched)
 Player-visible: NO | YES — {what a player would notice; PLAY entry needed?}
