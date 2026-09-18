@@ -102,7 +102,7 @@ namespace Robogame.Gameplay
                 return;
             }
             _session.SetEditingInstance(replacement);
-            HighlightInstance(replacement);
+            _highlights.HighlightInstance(replacement, _grid != null ? _grid.CellSize : 1f);
         }
 
         private void HandleEditingInstanceChanged(BlockBehaviour bound)
@@ -124,11 +124,7 @@ namespace Robogame.Gameplay
             // PauseMenuHud — get the full cleanup too.
             if (bound == null)
             {
-                if (_instanceHighlight != null)
-                {
-                    Destroy(_instanceHighlight);
-                    _instanceHighlight = null;
-                }
+                _highlights.ClearInstanceHighlight();
                 if (_variantPanel != null && _hotbar != null)
                     _variantPanel.RefreshForBlock(_hotbar.SelectedBlockId);
             }
@@ -254,7 +250,7 @@ namespace Robogame.Gameplay
             if (!enabled)
             {
                 ClearInstanceEdit();
-                HideHoverHighlight();
+                _highlights.HideHover();
             }
             else
             {
@@ -381,7 +377,7 @@ namespace Robogame.Gameplay
                 _session.EditingInstanceChanged -= HandleEditingInstanceChanged;
             }
             if (_editMode != null) _editMode.Changed -= HandleEditModeChanged;
-            HideHoverHighlight();
+            _highlights.HideHover();
             if (_ghostRenderer != null) _ghostRenderer.Clear();
             if (_feedbackHud != null) _feedbackHud.Hide();
         }
@@ -425,7 +421,7 @@ namespace Robogame.Gameplay
         {
             _grid = null;
             ClearInstanceEdit();
-            HideHoverHighlight();
+            _highlights.HideHover();
             if (_ghostRenderer != null) _ghostRenderer.Clear();
             if (_feedbackHud != null) _feedbackHud.Hide();
         }
@@ -461,7 +457,7 @@ namespace Robogame.Gameplay
             }
             else
             {
-                HideHoverHighlight();
+                _highlights.HideHover();
                 // Drive the ghost renderer + feedback HUD with the freshly
                 // picked target. The renderer figures out whether to rebuild
                 // meshes itself.
@@ -949,7 +945,7 @@ namespace Robogame.Gameplay
             // would make the cache loads inert and the panel refresh see a
             // half-bound state.
             _session.SetEditingInstance(b);
-            HighlightInstance(b);
+            _highlights.HighlightInstance(b, _grid != null ? _grid.CellSize : 1f);
             LoadBlockSettingsIntoCache(def, b);
             if (_variantPanel != null) _variantPanel.RefreshForBlock(def.Id);
             Robogame.Core.AudioRouter.PlayUI(Robogame.Core.AudioCue.UiClick);
@@ -975,11 +971,15 @@ namespace Robogame.Gameplay
         }
 
         // -----------------------------------------------------------------
-        // Instance-edit highlight (session 125)
+        // Instance-edit + tune-mode hover highlights (session 125, F-050).
+        // Extracted to BlockEditHighlights (F-049): it owns the highlight
+        // GameObjects/materials and needs only the grid's cell size, none
+        // of the targeting/placement state this class owns. BlockEditor
+        // resolves targeting (which block is bound / hovered) and drives
+        // the helper with the result.
         // -----------------------------------------------------------------
 
-        private GameObject _instanceHighlight;
-        private static Material s_highlightMat;
+        private readonly BlockEditHighlights _highlights = new BlockEditHighlights();
 
         // Drop the per-instance edit binding and its highlight, then refresh
         // the panel title back to normal-placement wording. Safe to call when
@@ -987,105 +987,13 @@ namespace Robogame.Gameplay
         private void ClearInstanceEdit()
         {
             if (_session != null) _session.SetEditingInstance(null);
-            if (_instanceHighlight != null)
-            {
-                Destroy(_instanceHighlight);
-                _instanceHighlight = null;
-            }
+            _highlights.ClearInstanceHighlight();
             if (_variantPanel != null && _hotbar != null)
                 _variantPanel.RefreshForBlock(_hotbar.SelectedBlockId);
         }
 
-        // Translucent box around the edited block so the player can see which
-        // instance their sliders are driving. A bounding cube (not a shape
-        // match) is enough to answer "which one"; parented to the block so it
-        // tracks any reparent (rotor-adopted foils) and dies with the block.
-        // Build a highlight shell: a cube primitive with its collider
-        // stripped, the given material assigned, and shadows disabled.
-        // Shared by the bound-instance highlight and the tune-mode hover
-        // highlight (F-050).
-        private static GameObject MakeHighlightShell(Material material)
-        {
-            GameObject shell = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            Collider col = shell.GetComponent<Collider>();
-            if (col != null) Destroy(col);
-            var mr = shell.GetComponent<MeshRenderer>();
-            if (mr != null)
-            {
-                mr.sharedMaterial = material;
-                mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                mr.receiveShadows = false;
-            }
-            return shell;
-        }
-
-        private void HighlightInstance(BlockBehaviour block)
-        {
-            if (_instanceHighlight != null) { Destroy(_instanceHighlight); _instanceHighlight = null; }
-            if (block == null) return;
-
-            if (s_highlightMat == null)
-                s_highlightMat = Robogame.Core.RuntimeMaterials.UnlitTransparent(new Color(1f, 0.62f, 0.10f, 0.22f));
-
-            _instanceHighlight = MakeHighlightShell(s_highlightMat);
-            _instanceHighlight.name = "InstanceEditHighlight";
-            FitShellToBlock(_instanceHighlight, block);
-        }
-
-        // Fit a highlight shell to the block's full RENDERED bounds — a
-        // wing glows across its whole span, a rotor across its disc. The
-        // old cell-sized shell read as a faint box at the mount point,
-        // not a glow on the part (session 138 playtest). World-axis AABB
-        // is fine for a glow read; the chassis is parked in build mode.
-        // Parented afterwards (preserving world pose) so it tracks the
-        // block and dies with it. Allocation only on hover/bind changes,
-        // never per frame.
-        private void FitShellToBlock(GameObject shell, BlockBehaviour block)
-        {
-            Transform t = shell.transform;
-            t.SetParent(null, worldPositionStays: false);
-            Bounds b = default;
-            bool has = false;
-            Renderer[] rends = block.GetComponentsInChildren<Renderer>();
-            for (int i = 0; i < rends.Length; i++)
-            {
-                Renderer r = rends[i];
-                if (r == null) continue;
-                // Never measure our own shells — a shell inside the bounds
-                // pass would inflate itself by 8% per refit.
-                GameObject go = r.gameObject;
-                if (go == shell || go == _instanceHighlight || go == _hoverHighlight) continue;
-                if (!has) { b = r.bounds; has = true; }
-                else b.Encapsulate(r.bounds);
-            }
-            float cell = _grid != null ? _grid.CellSize : 1f;
-            if (!has) b = new Bounds(block.transform.position, Vector3.one * cell);
-            t.SetPositionAndRotation(b.center, Quaternion.identity);
-            // 8% swell + a small absolute pad so thin parts (wing sheets)
-            // still get a visible halo instead of a coplanar z-fight.
-            t.localScale = b.size * 1.08f + Vector3.one * 0.08f;
-            t.SetParent(block.transform, worldPositionStays: true);
-        }
-
-        // -----------------------------------------------------------------
-        // Tune-mode hover highlight — a fainter shell than the bound-
-        // instance one, marking the tunable block under the cursor as
-        // clickable. One shell object reused across hovers (invariant #6:
-        // no per-frame allocations); it only reparents when the hovered
-        // block changes.
-        // -----------------------------------------------------------------
-
-        private GameObject _hoverHighlight;
-        private BlockBehaviour _hoverBlock;
-        // Per-editor material instance (not the static shared one) so the
-        // pulse below can animate alpha without touching other shells.
-        private Material _hoverMat;
-        private static readonly Color s_hoverBase = new Color(1f, 0.62f, 0.10f, 0.14f);
-
         private void DriveHoverHighlight()
         {
-            PulseHoverHighlight();
-
             BlockBehaviour target = null;
             if (_hasTarget && _grid != null)
             {
@@ -1097,44 +1005,7 @@ namespace Robogame.Gameplay
             // The bound instance already wears the stronger edit shell —
             // don't stack a second one on it.
             if (target != null && _session != null && target == _session.EditingInstance) target = null;
-            if (target == _hoverBlock && (target == null || _hoverHighlight != null)) return;
-            _hoverBlock = target;
-            if (target == null)
-            {
-                HideHoverHighlight();
-                return;
-            }
-
-            if (_hoverMat == null)
-                _hoverMat = Robogame.Core.RuntimeMaterials.UnlitTransparent(s_hoverBase);
-            if (_hoverHighlight == null)
-            {
-                _hoverHighlight = MakeHighlightShell(_hoverMat);
-                _hoverHighlight.name = "TuneHoverHighlight";
-            }
-            FitShellToBlock(_hoverHighlight, target);
-            _hoverHighlight.SetActive(true);
-        }
-
-        // Slow alpha breathe on the hover shell so tunable parts read as
-        // "glowing" rather than faintly boxed. One material color write
-        // per frame while tune mode is on — no allocation.
-        private void PulseHoverHighlight()
-        {
-            if (_hoverMat == null || _hoverHighlight == null || !_hoverHighlight.activeSelf) return;
-            Color c = s_hoverBase;
-            c.a = 0.12f + 0.12f * Mathf.PingPong(Time.unscaledTime * 1.6f, 1f);
-            _hoverMat.color = c;
-        }
-
-        private void HideHoverHighlight()
-        {
-            _hoverBlock = null;
-            if (_hoverHighlight == null) return;
-            // Detach so a later host-block destroy can't take the reusable
-            // shell down with it.
-            _hoverHighlight.transform.SetParent(null, worldPositionStays: false);
-            _hoverHighlight.SetActive(false);
+            _highlights.DriveHover(target, _grid != null ? _grid.CellSize : 1f);
         }
 
         private void TryPlace()
