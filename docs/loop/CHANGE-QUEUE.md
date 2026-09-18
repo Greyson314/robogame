@@ -322,6 +322,16 @@ Must not break: nothing at runtime (test assembly only, UNITY_INCLUDE_TESTS).
 Revert: `git revert`.
 Feel change? no
 
+### CHG-032 BlockEditHighlights: the instance-edit and tune-hover highlight subsystem leaves BlockEditor — status: BUILD (2026-09-18, shift 9)
+Class: AUTO (I1: a refactor with zero behaviour change proven by the suite; D8 S1 modularization). Red team REQUIRED (D16b: shipped runtime code), sonnet/medium.
+Pillar or readiness item: "Recreational-but-aspires-Steam" via S1 (a legible solo codebase); BlockEditor.cs is 1,252 lines.
+Source: F-049 (pointer only).
+Change: move ClearInstanceEdit's highlight half, HighlightInstance, FitShellToBlock, DriveHoverHighlight, PulseHoverHighlight, HideHoverHighlight, MakeHighlightShell and their fields/materials into a plain C# helper class `BlockEditHighlights` (same folder, same assembly) owned by BlockEditor; BlockEditor keeps thin calls. No value, colour, timing, parenting or lifetime changes. The two MakeHighlightShell tests (EditMode CHG-027, PlayMode CHG-031) follow the method to its new home.
+Acceptance: TEST FIRST: a PlayMode test that drives the helper's public surface (highlight a block → one shell parented to the block, no Collider, fitted to the block's bounds; hover → a second shell; hide/clear → shells gone or inactive exactly as today) written against a before-dump of today's behaviour; suite green at the branch sha via `run-tests.sh --at`; BlockEditor.cs shrinks by about 150 lines; statics, if any, keep their SubsystemRegistration reset.
+Must not break: build mode targeting and placement (untouched state), INV-6 (no per-frame allocations: PulseHoverHighlight runs per frame), the domain-reload rule for static materials.
+Revert: `git revert`.
+Feel change? no
+
 ## BUILT THIS SHIFT (moved to docs/changes on landing; tally for HEALTH)
 
 - shift 2, 2026-09-16: nothing built; the shift ended on the plan cap before rung 1.
