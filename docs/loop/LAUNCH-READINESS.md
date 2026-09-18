@@ -34,7 +34,7 @@ Seeded 2026-09-16 from README.md, docs/changes/README.md's known unknowns, the p
 
 | # | Item | Status | Evidence / note | Owner |
 |---|---|---|---|---|
-| B1 | A Windows player build succeeds from the CLI or `manage_build`, reproducibly | unknown | never recorded in docs/changes | factory |
+| B1 | A Windows player build succeeds from the CLI or `manage_build`, reproducibly | open | measured 2026-09-18 (CHG-029, docs/changes/197: `PlayerBuild.cs` + `build-player.sh`, the first build ever attempted): FAILS reproducibly, two runs with 197 identical CS0246 errors, all from the PlayMode test assembly compiled into the Standalone player (F-058: no `UNITY_INCLUDE_TESTS` constraint on its asmdef); the one-line fix CHG-030 is gated by the same instrument; flips to `done` on two `result=Succeeded` rows on one sha | factory |
 | B2 | Build size and load time recorded with a band | unknown | | factory |
 | B3 | First run: bootstrap → garage → arena without a dev HUD or a console | unknown | DevHud straggler (BACKLOG 1) | factory |
 | B4 | Options: resolution, fullscreen, volume, key rebinding, controller | unknown | Input System is in; rebinding UI unknown | factory |

@@ -301,6 +301,16 @@ Must not break: the default sync mode's semantics (tracked diffs + untracked fil
 Revert: `git revert`.
 Feel change? no
 
+### CHG-030 the PlayMode test assembly stays out of the player: `UNITY_INCLUDE_TESTS` on its asmdef — status: GATE (2026-09-18, shift 8; branch chg/030-tests-out-of-player on top of CHG-029's)
+Class: AUTO (I1: a failing build fixed; an asmdef define constraint is build configuration, nothing a player meets changes because the tests never belonged in the player). Red team N/A (D16b: no shipped runtime code, no NOD action, no invariant; the build and the suite are the gate).
+Pillar or readiness item: LAUNCH-READINESS B1 (the first CLI build failed with 197 errors, all from the PlayMode test assembly compiled into the Standalone player) and B2 (size and time need a build that succeeds).
+Source: F-058 (CHG-029's first measurement, .utmp/factory/gate/CHG-029/build-errors.txt).
+Change: `Assets/_Project/Tests/PlayMode/Robogame.Tests.PlayMode.asmdef` gains `"defineConstraints": ["UNITY_INCLUDE_TESTS"]`, the Unity Test Framework's standard constraint: the define exists in the Editor (so the suite still compiles and runs) and in test-player builds only, so a normal player build skips the assembly. The EditMode asmdef already has `includePlatforms: ["Editor"]` and needs nothing. One line.
+Acceptance: (1) `build-player.sh <sha>` twice: `result=Succeeded` with `errors=0`, `totalSize` within 1 % between the runs, `totalTime` recorded (B1 → done, B2 → first numbers); or a NEW error set, which is the next finding and still lands this fix if the 197 CS0246 are gone; (2) the suite on the rig at the sha unchanged in count: EditMode 562/562, PlayMode 153/154 (the PlayMode tests still compile and run in the Editor rig); (3) the two rows copied into docs/perf-captures/harness-log.txt with the change.
+Must not break: the PlayMode suite (the define is present in the Editor); the batch rig (an Editor); nothing at runtime.
+Revert: `git revert`; the player build breaks again.
+Feel change? no
+
 ## BUILT THIS SHIFT (moved to docs/changes on landing; tally for HEALTH)
 
 - shift 2, 2026-09-16: nothing built; the shift ended on the plan cap before rung 1.
