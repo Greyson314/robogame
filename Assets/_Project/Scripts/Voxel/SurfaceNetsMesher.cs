@@ -57,7 +57,7 @@ namespace Robogame.Voxel
     /// reused across remeshes. <see cref="Buffers.Dispose"/> on
     /// chunk destruction. The <see cref="MeshJob"/> is <c>IJob</c>
     /// (single-thread) — single-thread Burst+SIMD meets the Phase 1c
-    /// &lt; 1 ms budget at dim=33 without paying parallel-coordination cost.
+    /// &lt; 1 ms budget at dim=34 (32 cells + 2 apron) without paying parallel-coordination cost.
     /// </para>
     /// <para>
     /// Phase 4c: when a chunk's neighbour meshes at coarser LOD on a face,
