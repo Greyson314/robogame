@@ -3,9 +3,9 @@
 How to answer, any of: edit the entry here; a line in INBOX.md (`approve CHG-012` · `reject CHG-013: reason` · `play PT-004: worse, the hook feels floaty` · `buy B-002: yes` · `decide D-001: no overage`); `/inbox <text>` from any Claude session in this repo; a message in Discord #blue-mao-pow (lands in INBOX within five minutes).
 Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBATIM to § ANSWERED, then to the change's docs/changes entry.
 
-## APPROVE (0/4) — ASK-class specs awaiting check-off. One line each: id · title · pillar or readiness item · payoff · cost · evidence pointer.
+## APPROVE (1/4) — ASK-class specs awaiting check-off. One line each: id · title · pillar or readiness item · payoff · cost · evidence pointer.
 
-_(empty — CHG-013 was approved and landed 2026-09-17; under the amended I1 a dev-facing preset would not have come here at all.)_
+- **CHG-004** · bomb-bay doors get an audible open and slam (two new AudioCues on the drop path; the door swing stays the visual) · INV-8 + pillars "Slapstick over realism" · payoff: the one shipped weapon whose moving part is silent gets its clank, F-008 (S1) closes · cost S (AudioCue.cs, BombBayDoors.cs, two wizard rows, two tests) · evidence: BombBayDoors.cs:9 "Visual only", BombBayBlock.cs:192 is the only cue on the bay; spec in CHANGE-QUEUE § CHG-004 · ONE thing only you can add: the clips (the Universal Sound FX pack is on your machine, not in the clone); "approve CHG-004" with or without clip names; without, the cues land declared and silent until you pick · answer `approve CHG-004[: open=<clip>, close=<clip>]` or `reject CHG-004: reason`.
 
 ## PLAY (1/4) — one question per build, ≤ 5 minutes.
 
@@ -28,6 +28,8 @@ Time: ≤ 5 min. Answer: `play PT-001: <a|b|c>, <what you saw>`; (b) lands CHG-0
 (empty)
 
 ## DECIDE — decisions only Grey can make, each with the evidence and a default.
+
+- **D-008 — remove the unused Post Processing Stack v2 package (`com.unity.postprocessing` 3.5.4)?** Nothing uses it: the project is URP and every scene's post volume is a URP VolumeProfile authored by our own PostProcessingBuilder; the PPv2 PostProcessVolume script is in no scene or prefab (GUID grep 2026-09-18); the only thing the package does today is re-inject the `UNITY_POST_PROCESSING_STACK_V2` define on every domain reload (F-029). Removal is a manifest edit plus that define line, the suite is the gate, `git revert` brings it back. A package removal is ASK under I1. Default until answered: it stays. Answer: `decide D-008: remove|keep`.
 
 - **D-007 — may the factory install a login-time scheduled task on your PC that starts the Unity MCP server (a headless `uvx … mcp-for-unity --transport http` on 127.0.0.1:8080) whenever you log in?** Why: a Desktop session dials the bridge exactly once when it opens, and it stays bridge-down for its whole life if 8080 was silent at that second (shifts 3, 4 and 6 all lost the bridge this way; LESSONS § METHOD 2, ASSUMPTIONS #8). CHG-020 (in build) makes the launcher start the server first, so a shift started by `/robogame-factory` will be fine; the login task removes the last ordering dependency for any session you open by hand, which is your "zero terminal steps" wish. It is a standing change to your machine, not the game, so it is yours to allow. The task would run as your user, do nothing else, and can be removed with one `Unregister-ScheduledTask`. Default until answered: not installed. Answer: `decide D-007: yes|no`.
 

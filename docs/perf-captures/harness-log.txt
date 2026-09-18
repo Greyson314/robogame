@@ -28,3 +28,10 @@
 2026-09-17 17:50:00  [PERF-BASELINE] scene=Arena state=idle frames=600 avg=2.091ms median=2.034ms min=1.775ms p99=2.993ms p99.9=7.011ms fps=478.3 gcTotal=0B gcPerFrame=0.0B
 2026-09-17 17:50:13  [PERF-BASELINE] scene=Arena state=idle frames=600 avg=2.051ms median=2.011ms min=1.729ms p99=3.062ms p99.9=4.368ms fps=487.5 gcTotal=0B gcPerFrame=0.0B
 2026-09-17 18:15:33  [PERF-BASELINE] scene=Arena state=idle frames=600 avg=2.672ms median=2.489ms min=1.952ms p99=5.363ms p99.9=13.742ms fps=374.2 gcTotal=0B gcPerFrame=0.0B
+2026-09-17 23:58:23  [PERF-BASELINE] scene=Garage state=idle frames=600 avg=3.009ms median=2.817ms min=1.563ms p99=7.359ms p99.9=19.818ms fps=332.3 gcTotal=0B gcPerFrame=0.0B
+2026-09-17 23:59:00  [PERF-BASELINE] scene=Garage state=idle frames=600 avg=2.137ms median=2.033ms min=1.494ms p99=3.501ms p99.9=4.199ms fps=467.9 gcTotal=0B gcPerFrame=0.0B
+2026-09-17 23:59:18  [PERF-BASELINE] scene=Garage state=idle frames=600 avg=2.600ms median=2.431ms min=1.547ms p99=4.914ms p99.9=7.279ms fps=384.6 gcTotal=0B gcPerFrame=0.0B
+2026-09-17 23:59:51  [PERF-BASELINE] scene=Garage state=idle frames=600 avg=2.314ms median=2.192ms min=1.577ms p99=4.195ms p99.9=4.639ms fps=432.2 gcTotal=0B gcPerFrame=0.0B
+2026-09-18 00:00:16  [PERF-BASELINE] scene=Garage state=idle frames=600 avg=2.086ms median=1.974ms min=1.440ms p99=3.792ms p99.9=4.413ms fps=479.4 gcTotal=0B gcPerFrame=0.0B
+2026-09-18 00:00:51  [PERF-BASELINE] scene=Garage state=idle frames=600 avg=2.140ms median=2.029ms min=1.537ms p99=3.502ms p99.9=4.784ms fps=467.3 gcTotal=0B gcPerFrame=0.0B
+2026-09-18 00:01:17  [PERF-BASELINE] scene=Garage state=idle frames=600 avg=2.350ms median=2.186ms min=1.540ms p99=4.564ms p99.9=6.529ms fps=425.5 gcTotal=0B gcPerFrame=0.0B
