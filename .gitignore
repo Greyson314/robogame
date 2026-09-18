@@ -126,3 +126,6 @@ __pycache__/
 # Factory secrets — the Discord webhook, never committed (docs/loop/CHARTER.md I3)
 .env
 .env.*
+
+# Unity crash-recovery scenes (F-060): new ones must not dirty the tree
+/Assets/_Recovery/

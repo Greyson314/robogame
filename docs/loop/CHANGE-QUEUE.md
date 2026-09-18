@@ -312,6 +312,16 @@ Must not break: the PlayMode suite (the define is present in the Editor); the ba
 Revert: `git revert`; the player build breaks again.
 Feel change? no
 
+### CHG-031 a PlayMode test proves MakeHighlightShell drops the primitive's Collider — status: TESTS (2026-09-18, shift 9)
+Class: AUTO (I1: new test coverage). Red team N/A (D16b: a test).
+Pillar or readiness item: LAUNCH-READINESS T1 (the suite guards what landed); closes the assertion CHG-027 owed (docs/changes/195; BACKLOG 27).
+Source: docs/changes/195 § owed; MakeHighlightShellTests § SCOPE NOTE.
+Change: `Assets/_Project/Tests/PlayMode/Gameplay/MakeHighlightShellColliderTests.cs` (+ meta): invoke the helper in play mode, yield one frame, assert no Collider.
+Acceptance: the test passes on main's code and FAILS when the `Destroy(col)` line is removed (proven once on the rig, then restored); PlayMode count +1, 0 failed.
+Must not break: nothing at runtime (test assembly only, UNITY_INCLUDE_TESTS).
+Revert: `git revert`.
+Feel change? no
+
 ## BUILT THIS SHIFT (moved to docs/changes on landing; tally for HEALTH)
 
 - shift 2, 2026-09-16: nothing built; the shift ended on the plan cap before rung 1.
