@@ -1000,6 +1000,25 @@ namespace Robogame.Gameplay
         // instance their sliders are driving. A bounding cube (not a shape
         // match) is enough to answer "which one"; parented to the block so it
         // tracks any reparent (rotor-adopted foils) and dies with the block.
+        // Build a highlight shell: a cube primitive with its collider
+        // stripped, the given material assigned, and shadows disabled.
+        // Shared by the bound-instance highlight and the tune-mode hover
+        // highlight (F-050).
+        private static GameObject MakeHighlightShell(Material material)
+        {
+            GameObject shell = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Collider col = shell.GetComponent<Collider>();
+            if (col != null) Destroy(col);
+            var mr = shell.GetComponent<MeshRenderer>();
+            if (mr != null)
+            {
+                mr.sharedMaterial = material;
+                mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                mr.receiveShadows = false;
+            }
+            return shell;
+        }
+
         private void HighlightInstance(BlockBehaviour block)
         {
             if (_instanceHighlight != null) { Destroy(_instanceHighlight); _instanceHighlight = null; }
@@ -1008,17 +1027,8 @@ namespace Robogame.Gameplay
             if (s_highlightMat == null)
                 s_highlightMat = Robogame.Core.RuntimeMaterials.UnlitTransparent(new Color(1f, 0.62f, 0.10f, 0.22f));
 
-            _instanceHighlight = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            _instanceHighlight = MakeHighlightShell(s_highlightMat);
             _instanceHighlight.name = "InstanceEditHighlight";
-            Collider col = _instanceHighlight.GetComponent<Collider>();
-            if (col != null) Destroy(col);
-            var mr = _instanceHighlight.GetComponent<MeshRenderer>();
-            if (mr != null)
-            {
-                mr.sharedMaterial = s_highlightMat;
-                mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                mr.receiveShadows = false;
-            }
             FitShellToBlock(_instanceHighlight, block);
         }
 
@@ -1099,17 +1109,8 @@ namespace Robogame.Gameplay
                 _hoverMat = Robogame.Core.RuntimeMaterials.UnlitTransparent(s_hoverBase);
             if (_hoverHighlight == null)
             {
-                _hoverHighlight = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                _hoverHighlight = MakeHighlightShell(_hoverMat);
                 _hoverHighlight.name = "TuneHoverHighlight";
-                Collider col = _hoverHighlight.GetComponent<Collider>();
-                if (col != null) Destroy(col);
-                var mr = _hoverHighlight.GetComponent<MeshRenderer>();
-                if (mr != null)
-                {
-                    mr.sharedMaterial = _hoverMat;
-                    mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                    mr.receiveShadows = false;
-                }
             }
             FitShellToBlock(_hoverHighlight, target);
             _hoverHighlight.SetActive(true);
