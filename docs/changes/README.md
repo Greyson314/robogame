@@ -86,6 +86,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 197 | [The first Windows player build from the CLI: PlayerBuild.cs + build-player.sh, and what it measured](197-player-build.md) |
 | 196 | [ArenaDevDummies: the Stress.* dev-dummy lifecycle leaves ArenaController](196-arena-dev-dummies.md) |
 | 195 | [Three construction de-duplications: MakeHighlightShell, BuildRowShell, StyleButton](195-construction-dedupe.md) |
 | 194 | [Doc drift from the red teams: SurfaceNets dim=34, the ASCII legend derived from the glyph map, index rows 101-104 and 108-122](194-red-team-drift.md) |
