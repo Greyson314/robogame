@@ -461,11 +461,13 @@ namespace Robogame.Gameplay
                 GameObject go = BuildRowShell($"Row_{shown}", rowH, shown, out Image bg);
                 var btn = go.AddComponent<Button>();
                 btn.targetGraphic = bg;
+                Color normalColor = selected ? LabKit.IndigoWash(0.32f) : Color.clear;
+                StyleButton(btn, normalColor, selected ? LabKit.IndigoWash(0.38f) : LabKit.IndigoWash(0.18f), LabKit.IndigoWash(0.32f));
+                // selectedColor has no independent value at this call site
+                // (it mirrors normalColor) -- not part of the shared shape,
+                // so it stays a direct assignment here (F-054).
                 ColorBlock cols = btn.colors;
-                cols.normalColor = selected ? LabKit.IndigoWash(0.32f) : Color.clear;
-                cols.highlightedColor = selected ? LabKit.IndigoWash(0.38f) : LabKit.IndigoWash(0.18f);
-                cols.pressedColor = LabKit.IndigoWash(0.32f);
-                cols.selectedColor = cols.normalColor;
+                cols.selectedColor = normalColor;
                 btn.colors = cols;
                 Concoction captured = c;
                 btn.onClick.AddListener(() => { LoadIntoEditor(captured); RefreshList(); });
@@ -523,11 +525,7 @@ namespace Robogame.Gameplay
             GameObject go = BuildRowShell("Row_New", rowH, shown, out Image bg);
             var btn = go.AddComponent<Button>();
             btn.targetGraphic = bg;
-            ColorBlock cols = btn.colors;
-            cols.normalColor = Color.clear;
-            cols.highlightedColor = LabKit.IndigoWash(0.18f);
-            cols.pressedColor = LabKit.IndigoWash(0.32f);
-            btn.colors = cols;
+            StyleButton(btn, Color.clear, LabKit.IndigoWash(0.18f), LabKit.IndigoWash(0.32f));
             btn.onClick.AddListener(() => { NewConcoction(); RefreshList(); });
 
             // Plus glyph: two 2px bone bars.
@@ -742,11 +740,7 @@ namespace Robogame.Gameplay
             cBorder.type = Image.Type.Sliced;
             var cBtn = close.AddComponent<Button>();
             cBtn.targetGraphic = cBorder;
-            ColorBlock cc = cBtn.colors;
-            cc.normalColor = LabKit.Bone(0.35f);
-            cc.highlightedColor = LabKit.Accent;
-            cc.pressedColor = LabKit.AccentGlow;
-            cBtn.colors = cc;
+            StyleButton(cBtn, LabKit.Bone(0.35f), LabKit.Accent, LabKit.AccentGlow);
             cBtn.onClick.AddListener(() => SetOpen(false));
             AddText(close.transform, "Close", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.one,
                 15, FontStyle.Normal, TextAnchor.MiddleCenter, LabKit.Bone());
@@ -1009,11 +1003,7 @@ namespace Robogame.Gameplay
             Stretch(saveImg.rectTransform);
             var saveBtn = save.AddComponent<Button>();
             saveBtn.targetGraphic = saveImg;
-            ColorBlock sc = saveBtn.colors;
-            sc.normalColor = LabKit.Bone();
-            sc.highlightedColor = Color.white;
-            sc.pressedColor = LabKit.Bone(0.82f);
-            saveBtn.colors = sc;
+            StyleButton(saveBtn, LabKit.Bone(), Color.white, LabKit.Bone(0.82f));
             saveBtn.onClick.AddListener(Save);
             AddText(save.transform, "Save", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.one,
                 17, FontStyle.Normal, TextAnchor.MiddleCenter, UguiPalette.Ink);
@@ -1188,6 +1178,18 @@ namespace Robogame.Gameplay
 
         private static GameObject NewChild(string name, Transform parent)
             => Robogame.Core.UguiKit.NewChild(name, parent);
+
+        // Set a Button's normal/hover/pressed tint. selectedColor and
+        // disabledColor are left at the Button's own defaults -- none of
+        // the four call sites that share this shape touch them (F-054).
+        private static void StyleButton(Button button, Color normal, Color hover, Color pressed)
+        {
+            ColorBlock cols = button.colors;
+            cols.normalColor = normal;
+            cols.highlightedColor = hover;
+            cols.pressedColor = pressed;
+            button.colors = cols;
+        }
 
         private static Image AddImage(Transform parent, Sprite sprite, Color color, bool raycast)
         {

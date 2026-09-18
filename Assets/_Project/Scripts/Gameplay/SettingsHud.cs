@@ -424,25 +424,7 @@ namespace Robogame.Gameplay
 
         private void AddActionRow(string label, string buttonLabel, System.Action onClick)
         {
-            var rowGO = NewChild($"Action_{label}", _content.transform);
-            var le = rowGO.AddComponent<LayoutElement>();
-            le.preferredHeight = 44f;
-            rowGO.AddComponent<Image>().color = new Color(UguiPalette.Ink.r, UguiPalette.Ink.g, UguiPalette.Ink.b, 0.04f);
-
-            var labelGO = NewChild("Label", rowGO.transform);
-            var labelRT = labelGO.GetComponent<RectTransform>();
-            labelRT.anchorMin = new Vector2(0f, 0f);
-            labelRT.anchorMax = new Vector2(0f, 1f);
-            labelRT.pivot = new Vector2(0f, 0.5f);
-            labelRT.sizeDelta = new Vector2(360f, 0f);
-            labelRT.anchoredPosition = new Vector2(12f, 0f);
-            var labelText = labelGO.AddComponent<Text>();
-            labelText.text = label;
-            labelText.font = UIFont;
-            labelText.fontSize = 18;
-            labelText.color = s_textColor;
-            labelText.alignment = TextAnchor.MiddleLeft;
-            labelText.verticalOverflow = VerticalWrapMode.Overflow;
+            var (rowGO, _) = BuildRowShell(_content.transform, $"Action_{label}", label, 360f);
 
             var btn = AddButton(rowGO.transform, buttonLabel, new Vector2(-12f, 0f), new Vector2(180f, 32f),
                 anchor: new Vector2(1f, 0.5f), pivot: new Vector2(1f, 0.5f));
@@ -480,25 +462,7 @@ namespace Robogame.Gameplay
         // present, "DISABLED" = bisected out) and flips it on click.
         private void AddBisectToggleRow(string label, System.Func<bool> isOff, System.Action<bool> setOff)
         {
-            var rowGO = NewChild($"Bisect_{label}", _content.transform);
-            var le = rowGO.AddComponent<LayoutElement>();
-            le.preferredHeight = 44f;
-            rowGO.AddComponent<Image>().color = new Color(UguiPalette.Ink.r, UguiPalette.Ink.g, UguiPalette.Ink.b, 0.04f);
-
-            var labelGO = NewChild("Label", rowGO.transform);
-            var labelRT = labelGO.GetComponent<RectTransform>();
-            labelRT.anchorMin = new Vector2(0f, 0f);
-            labelRT.anchorMax = new Vector2(0f, 1f);
-            labelRT.pivot = new Vector2(0f, 0.5f);
-            labelRT.sizeDelta = new Vector2(420f, 0f);
-            labelRT.anchoredPosition = new Vector2(12f, 0f);
-            var labelText = labelGO.AddComponent<Text>();
-            labelText.text = label;
-            labelText.font = UIFont;
-            labelText.fontSize = 18;
-            labelText.color = s_textColor;
-            labelText.alignment = TextAnchor.MiddleLeft;
-            labelText.verticalOverflow = VerticalWrapMode.Overflow;
+            var (rowGO, _) = BuildRowShell(_content.transform, $"Bisect_{label}", label, 420f);
 
             var btn = AddButton(rowGO.transform, "", new Vector2(-12f, 0f), new Vector2(180f, 32f),
                 anchor: new Vector2(1f, 0.5f), pivot: new Vector2(1f, 0.5f));
@@ -660,25 +624,7 @@ namespace Robogame.Gameplay
 
         private RowEntry AddSliderRow(Tweakables.Spec spec)
         {
-            var rowGO = NewChild($"Row_{spec.Key}", _content.transform);
-            var le = rowGO.AddComponent<LayoutElement>();
-            le.preferredHeight = 44f;
-            rowGO.AddComponent<Image>().color = new Color(UguiPalette.Ink.r, UguiPalette.Ink.g, UguiPalette.Ink.b, 0.04f);
-
-            var labelGO = NewChild("Label", rowGO.transform);
-            var labelRT = labelGO.GetComponent<RectTransform>();
-            labelRT.anchorMin = new Vector2(0f, 0f);
-            labelRT.anchorMax = new Vector2(0f, 1f);
-            labelRT.pivot = new Vector2(0f, 0.5f);
-            labelRT.sizeDelta = new Vector2(220f, 0f);
-            labelRT.anchoredPosition = new Vector2(12f, 0f);
-            var labelText = labelGO.AddComponent<Text>();
-            labelText.text = spec.Label;
-            labelText.font = UIFont;
-            labelText.fontSize = 18;
-            labelText.color = s_textColor;
-            labelText.alignment = TextAnchor.MiddleLeft;
-            labelText.verticalOverflow = VerticalWrapMode.Overflow;
+            var (rowGO, _) = BuildRowShell(_content.transform, $"Row_{spec.Key}", spec.Label, 220f);
 
             var sliderGO = NewChild("Slider", rowGO.transform);
             var sliderRT = sliderGO.GetComponent<RectTransform>();
@@ -725,26 +671,7 @@ namespace Robogame.Gameplay
 
         private RowEntry AddBoolRow(Tweakables.Spec spec)
         {
-            var rowGO = NewChild($"Row_{spec.Key}", _content.transform);
-            var le = rowGO.AddComponent<LayoutElement>();
-            le.preferredHeight = 44f;
-            rowGO.AddComponent<Image>().color = new Color(UguiPalette.Ink.r, UguiPalette.Ink.g, UguiPalette.Ink.b, 0.04f);
-
-            // Label on the left.
-            var labelGO = NewChild("Label", rowGO.transform);
-            var labelRT = labelGO.GetComponent<RectTransform>();
-            labelRT.anchorMin = new Vector2(0f, 0f);
-            labelRT.anchorMax = new Vector2(0f, 1f);
-            labelRT.pivot = new Vector2(0f, 0.5f);
-            labelRT.sizeDelta = new Vector2(560f, 0f);
-            labelRT.anchoredPosition = new Vector2(12f, 0f);
-            var labelText = labelGO.AddComponent<Text>();
-            labelText.text = spec.Label;
-            labelText.font = UIFont;
-            labelText.fontSize = 18;
-            labelText.color = s_textColor;
-            labelText.alignment = TextAnchor.MiddleLeft;
-            labelText.verticalOverflow = VerticalWrapMode.Overflow;
+            var (rowGO, _) = BuildRowShell(_content.transform, $"Row_{spec.Key}", spec.Label, 560f);
 
             // Toggle on the right (with reset button further right).
             var toggleGO = NewChild("Toggle", rowGO.transform);
@@ -768,6 +695,37 @@ namespace Robogame.Gameplay
             });
 
             return new RowEntry { Spec = spec, Row = rowGO, Toggle = toggle };
+        }
+
+        // Row shell shared by AddActionRow, AddBisectToggleRow, AddSliderRow
+        // and AddBoolRow: a row GameObject (LayoutElement height 44, tinted
+        // Image background) with a left-aligned label Text child. Callers
+        // add their own control widget onto the returned row afterward.
+        // labelWidth is the one value that differs per call site (each
+        // row label's sizeDelta.x) -- F-051.
+        private static (GameObject row, Text label) BuildRowShell(Transform parent, string name, string label, float labelWidth)
+        {
+            var rowGO = NewChild(name, parent);
+            var le = rowGO.AddComponent<LayoutElement>();
+            le.preferredHeight = 44f;
+            rowGO.AddComponent<Image>().color = new Color(UguiPalette.Ink.r, UguiPalette.Ink.g, UguiPalette.Ink.b, 0.04f);
+
+            var labelGO = NewChild("Label", rowGO.transform);
+            var labelRT = labelGO.GetComponent<RectTransform>();
+            labelRT.anchorMin = new Vector2(0f, 0f);
+            labelRT.anchorMax = new Vector2(0f, 1f);
+            labelRT.pivot = new Vector2(0f, 0.5f);
+            labelRT.sizeDelta = new Vector2(labelWidth, 0f);
+            labelRT.anchoredPosition = new Vector2(12f, 0f);
+            var labelText = labelGO.AddComponent<Text>();
+            labelText.text = label;
+            labelText.font = UIFont;
+            labelText.fontSize = 18;
+            labelText.color = s_textColor;
+            labelText.alignment = TextAnchor.MiddleLeft;
+            labelText.verticalOverflow = VerticalWrapMode.Overflow;
+
+            return (rowGO, labelText);
         }
 
         private static Slider BuildSlider(GameObject host, Tweakables.Spec spec)
