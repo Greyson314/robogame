@@ -86,6 +86,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 196 | [ArenaDevDummies: the Stress.* dev-dummy lifecycle leaves ArenaController](196-arena-dev-dummies.md) |
 | 195 | [Three construction de-duplications: MakeHighlightShell, BuildRowShell, StyleButton](195-construction-dedupe.md) |
 | 194 | [Doc drift from the red teams: SurfaceNets dim=34, the ASCII legend derived from the glyph map, index rows 101-104 and 108-122](194-red-team-drift.md) |
 | 193 | [perf_band.py under .claude/scripts/factory and a focus= field in the perf harness row](193-perf-band-focus.md) |
