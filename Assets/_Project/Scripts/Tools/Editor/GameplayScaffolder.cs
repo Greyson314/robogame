@@ -1086,6 +1086,8 @@ namespace Robogame.Tools.Editor
             GameObject controller = ScaffoldUtils.GetOrCreate("ArenaController");
             ArenaController arena = controller.GetComponent<ArenaController>();
             if (arena == null) arena = controller.AddComponent<ArenaController>();
+            ArenaDevDummies devDummies = controller.GetComponent<ArenaDevDummies>();
+            if (devDummies == null) devDummies = controller.AddComponent<ArenaDevDummies>();
             if (controller.GetComponent<SceneTransitionHud>() == null)
                 controller.AddComponent<SceneTransitionHud>();
 
@@ -1115,13 +1117,17 @@ namespace Robogame.Tools.Editor
                 SerializedProperty posProp = so.FindProperty("_dummyPosition");
                 if (posProp != null) posProp.vector3Value = new Vector3(0f, 0.5f, 18f);
 
-                // Stress tower blueprint — optional, only spawned when
-                // the Tweakable toggle is on. Wire it here so a fresh
+                // Stress tower blueprint — optional, only spawned when the
+                // Tweakable toggle is on. Lives on ArenaDevDummies (CHG-024,
+                // F-047), not ArenaController; wire it here so a fresh
                 // scaffold doesn't require a separate menu trip.
-                SerializedProperty stressProp = so.FindProperty("_stressTowerBlueprint");
+                SerializedObject devDummiesSo = new SerializedObject(devDummies);
+                SerializedProperty stressProp = devDummiesSo.FindProperty("_stressTowerBlueprint");
                 if (stressProp != null) stressProp.objectReferenceValue = stressBpLive;
-                SerializedProperty stressPosProp = so.FindProperty("_stressTowerPosition");
+                SerializedProperty stressPosProp = devDummiesSo.FindProperty("_stressTowerPosition");
                 if (stressPosProp != null) stressPosProp.vector3Value = new Vector3(40f, 0.5f, 18f);
+                devDummiesSo.ApplyModifiedPropertiesWithoutUndo();
+                EditorUtility.SetDirty(devDummies);
 
                 // Arch dummy: hookable target for the new tip blocks
                 // (replaces the dumbbell). Spawn off to the player's
