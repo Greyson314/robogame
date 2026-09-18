@@ -49,12 +49,12 @@
 | 2 | CHG-002 | doc drift from the 2026-09-16 sweep (six edits) | AUTO | D1, D2 | sweep re-run + Traces Validate | S | LANDED 2026-09-17 (docs/changes/175-doc-drift-sweep.md; red team KILL then PASS) |
 | 3 | CHG-001 | provenance records: artgen manifest + unity-mcp package row + three Asset Store rows (D-004) | AUTO | L1, L2 | test (manifest covers every FBX) + provenance re-sweep | S | LANDED 2026-09-17 (docs/changes/177-provenance-records.md) |
 | 4 | CHG-005 | delete the two unused packs (FattyPolyTurretFree + Part2Free, Le Tai's TrueShadow) | ASK, nod given (D-004) | L1 | grep of their GUIDs in Assets/_Project = 0 + suite green | S | LANDED 2026-09-17 (docs/changes/176-delete-unused-packs.md) |
-| 18 | CHG-024 | ArenaDevDummies: the Stress.* dev-dummy lifecycle (stress tower, tank dummy, air dummy) leaves ArenaController; the friendly tank stays (F-047) | AUTO (S1 modularization; runtime file → red team sonnet/medium) | S1 / health | EditMode scene-wiring test (Arena.unity text) + hierarchy dumps + suite | L | SPEC 2026-09-18 |
-| 19 | CHG-025 | doc drift from the red teams: SurfaceNets dim=34 stragglers, ASCII legend derived from the glyph map (+HoverBlade glyph), index rows 101-104/108-122 via `--all` (F-039, F-035, F-044) | AUTO (docs, test-only dump, tooling; red team N/A) | docs current (D13) | EditMode legend test RED on main; Python `--all` test; suite | S | SPEC 2026-09-18 |
-| 20 | CHG-026 | perf_band.py under .claude/scripts/factory + `focus=` field in the [PERF-BASELINE] row (BACKLOG 21) | AUTO (instrument; red team N/A) | D6 bands | Python parser/band tests; a live row with focus=; suite | S | BUILD 2026-09-18 (script written; Garage band run this wake) |
+| 18 | CHG-024 | ArenaDevDummies: the Stress.* dev-dummy lifecycle (stress tower, tank dummy, air dummy) leaves ArenaController; the friendly tank stays (F-047) | AUTO (S1 modularization; runtime file → red team sonnet/medium) | S1 / health | EditMode scene-wiring test (Arena.unity text) + hierarchy dumps + suite | L | LANDED 2026-09-18 (docs/changes/196; ArenaController 1,531 → 1,191; a PlayMode spawn-shape test replaced the live dump, F-057; red team PASS) |
+| 19 | CHG-025 | doc drift from the red teams: SurfaceNets dim=34 stragglers, ASCII legend derived from the glyph map (+HoverBlade glyph), index rows 101-104/108-122 via `--all` (F-039, F-035, F-044) | AUTO (docs, test-only dump, tooling; red team N/A) | docs current (D13) | EditMode legend test RED on main; Python `--all` test; suite | S | LANDED 2026-09-18 (docs/changes/194; the glyph map widened to six missing ids mid-build; 14-case legend test; 19 index rows) |
+| 20 | CHG-026 | perf_band.py under .claude/scripts/factory + `focus=` field in the [PERF-BASELINE] row (BACKLOG 21) | AUTO (instrument; red team N/A) | D6 bands | Python parser/band tests; a live row with focus=; suite | S | LANDED 2026-09-18 (docs/changes/193; Garage settled band on file) |
 | 21 | CHG-004 | bomb-bay doors: audible open and slam (F-008, INV-8) | ASK (a cue a player hears) | INV-8 / C2 / slapstick | wizard-row test + a PlayMode seam test + ONE PLAY question | S | APPROVE-WAIT 2026-09-18 (NEEDS-GREY APPROVE) |
-| 22 | CHG-027 | three construction de-duplications: MakeHighlightShell / BuildRowShell / StyleButton (F-050, F-051, F-054) | AUTO (S1 de-dup; runtime UI files → red team sonnet/medium) | S1 / health | UGUI hierarchy + colour/size dumps identical; suite | M | SPEC 2026-09-18 |
-| 23 | CHG-029 | the first Windows player build from the CLI (PlayerBuild.cs + build-player.sh), size and time recorded (B1, B2) | AUTO (instrument; red team N/A) | LAUNCH-READINESS B1, B2 | a `[PLAYER-BUILD] result=Succeeded` row twice on one sha; scene-list guard test; suite | M | SPEC 2026-09-18 (run at the end of the shift: the build holds the rig) |
+| 22 | CHG-027 | three construction de-duplications: MakeHighlightShell / BuildRowShell / StyleButton (F-050, F-051, F-054) | AUTO (S1 de-dup; runtime UI files → red team sonnet/medium) | S1 / health | UGUI hierarchy + colour/size dumps identical; suite | M | LANDED 2026-09-18 (docs/changes/195; red team PASS; live UGUI dumps not taken, bridge dead; a PlayMode Collider assertion owed) |
+| 23 | CHG-029 | the first Windows player build from the CLI (PlayerBuild.cs + build-player.sh), size and time recorded (B1, B2) | AUTO (instrument; red team N/A) | LAUNCH-READINESS B1, B2 | a `[PLAYER-BUILD] result=Succeeded` row twice on one sha; scene-list guard test; suite | M | BUILD 2026-09-18 (builder on the rig at shift end) |
 
 CHG-009 LANDED 2026-09-17 (docs/changes/189: 23 sites in 16 files as the compiler asks; 46 first-party sites → 3 left on purpose: ChassisInstancedRenderer.cs:135 GetInstanceID→GetEntityId is a key-type change, PerformanceMenu.cs:66-67 UnityStats has no drop-in; red team sonnet/medium PASS). Was: specs pending: CHG-009 first-party compiler warnings (F-024 + F-027; the full census with file, line and text is in `.utmp/factory/sweeps/warnings-census-editor-2026-09-17.txt` from a forced CleanBuildCache recompile in the factory Editor, 2026-09-17T18:32Z: 127 unique sites project-wide, 46 first-party in 19 files: PerfBisect 6, PerformanceHud 6, PerfRenderProbe 6, RotorBlockTests 4, GroundDriveSubsystem 3 (CS0414, F-037), GarageDecor 2, NameplateOverlay 2, ScrapCarriedIndicator 2, VoxelChaserBot 2, NetworkSceneFlow 2, PerformanceMenu 2, DigZoneTests 2, and one each in AudioRouter, MusicConductor, UiTween, ChassisInstancedRenderer, ObjectiveHud, SceneTransitionHud, GameplayScaffolder; by text: FindObjectsByType/FindObjectsSortMode overloads 34, FindFirstObjectByType 5, UnityStats.frameTime/renderTime 2, GetInstanceID 1, unused fields/variables 4. CAVEAT for the spec: `FindFirstObjectByType` → `FindAnyObjectByType` changes which instance is returned when more than one exists; only single-instance types migrate blind, the rest need a read. Acceptance: 0 first-party `warning CS` lines on a forced full recompile (the census procedure, rerunnable), suite green; cost M) · CHG-004 bomb-bay door cue (F-008, ASK: audible + visible; needs a read of the AudioCue / VfxKind enums first) · CHG-006 atomic blueprint and concoction writes (BACKLOG 4; UserBlueprintLibrary.cs:147, ConcoctionLibrary.cs:122, Tweakables.cs:512 write with File.WriteAllText) · CHG-007 enable MatchFlowTests.SpawnBot via a MinimalArena test scene (BACKLOG 2).
 
@@ -231,7 +231,7 @@ Revert: `git revert`; the launcher goes back to Editor-first and the sessions go
 Feel change? no (tooling on the factory machine)
 Owed / follow-ups (not in this change): D-007 on the board (a login-time task that runs the same server start so 8080 is up before Grey opens anything); the Desktop-shift lock never gets a pid, so every later preflight calls it "stale" after 3 minutes — a one-line finding for the sweep, not fixed here.
 
-### CHG-024 ArenaDevDummies: the Stress.* dev-dummy lifecycle leaves ArenaController — status: SPEC (2026-09-18, shift 8)
+### CHG-024 ArenaDevDummies: the Stress.* dev-dummy lifecycle leaves ArenaController — status: LANDED 2026-09-18 (docs/changes/196)
 Class: AUTO (I1: a refactor with zero behaviour change proven by the suite and a hierarchy dump; the moved code is DEV-FACING CONTENT: the stress tower, tank dummy and air dummy exist only behind the `Stress.*` Tweakables, all default off (Tweakables.cs:125-169, :434-437), so nothing a player meets changes; CALIBRATION: the tie goes to landing). Shipped runtime file in Robogame.Gameplay, present in Arena.unity → red team REQUIRED at sonnet/medium (D16b).
 Pillar or readiness item: D8 S1 (modularization; F-047 names ArenaController a god class at 1,531 lines); D2/D7 health.
 Source: F-047 (census sweep 2026-09-17); builds on CHG-022's SpawnDevDummy/DespawnDevDummy helper (docs/changes/191).
@@ -241,7 +241,7 @@ Must not break: INV-1 (the Stress.* Tweakables stay dev toggles; no gameplay out
 Revert: `git revert` of the merge (the scene YAML reverts with it).
 Feel change? no (dev dummies are dev-facing; nothing on the player's path)
 
-### CHG-025 doc drift from the shift 5–7 red teams: two SurfaceNets stragglers, the ASCII legend derived from the glyph map, the 101–104/108–122 index gap — status: SPEC (2026-09-18, shift 8)
+### CHG-025 doc drift from the shift 5–7 red teams: two SurfaceNets stragglers, the ASCII legend derived from the glyph map, the 101–104/108–122 index gap — status: LANDED 2026-09-18 (docs/changes/194)
 Class: AUTO (I1: doc drift against code, "the changes index" by name, a generated file). Red team N/A under D16b (docs, a debug-dump utility no player path calls: BlueprintAsciiDump is called only from Tests/EditMode/Blueprints, grep 2026-09-18; tooling), the green suite is the gate.
 Pillar or readiness item: docs current (D13); CLAUDE.md § Active work sends every session to docs/changes/README.md.
 Source: F-039, F-035, F-044.
@@ -251,7 +251,7 @@ Must not break: the existing rows' order and text (diff limited to the 19 insert
 Revert: `git revert`.
 Feel change? no
 
-### CHG-026 perf_band.py under .claude/scripts/factory + a `focus=` field in the [PERF-BASELINE] row — status: BUILD (2026-09-18, shift 8; the script is written and ran the Garage band this wake)
+### CHG-026 perf_band.py under .claude/scripts/factory + a `focus=` field in the [PERF-BASELINE] row — status: LANDED 2026-09-18 (docs/changes/193)
 Class: AUTO (I1: tooling, harnesses and instruments). Red team N/A (D16b: an instrument and a test-only row field).
 Pillar or readiness item: D6 (every proxy carries its band) and LOOP-STATE BACKLOG 21 (the Garage settled band; a focus column before the next band).
 Source: shift 7's runner-session script (scratchpad perf_band.py, rows 17:48–17:50 on 2026-09-17); LESSONS 12/13.
@@ -271,7 +271,7 @@ Must not break: INV-3 (audio is client presentation; no gameplay state); INV-6 (
 Revert: `git revert`; the doors go quiet again.
 Feel change? yes (audible) → a PLAY entry after landing.
 
-### CHG-027 three construction de-duplications: MakeHighlightShell (BlockEditor), BuildRowShell (SettingsHud), StyleButton (LabController) — status: SPEC (2026-09-18, shift 8)
+### CHG-027 three construction de-duplications: MakeHighlightShell (BlockEditor), BuildRowShell (SettingsHud), StyleButton (LabController) — status: LANDED 2026-09-18 (docs/changes/195)
 Class: AUTO (I1: a refactor with zero behaviour change proven by the suite; D8 S1 de-duplication). Three shipped runtime files in Robogame.Gameplay that a player runs (build mode, the settings panel, the Lab) → red team REQUIRED at sonnet/medium (D16b), one pass for the bundle.
 Pillar or readiness item: D8 S1; D2 health (three of the four largest classes).
 Source: F-050, F-051, F-054 (census sweep #2, 2026-09-18, .utmp/factory/sweeps/best-practices-census2-2026-09-18.md).
@@ -281,7 +281,7 @@ Must not break: INV-6 (the helpers run at construction time only; no per-frame p
 Revert: `git revert`.
 Feel change? no (pixel-identical UI by construction; the dumps prove the hierarchy, not the pixels: if any colour or size parameter is normalised across rows, that is a visible change and stops the bundle)
 
-### CHG-029 the first Windows player build from the CLI, with its size and time recorded — status: SPEC (2026-09-18, shift 8)
+### CHG-029 the first Windows player build from the CLI, with its size and time recorded — status: BUILD (2026-09-18, shift 8, builder on the rig)
 Class: AUTO (I1: tooling, harnesses and instruments; a readiness item provable without Grey). Red team N/A (D16b: an Editor-only build script; the build artefact is not committed).
 Pillar or readiness item: LAUNCH-READINESS B1 ("A Windows player build succeeds from the CLI or manage_build, reproducibly", unknown since seed) and B2 (size + load time with a band); every later B row (B3 first run, B4 options, B5 flows, ST4) needs a build to exist. THE throughput number is readiness items moved (D16c).
 Source: LAUNCH-READINESS B1/B2; D14 rung 6.
@@ -309,3 +309,5 @@ Feel change? no
 - shift 5, 2026-09-17: CHG-015 landed (docs/changes/180-rig-strips-mcp.md); CHG-012 landed (docs/changes/181-surfacenets-gate.md); CHG-014 landed (docs/changes/182-traces-index.md); CHG-013 built, red team KILL on class → APPROVE-WAIT.
 - between shifts, 2026-09-17: CHG-013 approved and landed by Grey's runner session (docs/changes/183-hovertank-preset.md).
 - shift 6, 2026-09-17: CHG-019 landed (docs/changes/184-traces-scan.md); CHG-017 landed (docs/changes/185-changes-index.md); CHG-020 landed (docs/changes/186-server-first-bridge.md, built by the peer session); land.py learned the red-team N/A record (f03913c9).
+- shift 7, 2026-09-17: CHG-021 (187), CHG-016 (188), CHG-009 (189), CHG-023 (190), CHG-022 (191), CHG-018 (192) landed.
+- shift 8, 2026-09-18: CHG-026 landed (docs/changes/193-perf-band-focus.md); CHG-025 landed (194-red-team-drift.md); CHG-027 landed (195-construction-dedupe.md); CHG-024 landed (196-arena-dev-dummies.md); CHG-029 built at shift end (see its row); CHG-004 on the board (APPROVE); CHG-028 specced.
