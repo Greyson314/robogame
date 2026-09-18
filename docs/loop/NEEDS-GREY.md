@@ -75,6 +75,7 @@ Time: ≤ 5 min. Answer: `play PT-001: <a|b|c>, <what you saw>`; (b) lands CHG-0
 - 2026-09-18 CHG-031 A PlayMode test proves the build-mode highlight shell drops its Collider — docs/changes/199-highlight-collider-test.md — CHG-031 landed: one new test guards that the build-mode highlight cube never keeps a collider (it would block clicks on the block under it). Test-only.
 - 2026-09-18 CHG-028 One road onto the test rig: run-tests.sh --at <sha>, the rig wait built in; the launcher swaps an Editor-launched MCP server for a hand-started one — docs/changes/200-rig-road.md — CHG-028 landed: the test rig has one entrance now (it always strips the MCP package and waits its turn), so a stray test run can no longer kill the Unity bridge mid-shift as it did in shift 8. Tooling only.
 - 2026-09-18 CHG-032 BlockEditHighlights: the build-mode highlight subsystem leaves BlockEditor — docs/changes/201-block-edit-highlights.md — CHG-032 landed: the build-mode highlight code (the glow on the block you are editing or hovering) moved out of the 1,250-line build-mode class into its own small class; nothing a player meets changed, proven by four new tests and a red team read.
+- 2026-09-18 CHG-033 KeybindsSectionBuilder: the keybinds reference table leaves SettingsHud — docs/changes/202-keybinds-section.md — CHG-033 landed: the settings panel's keybinds list moved into its own small class; every row, label and the search behave the same, proven by a before/after dump that matches byte for byte.
 
 ## ANSWERED (most recent first; verbatim)
 
