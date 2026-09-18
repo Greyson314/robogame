@@ -181,12 +181,46 @@ function Get-HandshakeTrackedServer {
     # server started by hand (this launcher's own uvx invocation, no --pidfile) never creates one. A
     # server carrying this file is the case LESSONS 9 covers (a batch quit can kill it and take the
     # Editor's bridge down); one without it is already the hand-started, un-killable kind (nothing to swap).
+    #
+    # The pidfile alone is not proof: a stale pidfile (server long dead, its pid since reused by an
+    # unrelated process) must never be trusted enough to Stop-Process later. Only call it tracked when
+    # the pidfile's pid is alive AND is (or is a verified uvx/python parent-child of) the process that
+    # actually owns the 8080 listener right now — checked fresh, not cached.
     $pidFile = Join-Path $Root 'Library\MCPForUnity\RunState\mcp_http_8080.pid'
     if (-not (Test-Path $pidFile)) { return [pscustomobject]@{ Tracked = $false } }
     $raw = (Get-Content $pidFile -Raw -ErrorAction SilentlyContinue)
     $serverPid = 0
     if ($raw) { [void][int]::TryParse($raw.Trim(), [ref]$serverPid) }
-    return [pscustomobject]@{ Tracked = $true; PidFile = $pidFile; Pid = $serverPid }
+    if (-not $serverPid -or $serverPid -le 0) {
+        Warn "stale pidfile at $pidFile (unparseable pid); treating the listening server as NOT handshake-tracked"
+        return [pscustomobject]@{ Tracked = $false }
+    }
+    $listener = $null
+    try { $listener = Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction Stop | Select-Object -First 1 } catch {}
+    if (-not $listener) {
+        Warn "stale pidfile at $pidFile (pid $serverPid) but nothing is listening on 8080 right now; treating as NOT handshake-tracked"
+        return [pscustomobject]@{ Tracked = $false }
+    }
+    $owner = $listener.OwningProcess
+    if ($owner -eq $serverPid) {
+        return [pscustomobject]@{ Tracked = $true; PidFile = $pidFile; Pid = $serverPid }
+    }
+    # allow the uvx-launches-python case only when the process tree actually confirms an
+    # ancestor/descendant relationship between the pidfile's pid and the listener's real owner —
+    # never assume it just because the pids differ.
+    $related = $false
+    try {
+        $ownerProc = Get-CimInstance Win32_Process -Filter "ProcessId=$owner" -ErrorAction Stop
+        $pidProc = Get-CimInstance Win32_Process -Filter "ProcessId=$serverPid" -ErrorAction Stop
+        if ($ownerProc -and $pidProc -and (($ownerProc.ParentProcessId -eq $serverPid) -or ($pidProc.ParentProcessId -eq $owner))) {
+            $related = $true
+        }
+    } catch {}
+    if ($related) {
+        return [pscustomobject]@{ Tracked = $true; PidFile = $pidFile; Pid = $owner }
+    }
+    Warn "stale pidfile at $pidFile (pid $serverPid) does not own the 8080 listener (owned by pid $owner, unrelated process tree); treating the listening server as NOT handshake-tracked"
+    return [pscustomobject]@{ Tracked = $false }
 }
 function Show-EditorOnce([int]$editorPid, [int]$seconds) {
     # the package's HTTP auto-start handler runs from EditorApplication.delayCall, which a fresh
@@ -257,7 +291,7 @@ if ($NoEditor) {
                 }
             }
         } else {
-            Ok "MCP server already listening on $McpUrl (no handshake tell: already hand-started, nothing to swap)"
+            Ok "MCP server already listening on $McpUrl (no verified handshake tell: treated as hand-started, nothing to swap)"
         }
     } else {
         $ver = Get-McpServerVersion
