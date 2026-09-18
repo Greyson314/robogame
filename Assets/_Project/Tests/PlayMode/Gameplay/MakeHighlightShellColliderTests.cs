@@ -1,8 +1,9 @@
 // =============================================================================
-// MakeHighlightShellColliderTests — PlayMode (CHG-031, follow-up to CHG-027)
+// MakeHighlightShellColliderTests — PlayMode (CHG-031, follow-up to CHG-027;
+// moved to BlockEditHighlights by CHG-032, F-049)
 //
 // WHY THIS MATTERS
-//   BlockEditor's highlight shells (bound-instance highlight, tune-mode hover
+//   BlockEditHighlights's shells (bound-instance highlight, tune-mode hover
 //   highlight) are parented to a block on the chassis. A shell that kept the
 //   cube primitive's auto-added BoxCollider would sit between the build-mode
 //   raycast and the block under the cursor, and would add a collider to the
@@ -35,9 +36,9 @@ namespace Robogame.Tests.PlayMode.Gameplay
         [UnityTest]
         public IEnumerator MakeHighlightShell_HasNoColliderAfterOneFrame()
         {
-            MethodInfo method = typeof(BlockEditor).GetMethod(
+            MethodInfo method = typeof(BlockEditHighlights).GetMethod(
                 "MakeHighlightShell", BindingFlags.NonPublic | BindingFlags.Static);
-            Assert.IsNotNull(method, "BlockEditor.MakeHighlightShell not found (CHG-027).");
+            Assert.IsNotNull(method, "BlockEditHighlights.MakeHighlightShell not found (CHG-032, F-049).");
 
             _material = Robogame.Core.RuntimeMaterials.UnlitTransparent(new Color(1f, 0.62f, 0.10f, 0.22f));
             _shell = (GameObject)method.Invoke(null, new object[] { _material });

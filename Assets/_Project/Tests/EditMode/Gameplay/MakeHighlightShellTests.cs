@@ -1,10 +1,11 @@
 // =============================================================================
-// MakeHighlightShellTests — EditMode (CHG-027, F-050)
+// MakeHighlightShellTests — EditMode (CHG-027, F-050; moved to
+// BlockEditHighlights by CHG-032, F-049)
 //
 // WHAT THIS COVERS
-//   BlockEditor.MakeHighlightShell(Material) is the de-duplicated shell
-//   builder shared by HighlightInstance (the bound-instance edit highlight)
-//   and DriveHoverHighlight (the tune-mode hover highlight). Both old call
+//   BlockEditHighlights.MakeHighlightShell(Material) is the de-duplicated
+//   shell builder shared by HighlightInstance (the bound-instance edit
+//   highlight) and DriveHover (the tune-mode hover highlight). Both old call
 //   sites built a Cube primitive, assigned the given material as
 //   sharedMaterial, and disabled shadow casting / receiving — this test
 //   locks that shape in, using the exact material construction the old
@@ -47,10 +48,10 @@ namespace Robogame.Tests.EditMode.Gameplay
         [Test]
         public void MakeHighlightShell_BuildsCubeWithMaterialAndShadowsOff()
         {
-            MethodInfo method = typeof(BlockEditor).GetMethod(
+            MethodInfo method = typeof(BlockEditHighlights).GetMethod(
                 "MakeHighlightShell", BindingFlags.NonPublic | BindingFlags.Static);
             Assert.IsNotNull(method,
-                "BlockEditor.MakeHighlightShell not found — has it been extracted from HighlightInstance / DriveHoverHighlight yet (F-050)?");
+                "BlockEditHighlights.MakeHighlightShell not found — has BlockEditHighlights been extracted from BlockEditor yet (CHG-032, F-049)?");
 
             // Same construction the old HighlightInstance call site used
             // (BlockEditor.cs, session 125's instance-edit highlight).
