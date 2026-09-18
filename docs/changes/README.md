@@ -86,6 +86,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 198 | [The PlayMode test assembly stays out of the player: UNITY_INCLUDE_TESTS on its asmdef, and the first successful Windows build](198-tests-out-of-player.md) |
 | 197 | [The first Windows player build from the CLI: PlayerBuild.cs + build-player.sh, and what it measured](197-player-build.md) |
 | 196 | [ArenaDevDummies: the Stress.* dev-dummy lifecycle leaves ArenaController](196-arena-dev-dummies.md) |
 | 195 | [Three construction de-duplications: MakeHighlightShell, BuildRowShell, StyleButton](195-construction-dedupe.md) |
