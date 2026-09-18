@@ -110,4 +110,13 @@ else
     tail -40 "$LOG"
 fi
 
+# F-059 / SPIKES L8: after a player build Unity 6000.4.4f1 crashes in its own
+# batch teardown (PhysicsManager is NULL, exit 21) whether it leaves by -quit
+# or EditorApplication.Exit(0); the report and the artefact are complete by
+# then. The row is the verdict: a Succeeded row with that signature exits 0.
+if [ "$UNITY_EXIT" -ne 0 ] && echo "$ROW" | grep -q 'result=Succeeded'     && grep -q "manager 'PhysicsManager' is NULL" "$LOG"; then
+    echo "       Unity exit=$UNITY_EXIT is the known teardown crash after a Succeeded build (F-059); exiting 0."
+    exit 0
+fi
+
 exit "$UNITY_EXIT"
