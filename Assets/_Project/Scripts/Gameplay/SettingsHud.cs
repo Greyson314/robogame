@@ -47,7 +47,10 @@ namespace Robogame.Gameplay
         // the header rect so we can collapse/expand and apply the search
         // filter. Group expanded-state is held in _groupExpanded; defaults
         // to true (open) so first-time users see all rows.
-        private sealed class RowEntry
+        // internal (not private): KeybindsSectionBuilder (F-052 extraction,
+        // CHG-033) constructs RowEntry/GroupSection instances too — same
+        // assembly, visibility-only change, no behaviour change.
+        internal sealed class RowEntry
         {
             public Tweakables.Spec Spec;
             public GameObject Row;
@@ -55,7 +58,7 @@ namespace Robogame.Gameplay
             public Toggle Toggle;            // bool
             public Text ValueText;           // float
         }
-        private sealed class GroupSection
+        internal sealed class GroupSection
         {
             public string Name;
             public GameObject Header;
@@ -910,86 +913,14 @@ namespace Robogame.Gameplay
         // Keybinds reference panel
         // -----------------------------------------------------------------
 
+        // Extracted to KeybindsSectionBuilder (F-052, CHG-033): a static
+        // reference table with stub Tweakables.Spec entries just to ride
+        // this class's search/foldout pipeline, none of the Tweakable-row-
+        // building responsibility the rest of SettingsHud owns.
         private void BuildKeybindsSection()
         {
-            // Use a foldout group so keybinds nest into the same UI grammar
-            // as Tweakables groups. We mark it collapsed-by-default AFTER
-            // adding rows: ApplyGroupExpansion only walks Rows, so an
-            // empty Rows list at construction time wouldn't hide newly
-            // appended rows.
-            GroupSection g = AddFoldoutGroupHeader("Keybinds");
-
-            AddKeybindRow(g, "Pitch / throttle",         "W / S");
-            AddKeybindRow(g, "Steer / roll",             "A / D");
-            AddKeybindRow(g, "Vertical (jump / climb)",  "Space");
-            AddKeybindRow(g, "Fire primary",             "Mouse 1");
-            AddKeybindRow(g, "Aim down sights",          "Mouse 2 (hold)");
-            AddKeybindRow(g, "Camera zoom (orbit)",      "Mouse wheel");
-            AddKeybindRow(g, "Release grapples",         "R");
-            AddKeybindRow(g, "Respawn player",           "K");
-            AddKeybindRow(g, "Begin combat (warmup → live)", "`  (backtick)");
-            AddKeybindRow(g, "Toggle settings",          "Esc");
-            if (Tweakables.DevSurfacesVisible)
-                AddKeybindRow(g, "Toggle dev HUD",       "F1");
-
-            // Build-mode keys were previously undocumented anywhere in the
-            // game (R = rotate had NO on-screen hint at all) — 169.
-            AddKeybindRow(g, "Build: place / remove",        "Mouse 1 / Mouse 2");
-            AddKeybindRow(g, "Build: rotate before placing", "R");
-            AddKeybindRow(g, "Build: copy block settings",   "Mouse 3");
-            AddKeybindRow(g, "Build: tuning mode (re-tune a placed block)", "T");
-            AddKeybindRow(g, "Build: move mode (pick up + re-place)",       "V");
-            AddKeybindRow(g, "Build: mirror mode / mirror axis", "M / B");
-            AddKeybindRow(g, "Build: centers overlay (mass / lift / thrust)", "G");
-            AddKeybindRow(g, "Build: hotbar slots / category", "1–9, Q / E");
-
-            g.Expanded = false;
-            ApplyGroupExpansion(g);
-        }
-
-        private void AddKeybindRow(GroupSection g, string action, string keys)
-        {
-            var rowGO = NewChild($"Key_{action}", _content.transform);
-            var le = rowGO.AddComponent<LayoutElement>();
-            le.preferredHeight = 32f;
-            rowGO.AddComponent<Image>().color = new Color(UguiPalette.Ink.r, UguiPalette.Ink.g, UguiPalette.Ink.b, 0.025f);
-
-            var actionGO = NewChild("Action", rowGO.transform);
-            var actionRT = actionGO.GetComponent<RectTransform>();
-            actionRT.anchorMin = new Vector2(0f, 0f);
-            actionRT.anchorMax = new Vector2(0.6f, 1f);
-            actionRT.offsetMin = new Vector2(20f, 0f);
-            actionRT.offsetMax = new Vector2(-8f, 0f);
-            var actionText = actionGO.AddComponent<Text>();
-            actionText.text = action;
-            actionText.font = UIFont;
-            actionText.fontSize = 16;
-            actionText.color = s_textColor;
-            actionText.alignment = TextAnchor.MiddleLeft;
-            actionText.verticalOverflow = VerticalWrapMode.Overflow;
-
-            var keyGO = NewChild("Keys", rowGO.transform);
-            var keyRT = keyGO.GetComponent<RectTransform>();
-            keyRT.anchorMin = new Vector2(0.6f, 0f);
-            keyRT.anchorMax = new Vector2(1f, 1f);
-            keyRT.offsetMin = new Vector2(8f, 0f);
-            keyRT.offsetMax = new Vector2(-12f, 0f);
-            var keyText = keyGO.AddComponent<Text>();
-            keyText.text = keys;
-            keyText.font = UIFont;
-            keyText.fontSize = 16;
-            keyText.fontStyle = FontStyle.Bold;
-            keyText.color = s_groupColor;
-            keyText.alignment = TextAnchor.MiddleRight;
-            keyText.verticalOverflow = VerticalWrapMode.Overflow;
-
-            // Stub spec so the row shares the visibility / search pipeline
-            // even though there's nothing to tweak. Keys field carries the
-            // bound shortcut so the search filter matches it.
-            var stubSpec = new Tweakables.Spec("__keybind__" + action, "Keybinds", action + " — " + keys, 0f, 0f, 1f, Tweakables.SpecKind.Bool);
-            var entry = new RowEntry { Spec = stubSpec, Row = rowGO };
-            g.Rows.Add(entry);
-            _allRows.Add(entry);
+            KeybindsSectionBuilder.Build(_content.transform, UIFont, s_textColor, s_groupColor,
+                Tweakables.DevSurfacesVisible, AddFoldoutGroupHeader, ApplyGroupExpansion, _allRows);
         }
 
         // -----------------------------------------------------------------
