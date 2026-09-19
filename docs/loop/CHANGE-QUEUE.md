@@ -342,6 +342,36 @@ Must not break: the Tweakable rows and search/foldout pipeline (INV-1 untouched:
 Revert: `git revert`.
 Feel change? no
 
+### CHG-034 `-factory-mute`: a command-line flag silences every first-party audio path, so a headless player run is quiet — status: SPEC (shift 10)
+Class: AUTO (I1: an instrument flag no player passes; zero behaviour change without it; tie → landing). Red team REQUIRED (D16b: shipped runtime code), sonnet/medium.
+Pillar or readiness item: LAUNCH-READINESS B3 (the first-run log) and B2's load time, both blocked on a quiet headless run; PT-001's complaint.
+Source: F-062 (pointer only).
+Change: a new `Robogame.Core.CommandLineMute` (static, lazy: `Active` parses `Environment.GetCommandLineArgs()` once for `-factory-mute`, case-insensitive; `Parse(string[])` is the testable seam; SubsystemRegistration reset). The three places that read `Tweakables.GetBool(Tweakables.AudioMute)` (MusicConductor.ApplyVolume, GarageMusic, AudioRouter) OR it in. Tweakables itself is NOT touched: the flag never persists into the player's tweakables.json. Lazy read = no ordering question against the first FMOD event (F-062's spike is answered by construction). The builder censuses every other audio output path (AudioSource.Play/PlayOneShot/PlayClipAtPoint outside AudioRouter, MidiPlayer, FMOD) and reports which honour the mute; a path that does not is folded in only if it is one line, else a finding.
+Acceptance: TEST FIRST: EditMode `CommandLineMuteTests` (flag present / absent / other case / substring-not-a-match) compile-red then green; a PlayMode test that, with the override forced through an internal test seam, MusicConductor/AudioRouter resolve volume 0 (and non-zero with it off); suite green at the branch sha via `run-tests.sh --at`. After landing, the foreground's B3 run (`Robogame.exe -batchmode -nographics -factory-mute -logFile …`, 30 s) is the live proof.
+Must not break: INV-1 (the flag is not a Tweakable and touches no gameplay), INV-6 (no per-frame allocation or per-frame args parse: the parse is cached), the Audio.Mute setting's own behaviour, the statics-survive-domain-reload rule.
+Revert: `git revert`.
+Feel change? no
+
+### CHG-006 atomic save writes: blueprints, concoctions and tweakables go through `.tmp` + `File.Replace` — status: SPEC (shift 10)
+Class: AUTO (I1: robustness with no format change and nothing a player meets; tie → landing). Red team REQUIRED (D16b: shipped runtime code that writes the player's saves), sonnet/medium.
+Pillar or readiness item: LAUNCH-READINESS T4 (the atomic-writes half); best-practices § 11.3 ("data the player would cry over losing").
+Source: BACKLOG 4 (UserBlueprintLibrary.cs:147, ConcoctionLibrary.cs:122, Tweakables.cs:512).
+Change: one helper `Robogame.Core.AtomicFile.WriteAllText(path, text, encoding)`: write `path + ".tmp"`, then `File.Replace(tmp, path, path + ".bak")` when `path` exists, else `File.Move(tmp, path)`; on any exception the `.tmp` is removed best-effort and the exception rethrown, so the callers' existing error handling is unchanged. The three sites call it. No format, path or file-name change; a `.bak` sibling appears beside an overwritten file (§ 11.3's pattern; library enumeration must be shown to ignore `.bak`/`.tmp`). best-practices § 11.3 and its open-items line stop saying "we don't do this yet". Out of scope: deleting a `.bak` when its blueprint is deleted; format versioning (the rest of T4).
+Acceptance: TEST FIRST: EditMode `AtomicFileTests` in a temp dir (new file → content right, no `.tmp`; overwrite → new content, `.bak` holds the previous, no `.tmp`; a Replace that must fail because the destination is held open with FileShare.None → the original content survives and the exception surfaces) compile-red then green on the Unity Mono runtime; one test per library that a save round-trips and the listing does not grow a phantom entry from `.bak`; suite green at the branch sha.
+Must not break: blueprint and concoction load/list/delete; Tweakables.Save being called on every Set (no new per-frame cost: INV-6 is about frames, Save is event-driven, but the helper must not add a second full serialization); the save format (I1 NOD list: untouched).
+Revert: `git revert`; `.bak` files left on disk are inert.
+Feel change? no
+
+### CHG-035 LabCanvasBuilder: the Lab's one-shot UGUI scene construction leaves LabController — status: SPEC (shift 10)
+Class: AUTO (I1: a refactor with zero behaviour change proven by the suite; D8 S1 modularization) IF the before/after screenshots over the bridge match; any moved pixel makes it ASK. Red team REQUIRED (D16b), sonnet/medium.
+Pillar or readiness item: "Recreational-but-aspires-Steam" via S1; LabController.cs is 1,207 lines, about 600 of them layout scaffolding.
+Source: F-053 (pointer only).
+Change: move the one-shot decorative and widget construction (BuildGround … BuildVial, per F-053's list, and only what they alone use) into a plain `LabCanvasBuilder` in the same folder and assembly that builds under `_root` and hands back the wired widget references; LabController keeps the Concoction editor logic and the Update animation. Every string, colour, size, anchor, sibling order and callback carries over unchanged; CHG-027's StyleButton moves with its only callers or stays, whichever leaves one copy.
+Acceptance: TEST FIRST: a PlayMode pinning test that builds the Lab canvas and dumps the full UGUI hierarchy under `_root` (names, order, RectTransform anchors/sizes, Image/Text colours and strings, Button/Slider wiring counts), green on main, byte-identical after; suite green at the branch sha; the foreground's before/after Game-view screenshots of the Lab over the bridge match.
+Must not break: Concoction editing (save, load, rename, sliders), INV-1, INV-6 (the Update animation must not start allocating), the statics rule.
+Revert: `git revert`.
+Feel change? no
+
 ## BUILT THIS SHIFT (moved to docs/changes on landing; tally for HEALTH)
 
 - shift 2, 2026-09-16: nothing built; the shift ended on the plan cap before rung 1.
