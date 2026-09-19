@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Robogame.Core;
 using UnityEngine;
 
 namespace Robogame.Block
@@ -144,7 +145,7 @@ namespace Robogame.Block
 
             string fullPath = Path.Combine(DirectoryPath, finalName);
             string json = BlueprintSerializer.ToJson(blueprint, prettyPrint: true);
-            File.WriteAllText(fullPath, json, Encoding.UTF8);
+            AtomicFile.WriteAllText(fullPath, json, Encoding.UTF8);
             Changed?.Invoke();
             return finalName;
         }

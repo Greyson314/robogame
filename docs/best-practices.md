@@ -526,16 +526,28 @@ many platforms). User saves go to `persistentDataPath/blueprints/`.
 
 ### 11.3 Atomic writes
 
-For data the player would cry over losing (their robot collection):
+For data the player would cry over losing (their robot collection),
+go through `Robogame.Core.AtomicFile.WriteAllText(path, text, encoding)`
+instead of a bare `File.WriteAllText`:
 
 ```csharp
-File.WriteAllText(path + ".tmp", json);
-File.Replace(path + ".tmp", path, path + ".bak");
+// AtomicFile.WriteAllText, in full:
+File.WriteAllText(path + ".tmp", text, encoding);
+if (File.Exists(path))
+    File.Replace(path + ".tmp", path, path + ".bak");
+else
+    File.Move(path + ".tmp", path);
 ```
 
-Crash mid-write → `.tmp` is garbage but the original survives.
-We don't do this yet — flag it 🔬 for when the library has > 5
-saves typical.
+Crash mid-write → `.tmp` is garbage but the original survives. A
+failed `File.Replace` (e.g. the destination held open by another
+process) leaves the original untouched and rethrows — the `.tmp` is
+removed best-effort either way. `UserBlueprintLibrary.Save`,
+`ConcoctionLibrary.Save` and `Tweakables.Save` all go through it
+(CHG-006); each library's `LoadAll` enumeration already ignores the
+resulting `.bak`/`.tmp` siblings because it globs on the exact save
+extension (`*.robot.json`, `*.concoction.json`), which a `.bak`/`.tmp`
+suffix doesn't match.
 
 ### 11.4 `JsonUtility` vs `Newtonsoft.Json`
 
@@ -772,8 +784,6 @@ For a 16-player MP arena (later target):
 
 Captured here so they don't get lost:
 
-- **Atomic blueprint writes** (§ 11.3): adopt `.tmp` + `File.Replace`
-  pattern when the user blueprint count justifies it.
 - **Editor test asmdef** (§ 14.3): `Robogame.Block.Tests` covering
   the serializer + (eventually) connectivity flood-fill.
 - **Chunk meshing decision** (§ 3.2): defer until SRP-Batcher

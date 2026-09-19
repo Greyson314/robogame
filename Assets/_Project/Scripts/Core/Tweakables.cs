@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using UnityEngine;
 
 namespace Robogame.Core
@@ -490,6 +491,12 @@ namespace Robogame.Core
         private static string SavePath
             => Path.Combine(Application.persistentDataPath, "tweakables.json");
 
+        // File.WriteAllText(path, text) (no encoding arg, the previous call
+        // here) defaults to UTF-8 without a BOM — AtomicFile.WriteAllText
+        // requires an explicit encoding, so this preserves that exact byte
+        // format instead of picking up Encoding.UTF8's BOM.
+        private static readonly Encoding SaveEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+
         [Serializable]
         private sealed class SaveDoc
         {
@@ -509,7 +516,7 @@ namespace Robogame.Core
                     doc.values[i] = kv.Value;
                     i++;
                 }
-                File.WriteAllText(SavePath, JsonUtility.ToJson(doc, true));
+                AtomicFile.WriteAllText(SavePath, JsonUtility.ToJson(doc, true), SaveEncoding);
             }
             catch (Exception e)
             {

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Robogame.Core;
 using UnityEngine;
 
 namespace Robogame.Block
@@ -119,7 +120,7 @@ namespace Robogame.Block
                 : SanitizeFileName(fileName);
 
             string fullPath = Path.Combine(DirectoryPath, finalName);
-            File.WriteAllText(fullPath, ConcoctionSerializer.ToJson(concoction, prettyPrint: true), Encoding.UTF8);
+            AtomicFile.WriteAllText(fullPath, ConcoctionSerializer.ToJson(concoction, prettyPrint: true), Encoding.UTF8);
             Changed?.Invoke();
             return finalName;
         }
