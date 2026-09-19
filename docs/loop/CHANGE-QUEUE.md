@@ -372,6 +372,16 @@ Must not break: Concoction editing (save, load, rename, sliders), INV-1, INV-6 (
 Revert: `git revert`.
 Feel change? no
 
+### CHG-036 no test run writes the real tweakables.json: `Tweakables.PersistenceSuspended` + one SetUpFixture per test assembly — status: SPEC (shift 10)
+Class: AUTO (I1: a failing-by-design test hazard fixed, tooling seam; nothing a player meets). Red team REQUIRED (D16b: five lines of shipped runtime code in Tweakables.Save), sonnet/medium.
+Pillar or readiness item: D2 (the suite must not alter the machine it runs on); LAUNCH-READINESS T4's neighbourhood (saves).
+Source: F-063 (pointer only); CHG-034's red-team note (its PlayMode test writes Audio.Mute).
+Change: `public static bool PersistenceSuspended { get; set; }` on Tweakables; `Save()` returns at once while it is true, so Set / Reset / ResetAll change memory only. A namespace-less `[SetUpFixture]` in each test assembly (EditMode, PlayMode) sets it in OneTimeSetUp and clears it in OneTimeTearDown. No shipped code sets it. Out of scope: a directory seam for the two libraries (no test needs one yet).
+Acceptance: TEST FIRST (compile-red): EditMode `TweakablesPersistenceTests`: the fixture is active (the flag reads true inside a test run: deleting the fixture fails this); a Set under suspension changes `Get` and leaves the real file's bytes and LastWriteTimeUtc untouched (read-only look at the real file; the value is restored). Suite green at the branch sha; after a full `All` run the real file's LastWriteTimeUtc is unchanged (the live proof, recorded in the entry).
+Must not break: INV-1 (no Tweakable gains a gameplay effect), the player's own save-on-Set behaviour (the flag is false in every shipped path), CHG-006's atomic write.
+Revert: `git revert`.
+Feel change? no
+
 ## BUILT THIS SHIFT (moved to docs/changes on landing; tally for HEALTH)
 
 - shift 2, 2026-09-16: nothing built; the shift ended on the plan cap before rung 1.
