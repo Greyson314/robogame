@@ -225,12 +225,24 @@ function Get-HandshakeTrackedServer {
 function Show-EditorOnce([int]$editorPid, [int]$seconds) {
     # the package's HTTP auto-start handler runs from EditorApplication.delayCall, which a fresh
     # unfocused Editor has been observed not to tick (ASSUMPTIONS #12, three observations 2026-09-17)
-    Add-Type -Namespace Factory -Name Win -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int n);' -ErrorAction SilentlyContinue
+    Add-Type -Namespace Factory -Name Win -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int n); [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr h, int id); [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);' -ErrorAction SilentlyContinue
     $until = (Get-Date).AddSeconds($seconds)
     while ((Get-Date) -lt $until) {
         $p = Get-Process -Id $editorPid -ErrorAction SilentlyContinue
         if (-not $p) { return $false }
-        if ($p.MainWindowHandle -ne 0 -and $p.MainWindowTitle -match 'Unity') {
+        # shift 11 (2026-09-19): after an unclean Editor exit Unity opens on a modal "Recovering Scene Backups"
+        # (Yes/No) and sits there forever: the D-005 startup hangs' likely cause. Answer Yes (button id 1):
+        # it COPIES the backups to Assets/_Recovery/ (gitignored); No would discard them.
+        if ($p.MainWindowHandle -ne 0 -and $p.MainWindowTitle -eq 'Recovering Scene Backups') {
+            $yes = [Factory.Win]::GetDlgItem($p.MainWindowHandle, 1)
+            [Factory.Win]::PostMessage($p.MainWindowHandle, 0x0111, [IntPtr]1, $yes) | Out-Null   # WM_COMMAND, IDOK
+            Ok "answered Unity's 'Recovering Scene Backups' dialog with Yes (backups kept under Assets/_Recovery/, gitignored)"
+            Start-Sleep -Seconds 3
+            continue
+        }
+        # the splash window is titled just 'Unity'; a nudge there is wasted (shift 11: the handler stayed
+        # silent until the MAIN window, '<project> - <scene> - ... - Unity 6.x', was foregrounded)
+        if ($p.MainWindowHandle -ne 0 -and $p.MainWindowTitle -match ' - Unity \d') {
             [Factory.Win]::ShowWindow($p.MainWindowHandle, 9) | Out-Null
             [Factory.Win]::SetForegroundWindow($p.MainWindowHandle) | Out-Null
             try { (New-Object -ComObject WScript.Shell).AppActivate($editorPid) | Out-Null } catch {}
