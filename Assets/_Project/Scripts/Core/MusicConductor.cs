@@ -415,7 +415,7 @@ namespace Robogame.Core
         {
             float music = Tweakables.Get(Tweakables.AudioMusic);
             float master = Tweakables.Get(Tweakables.AudioMaster);
-            float mute = Tweakables.GetBool(Tweakables.AudioMute) ? 0f : 1f;
+            float mute = (Tweakables.GetBool(Tweakables.AudioMute) || CommandLineMute.Active) ? 0f : 1f;
             float v = Mathf.Clamp01(_trackVolume * music * master * mute);
             // TRACE[ADR-0007]: FMOD bypasses the Music AudioMixer bus, so the
             // Tweakables chain lands on the channel group instead.

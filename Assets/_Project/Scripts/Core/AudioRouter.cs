@@ -463,7 +463,7 @@ namespace Robogame.Core
             _busSfx    = Tweakables.Get(Tweakables.AudioSfx);
             _busMusic  = Tweakables.Get(Tweakables.AudioMusic);
             _busUi     = Tweakables.Get(Tweakables.AudioUI);
-            _muteGate  = Tweakables.GetBool(Tweakables.AudioMute) ? 0f : 1f;
+            _muteGate  = (Tweakables.GetBool(Tweakables.AudioMute) || CommandLineMute.Active) ? 0f : 1f;
 
             // If a mixer is wired (future), prefer the proper SetFloat
             // path. Otherwise fall through to per-source volume math.

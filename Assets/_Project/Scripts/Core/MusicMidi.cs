@@ -88,7 +88,7 @@ namespace Robogame.Core
 
             float music = Tweakables.Get(Tweakables.AudioMusic);
             float master = Tweakables.Get(Tweakables.AudioMaster);
-            float mute = Tweakables.GetBool(Tweakables.AudioMute) ? 0f : 1f;
+            float mute = (Tweakables.GetBool(Tweakables.AudioMute) || CommandLineMute.Active) ? 0f : 1f;
             player.MPTK_Volume = Mathf.Clamp01(music * master * mute);
 
             long baseDelay = (long)Math.Max(0.0, (slotDsp - AudioSettings.dspTime) * 1000.0);
