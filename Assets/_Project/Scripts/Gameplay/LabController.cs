@@ -77,7 +77,10 @@ namespace Robogame.Gameplay
         private bool _suppress;
 
         // Per-slider visuals for the "active while dragging" accent state.
-        private sealed class SliderVisual
+        // internal (was private): LabCanvasBuilder.BuildSliderRow constructs
+        // these for the switchboard levers it builds (F-053/CHG-035);
+        // visibility-only change, same as CHG-033's RowEntry/GroupSection.
+        internal sealed class SliderVisual
         {
             public Image Fill, Pip;
             public GameObject PipGlow;
@@ -91,7 +94,10 @@ namespace Robogame.Gameplay
         private Image _liquid, _liquidGlowOverlay, _surface, _tubeTint, _vialOuterGlow;
         private RectTransform _liquidRT, _surfaceRT;
         private readonly Image[] _bubbles = new Image[3];
-        private static readonly float[] s_bubbleX = { 0.32f, 0.62f, 0.47f };   // fraction of tube width
+        // internal (was private): LabCanvasBuilder.BuildVial places the
+        // bubbles at these same x-fractions when it builds them (F-053);
+        // Update (staying here) still owns the per-frame rise/fade.
+        internal static readonly float[] s_bubbleX = { 0.32f, 0.62f, 0.47f };   // fraction of tube width
         private static readonly float[] s_bubbleDur = { 2.8f, 3.6f, 2.2f };
         private static readonly float[] s_bubbleOff = { 0f, 0.31f, 0.68f };
         private const float TubeInnerHeight = 198f; // tube 206 minus glass floor
@@ -103,8 +109,11 @@ namespace Robogame.Gameplay
         // (near = bigger, brighter, wider swing). Sines never pop the way a
         // wrap-around conveyor would on an ultrawide screen.
         private readonly Image[] _fog = new Image[3];
-        private static readonly float[] s_fogBaseX = { -700f, 150f, -250f };
-        private static readonly float[] s_fogY = { 120f, -40f, -210f };   // offset from screen centre
+        // internal (was private): LabCanvasBuilder.BuildGround positions the
+        // fog banks at these same starting points when it builds them
+        // (F-053); Update (staying here) still owns the per-frame sine roll.
+        internal static readonly float[] s_fogBaseX = { -700f, 150f, -250f };
+        internal static readonly float[] s_fogY = { 120f, -40f, -210f };   // offset from screen centre
         private static readonly float[] s_fogAmp = { 90f, 150f, 240f };   // lateral swing, px
         private static readonly float[] s_fogRate = { 0.15f, 0.11f, 0.08f }; // rad/s
 
@@ -114,8 +123,10 @@ namespace Robogame.Gameplay
         private Image _selectedSwatch, _selectedSwatchGlow;
         private Text _selectedName;
 
-        private static Font UIFont => InkKit.Display;
-        private static Font AnnoFont => InkKit.Annotation;
+        // internal (was private): LabCanvasBuilder's moved construction
+        // reads the same two fonts (F-053/CHG-035); visibility-only change.
+        internal static Font UIFont => InkKit.Display;
+        internal static Font AnnoFont => InkKit.Annotation;
 
         private void Awake()
         {
@@ -589,7 +600,7 @@ namespace Robogame.Gameplay
             scaler.matchWidthOrHeight = 0.5f;
             _root.AddComponent<GraphicRaycaster>();
 
-            BuildGround();
+            LabCanvasBuilder.BuildGround(_root.transform, _fog);
 
             // The panel: night-workshop wood with brass hardware.
             var panel = NewChild("Panel", _root.transform);
@@ -638,551 +649,57 @@ namespace Robogame.Gameplay
             catchlight.rectTransform.offsetMin = new Vector2(1f, -2f);
             catchlight.rectTransform.offsetMax = new Vector2(-1f, -1f);
 
-            BuildScrews(panel.transform);
-            BuildHeader(panel.transform);
-            BuildJournal(panel.transform);
-            BuildSwitchboard(panel.transform);
-            BuildVial(panel.transform);
-        }
+            LabCanvasBuilder.BuildScrews(panel.transform);
+            LabCanvasBuilder.BuildHeader(panel.transform, () => SetOpen(false));
+            _listContent = LabCanvasBuilder.BuildJournal(panel.transform);
 
-        // Soot ground, chalk drafting grid, corner registration ticks.
-        private void BuildGround()
-        {
-            var ground = NewChild("Ground", _root.transform);
-            Stretch(ground.GetComponent<RectTransform>());
-            var g = ground.AddComponent<Image>();
-            g.sprite = LabKit.Ground;
-            g.color = Color.white;      // eats clicks behind the panel
+            LabCanvasBuilder.SwitchboardResult sw = LabCanvasBuilder.BuildSwitchboard(
+                panel.transform, _sliderVisuals, SetActiveSlider,
+                OnDmgChanged, OnSizeChanged, OnKbChanged, OnSpeedChanged, OnSpreadChanged,
+                OnNameEdited, Save, DeleteCurrent);
+            _dmgSlider = sw.DmgSlider;
+            _sizeSlider = sw.SizeSlider;
+            _kbSlider = sw.KbSlider;
+            _speedSlider = sw.SpeedSlider;
+            _spreadSlider = sw.SpreadSlider;
+            _nameField = sw.NameField;
+            _cpuReadout = sw.CpuReadout;
+            _deleteLabel = sw.DeleteLabel;
+            _deleteStrike = sw.DeleteStrike;
 
-            // Uneven soot blotches (indigo cool / brass warm / pooled black).
-            PlaceBlotch(ground.transform, 0.18f, 0.22f, 500f, 340f, LabKit.IndigoWash(0.07f));
-            PlaceBlotch(ground.transform, 0.84f, 0.84f, 620f, 420f, LabKit.Brass(0.05f));
-            PlaceBlotch(ground.transform, 0.70f, 0.10f, 400f, 300f, LabKit.Shade(0.35f));
-
-            // 2.5D fog banks (no drafting grid / registration marks here —
-            // the night workshop keeps its haze, not the blueprint chrome).
-            // Far → near: smaller/dimmer/cooler back, bigger/brighter front.
-            _fog[0] = BuildFogBank(ground.transform, LabKit.FogA, new Vector2(1500f, 460f),
-                new Vector2(s_fogBaseX[0], s_fogY[0]), LabKit.IndigoWash(0.10f));
-            _fog[1] = BuildFogBank(ground.transform, LabKit.FogB, new Vector2(1900f, 560f),
-                new Vector2(s_fogBaseX[1], s_fogY[1]), LabKit.Bone(0.055f));
-            _fog[2] = BuildFogBank(ground.transform, LabKit.FogA, new Vector2(2400f, 680f),
-                new Vector2(s_fogBaseX[2], s_fogY[2]), LabKit.Bone(0.085f));
-        }
-
-        private static Image BuildFogBank(Transform parent, Sprite sprite, Vector2 size, Vector2 pos, Color tint)
-        {
-            var img = AddImage(parent, sprite, tint, raycast: false);
-            var rt = img.rectTransform;
-            rt.anchorMin = new Vector2(0.5f, 0.5f);
-            rt.anchorMax = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = size;
-            rt.anchoredPosition = pos;
-            return img;
-        }
-
-        private void PlaceBlotch(Transform parent, float ax, float ay, float w, float h, Color color)
-        {
-            var img = AddImage(parent, LabKit.Glow, color, raycast: false);
-            var rt = img.rectTransform;
-            rt.anchorMin = new Vector2(ax, ay); rt.anchorMax = new Vector2(ax, ay);
-            rt.sizeDelta = new Vector2(w, h);
-        }
-
-        // Four brass screw heads, each slot at its own lazy angle.
-        private void BuildScrews(Transform panel)
-        {
-            BuildScrew(panel, 0f, 1f, 40f);
-            BuildScrew(panel, 1f, 1f, -15f);
-            BuildScrew(panel, 0f, 0f, 75f);
-            BuildScrew(panel, 1f, 0f, 10f);
-        }
-
-        private void BuildScrew(Transform panel, float ax, float ay, float slotAngle)
-        {
-            float sx = ax > 0.5f ? -1f : 1f;
-            float sy = ay > 0.5f ? -1f : 1f;
-            var screw = AddImage(panel, LabKit.BrassKnob, Color.white, raycast: false);
-            var rt = screw.rectTransform;
-            rt.anchorMin = new Vector2(ax, ay); rt.anchorMax = new Vector2(ax, ay);
-            rt.pivot = new Vector2(ax, ay);
-            rt.sizeDelta = new Vector2(10f, 10f);
-            rt.anchoredPosition = new Vector2(10f * sx, 10f * sy);
-            var slot = AddImage(screw.transform, null, LabKit.BrassSlot, raycast: false);
-            var sRT = slot.rectTransform;
-            sRT.anchorMin = new Vector2(0.5f, 0.5f); sRT.anchorMax = new Vector2(0.5f, 0.5f);
-            sRT.sizeDelta = new Vector2(8f, 1.5f);
-            sRT.localRotation = Quaternion.Euler(0f, 0f, slotAngle);
-        }
-
-        private void BuildHeader(Transform panel)
-        {
-            AddText(panel, "The Laboratory", new Vector2(36f, -76f), new Vector2(-160f, -26f),
-                new Vector2(0f, 1f), new Vector2(1f, 1f), 34, FontStyle.Normal, TextAnchor.MiddleLeft, LabKit.Bone());
-
-            // Header rule.
-            var rule = AddImage(panel, null, LabKit.Bone(0.18f), raycast: false);
-            var rRT = rule.rectTransform;
-            rRT.anchorMin = new Vector2(0f, 1f); rRT.anchorMax = new Vector2(1f, 1f);
-            rRT.pivot = new Vector2(0.5f, 1f);
-            rRT.offsetMin = new Vector2(36f, -84f);
-            rRT.offsetMax = new Vector2(-36f, -83f);
-
-            // Close: transparent with a hairline bone border; hover → accent.
-            var close = NewChild("Btn_Close", panel);
-            var cRT = close.GetComponent<RectTransform>();
-            cRT.anchorMin = new Vector2(1f, 1f); cRT.anchorMax = new Vector2(1f, 1f);
-            cRT.pivot = new Vector2(1f, 1f);
-            cRT.sizeDelta = new Vector2(88f, 32f);
-            cRT.anchoredPosition = new Vector2(-36f, -38f);
-            var cBorder = close.AddComponent<Image>();
-            cBorder.sprite = LabKit.Border;
-            cBorder.type = Image.Type.Sliced;
-            var cBtn = close.AddComponent<Button>();
-            cBtn.targetGraphic = cBorder;
-            StyleButton(cBtn, LabKit.Bone(0.35f), LabKit.Accent, LabKit.AccentGlow);
-            cBtn.onClick.AddListener(() => SetOpen(false));
-            AddText(close.transform, "Close", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.one,
-                15, FontStyle.Normal, TextAnchor.MiddleCenter, LabKit.Bone());
-        }
-
-        // Left column: the concoctions well — a recessed shelf of saved jars.
-        private void BuildJournal(Transform panel)
-        {
-            AddText(panel, "Concoctions", new Vector2(36f, -128f), new Vector2(276f, -104f),
-                new Vector2(0f, 1f), new Vector2(0f, 1f), 16, FontStyle.Normal, TextAnchor.MiddleLeft, LabKit.Bone());
-
-            var well = NewChild("Well", panel);
-            var wRT = well.GetComponent<RectTransform>();
-            wRT.anchorMin = new Vector2(0f, 0f); wRT.anchorMax = new Vector2(0f, 1f);
-            wRT.pivot = new Vector2(0f, 1f);
-            wRT.offsetMin = new Vector2(36f, 40f);
-            wRT.offsetMax = new Vector2(276f, -136f);
-            var wellBg = well.AddComponent<Image>();
-            wellBg.color = LabKit.Shade(0.34f);
-            var wellBorder = AddImage(well.transform, LabKit.Border, LabKit.Shade(0.55f), raycast: false);
-            Stretch(wellBorder.rectTransform);
-            wellBorder.type = Image.Type.Sliced;
-            // Lighter bottom lip + inset top shade = recessed read.
-            var lip = AddImage(well.transform, null, LabKit.Bone(0.14f), raycast: false);
-            lip.rectTransform.anchorMin = new Vector2(0f, 0f); lip.rectTransform.anchorMax = new Vector2(1f, 0f);
-            lip.rectTransform.sizeDelta = new Vector2(0f, 1f);
-            var inset = AddImage(well.transform, LabKit.FadeV, LabKit.Shade(0.55f), raycast: false);
-            inset.rectTransform.anchorMin = new Vector2(0f, 1f); inset.rectTransform.anchorMax = new Vector2(1f, 1f);
-            inset.rectTransform.pivot = new Vector2(0.5f, 1f);
-            inset.rectTransform.sizeDelta = new Vector2(0f, 12f);
-            // FadeV is opaque-top; flip so the shade hugs the well's top edge.
-            inset.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 180f);
-
-            var viewport = NewChild("ListViewport", well.transform);
-            Stretch(viewport.GetComponent<RectTransform>());
-            viewport.AddComponent<RectMask2D>();
-            _listContent = NewChild("Content", viewport.transform);
-            var crt = _listContent.GetComponent<RectTransform>();
-            crt.anchorMin = new Vector2(0f, 1f); crt.anchorMax = new Vector2(1f, 1f);
-            crt.pivot = new Vector2(0.5f, 1f);
-            crt.anchoredPosition = Vector2.zero;
-            crt.sizeDelta = new Vector2(0f, 1f);
-        }
-
-        // Centre column: the switchboard — raised plate with five levers,
-        // the label field and the Save / Delete actions.
-        private void BuildSwitchboard(Transform panel)
-        {
-            var col = NewChild("Switchboard", panel);
-            var rt = col.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 0f); rt.anchorMax = new Vector2(0f, 1f);
-            rt.pivot = new Vector2(0f, 1f);
-            rt.offsetMin = new Vector2(308f, 26f);
-            rt.offsetMax = new Vector2(772f, -106f);
-
-            // Raised plate: drop shadow, top-lit face, top-lighter border.
-            var plate = NewChild("Plate", col.transform);
-            var pRT = plate.GetComponent<RectTransform>();
-            pRT.anchorMin = new Vector2(0f, 1f); pRT.anchorMax = new Vector2(1f, 1f);
-            pRT.pivot = new Vector2(0.5f, 1f);
-            pRT.sizeDelta = new Vector2(0f, 286f);
-            pRT.anchoredPosition = Vector2.zero;
-            var plateShadow = AddImage(plate.transform, LabKit.Glow, LabKit.Shade(0.6f), raycast: false);
-            Stretch(plateShadow.rectTransform);
-            plateShadow.rectTransform.offsetMin = new Vector2(-34f, -58f);
-            plateShadow.rectTransform.offsetMax = new Vector2(34f, 14f);
-            var plateFace = AddImage(plate.transform, LabKit.Plate, Color.white, raycast: false);
-            Stretch(plateFace.rectTransform);
-            var plateBorder = AddImage(plate.transform, LabKit.Border, LabKit.Bone(0.12f), raycast: false);
-            Stretch(plateBorder.rectTransform);
-            plateBorder.type = Image.Type.Sliced;
-            var plateTopLight = AddImage(plate.transform, null, LabKit.Bone(0.22f), raycast: false);
-            plateTopLight.rectTransform.anchorMin = new Vector2(0f, 1f);
-            plateTopLight.rectTransform.anchorMax = new Vector2(1f, 1f);
-            plateTopLight.rectTransform.pivot = new Vector2(0.5f, 1f);
-            plateTopLight.rectTransform.sizeDelta = new Vector2(0f, 1f);
-
-            _dmgSlider    = BuildSliderRow(plate.transform, "Damage",    0, OnDmgChanged);
-            _sizeSlider   = BuildSliderRow(plate.transform, "Size",      1, OnSizeChanged);
-            _kbSlider     = BuildSliderRow(plate.transform, "Knockback", 2, OnKbChanged);
-            _speedSlider  = BuildSliderRow(plate.transform, "Speed",     3, OnSpeedChanged);
-            _spreadSlider = BuildSliderRow(plate.transform, "Spread",    4, OnSpreadChanged);
-
-            // Sunken name field.
-            _nameField = BuildNameField(col.transform, new Vector2(0f, -306f), new Vector2(300f, 38f));
-            _nameField.onValueChanged.AddListener(OnNameEdited);
-
-            // Multiplier / CPU-surcharge annotation (kept from 141 — the
-            // handoff computes this string and invites surfacing it).
-            _cpuReadout = AddText(col.transform, "", new Vector2(0f, -372f), new Vector2(0f, -352f),
-                new Vector2(0f, 1f), new Vector2(1f, 1f), 11, FontStyle.Italic, TextAnchor.MiddleLeft, LabKit.Bone(0.5f));
-            _cpuReadout.font = AnnoFont;
-
-            BuildActions(col.transform);
-        }
-
-        private Slider BuildSliderRow(Transform plate, string label, int index,
-            UnityEngine.Events.UnityAction<float> onChanged)
-        {
-            var row = NewChild($"Row_{label}", plate);
-            var rt = row.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 1f); rt.anchorMax = new Vector2(1f, 1f);
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.offsetMin = new Vector2(20f, -22f - index * 52f - 34f);
-            rt.offsetMax = new Vector2(-20f, -22f - index * 52f);
-
-            AddText(row.transform, label, new Vector2(0f, 0f), new Vector2(96f, 0f),
-                new Vector2(0f, 0f), new Vector2(0f, 1f), 16, FontStyle.Normal, TextAnchor.MiddleLeft, LabKit.Bone());
-
-            // Readout, right-aligned tabular (annotation face is monospaced).
-            Text readout = AddText(row.transform, "50%", new Vector2(-58f, 0f), new Vector2(0f, 0f),
-                new Vector2(1f, 0f), new Vector2(1f, 1f), 16, FontStyle.Normal, TextAnchor.MiddleRight, LabKit.Bone(0.88f));
-            readout.font = AnnoFont;
-
-            // Track host: full-height hit area between label and readout.
-            var host = NewChild("Slider", row.transform);
-            var hRT = host.GetComponent<RectTransform>();
-            hRT.anchorMin = new Vector2(0f, 0f); hRT.anchorMax = new Vector2(1f, 1f);
-            hRT.offsetMin = new Vector2(112f, 0f);
-            hRT.offsetMax = new Vector2(-74f, 0f);
-            // An invisible full-size graphic so the whole 34px band drags.
-            var hitArea = host.AddComponent<Image>();
-            hitArea.color = Color.clear;
-
-            // Brass ruled bar (with its own dark rim) at the vertical centre.
-            var barRim = AddImage(host.transform, LabKit.Border, LabKit.Shade(0.55f), raycast: false);
-            barRim.type = Image.Type.Sliced;
-            barRim.rectTransform.anchorMin = new Vector2(0f, 0.5f);
-            barRim.rectTransform.anchorMax = new Vector2(1f, 0.5f);
-            barRim.rectTransform.sizeDelta = new Vector2(0f, 6f);
-            var bar = AddImage(host.transform, LabKit.BrassBar, Color.white, raycast: false);
-            bar.rectTransform.anchorMin = new Vector2(0f, 0.5f);
-            bar.rectTransform.anchorMax = new Vector2(1f, 0.5f);
-            bar.rectTransform.sizeDelta = new Vector2(-2f, 4f);
-
-            // Faint ink tick marks every 10%, riding above the bar.
-            var ticks = AddImage(host.transform, LabKit.Ticks, LabKit.Bone(0.35f), raycast: false);
-            ticks.rectTransform.anchorMin = new Vector2(0f, 0.5f);
-            ticks.rectTransform.anchorMax = new Vector2(1f, 0.5f);
-            ticks.rectTransform.sizeDelta = new Vector2(0f, 6f);
-            ticks.rectTransform.anchoredPosition = new Vector2(0f, 9f);
-
-            // Fill strip (slider-driven) over the brass bar.
-            var fillArea = NewChild("Fill Area", host.transform);
-            var faRT = fillArea.GetComponent<RectTransform>();
-            faRT.anchorMin = new Vector2(0f, 0.5f); faRT.anchorMax = new Vector2(1f, 0.5f);
-            faRT.sizeDelta = new Vector2(0f, 4f);
-            var fill = NewChild("Fill", fillArea.transform);
-            var fillRT = fill.GetComponent<RectTransform>();
-            fillRT.anchorMin = Vector2.zero; fillRT.anchorMax = Vector2.one;
-            fillRT.offsetMin = Vector2.zero; fillRT.offsetMax = Vector2.zero;
-            var fillImg = fill.AddComponent<Image>();
-            fillImg.color = LabKit.Bone(0.75f);
-            fillImg.raycastTarget = false;
-
-            // Pip handle with a hidden accent glow for the drag state.
-            // Zero-height slide area: the Slider re-stretches the handle to
-            // the area's full cross-axis every frame, so the only way to a
-            // 9px round pip is a 0px-tall area + the handle's own sizeDelta.
-            var handleArea = NewChild("Handle Slide Area", host.transform);
-            var haRT = handleArea.GetComponent<RectTransform>();
-            haRT.anchorMin = new Vector2(0f, 0.5f); haRT.anchorMax = new Vector2(1f, 0.5f);
-            haRT.offsetMin = new Vector2(5f, 0f); haRT.offsetMax = new Vector2(-5f, 0f);
-            var handle = NewChild("Handle", handleArea.transform);
-            var handleRT = handle.GetComponent<RectTransform>();
-            // Pin to the vertical centre — the Slider only drives the X
-            // anchors, and a stretched Y turns the pip into a lozenge.
-            handleRT.anchorMin = new Vector2(0.5f, 0.5f);
-            handleRT.anchorMax = new Vector2(0.5f, 0.5f);
-            handleRT.sizeDelta = new Vector2(9f, 9f);
-            var pipGlow = AddImage(handle.transform, LabKit.Glow, LabKit.AccentGlow, raycast: false);
-            pipGlow.rectTransform.sizeDelta = new Vector2(26f, 26f);
-            pipGlow.gameObject.SetActive(false);
-            var pip = handle.AddComponent<Image>();
-            pip.sprite = LabKit.Circle;
-            pip.color = LabKit.Bone();
-
-            var slider = host.AddComponent<Slider>();
-            slider.targetGraphic = hitArea;
-            slider.transition = Selectable.Transition.None;
-            slider.fillRect = fillRT;
-            slider.handleRect = handle.GetComponent<RectTransform>();
-            slider.direction = Slider.Direction.LeftToRight;
-            slider.minValue = 0f; slider.maxValue = 1f; slider.value = Concoction.DefaultPct;
-            slider.onValueChanged.AddListener(onChanged);
-
-            _sliderVisuals[slider] = new SliderVisual { Fill = fillImg, Pip = pip, PipGlow = pipGlow.gameObject, Readout = readout };
-
-            // Press-and-hold accent: the dragged lever, its fill and its
-            // readout go galvanic until release.
-            var trigger = host.AddComponent<EventTrigger>();
-            var down = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
-            down.callback.AddListener(_ => SetActiveSlider(slider));
-            trigger.triggers.Add(down);
-            var up = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
-            up.callback.AddListener(_ => SetActiveSlider(null));
-            trigger.triggers.Add(up);
-            return slider;
-        }
-
-        private InputField BuildNameField(Transform parent, Vector2 anchoredPos, Vector2 size)
-        {
-            var go = NewChild("NameField", parent);
-            var rt = go.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 1f); rt.anchorMax = new Vector2(0f, 1f);
-            rt.pivot = new Vector2(0f, 1f);
-            rt.sizeDelta = size;
-            rt.anchoredPosition = anchoredPos;
-            var img = go.AddComponent<Image>();
-            img.color = LabKit.Shade(0.35f);
-            var fBorder = AddImage(go.transform, LabKit.Border, LabKit.Shade(0.55f), raycast: false);
-            Stretch(fBorder.rectTransform);
-            fBorder.type = Image.Type.Sliced;
-            var inset = AddImage(go.transform, LabKit.FadeV, LabKit.Shade(0.45f), raycast: false);
-            inset.rectTransform.anchorMin = new Vector2(0f, 1f);
-            inset.rectTransform.anchorMax = new Vector2(1f, 1f);
-            inset.rectTransform.pivot = new Vector2(0.5f, 1f);
-            inset.rectTransform.sizeDelta = new Vector2(0f, 6f);
-            inset.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 180f);
-
-            var textGo = NewChild("Text", go.transform);
-            Stretch(textGo.GetComponent<RectTransform>(), 12f);
-            var text = textGo.AddComponent<Text>();
-            text.font = UIFont; text.fontSize = 19; text.color = LabKit.Bone();
-            text.alignment = TextAnchor.MiddleLeft; text.supportRichText = false;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
-
-            var placeholderGo = NewChild("Placeholder", go.transform);
-            Stretch(placeholderGo.GetComponent<RectTransform>(), 12f);
-            var placeholder = placeholderGo.AddComponent<Text>();
-            placeholder.font = UIFont; placeholder.fontSize = 19; placeholder.fontStyle = FontStyle.Italic;
-            placeholder.color = LabKit.Bone(0.4f); placeholder.alignment = TextAnchor.MiddleLeft;
-            placeholder.verticalOverflow = VerticalWrapMode.Overflow;
-            placeholder.text = "the mix names itself…";
-
-            var field = go.AddComponent<InputField>();
-            field.targetGraphic = img;
-            field.textComponent = text;
-            field.placeholder = placeholder;
-            field.lineType = InputField.LineType.SingleLine;
-            field.characterLimit = 32;
-            return field;
-        }
-
-        private void BuildActions(Transform col)
-        {
-            // Save: a bone brushstroke blob with ink text — the one light
-            // shape on the dark bench (physical, per the elevation language).
-            var save = NewChild("Btn_Save", col);
-            var sRT = save.GetComponent<RectTransform>();
-            sRT.anchorMin = new Vector2(0f, 1f); sRT.anchorMax = new Vector2(0f, 1f);
-            sRT.pivot = new Vector2(0f, 1f);
-            sRT.sizeDelta = new Vector2(118f, 42f);
-            sRT.anchoredPosition = new Vector2(0f, -388f);
-            var saveShadow = AddImage(save.transform, LabKit.Glow, LabKit.Shade(0.5f), raycast: false);
-            Stretch(saveShadow.rectTransform);
-            saveShadow.rectTransform.offsetMin = new Vector2(-14f, -20f);
-            saveShadow.rectTransform.offsetMax = new Vector2(14f, 6f);
-            var saveImg = AddImage(save.transform, InkKit.BrushBlob, Color.white, raycast: true);
-            Stretch(saveImg.rectTransform);
-            var saveBtn = save.AddComponent<Button>();
-            saveBtn.targetGraphic = saveImg;
-            StyleButton(saveBtn, LabKit.Bone(), Color.white, LabKit.Bone(0.82f));
-            saveBtn.onClick.AddListener(Save);
-            AddText(save.transform, "Save", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.one,
-                17, FontStyle.Normal, TextAnchor.MiddleCenter, UguiPalette.Ink);
-
-            // Delete: text-only, destructive; arming strikes it through in
-            // the rationed vermilion.
-            var del = NewChild("Btn_Delete", col);
-            var dRT = del.GetComponent<RectTransform>();
-            dRT.anchorMin = new Vector2(0f, 1f); dRT.anchorMax = new Vector2(0f, 1f);
-            dRT.pivot = new Vector2(0f, 1f);
-            dRT.sizeDelta = new Vector2(80f, 42f);
-            dRT.anchoredPosition = new Vector2(136f, -388f);
-            // Invisible hit area — the label itself is raycast-off like all
-            // AddText output.
-            var delHit = del.AddComponent<Image>();
-            delHit.color = Color.clear;
-            _deleteLabel = AddText(del.transform, "Delete", Vector2.zero, Vector2.zero, Vector2.zero, Vector2.one,
-                16, FontStyle.Normal, TextAnchor.MiddleCenter, LabKit.Bone(0.6f));
-            var strike = AddImage(del.transform, null, UguiPalette.Vermilion, raycast: false);
-            strike.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
-            strike.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
-            strike.rectTransform.sizeDelta = new Vector2(64f, 2.5f);
-            strike.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -2f);
-            _deleteStrike = strike.gameObject;
-            _deleteStrike.SetActive(false);
-            var delBtn = del.AddComponent<Button>();
-            delBtn.targetGraphic = _deleteLabel;
-            delBtn.transition = Selectable.Transition.None;
-            delBtn.onClick.AddListener(DeleteCurrent);
-        }
-
-        // Right column: the specimen vial — cork, rolled lip, glass tube,
-        // live liquid, bubbles, ground shadow, wax seal, fig. 1 caption.
-        private void BuildVial(Transform panel)
-        {
-            var colCenterX = 804f + 110f; // right column 804..1024
-
-            var vial = NewChild("Vial", panel);
-            _vialRoot = vial.GetComponent<RectTransform>();
-            _vialRoot.anchorMin = new Vector2(0f, 1f); _vialRoot.anchorMax = new Vector2(0f, 1f);
-            _vialRoot.pivot = new Vector2(0.5f, 0.5f);
-            _vialRoot.sizeDelta = new Vector2(70f, 230f);
-            _vialRoot.anchoredPosition = new Vector2(colCenterX, -128f - 115f);
-
-            // Outer glow (liquid-coloured) behind everything.
-            _vialOuterGlow = AddImage(vial.transform, LabKit.Glow, LabKit.Shade(0f), raycast: false);
-            Stretch(_vialOuterGlow.rectTransform);
-            _vialOuterGlow.rectTransform.offsetMin = new Vector2(-45f, -35f);
-            _vialOuterGlow.rectTransform.offsetMax = new Vector2(45f, 15f);
-
-            // Ground shadow ellipse.
-            var shadow = AddImage(vial.transform, LabKit.Glow, LabKit.Shade(0.55f), raycast: false);
-            shadow.rectTransform.anchorMin = new Vector2(0.5f, 0f);
-            shadow.rectTransform.anchorMax = new Vector2(0.5f, 0f);
-            shadow.rectTransform.sizeDelta = new Vector2(64f, 14f);
-            shadow.rectTransform.anchoredPosition = new Vector2(0f, -2f);
-
-            // Tube region: 36 wide, from below the lip to the bottom.
-            var tube = NewChild("Tube", vial.transform);
-            var tRT = tube.GetComponent<RectTransform>();
-            tRT.anchorMin = new Vector2(0.5f, 0f); tRT.anchorMax = new Vector2(0.5f, 1f);
-            tRT.pivot = new Vector2(0.5f, 0f);
-            tRT.sizeDelta = new Vector2(36f, 0f);
-            tRT.offsetMin = new Vector2(-18f, 4f);
-            tRT.offsetMax = new Vector2(18f, -24f);
-
-            // Inner colour tint (the liquid haze inside the glass).
-            _tubeTint = AddImage(tube.transform, LabKit.TubeFill, LabKit.Shade(0f), raycast: false);
-            Stretch(_tubeTint.rectTransform);
-
-            // Masked liquid stack.
-            var maskGo = NewChild("LiquidMask", tube.transform);
-            Stretch(maskGo.GetComponent<RectTransform>());
-            var maskImg = maskGo.AddComponent<Image>();
-            maskImg.sprite = LabKit.TubeFill;
-            maskImg.raycastTarget = false;
-            var mask = maskGo.AddComponent<Mask>();
-            mask.showMaskGraphic = false;
-
-            var liquid = NewChild("Liquid", maskGo.transform);
-            _liquidRT = liquid.GetComponent<RectTransform>();
-            _liquidRT.anchorMin = new Vector2(0f, 0f); _liquidRT.anchorMax = new Vector2(1f, 0f);
-            _liquidRT.pivot = new Vector2(0.5f, 0f);
-            _liquidRT.sizeDelta = new Vector2(0f, 100f);
-            _liquid = liquid.AddComponent<Image>();
-            _liquid.color = Color.gray;
-            _liquid.raycastTarget = false;
-            // Glow-toned top: FadeV is opaque-top, exactly the handoff's
-            // glow→solid vertical gradient when laid over the solid fill.
-            _liquidGlowOverlay = AddImage(liquid.transform, LabKit.FadeV, LabKit.Shade(0f), raycast: false);
-            Stretch(_liquidGlowOverlay.rectTransform);
-
-            // Bright surface ellipse riding the fill line.
-            var surface = NewChild("Surface", maskGo.transform);
-            _surfaceRT = surface.GetComponent<RectTransform>();
-            _surfaceRT.anchorMin = new Vector2(0.5f, 0f); _surfaceRT.anchorMax = new Vector2(0.5f, 0f);
-            _surfaceRT.pivot = new Vector2(0.5f, 0.5f);
-            _surfaceRT.sizeDelta = new Vector2(32f, 8f);
-            _surface = surface.AddComponent<Image>();
-            _surface.sprite = LabKit.Glow;
-            _surface.raycastTarget = false;
-
-            // Bubbles (animated in Update).
-            for (int i = 0; i < _bubbles.Length; i++)
-            {
-                float size = i == 0 ? 6f : 4f;
-                var b = AddImage(maskGo.transform, LabKit.Ring, LabKit.Bone(0.7f), raycast: false);
-                b.rectTransform.anchorMin = new Vector2(s_bubbleX[i], 0f);
-                b.rectTransform.anchorMax = new Vector2(s_bubbleX[i], 0f);
-                b.rectTransform.sizeDelta = new Vector2(size, size);
-                b.rectTransform.anchoredPosition = new Vector2(0f, 10f);
-                _bubbles[i] = b;
-            }
-
-            // Vertical glass highlight streak.
-            var streak = AddImage(tube.transform, LabKit.Glow, LabKit.Bone(0.22f), raycast: false);
-            streak.rectTransform.anchorMin = new Vector2(0f, 0f);
-            streak.rectTransform.anchorMax = new Vector2(0f, 1f);
-            streak.rectTransform.pivot = new Vector2(0f, 0.5f);
-            streak.rectTransform.offsetMin = new Vector2(5f, 12f);
-            streak.rectTransform.offsetMax = new Vector2(13f, -8f);
-
-            // Glass wall on top of the liquid.
-            var wall = AddImage(tube.transform, LabKit.TubeOutline, LabKit.Bone(0.5f), raycast: false);
-            Stretch(wall.rectTransform);
-
-            // Rolled lip.
-            var lip = NewChild("Lip", vial.transform);
-            var lipRT = lip.GetComponent<RectTransform>();
-            lipRT.anchorMin = new Vector2(0.5f, 1f); lipRT.anchorMax = new Vector2(0.5f, 1f);
-            lipRT.pivot = new Vector2(0.5f, 1f);
-            lipRT.sizeDelta = new Vector2(44f, 7f);
-            lipRT.anchoredPosition = new Vector2(0f, -18f);
-            var lipBg = lip.AddComponent<Image>();
-            lipBg.color = LabKit.Bone(0.14f);
-            lipBg.raycastTarget = false;
-            var lipEdge = AddImage(lip.transform, LabKit.Border, LabKit.Bone(0.5f), raycast: false);
-            Stretch(lipEdge.rectTransform);
-            lipEdge.type = Image.Type.Sliced;
-
-            // Cork.
-            var cork = AddImage(vial.transform, LabKit.Cork, Color.white, raycast: false);
-            cork.rectTransform.anchorMin = new Vector2(0.5f, 1f);
-            cork.rectTransform.anchorMax = new Vector2(0.5f, 1f);
-            cork.rectTransform.pivot = new Vector2(0.5f, 1f);
-            cork.rectTransform.sizeDelta = new Vector2(36f, 20f);
-            cork.rectTransform.anchoredPosition = new Vector2(0f, 0f);
-
-            // Wax seal — the screen's one vermilion mark.
-            var seal = AddImage(vial.transform, InkKit.WaxSeal, Color.white, raycast: false);
-            seal.rectTransform.anchorMin = new Vector2(1f, 0f);
-            seal.rectTransform.anchorMax = new Vector2(1f, 0f);
-            seal.rectTransform.sizeDelta = new Vector2(22f, 22f);
-            seal.rectTransform.anchoredPosition = new Vector2(-5f, 62f); // kissing the tube's right wall
-            seal.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -12f);
-
-            // fig. 1 caption.
-            Text fig = AddText(panel, "fig. 1", new Vector2(804f, -394f), new Vector2(1024f, -372f),
-                new Vector2(0f, 1f), new Vector2(0f, 1f), 13, FontStyle.Italic, TextAnchor.MiddleCenter, LabKit.Bone(0.5f));
-            fig.font = AnnoFont;
+            LabCanvasBuilder.VialResult vial = LabCanvasBuilder.BuildVial(panel.transform, _bubbles);
+            _vialRoot = vial.VialRoot;
+            _liquid = vial.Liquid;
+            _liquidGlowOverlay = vial.LiquidGlowOverlay;
+            _surface = vial.Surface;
+            _tubeTint = vial.TubeTint;
+            _vialOuterGlow = vial.VialOuterGlow;
+            _liquidRT = vial.LiquidRT;
+            _surfaceRT = vial.SurfaceRT;
         }
 
         // -----------------------------------------------------------------
         // UGUI primitives
         // -----------------------------------------------------------------
+        // internal (was private): LabCanvasBuilder's moved one-shot
+        // construction (F-053/CHG-035) shares these with RefreshList /
+        // BuildNewRow / BuildRowShell above, which stay here (they rebuild
+        // against live editor state); visibility-only change, "one copy"
+        // per the CHG-035 spec.
 
-        private static void Stretch(RectTransform rt, float inset = 0f)
+        internal static void Stretch(RectTransform rt, float inset = 0f)
         {
             rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
             rt.offsetMin = new Vector2(inset, inset); rt.offsetMax = new Vector2(-inset, -inset);
         }
 
-        private static GameObject NewChild(string name, Transform parent)
+        internal static GameObject NewChild(string name, Transform parent)
             => Robogame.Core.UguiKit.NewChild(name, parent);
 
         // Set a Button's normal/hover/pressed tint. selectedColor and
         // disabledColor are left at the Button's own defaults -- none of
         // the four call sites that share this shape touch them (F-054).
-        private static void StyleButton(Button button, Color normal, Color hover, Color pressed)
+        internal static void StyleButton(Button button, Color normal, Color hover, Color pressed)
         {
             ColorBlock cols = button.colors;
             cols.normalColor = normal;
@@ -1191,7 +708,7 @@ namespace Robogame.Gameplay
             button.colors = cols;
         }
 
-        private static Image AddImage(Transform parent, Sprite sprite, Color color, bool raycast)
+        internal static Image AddImage(Transform parent, Sprite sprite, Color color, bool raycast)
         {
             var go = NewChild(sprite != null ? sprite.name : "Fill", parent);
             var img = go.AddComponent<Image>();
@@ -1201,7 +718,7 @@ namespace Robogame.Gameplay
             return img;
         }
 
-        private static Text AddText(Transform parent, string text, Vector2 offsetMin, Vector2 offsetMax,
+        internal static Text AddText(Transform parent, string text, Vector2 offsetMin, Vector2 offsetMax,
             Vector2 anchorMin, Vector2 anchorMax, int size, FontStyle style, TextAnchor anchor, Color color)
             => Robogame.Core.UguiKit.AddText(parent, text, UIFont, size, style, color, anchor,
                 anchorMin, anchorMax, offsetMin, offsetMax, raycastTarget: false);
