@@ -4,7 +4,8 @@ using UnityEngine;
 namespace Robogame.Core
 {
     /// <summary>
-    /// TRACE[F-062]: a command-line flag mutes every first-party audio path
+    /// A command-line flag mutes every first-party audio path (factory
+    /// finding F-062, docs/loop/FINDINGS.md)
     /// so a headless player run (LAUNCH-READINESS B3) never plays the
     /// game's music or SFX on the operator's speakers. Deliberately not a
     /// Tweakable (INV-1): no player passes this flag, so unlike
@@ -40,7 +41,12 @@ namespace Robogame.Core
             get
             {
                 if (s_forcedForTests.HasValue) return s_forcedForTests.Value;
-                if (!s_active.HasValue) s_active = Parse(Environment.GetCommandLineArgs());
+                if (!s_active.HasValue)
+                {
+                    s_active = Parse(Environment.GetCommandLineArgs());
+                    // One line in Player.log is the run's own proof the flag was seen.
+                    if (s_active.Value) Debug.Log("[CommandLineMute] " + Flag + " active: first-party audio is muted for this run.");
+                }
                 return s_active.Value;
             }
         }
