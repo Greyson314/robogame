@@ -93,15 +93,18 @@ if [ -n "$AT_SHA" ]; then
 fi
 
 # -----------------------------------------------------------------------------
-# THE RIG RULE — one batch test run (a Unity.exe with -runTests on its command
-# line) at a time. Never kill a Unity process; wait for it to finish, with a
-# timeout, so no brief has to re-implement this (LESSONS 12 / METHOD 15).
+# THE RIG RULE — one batch job at a time: a Unity.exe with -runTests on its
+# command line (a test run, here or in the live Editor's harness) OR with the
+# test-rig worktree as its project (build-player.sh: F-064, a test run reset
+# the rig under a player build and the build failed with CS2001). Never kill a
+# Unity process; wait for it to finish, with a timeout, so no brief has to
+# re-implement this (LESSONS 12 / METHOD 15).
 # -----------------------------------------------------------------------------
 RIG_WAIT_TIMEOUT_SECS="${RIG_WAIT_TIMEOUT_SECS:-1800}"
 
 rig_busy_count() {
     powershell -NoProfile -Command \
-        "(Get-CimInstance Win32_Process -Filter \"Name='Unity.exe'\" | ForEach-Object CommandLine | Where-Object { \$_ -match '-runTests' } | Measure-Object).Count" \
+        "(Get-CimInstance Win32_Process -Filter \"Name='Unity.exe'\" | ForEach-Object CommandLine | Where-Object { \$_ -match '-runTests|test-rig' } | Measure-Object).Count" \
         2>/dev/null | tr -d '\r'
 }
 
@@ -112,7 +115,7 @@ wait_for_free_rig() {
     if [ "$count" = "0" ]; then
         return 0
     fi
-    echo "[wait] a -runTests Unity.exe is already running; waiting for the rig to free up (timeout ${RIG_WAIT_TIMEOUT_SECS}s)…"
+    echo "[wait] a test run or a rig build is already running; waiting for the rig to free up (timeout ${RIG_WAIT_TIMEOUT_SECS}s)…"
     local waited=0
     while [ "$count" != "0" ]; do
         if [ "$waited" -ge "$RIG_WAIT_TIMEOUT_SECS" ]; then
