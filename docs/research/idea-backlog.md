@@ -15,6 +15,11 @@ Notes: {optional — why rejected, or what shipped}
 
 ## Shipped
 
+### Concoction Identity (name + color + kill-feed) — shipped (2026-09-19)
+Payoff: name your mix + a pigment tint on trail/explosion; the kill-feed shows the mix that made the kill — authorship shows up in the world.
+Reference: Crossout named-build culture; existing kill-feed (session 97).
+Notes: Shipped in two halves. Name + continuous pigment tint: ADR-0005, session 141 (no palette index was ever needed). Kill-feed authorship: the factory's CHG-039, docs/changes/209 (`"{killer}  →  {victim}  ({concoction})"`, single-player chain only; MP debt noted in FINDINGS F-069). Playtest question open: NEEDS-GREY PT-003.
+
 ### Nanite Pulse (field self-repair module) — shipped (2026-06-05)
 Payoff: first in-field healing — a module that tops up the chassis's own damaged blocks in an 8 m radius mid-fight, opening a support/sustain build axis (the repair PAD only rebuilds destroyed blocks at base).
 Reference: MOBA heal abilities; Robocraft nano-disruptor/healing builds.
@@ -89,11 +94,6 @@ Notes: Shipped session 102. Found ~70% already built (CpuCost, cap shape, hot re
 Payoff: one optional rider per concoction (Burn DoT / Smoke LOS-blocker / EMP stall), each adding flat CPU; turns a recipe into a strategy ("big-knockback + smoke").
 Reference: From the Depths warhead types, minus the engineer-tier complexity.
 Notes: Queued after the core Lab ships (ADR-0004). CPU-balanced, server-computed, blueprint-baked. Likely a new rider enum field on Concoction + serializer bump. ~1-2 sessions.
-
-### Concoction Identity (name + color + kill-feed) — approved (2026-06-04)
-Payoff: name your mix + a WorldPalette color tint on trail/explosion; kill-feed reads "hit by Greyson's OBLITERATOR" — authorship shows up in the world.
-Reference: Crossout named-build culture; existing kill-feed (session 97).
-Notes: Queued after the core Lab. Purely cosmetic (no gameplay stats); name already exists on Concoction, add a palette index. ~1 session.
 
 ## Proposed
 

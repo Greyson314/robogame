@@ -7,7 +7,7 @@ Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBAT
 
 (empty)
 
-## PLAY (0/4) — one question per build, ≤ 5 minutes.
+## PLAY (2/4) — one question per build, ≤ 5 minutes.
 
     ### PT-NNN — CHG-NNN title — queued DATE
     Build: commit / branch / exactly how to launch
@@ -33,7 +33,7 @@ Time: ≤ 5 min
 
 ## DECIDE — decisions only Grey can make, each with the evidence and a default.
 
-(none open)
+- **D-010 — accept ADR-0005 as it stands?** ADR-0005 (concoction scope, colour chemistry, naming) was implemented in session 141 and the game has run on it since, but its status line still reads "Proposed … awaiting user review", and CLAUDE.md tells every session to follow only Accepted ADRs. CHG-039 (the kill-feed name, landed this shift) builds on it. Evidence: docs/decisions/0005-concoction-scope-color-naming.md:3-4; FINDINGS F-068. Default until answered: the loop treats it as accepted in practice and changes nothing. Answer: `decide D-010: accept` (the loop flips the status line), or say what to revert.
 
 - **D-005 — RESOLVED 2026-09-17T17:05Z by Grey's confirmation in the runner session (the window is there, SampleScene loaded, MCP root cause fixed: FYI-10). Kept for the record: it opened the clone on 2026-09-17T15:50Z (the fourth launch, after the Library database wipe) and was importing (10,104 assets) at shift 4's end; MCP on port 8080 comes up when the import finishes.** Narrowed ask: next time you are at the desktop, confirm the Unity window is there and shows the project (not a dialog), and if so `/inbox decide D-005: editor up`. Then a shift can be started the right way round: `Start-Factory.ps1 -Desktop` first, wait for `netstat -ano | findstr :8080` to show a listener, THEN open the Desktop session and type `/robogame-factory`, so the session dials a live bridge (LESSONS § METHOD 2). The two earlier startup hangs stay unexplained; if it hangs again the loop wipes Library/ArtifactDB + SourceAssetDB and relaunches once before asking. Default: batch-only shifts until then.
 

@@ -138,7 +138,7 @@ def next_change_number(repo: Path) -> int:
 
 def open_play_count(board_text: str) -> int:
     sec = section(board_text, "## PLAY")
-    return len(re.findall(r"^\s*### PT-", sec, re.M))
+    return len(re.findall(r"^### PT-", sec, re.M))      # flush-left only: the indented "    ### PT-NNN" is the FORMAT TEMPLATE, not a question
 
 
 def section(text: str, heading_prefix: str) -> str:
@@ -325,6 +325,8 @@ def cmd_land(a: argparse.Namespace) -> int:
     (repo / entry_rel).write_text(entry_text, encoding="utf-8")
     (repo / STATE).write_text(append_to_section(state_text, "## SHIFT LOG", bullet), encoding="utf-8")
     board_new = append_to_section(board_text, "## PLAY" if a.play else "## FYI", play_text.rstrip("\n") if a.play else fyi_line)
+    if a.play:                                          # the "(N/4)" in the heading is what Grey reads; keep it true
+        board_new = re.sub(r"^## PLAY \(\d+/", f"## PLAY ({open_play_count(board_new)}/", board_new, count=1, flags=re.M)
     (repo / BOARD).write_text(board_new, encoding="utf-8")
     print("[6] record written")
 

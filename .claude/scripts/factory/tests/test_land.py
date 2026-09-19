@@ -100,6 +100,18 @@ class Chain(unittest.TestCase):
         play = Path(self.scratch.name) / "play.md"; play.write_text("### PT-005 — CHG-007 Pogo tune — queued\nBuild: main\nQuestion: heavier?\n", encoding="utf-8")
         r = land(self.repo, *self.land_args("--play", str(play))); self.assertEqual(r.returncode, 2); self.assertIn("backpressure", r.stdout)
 
+    def test_play_cap_counts_real_entries_not_the_format_template_and_keeps_the_header_count(self):
+        # shift 11: the indented "    ### PT-NNN" FORMAT TEMPLATE was counted as an open question, so the cap of 4
+        # closed at 3 real entries; and the "(N/4)" Grey reads in the heading was never updated by a landing.
+        self.gate()
+        board = (self.repo / "docs/loop/NEEDS-GREY.md").read_text(encoding="utf-8").replace("(empty)\n\n## BUY", "".join(f"### PT-00{i} — q\n" for i in range(3)) + "\n## BUY")
+        (self.repo / "docs/loop/NEEDS-GREY.md").write_text(board, encoding="utf-8"); sh(self.repo, "commit", "-q", "-am", "three open")
+        play = Path(self.scratch.name) / "play.md"; play.write_text("### PT-004 — CHG-007 Pogo tune — queued\nBuild: main\nQuestion: heavier?\n", encoding="utf-8")
+        r = land(self.repo, *self.land_args("--play", str(play))); self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        after = (self.repo / "docs/loop/NEEDS-GREY.md").read_text(encoding="utf-8")
+        self.assertIn("## PLAY (4/4)", after)
+        self.assertIn("### PT-004 — CHG-007 Pogo tune", after)
+
     def test_land_from_branch_checks_out_main_first(self):
         self.gate(); sh(self.repo, "checkout", "-q", "chg/007-pogo")
         r = land(self.repo, *self.land_args("--fyi", "x")); self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
