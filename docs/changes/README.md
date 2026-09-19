@@ -86,6 +86,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 206 | [LabCanvasBuilder: the Lab's one-shot UGUI scene construction leaves LabController](206-lab-canvas-builder.md) |
 | 205 | [No test run writes the real tweakables.json: Tweakables.PersistenceSuspended + a SetUpFixture per test assembly](205-tweakables-persistence-seam.md) |
 | 204 | [-factory-mute: a command-line flag silences every first-party audio path, so a headless player run is quiet](204-factory-mute.md) |
 | 203 | [Atomic save writes: blueprints, concoctions and tweakables go through .tmp + File.Replace](203-atomic-writes.md) |
