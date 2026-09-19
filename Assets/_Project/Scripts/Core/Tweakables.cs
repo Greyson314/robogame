@@ -504,8 +504,19 @@ namespace Robogame.Core
             public float[] values;
         }
 
+        /// <summary>
+        /// Test seam (F-063): while true, <see cref="Set"/> / <see cref="ResetAll"/>
+        /// change values in memory and never write tweakables.json. The test
+        /// rig, the Editor and the player's own game share one
+        /// persistentDataPath, so each test assembly's
+        /// TweakablesPersistenceGuard sets this for the run. Shipped code never
+        /// sets it.
+        /// </summary>
+        public static bool PersistenceSuspended { get; set; }
+
         private static void Save()
         {
+            if (PersistenceSuspended) return;
             try
             {
                 var doc = new SaveDoc { keys = new string[_values.Count], values = new float[_values.Count] };
