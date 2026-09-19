@@ -342,7 +342,7 @@ Must not break: the Tweakable rows and search/foldout pipeline (INV-1 untouched:
 Revert: `git revert`.
 Feel change? no
 
-### CHG-034 `-factory-mute`: a command-line flag silences every first-party audio path, so a headless player run is quiet — status: SPEC (shift 10)
+### CHG-034 `-factory-mute`: a command-line flag silences every first-party audio path, so a headless player run is quiet — status: LANDED 2026-09-19 (docs/changes/204)
 Class: AUTO (I1: an instrument flag no player passes; zero behaviour change without it; tie → landing). Red team REQUIRED (D16b: shipped runtime code), sonnet/medium.
 Pillar or readiness item: LAUNCH-READINESS B3 (the first-run log) and B2's load time, both blocked on a quiet headless run; PT-001's complaint.
 Source: F-062 (pointer only).
@@ -352,7 +352,7 @@ Must not break: INV-1 (the flag is not a Tweakable and touches no gameplay), INV
 Revert: `git revert`.
 Feel change? no
 
-### CHG-006 atomic save writes: blueprints, concoctions and tweakables go through `.tmp` + `File.Replace` — status: SPEC (shift 10)
+### CHG-006 atomic save writes: blueprints, concoctions and tweakables go through `.tmp` + `File.Replace` — status: LANDED 2026-09-19 (docs/changes/203)
 Class: AUTO (I1: robustness with no format change and nothing a player meets; tie → landing). Red team REQUIRED (D16b: shipped runtime code that writes the player's saves), sonnet/medium.
 Pillar or readiness item: LAUNCH-READINESS T4 (the atomic-writes half); best-practices § 11.3 ("data the player would cry over losing").
 Source: BACKLOG 4 (UserBlueprintLibrary.cs:147, ConcoctionLibrary.cs:122, Tweakables.cs:512).
@@ -362,7 +362,7 @@ Must not break: blueprint and concoction load/list/delete; Tweakables.Save being
 Revert: `git revert`; `.bak` files left on disk are inert.
 Feel change? no
 
-### CHG-035 LabCanvasBuilder: the Lab's one-shot UGUI scene construction leaves LabController — status: SPEC (shift 10)
+### CHG-035 LabCanvasBuilder: the Lab's one-shot UGUI scene construction leaves LabController — status: LANDED 2026-09-19 (docs/changes/206)
 Class: AUTO (I1: a refactor with zero behaviour change proven by the suite; D8 S1 modularization) IF the before/after screenshots over the bridge match; any moved pixel makes it ASK. Red team REQUIRED (D16b), sonnet/medium.
 Pillar or readiness item: "Recreational-but-aspires-Steam" via S1; LabController.cs is 1,207 lines, about 600 of them layout scaffolding.
 Source: F-053 (pointer only).
@@ -372,7 +372,7 @@ Must not break: Concoction editing (save, load, rename, sliders), INV-1, INV-6 (
 Revert: `git revert`.
 Feel change? no
 
-### CHG-036 no test run writes the real tweakables.json: `Tweakables.PersistenceSuspended` + one SetUpFixture per test assembly — status: SPEC (shift 10)
+### CHG-036 no test run writes the real tweakables.json: `Tweakables.PersistenceSuspended` + one SetUpFixture per test assembly — status: LANDED 2026-09-19 (docs/changes/205)
 Class: AUTO (I1: a failing-by-design test hazard fixed, tooling seam; nothing a player meets). Red team REQUIRED (D16b: five lines of shipped runtime code in Tweakables.Save), sonnet/medium.
 Pillar or readiness item: D2 (the suite must not alter the machine it runs on); LAUNCH-READINESS T4's neighbourhood (saves).
 Source: F-063 (pointer only); CHG-034's red-team note (its PlayMode test writes Audio.Mute).
@@ -393,3 +393,4 @@ Feel change? no
 - shift 7, 2026-09-17: CHG-021 (187), CHG-016 (188), CHG-009 (189), CHG-023 (190), CHG-022 (191), CHG-018 (192) landed.
 - shift 8, 2026-09-18: CHG-026 landed (docs/changes/193-perf-band-focus.md); CHG-025 landed (194-red-team-drift.md); CHG-027 landed (195-construction-dedupe.md); CHG-024 landed (196-arena-dev-dummies.md); CHG-029 landed (197-player-build.md); CHG-030 landed (198-tests-out-of-player.md); CHG-004 on the board (APPROVE); CHG-028 specced.
 - shift 9, 2026-09-18: CHG-031 landed (docs/changes/199-highlight-collider-test.md); CHG-028 landed (200-rig-road.md); CHG-032 landed (201-block-edit-highlights.md); CHG-033 landed (202-keybinds-section.md).
+- shift 10, 2026-09-19: CHG-006 landed (docs/changes/203-atomic-writes.md); CHG-034 landed (204-factory-mute.md); CHG-036 landed (205-tweakables-persistence-seam.md, specced, built and landed in the shift that found F-063); CHG-035 landed (206-lab-canvas-builder.md).
