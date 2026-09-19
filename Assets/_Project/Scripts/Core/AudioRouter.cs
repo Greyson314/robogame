@@ -102,6 +102,14 @@ namespace Robogame.Core
         // explicit reset.
         private static readonly HashSet<AudioCue> s_loggedMissing = new();
 
+        // Test-only recording seam (CHG-004): fired at the top of the
+        // one-shot request path, before the cue's library entry (and
+        // therefore its clip) is resolved — a PlayMode test can assert a
+        // cue was requested even when the clip itself can never resolve
+        // (Assets/Universal Sound FX is absent from a fresh clone / the
+        // test rig). No production caller subscribes to this.
+        internal static event System.Action<AudioCue> OneShotRequested;
+
         // -----------------------------------------------------------------
         // Bootstrap
         // -----------------------------------------------------------------
@@ -267,6 +275,8 @@ namespace Robogame.Core
 
         private void PlayOneShotInternal(AudioCue cue, Vector3 worldPosition)
         {
+            OneShotRequested?.Invoke(cue);
+
             AudioCueLibrary.Entry entry = ResolveEntry(cue);
             if (entry == null || entry.Clip == null) { LogMissingOnce(cue); return; }
 

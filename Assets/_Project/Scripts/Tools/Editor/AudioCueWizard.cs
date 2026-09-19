@@ -286,6 +286,13 @@ namespace Robogame.Tools.Editor
             // RoundClockTick: final-10s countdown — a real clock
             // mechanism tick, dry and urgent without being an alarm.
             new CueRow(AudioCue.RoundClockTick,        "FOLEY/CLOCKS/CLOCK_Grandfather_Clock_01_RR01_mono.wav",                                                 AudioBus.UI,    spatial: 0f, vol: 0.50f, jitter: 0f,    solo: true),
+
+            // CHG-004 (F-008): bomb-bay trapdoors snap open — reuses
+            // UiToggleOn's mechanism-clack clip (same clip, played on the
+            // Sfx bus instead of UI, spatial so it localises to the drop).
+            // Appended last, matching AudioCue.BombBayDoorOpen's position
+            // at the very end of the enum (append-only past RoundClockTick).
+            new CueRow(AudioCue.BombBayDoorOpen,   "MECHANICS/MECHANICS_Metal_Mechanism_01_mono.wav",                                                           AudioBus.Sfx,   spatial: 1f, vol: 0.60f, jitter: 0.05f, solo: false),
         };
 
         private readonly struct CueRow

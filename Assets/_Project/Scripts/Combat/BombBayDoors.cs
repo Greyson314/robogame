@@ -1,3 +1,4 @@
+using Robogame.Core;
 using UnityEngine;
 
 namespace Robogame.Combat
@@ -6,7 +7,9 @@ namespace Robogame.Combat
     /// Swings the bomb bay's two trapdoor nodes on a drop: snap open with
     /// overshoot, hold while the bomb clears, slam shut with a rebound.
     /// Procedural (no Animator) — the doors are rigid nodes whose FBX
-    /// origins sit on the hinge lines. Visual only.
+    /// origins sit on the hinge lines. Presentation only (INV-3): the
+    /// snap-open plays <see cref="AudioCue.BombBayDoorOpen"/>; the slam
+    /// stays silent (CHG-004, Grey: "minimal or nothing for slam").
     /// </summary>
     /// <remarks>
     /// Session 139 animation pass. Keyframes mirror the Blender study in
@@ -45,6 +48,10 @@ namespace Robogame.Combat
             // the drop interval is shorter than the clip).
             _t = enabled && _t > KeyT[4] ? KeyT[3] : 0f;
             enabled = true;
+
+            // CHG-004: the snap-open is heard; the slam stays silent —
+            // one one-shot per drop, no per-frame audio work (INV-6).
+            AudioRouter.PlayOneShot(AudioCue.BombBayDoorOpen, transform.position);
         }
 
         private void Update()

@@ -581,6 +581,14 @@ MonoBehaviour:
     PitchJitter: 0
     Phrase: 0
     Solo: 1
+  - Cue: 74
+    Clip: {fileID: 8300000, guid: 615a6de2b3e60384295135f133d3f2f1, type: 3}
+    Bus: 1
+    SpatialBlend: 1
+    Volume: 0.6
+    PitchJitter: 0.05
+    Phrase: 0
+    Solo: 0
   _masterGroup: {fileID: 0}
   _sfxGroup: {fileID: 0}
   _musicGroup: {fileID: 0}

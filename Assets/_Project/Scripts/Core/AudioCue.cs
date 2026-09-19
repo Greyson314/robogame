@@ -137,5 +137,11 @@ namespace Robogame.Core
         UiSlideTick,       // slider crosses a ruler division — dry ratchet tick, rate-capped by the caller
         UiSealStamp,       // wax-seal checkbox / kill-feed splat lands — soft stamp thud (UiCues.Seal adds the piano D under it)
         UiPageTurn,        // full-screen ink wipe launches — brush swish (UiCues.PageTurnLand adds the timpani touch)
+
+        // CHG-004 (F-008): bomb-bay trapdoors snap open with a metallic
+        // clank; the slam stays silent by design (Grey: "minimal or
+        // nothing for slam"). Appended here, not in the Combat group
+        // above — see the append-only note at the top of this block.
+        BombBayDoorOpen,   // bomb-bay trapdoors snap open on Drop() — one-shot at the doors' position
     }
 }
