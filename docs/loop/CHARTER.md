@@ -103,6 +103,15 @@ revertible and a release is not.
   a change sits on the AUTO/ASK line and is not in the NOD list, land
   it and put it under FYI. A board entry Grey has to read is itself a
   cost, and the board is for what he would actually want a say in.
+  WIDENED (Grey, INBOX 2026-09-19T05:31:38Z, verbatim: "I am cool with
+  all 4.", answering four levers in the SCRIBE's wording, recorded in
+  NEEDS-GREY § ANSWERED): (i) small player-facing polish that fills an
+  INV-8 gap (a missing sound or VFX on a shipped mechanic) is AUTO:
+  land it, list it under FYI, revert on Grey's word; (ii) the two
+  idea-backlog § Approved features, Rider Effects and Concoction
+  Identity, need no second check-off: build them on main, ONE PLAY
+  question each. Every other new feature still ASKs; the NOD list is
+  untouched.
   NOD REQUIRED regardless of class: releasing or publishing a build;
   deleting assets, scenes, levels or content; breaking a save or
   blueprint format; force pushes or history rewrites. Grey can widen or
@@ -328,6 +337,18 @@ sacred; INBOX items are not auto-prioritized.)
     fields) and the suite-and-perf sweep judges health, each leaving
     FINDINGS lines with the deletion or split as the proposed action.
 
+  - S2 (Grey, INBOX 2026-09-19T05:31:38Z, "I am cool with all 4.";
+    the lever in the scribe's wording: "A standing feature slot: every
+    shift's mix carries one feature-lane item — a spec, a build, or an
+    /ideate pass — the same way S1 guarantees a simplification each
+    shift.") Serves: "Goofy-but-fun beats commercial-safe"; the
+    scribe's count behind it: 29 landings, 0 player-facing features.
+    The loop's reading: the feature lane has a standing slot in every
+    shift beside S1's; pre-approved features (I1 WIDENED ii) build
+    without a second check-off and land with a PLAY entry; any other
+    feature goes backlog → spec → APPROVE as before; INV-8 and the
+    pillars bind every one of them.
+
 - **D9 — closed registry.** The closed registry for IDEAS is
   docs/research/idea-backlog.md § Rejected: Grey's, high-confidence by
   definition, never re-pitched (the file says "never suggest again").
@@ -459,7 +480,9 @@ sacred; INBOX items are not auto-prioritized.)
   blocks, WORK-STEAL the next unblocked one. When nothing is buildable
   work the ladder in order: (0) a red main, a crash, a failing gate,
   always first; (1) AUTO-class findings and checked-off APPROVE entries
-  whose acceptance is a test; (2) bugs from the known unknowns and
+  whose acceptance is a test; (1b) the shift's FEATURE SLOT (D8 S2): one
+  feature-lane item, a spec, a build or an /ideate pass, taken every
+  shift and not only when rungs 1–10 run dry; (2) bugs from the known unknowns and
   playtest notes; (3) test coverage of untested subsystems; (4) perf
   against budget, profiled; (5) instruments: the soak, replay, CI,
   overlays, the rig itself; (6) LAUNCH-READINESS items that are
@@ -592,6 +615,8 @@ cold files read on demand.
 - v1.1 (2026-09-16, Grey) — D11: foreground model policy is fable @ xhigh, not opus @ high; LOOP-STATE § SHIFT updated to match.
 - v1.4 (2026-09-17, Grey via INBOX, shift 6) — D12 OUTBOUND narrowed: Discord is a "what changed" bullet list at the end of every shift, nothing else; the headline, board and token lines leave the report.
 - v1.3 (2026-09-17, loop, shift 6) — D8 gains SUGGESTIONS with S1, Grey's standing steer on simplification, cleanup, deletion, health and performance (INBOX 2026-09-17T22:15Z), recorded verbatim with the loop's reading of how it meets I1; no invariant changed.
+
+- v1.5 (2026-09-19, Grey via INBOX "I am cool with all 4.", shift 10) — I1 WIDENED on Grey's word (INV-8 gap polish is AUTO; Rider Effects and Concoction Identity pre-approved, one PLAY question each); D8 gains S2 (a standing feature slot every shift); D14 gains rung 1b for it. The four levers are in the scribe's wording, Grey's answer is verbatim; no conflict with the charter found (INV-8, the pillars, the PLAY cap and the NOD list all still bind).
 
 Signing: commits as "factory: <what>"; Discord pings prefixed
 [factory].

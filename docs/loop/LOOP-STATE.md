@@ -1,6 +1,6 @@
 # LOOP-STATE (Robogame Factory) — read first, write last (every wake)
 
-Directive version: v1.4 (D8 SUGGESTIONS S1; D12 what-changed report). Last touched: 2026-09-18T23:10Z (end of shift 9, on the desktop).
+Directive version: v1.5 (I1 WIDENED; D8 S2 feature slot; D14 rung 1b). Last touched: 2026-09-18T23:10Z (end of shift 9, on the desktop).
 
 ## NEEDS GREY
 
@@ -45,6 +45,7 @@ STANDING SWEEPS (D4; `sweeper` on sonnet/medium, one sweep per call, ≤ 5 sweep
 FIELDHANDS: per D11 tiers. A landing costs qa-verifier + perf-checker (when hot) + red-team; budget the D16d ceiling as ≤ 5 sweeps + ≤ 3 gates a shift, or fewer sweeps when the queue is deep.
 SHIFT SHAPE: wake routine → rung 0 (suite) → ladder (D14) with the queue built through the landing chain (`land.py gate` / `land.py land`) → END-OF-SHIFT ROUTINE: LOOP-STATE (§ SHIFT LOG bullet ≤ 600 chars, § NEXT ITEM), FINDINGS/SPIKES/CHANGE-QUEUE/LAUNCH-READINESS/ASSUMPTIONS/LESSONS current, NEEDS-GREY counts, the report through `ping.py` (dry until D-003), the tick, the lock → `shift-last.json` + delete, commit "factory: shift N end …", push, a one-line push notification, the loop stopped.
 STANDING PRIORITIES (CHARTER D8 SUGGESTIONS S1, Grey 2026-09-17): every shift's mix carries at least one simplification, deletion, de-duplication or modularization change (AUTO when the suite proves zero behaviour change) or a health/perf item, not only findings-driven fixes; the best-practices sweep runs with the spaghetti lenses (duplication, god classes, cross-module reach-through, dead fields such as F-037) and proposes the deletion or split as the action; the suite-and-perf sweep judges health. Candidates on file: F-037 (three dead tuning fields), F-027/CHG-009 (46 obsolete-API sites), the idea of a code-size census (lines per assembly, largest classes, duplicate blocks) as the first sweep of the next shift.
+FEATURE SLOT (CHARTER D8 S2 + D14 rung 1b, Grey 2026-09-19): every shift's mix carries ONE feature-lane item: a spec, a build or an /ideate pass. Pre-approved, no second check-off, one PLAY question each: Rider Effects and Concoction Identity (idea-backlog § Approved; the Lab they were queued behind shipped in session 114). Route: planner → spec in CHANGE-QUEUE → tests first → build → gate with a red team → land with a PLAY entry (cap 4). INV-8 gap polish on a shipped mechanic is AUTO now (I1 WIDENED i): land, FYI, revert on Grey's word.
 MOLT: when the hot set passes 200 KB or the context shows rot (D11), write state and restart the session.
 
 ## HEALTH (D16c; shift 9, 2026-09-18)
