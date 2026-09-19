@@ -54,6 +54,12 @@ namespace Robogame.Combat
         // Owner — used to filter own-chassis colliders out of hit queries.
         public Robot Owner;
 
+        // CHG-039: the fired concoction's display name (null for a bare
+        // weapon). Carried through DamageAttribution.Report so the kill
+        // feed can credit the mix that landed the kill — see ADR-0005's
+        // "needs damage-source attribution plumbing" note.
+        public string WeaponName;
+
         // Knockback — impulse (N·s) imparted to the *target* chassis on a
         // damaging hit, applied at its centre of mass by
         // KnockbackReceiver. Kinetic hits (direct / ring) push along the

@@ -188,6 +188,10 @@ namespace Robogame.Combat
                 ShowMesh = true,
                 VisualTint = tint,
                 TintImpact = tintImpact,
+                // TRACE[ADR-0005]: weapon name read from the fired Concoction —
+                // kill-feed authorship (ADR-0005 "needs damage-source
+                // attribution plumbing").
+                WeaponName = fxRecipe?.DisplayName,
                 VisualMeshDiameter = _bombRadius * 2f,
                 ImpactAudioOverride = AudioCue.BombExplosion,
             };

@@ -440,7 +440,7 @@ namespace Robogame.Combat
             float deflect = ArmorDeflection.ComputeMultiplier(hitBlock, hit.normal, travelDir);
             PlayDeflectFeedback(deflect, hit.point);
             target.TakeDamage(spec.Damage * deflect);
-            DamageAttribution.Report(spec.Owner, targetRobot, spec.Damage * deflect);
+            DamageAttribution.Report(spec.Owner, targetRobot, spec.Damage * deflect, spec.WeaponName);
             MusicalHits.Report(spec.Owner, targetRobot, spec.Kind, spec.Damage * deflect);
             if (spec.Knockback > 0f)
                 ApplyKineticKnockback(targetRobot, travelDir, spec.Knockback, spec.KnockbackSmoothed);
@@ -478,7 +478,7 @@ namespace Robogame.Combat
                     float deflect = ArmorDeflection.ComputeMultiplier(block, hit.normal, travelDir);
                     PlayDeflectFeedback(deflect, hit.point);
                     targetRobot.Grid.ApplySplashDamage(block.GridPosition, spec.SplashRings, deflect);
-                    DamageAttribution.Report(spec.Owner, targetRobot, spec.SplashRings[0] * deflect);
+                    DamageAttribution.Report(spec.Owner, targetRobot, spec.SplashRings[0] * deflect, spec.WeaponName);
                     MusicalHits.Report(spec.Owner, targetRobot, spec.Kind, spec.SplashRings[0] * deflect);
                     if (spec.Knockback > 0f)
                         ApplyKineticKnockback(targetRobot, travelDir, spec.Knockback, spec.KnockbackSmoothed);
@@ -497,7 +497,7 @@ namespace Robogame.Combat
             if (owner != null && owner == spec.Owner) return;
             if (Teams.IsFriendlyFire(spec.Owner, owner)) return;
             dmg.TakeDamage(spec.SplashRings[0]);
-            DamageAttribution.Report(spec.Owner, owner, spec.SplashRings[0]);
+            DamageAttribution.Report(spec.Owner, owner, spec.SplashRings[0], spec.WeaponName);
             HitLanded?.Invoke(spec.Owner, hit.point);
         }
 
@@ -529,7 +529,7 @@ namespace Robogame.Combat
                     if (!friendly)
                     {
                         DamageRobotInRadius(robot, worldPoint, r2, spec.Damage);
-                        DamageAttribution.Report(spec.Owner, robot, spec.Damage);
+                        DamageAttribution.Report(spec.Owner, robot, spec.Damage, spec.WeaponName);
                         MusicalHits.Report(spec.Owner, robot, spec.Kind, spec.Damage);
                         hitAny = true;
                     }

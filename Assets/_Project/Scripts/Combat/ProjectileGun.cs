@@ -273,6 +273,7 @@ namespace Robogame.Combat
                 ShowMesh = false,
                 VisualTint = tint,
                 TintImpact = tintImpact,
+                WeaponName = fxRecipe?.DisplayName,
                 VisualMeshDiameter = 0f,
                 ImpactAudioOverride = AudioCue.ProjectileImpact,
             };

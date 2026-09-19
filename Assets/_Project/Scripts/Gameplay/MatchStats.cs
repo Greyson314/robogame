@@ -28,6 +28,10 @@ namespace Robogame.Gameplay
         // kill-credit attribution in MatchStatsTracker.RecordDeath.
         internal CombatantStats LastAttacker;
         internal float LastAttackedAt = float.NegativeInfinity;
+        // CHG-039: the last attacker's weapon (concoction display name, or
+        // null for a bare weapon) — handed back to the credited attacker on
+        // RecordDeath so the kill feed can name the mix.
+        internal string LastAttackerWeaponName;
 
         internal CombatantStats(string displayName, MatchSide side, bool isPlayer)
         {
@@ -113,7 +117,13 @@ namespace Robogame.Gameplay
         /// (damage to an unregistered chassis, e.g. the warmup dummy) is
         /// ignored. Self-damage counts toward nobody.
         /// </summary>
-        public void RecordDamage(CombatantStats attacker, CombatantStats victim, float amount, float now)
+        /// <param name="weaponName">
+        /// CHG-039: the attacking weapon's concoction display name, or null
+        /// for a bare weapon / non-projectile source. Stored beside the
+        /// last-attacker record so a kill within the credit window can
+        /// name the mix that landed it.
+        /// </param>
+        public void RecordDamage(CombatantStats attacker, CombatantStats victim, float amount, float now, string weaponName = null)
         {
             if (victim == null || amount <= 0f) return;
             if (attacker == null || attacker == victim) return;
@@ -127,6 +137,7 @@ namespace Robogame.Gameplay
             {
                 victim.LastAttacker = attacker;
                 victim.LastAttackedAt = now;
+                victim.LastAttackerWeaponName = weaponName;
             }
         }
 
@@ -136,8 +147,16 @@ namespace Robogame.Gameplay
         /// credit window. Returns the credited row, or null when the death
         /// was unattributed (environment / stale damage).
         /// </summary>
-        public CombatantStats RecordDeath(CombatantStats victim, float now)
+        public CombatantStats RecordDeath(CombatantStats victim, float now) => RecordDeath(victim, now, out _);
+
+        /// <summary>
+        /// Overload that also hands back the credited kill's weapon name
+        /// (CHG-039) — the last attacker's concoction display name, or null
+        /// when the death was unattributed or the credited weapon was bare.
+        /// </summary>
+        public CombatantStats RecordDeath(CombatantStats victim, float now, out string weaponName)
         {
+            weaponName = null;
             if (victim == null) return null;
 
             victim.Deaths++;
@@ -149,11 +168,13 @@ namespace Robogame.Gameplay
             {
                 credited = victim.LastAttacker;
                 credited.Kills++;
+                weaponName = victim.LastAttackerWeaponName;
             }
 
             // A respawned victim starts with a clean attribution slate.
             victim.LastAttacker = null;
             victim.LastAttackedAt = float.NegativeInfinity;
+            victim.LastAttackerWeaponName = null;
             Version++;
             return credited;
         }
