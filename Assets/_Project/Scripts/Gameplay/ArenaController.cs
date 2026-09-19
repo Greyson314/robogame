@@ -701,7 +701,7 @@ namespace Robogame.Gameplay
 
         // ------- per-combatant stat feeds ---------------------------------
 
-        private void HandleDamageReported(Robot attacker, Robot victim, float amount)
+        private void HandleDamageReported(Robot attacker, Robot victim, float amount, string weaponName)
         {
             // Stats are match-scoped: warmup potshots don't count, same as
             // MatchController.RegisterKill's InProgress gate.
@@ -709,7 +709,7 @@ namespace Robogame.Gameplay
             if (victim == null || !_statRows.TryGetValue(victim, out CombatantStats victimRow)) return;
             CombatantStats attackerRow = null;
             if (attacker != null) _statRows.TryGetValue(attacker, out attackerRow);
-            _stats.RecordDamage(attackerRow, victimRow, amount, Time.time);
+            _stats.RecordDamage(attackerRow, victimRow, amount, Time.time, weaponName);
         }
 
         private void HandleScrapDeposited(Robot robot, int amount)
@@ -750,13 +750,13 @@ namespace Robogame.Gameplay
             if (_stats != null && _match != null && _match.State == MatchState.InProgress
                 && _statRows.TryGetValue(victim, out CombatantStats victimRow))
             {
-                CombatantStats credited = _stats.RecordDeath(victimRow, Time.time);
+                CombatantStats credited = _stats.RecordDeath(victimRow, Time.time, out string weaponName);
 
                 // Named kill-feed entry (feed is in named mode whenever
                 // _stats exists — see BindFollowCamera).
                 if (_killFeed != null)
                 {
-                    if (credited != null) _killFeed.PushKill(credited.DisplayName, victimRow.DisplayName, credited.Side);
+                    if (credited != null) _killFeed.PushKill(credited.DisplayName, victimRow.DisplayName, credited.Side, weaponName);
                     else _killFeed.PushDeath(victimRow.DisplayName);
                 }
             }

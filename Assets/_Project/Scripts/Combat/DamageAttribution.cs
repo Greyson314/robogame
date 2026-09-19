@@ -30,19 +30,21 @@ namespace Robogame.Combat
         /// <summary>
         /// Raised on every damaging robot-vs-robot hit.
         /// Args: attacker (may be null for environment damage), victim
-        /// (never null), nominal damage amount (always &gt; 0).
+        /// (never null), nominal damage amount (always &gt; 0), the firing
+        /// weapon's concoction display name (CHG-039; null for a bare
+        /// weapon or a non-projectile source such as a ram).
         /// </summary>
-        public static event Action<Robot, Robot, float> Reported;
+        public static event Action<Robot, Robot, float, string> Reported;
 
         /// <summary>
         /// Report a damaging hit. No-ops when <paramref name="victim"/> is
         /// null or <paramref name="amount"/> is non-positive, so call sites
         /// don't need their own guards.
         /// </summary>
-        public static void Report(Robot attacker, Robot victim, float amount)
+        public static void Report(Robot attacker, Robot victim, float amount, string weaponName = null)
         {
             if (victim == null || amount <= 0f) return;
-            Reported?.Invoke(attacker, victim, amount);
+            Reported?.Invoke(attacker, victim, amount, weaponName);
         }
 
         // TRACE[DOC:CLAUDE.md§Known failure modes]: statics survive domain

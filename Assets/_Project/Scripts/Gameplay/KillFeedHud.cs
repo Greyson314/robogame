@@ -100,9 +100,24 @@ namespace Robogame.Gameplay
             _entries.Clear();
         }
 
-        /// <summary>Named kill entry — colour keyed to the killer's side.</summary>
-        public void PushKill(string killerName, string victimName, MatchSide killerSide)
-            => Push($"{killerName}  →  {victimName}", ColorFor(killerSide));
+        /// <summary>
+        /// Named kill entry — colour keyed to the killer's side. Optional
+        /// <paramref name="weaponName"/> (CHG-039) appends the concoction
+        /// that made the kill; null/empty renders today's text unchanged.
+        /// </summary>
+        public void PushKill(string killerName, string victimName, MatchSide killerSide, string weaponName = null)
+            => Push(FormatKillEntry(killerName, victimName, weaponName), ColorFor(killerSide));
+
+        /// <summary>
+        /// Pure formatter for a named kill entry — kept static so it's
+        /// testable outside OnGUI. With no weapon name, output is
+        /// byte-identical to the pre-CHG-039 text.
+        /// </summary>
+        private static string FormatKillEntry(string killerName, string victimName, string weaponName)
+        {
+            string baseText = $"{killerName}  →  {victimName}";
+            return string.IsNullOrEmpty(weaponName) ? baseText : $"{baseText}  ({weaponName})";
+        }
 
         /// <summary>Named unattributed death ("BOT 2 †") — environment / stale damage.</summary>
         public void PushDeath(string victimName)

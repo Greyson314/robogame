@@ -111,6 +111,71 @@ namespace Robogame.Tests.EditMode.Gameplay
             Assert.AreSame(ally, credited, "Most recent opposing damager takes the credit (standard FPS last-hit rule).");
         }
 
+        // -----------------------------------------------------------------
+        // Kill-feed weapon name (CHG-039) — the credited kill hands back
+        // the attacker's concoction display name so the feed can read
+        // "YOU -> BOT 1  (Dark Madder Concoction)" instead of naming
+        // nobody's mix.
+        // -----------------------------------------------------------------
+
+        [Test]
+        public void RecordDeath_WithinWindow_ReturnsAttackersWeaponName()
+        {
+            var tracker = new MatchStatsTracker();
+            var you = tracker.GetOrCreate("YOU", MatchSide.Player, isPlayer: true);
+            var bot = tracker.GetOrCreate("BOT 1", MatchSide.Enemy);
+
+            tracker.RecordDamage(you, bot, 30f, now: 5f, weaponName: "Dark Madder Concoction");
+            var credited = tracker.RecordDeath(bot, now: 5f + Window - 0.1f, out string weaponName);
+
+            Assert.AreSame(you, credited);
+            Assert.AreEqual("Dark Madder Concoction", weaponName, "A kill inside the credit window must name the attacker's concoction so the kill feed can credit it.");
+        }
+
+        [Test]
+        public void RecordDeath_OutsideWindow_NoWeaponName()
+        {
+            var tracker = new MatchStatsTracker();
+            var you = tracker.GetOrCreate("YOU", MatchSide.Player, isPlayer: true);
+            var bot = tracker.GetOrCreate("BOT 1", MatchSide.Enemy);
+
+            tracker.RecordDamage(you, bot, 30f, now: 5f, weaponName: "Dark Madder Concoction");
+            var credited = tracker.RecordDeath(bot, now: 5f + Window + 1f, out string weaponName);
+
+            Assert.IsNull(credited);
+            Assert.IsNull(weaponName, "Stale damage must not carry stale authorship into the kill feed.");
+        }
+
+        [Test]
+        public void RecordDeath_LastAttackerWins_WeaponNameFromLastAttacker()
+        {
+            var tracker = new MatchStatsTracker();
+            var you = tracker.GetOrCreate("YOU", MatchSide.Player, isPlayer: true);
+            var ally = tracker.GetOrCreate("ALLY", MatchSide.Player);
+            var bot = tracker.GetOrCreate("BOT 1", MatchSide.Enemy);
+
+            tracker.RecordDamage(you, bot, 50f, now: 1f, weaponName: "Pale Ochre Concoction");
+            tracker.RecordDamage(ally, bot, 5f, now: 2f, weaponName: "Murky Teal Concoction");
+            var credited = tracker.RecordDeath(bot, now: 3f, out string weaponName);
+
+            Assert.AreSame(ally, credited);
+            Assert.AreEqual("Murky Teal Concoction", weaponName, "The most recent attacker's weapon replaces the first's, same as kill credit itself (last attacker wins).");
+        }
+
+        [Test]
+        public void RecordDamage_NullWeaponName_CarriesAsNull()
+        {
+            var tracker = new MatchStatsTracker();
+            var you = tracker.GetOrCreate("YOU", MatchSide.Player, isPlayer: true);
+            var bot = tracker.GetOrCreate("BOT 1", MatchSide.Enemy);
+
+            tracker.RecordDamage(you, bot, 30f, now: 1f); // bare weapon — no concoction
+            var credited = tracker.RecordDeath(bot, now: 1.5f, out string weaponName);
+
+            Assert.AreSame(you, credited);
+            Assert.IsNull(weaponName, "A bare weapon credits nobody's mix — the kill feed must fall back to the unsuffixed line.");
+        }
+
         [Test]
         public void RecordDamage_SameSide_NeverArmsKillCredit()
         {
