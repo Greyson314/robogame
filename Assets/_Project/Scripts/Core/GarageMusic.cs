@@ -239,7 +239,7 @@ namespace Robogame.Core
             if (_player == null) return;
             float music = Tweakables.Get(Tweakables.AudioMusic);
             float master = Tweakables.Get(Tweakables.AudioMaster);
-            float mute = Tweakables.GetBool(Tweakables.AudioMute) ? 0f : 1f;
+            float mute = (Tweakables.GetBool(Tweakables.AudioMute) || CommandLineMute.Active) ? 0f : 1f;
             _player.MPTK_Volume = Mathf.Clamp01(ThemeVolume * music * master * mute);
         }
 
