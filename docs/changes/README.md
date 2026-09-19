@@ -86,6 +86,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 210 | [The unused Post Processing Stack v2 package and its scripting define are removed (D-008)](210-remove-ppv2.md) |
 | 209 | [Concoction Identity, the missing half: the kill-feed names the concoction that made the kill](209-killfeed-concoction.md) |
 | 208 | [Bomb-bay doors: an audible open, a silent slam (INV-8 gap)](208-bomb-bay-door-cue.md) |
 | 207 | [The five tracked crash-recovery scenes under Assets/_Recovery are deleted (D-009)](207-recovery-scenes-deleted.md) |
