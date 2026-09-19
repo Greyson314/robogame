@@ -86,6 +86,7 @@ going forward" section at the bottom of this file.
 
 | # | Title |
 |---|---|
+| 209 | [Concoction Identity, the missing half: the kill-feed names the concoction that made the kill](209-killfeed-concoction.md) |
 | 208 | [Bomb-bay doors: an audible open, a silent slam (INV-8 gap)](208-bomb-bay-door-cue.md) |
 | 207 | [The five tracked crash-recovery scenes under Assets/_Recovery are deleted (D-009)](207-recovery-scenes-deleted.md) |
 | 206 | [LabCanvasBuilder: the Lab's one-shot UGUI scene construction leaves LabController](206-lab-canvas-builder.md) |

@@ -21,6 +21,12 @@ Question: drop one bomb: do you hear the doors snap open, and is it the right ki
 Look for: a short metal "clack" at the bomber when the doors open (it is the settings-toggle mechanism sound, played in 3D); the slam is silent on purpose ("minimal or nothing"). A "no" can be: no sound at all, too loud or quiet, or the wrong character; name a sound you would prefer and the loop swaps the row.
 Time: ≤ 5 min
 
+### PT-003 — CHG-039 the kill-feed names the concoction that made the kill — queued 2026-09-19
+Build: main @ the CHG-039 landing (docs/changes/209): pull, open Unity, Garage → Laboratory: make or pick a NAMED concoction and load it on a gun, cannon, mortar or bomb bay → Arena with the combat dummy (or bots) → get a kill with that weapon.
+Question: does the kill-feed line show your mix's name in parentheses, and can you read it before it fades?
+Look for: `YOU  →  <victim>  (<your concoction's name>)` in the kill feed. A kill with a bare weapon (no concoction) or a ram must show today's line with no parentheses. A "no" can be: the name is missing, it is the wrong mix, it is unreadable in the time it stays, or the format should read differently (say how).
+Time: ≤ 5 min
+
 ## BUY (0) — purchase proposals (I2 format: exact item priced · what it unlocks · pillar or readiness item · proxy already measured · kill date).
 
 (empty)
