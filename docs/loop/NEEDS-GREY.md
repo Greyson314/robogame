@@ -15,6 +15,12 @@ Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBAT
     Look for: what would make it a yes or a no
     Time: ≤ 5 min
 
+### PT-002 — CHG-004 bomb-bay doors: audible open, silent slam — queued 2026-09-19
+Build: main @ the CHG-004 landing (docs/changes/208), in YOUR checkout (the sound pack is only there): pull, open Unity, Garage → load the Default Bomber preset → any arena.
+Question: drop one bomb: do you hear the doors snap open, and is it the right kind of sound?
+Look for: a short metal "clack" at the bomber when the doors open (it is the settings-toggle mechanism sound, played in 3D); the slam is silent on purpose ("minimal or nothing"). A "no" can be: no sound at all, too loud or quiet, or the wrong character; name a sound you would prefer and the loop swaps the row.
+Time: ≤ 5 min
+
 ## BUY (0) — purchase proposals (I2 format: exact item priced · what it unlocks · pillar or readiness item · proxy already measured · kill date).
 
 (empty)
