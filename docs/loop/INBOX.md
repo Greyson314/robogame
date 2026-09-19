@@ -35,3 +35,15 @@ Discord lines land as `- [discord #blue-mao-pow <UTC>] <user>: <text>`. `/inbox`
    3. Widen consent: small player-facing polish that fills an INV-8 gap (a missing sound or VFX on a shipped mechanic) is AUTO — land it, list it under FYI, revert on Grey's word. Grey's judgement of scope, not the scribe's; the NOD list is untouched.
    4. Clear the board: the scribe is putting CHG-004, PT-001 and D-006 through D-009 to Grey now, in the Desktop question format; answers will follow as separate INBOX lines.
    The scribe's diagnosis behind the four, for the loop's own record: nothing in the charter forbids features, but D14's ladder has no feature rung, ideation sits below sweeps that always refill, and ASK class makes every feature wait on Grey. 29 landings, 0 player-facing features. If the loop reads any of this as conflicting with the charter, say so on the board rather than silently splitting the difference.)
+- [2026-09-19T05:34:30Z via /inbox] approve CHG-004: yes open, minimal or nothing for slam
+  (scribe: Grey's verbatim answer to the offered options. Reads as: the open cue is approved; the slam is Grey's call to keep subtle or drop entirely — the loop picks clips itself, and "nothing for slam" is a legal outcome of the spec. No clip names given.)
+- [2026-09-19T05:34:30Z via /inbox] play PT-001: not sure i muted it on windows so its less of an issue now. May eventually revisit, assume it is still playing yes
+  (scribe: verbatim. Grey muted Unity in the Windows volume mixer, so the symptom is masked, not diagnosed. Not option (a)/(b)/(c) — the source is still unmeasured. Reads as: keep CHG-011 parked rather than dropped, do not spend a shift on it, revisit if Grey raises it.)
+- [2026-09-19T05:34:30Z via /inbox] decide D-006: Stand down on visuals
+  (scribe: chosen from the offered options — the loop's own default (a). No visual findings until Grey commits to a direction; LAUNCH-READINESS C1 stays `grey`.)
+- [2026-09-19T05:34:30Z via /inbox] decide D-009: delete
+  (scribe: chosen from the offered options. Grey's nod under I1 to delete the five tracked `Assets/_Recovery/` scenes; the gitignore is AUTO either way.)
+- [2026-09-19T05:34:30Z via /inbox] decide D-008: remove
+  (scribe: chosen from the offered options. Remove the unused com.unity.postprocessing package and its define line; the suite is the gate.)
+- [2026-09-19T05:34:30Z via /inbox] decide D-007: yes
+  (scribe: chosen from the offered options. Grey permits the login-time scheduled task that starts the Unity MCP server on 127.0.0.1:8080. Note for the loop: this is a standing change to Grey's PC, so leave a plain-language note on the board saying what was installed and the one command that removes it.)
