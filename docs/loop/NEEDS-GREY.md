@@ -3,11 +3,11 @@
 How to answer, any of: edit the entry here; a line in INBOX.md (`approve CHG-012` · `reject CHG-013: reason` · `play PT-004: worse, the hook feels floaty` · `buy B-002: yes` · `decide D-001: no overage`); `/inbox <text>` from any Claude session in this repo; a message in Discord #blue-mao-pow (lands in INBOX within five minutes).
 Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBATIM to § ANSWERED, then to the change's docs/changes entry.
 
-## APPROVE (1/4) — ASK-class specs awaiting check-off. One line each: id · title · pillar or readiness item · payoff · cost · evidence pointer.
+## APPROVE (0/4) — ASK-class specs awaiting check-off. One line each: id · title · pillar or readiness item · payoff · cost · evidence pointer.
 
-- **CHG-004** · (2026-09-19: AUTO now under your "I am cool with all 4."; the ONLY thing still needed is the two clip names, or "silent for now") · bomb-bay doors get an audible open and slam (two new AudioCues on the drop path; the door swing stays the visual) · INV-8 + pillars "Slapstick over realism" · payoff: the one shipped weapon whose moving part is silent gets its clank, F-008 (S1) closes · cost S (AudioCue.cs, BombBayDoors.cs, two wizard rows, two tests) · evidence: BombBayDoors.cs:9 "Visual only", BombBayBlock.cs:192 is the only cue on the bay; spec in CHANGE-QUEUE § CHG-004 · ONE thing only you can add: the clips (the Universal Sound FX pack is on your machine, not in the clone); "approve CHG-004" with or without clip names; without, the cues land declared and silent until you pick · answer `approve CHG-004[: open=<clip>, close=<clip>]` or `reject CHG-004: reason`.
+(empty)
 
-## PLAY (1/4) — one question per build, ≤ 5 minutes.
+## PLAY (0/4) — one question per build, ≤ 5 minutes.
 
     ### PT-NNN — CHG-NNN title — queued DATE
     Build: commit / branch / exactly how to launch
@@ -15,28 +15,13 @@ Caps: APPROVE 4 open, PLAY 4 open (D12 backpressure). Verdicts are copied VERBAT
     Look for: what would make it a yes or a no
     Time: ≤ 5 min
 
-### PT-001 — CHG-011 rig audio mute — which Unity instance is playing the music? — queued 2026-09-17
-
-**2026-09-17T17:40Z: the factory's Editor is now muted (`EditorUtility.audioMasterMute = true`, set through the live bridge, pid 25208, project path confirmed). If music still plays, it is your own Editor or the game, not the factory; then answer (a)/(c) and CHG-011 drops. The next launcher change makes the mute automatic (BACKLOG 12).**
-Build: nothing to install. The parked branch `chg/011-rig-audio-mute` (abf6de35) mutes a batch or factory Editor, but the loop could not show that the batch runs are the source: a batch Editor already reports its master mute as on, and FMOD's bus mirrors it at init (RuntimeManager.cs:532, :1513).
-Question: next time you hear the game's music with no game running, which Unity is open? (a) your own Editor on `robogame` (garage scene idles with music), (b) nothing but the factory's rig runs, or (c) the factory's Editor window. If (b), note the UTC minute: `.utmp/factory/loop-tick.txt` and the rig logs carry every run's time.
-Look for: the Windows volume mixer names the process; the factory's rig process is `Unity.exe` with `-projectPath ...\robogame-factory\.claude\worktrees\test-rig`.
-Time: ≤ 5 min. Answer: `play PT-001: <a|b|c>, <what you saw>`; (b) lands CHG-011 with an FMOD-level mute added, (a)/(c) drops it.
-
 ## BUY (0) — purchase proposals (I2 format: exact item priced · what it unlocks · pillar or readiness item · proxy already measured · kill date).
 
 (empty)
 
 ## DECIDE — decisions only Grey can make, each with the evidence and a default.
 
-- **D-009 — delete the five Unity crash-recovery scenes committed under `Assets/_Recovery/`?** Unity writes one whenever an Editor dies with an unsaved scene; five got committed by "sync editor state" commits, none is in the build settings or referenced anywhere (F-060). The loop will gitignore the folder so new ones stop dirtying the tree (AUTO); deleting tracked scenes needs your nod under I1. Default until answered: they stay. Answer: `decide D-009: delete|keep`.
-
-- **D-008 — remove the unused Post Processing Stack v2 package (`com.unity.postprocessing` 3.5.4)?** Nothing uses it: the project is URP and every scene's post volume is a URP VolumeProfile authored by our own PostProcessingBuilder; the PPv2 PostProcessVolume script is in no scene or prefab (GUID grep 2026-09-18); the only thing the package does today is re-inject the `UNITY_POST_PROCESSING_STACK_V2` define on every domain reload (F-029). Removal is a manifest edit plus that define line, the suite is the gate, `git revert` brings it back. A package removal is ASK under I1. Default until answered: it stays. Answer: `decide D-008: remove|keep`.
-
-- **D-007 — may the factory install a login-time scheduled task on your PC that starts the Unity MCP server (a headless `uvx … mcp-for-unity --transport http` on 127.0.0.1:8080) whenever you log in?** Why: a Desktop session dials the bridge exactly once when it opens, and it stays bridge-down for its whole life if 8080 was silent at that second (shifts 3, 4 and 6 all lost the bridge this way; LESSONS § METHOD 2, ASSUMPTIONS #8). CHG-020 (in build) makes the launcher start the server first, so a shift started by `/robogame-factory` will be fine; the login task removes the last ordering dependency for any session you open by hand, which is your "zero terminal steps" wish. It is a standing change to your machine, not the game, so it is yours to allow. The task would run as your user, do nothing else, and can be removed with one `Unregister-ScheduledTask`. Default until answered: not installed. Answer: `decide D-007: yes|no`.
-
-- **D-006 — what does the visual sweep judge against while the art direction is in "style exploration mode"?** docs/subsystems/art-direction.md's status banner (July 4, 2026) suspends the 12-token palette lock and the style-driven Forbidden List entries "while the art direction is re-explored" and names docs/research/inventor-aesthetic.md as the current steer; the pillars still say "Cel-shaded stylized, locked palette". The first visual sweep (2026-09-17, Garage and Arena screenshots under .utmp/factory/sweeps/visual-2026-09-17/) therefore had no rule to judge by and reported nothing. Options: (a) stand down: no visual findings until you commit a direction, LAUNCH-READINESS C1 = `grey`; (b) judge against the prior locked palette anyway, so the findings become the backlog for the re-lock; (c) judge against the inventor-aesthetic steer, and you name which of its rules are checkable from a screenshot. Default until answered: (a). Answer: `decide D-006: a|b|c`.
-
+(none open)
 
 - **D-005 — RESOLVED 2026-09-17T17:05Z by Grey's confirmation in the runner session (the window is there, SampleScene loaded, MCP root cause fixed: FYI-10). Kept for the record: it opened the clone on 2026-09-17T15:50Z (the fourth launch, after the Library database wipe) and was importing (10,104 assets) at shift 4's end; MCP on port 8080 comes up when the import finishes.** Narrowed ask: next time you are at the desktop, confirm the Unity window is there and shows the project (not a dialog), and if so `/inbox decide D-005: editor up`. Then a shift can be started the right way round: `Start-Factory.ps1 -Desktop` first, wait for `netstat -ano | findstr :8080` to show a listener, THEN open the Desktop session and type `/robogame-factory`, so the session dials a live bridge (LESSONS § METHOD 2). The two earlier startup hangs stay unexplained; if it hangs again the loop wipes Library/ArtifactDB + SourceAssetDB and relaunches once before asking. Default: batch-only shifts until then.
 
@@ -83,6 +68,13 @@ Time: ≤ 5 min. Answer: `play PT-001: <a|b|c>, <what you saw>`; (b) lands CHG-0
 
 ## ANSWERED (most recent first; verbatim)
 
+- **LOOP DEFECT, fixed the same hour (2026-09-19T05:3xZ–06:0xZ):** the loop's CHARTER v1.5 commit (1feebf82) was made from a stale working copy of INBOX.md and deleted the six lines below from main for about half an hour; they were never lost (commit dd9372d9) and are restored verbatim. Cause and rule: LESSONS § METHOD 18.
+- **CHG-004**, 2026-09-19T05:34:30Z via /inbox: "approve CHG-004: yes open, minimal or nothing for slam" (scribe: no clip names given; the loop picks). Loop's reading: build next shift; the open cue gets a clip already in the clone, the slam is minimal or silent; nothing enters the repo without a provenance row (I6).
+- **PT-001**, 2026-09-19T05:34:30Z via /inbox: "play PT-001: not sure i muted it on windows so its less of an issue now. May eventually revisit, assume it is still playing yes". Loop's reading: not an (a)/(b)/(c) answer; the source stays unmeasured; CHG-011 stays PARK, no shift is spent on it, it reopens on Grey's word.
+- **D-006**, 2026-09-19T05:34:30Z via /inbox: "decide D-006: Stand down on visuals". Loop's reading: no visual findings until Grey commits a direction; LAUNCH-READINESS C1 stays `grey`.
+- **D-009**, 2026-09-19T05:34:30Z via /inbox: "decide D-009: delete". Loop's reading: the I1 nod for deleting the five tracked `Assets/_Recovery/` scenes; done next shift.
+- **D-008**, 2026-09-19T05:34:30Z via /inbox: "decide D-008: remove". Loop's reading: remove `com.unity.postprocessing` and its define line next shift; the suite and a player build gate it; `git revert` brings it back.
+- **D-007**, 2026-09-19T05:34:30Z via /inbox: "decide D-007: yes". Loop's reading: a yes. Because it is a standing change to Grey's PC and not to the repo, the loop installs the login task only after Grey confirms in the runner session itself, or Grey runs the one command; the board then says what was installed and the one command that removes it.
 - **Four levers (feature slot; two pre-approved features; INV-8 polish AUTO; board being cleared)**, 2026-09-19T05:31:38Z via /inbox: "I am cool with all 4." (scribe: the four levers are in the scribe's wording, not Grey's; the full text is the INBOX line.) Loop's reading: CHARTER v1.5 — I1 WIDENED (INV-8 gap polish lands AUTO with an FYI; Rider Effects and Concoction Identity build without a second check-off, one PLAY question each), D8 S2 + D14 rung 1b (a feature-lane item every shift). No conflict with the charter found. CHG-004 (an INV-8 gap) is AUTO under this; the loop waits for the scribe's promised CHG-004 line before building, because only Grey can name the clips.
 - **D-004**, 2026-09-17T01:52:02Z via /inbox: "decide D-004: Stylized Nature Pack, Polytope Studio trees, Handpainted Grass and Ground Textures: Unity Asset Store (EULA). FattyPolyTurretFree + Part2Free and Le Tai's TrueShadow: Delete both." (scribe: chosen by Grey from options built from the D-004 entry; "Delete both" is Grey's nod under I1 for the two unused packs.) Loop's reading: the three rows are written under CHG-001 (source Unity Asset Store, license the Asset Store EULA); the two deletions are CHG-005 with this line as the I1 nod. D-004 closed.
 - **D-003**, 2026-09-17T01:52:02Z via /inbox: "decide D-003: yes" (scribe: Grey supplied the webhook URL to the scribe; written by the scribe to <clone>/.env as DISCORD_WEBHOOK_FACTORY (gitignored; URL redacted here). Chosen from options built from the D-003 entry.) Loop's reading: `.env` verified by name and length (DISCORD_WEBHOOK_FACTORY, 146 bytes); pings are live from shift 3's report on. D-003 closed.
